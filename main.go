@@ -86,7 +86,8 @@ func main() {
 		fmt.Printf("Enter Server: ")
 		reader := bufio.NewReader(os.Stdin)
 		target, _ = reader.ReadString('\n')
-		target = target[:len(target)-1]
+		target = strings.Replace(target, "\n", "", -1)
+		target = strings.Replace(target, "\r", "", -1)
 	}
 	if len(strings.Split(target, ":")) == 1 { // add default port if not set
 		target += ":19132"
