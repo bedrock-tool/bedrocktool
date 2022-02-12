@@ -1,0 +1,1 @@
+Connect to an Minecraft Bedrock Edition server, download all the resourcepacks, their contentkeys and decrypt them

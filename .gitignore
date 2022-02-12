@@ -1,0 +1,6 @@
+token.json
+*.mcpack
+*.zip
+resourcedumper-*
+resourcedumper.exe
+keys.db
