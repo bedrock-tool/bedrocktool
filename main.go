@@ -2,18 +2,23 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"os/signal"
+	"reflect"
 	"strings"
 	"syscall"
 
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/auth"
+	"github.com/sandertv/gophertunnel/minecraft/protocol"
+	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 	"golang.org/x/oauth2"
 )
@@ -77,12 +82,37 @@ func download_pack(pack *resource.Pack) ([]byte, error) {
 	return buf, nil
 }
 
+var pool = packet.NewPool()
+
+func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
+	var pk packet.Packet
+	buf := bytes.NewBuffer(payload)
+	r := protocol.NewReader(buf, 0)
+	pkFunc, ok := pool[header.PacketID]
+	if !ok {
+		pk = &packet.Unknown{PacketID: header.PacketID}
+	}
+	pk = pkFunc()
+	pk.Unmarshal(r)
+	dir := "<-C"
+	if strings.HasPrefix(strings.Split(src.String(), ":")[1], "19132") {
+		dir = "S->"
+	}
+	fmt.Printf("P: %s 0x%x, %s\n", dir, pk.ID(), reflect.TypeOf(pk))
+	switch p := pk.(type) {
+	case *packet.ResourcePackDataInfo:
+		fmt.Printf("info %s\n", p.UUID)
+	}
+}
+
 func main() {
 	// get target server ip
 	var target string
 	var save_encrypted bool
+	var debug bool
 	flag.StringVar(&target, "target", "", "[serverip:port]")
 	flag.BoolVar(&save_encrypted, "save_encrypted", false, "save encrypted zips")
+	flag.BoolVar(&debug, "debug", false, "debug mode")
 	flag.Parse()
 	if target == "" {
 		fmt.Printf("Enter Server: ")
@@ -97,28 +127,48 @@ func main() {
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-
 	ctx, cancel := context.WithCancel(context.Background())
+
+	var serverConn *minecraft.Conn
+
+	go func() {
+		<-sigs
+		if serverConn != nil {
+			serverConn.Close()
+			serverConn = nil
+		}
+		cancel()
+		os.Exit(0)
+	}()
 
 	// authenticate
 	token := get_token()
 	src := auth.RefreshTokenSource(&token)
 
+	var packet_func func(header packet.Header, payload []byte, src, dst net.Addr)
+	if debug {
+		packet_func = PacketLogger
+	} else {
+		packet_func = nil
+	}
+
 	// connect
 	fmt.Printf("Connecting to %s\n", target)
 	serverConn, err := minecraft.Dialer{
 		TokenSource: src,
+		PacketFunc:  packet_func,
 	}.DialContext(ctx, "raknet", target)
 	if err != nil {
 		panic(err)
 	}
-	go func() {
-		<-sigs
-		serverConn.Close()
-		cancel()
+
+	defer func() {
+		if serverConn != nil {
+			serverConn.Close()
+			serverConn = nil
+		}
 	}()
 
-	defer serverConn.Close()
 	if err := serverConn.DoSpawnContext(ctx); err != nil {
 		panic(err)
 	}
@@ -142,7 +192,7 @@ func main() {
 		}
 		fmt.Printf("Decrypting...\n")
 		if err := decrypt_pack(pack_data, pack.Name()+".mcpack", keys[pack.UUID()]); err != nil {
-			panic(err)
+			panic(fmt.Errorf("failed to decrypt %s: %s", pack.Name(), err))
 		}
 	}
 
