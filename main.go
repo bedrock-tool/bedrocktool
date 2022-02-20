@@ -80,7 +80,9 @@ func download_pack(pack *resource.Pack) ([]byte, error) {
 func main() {
 	// get target server ip
 	var target string
+	var save_encrypted bool
 	flag.StringVar(&target, "target", "", "[serverip:port]")
+	flag.BoolVar(&save_encrypted, "save_encrypted", false, "save encrypted zips")
 	flag.Parse()
 	if target == "" {
 		fmt.Printf("Enter Server: ")
@@ -135,8 +137,9 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		os.WriteFile(pack.Name()+".ENCRYPTED.zip", pack_data, 0666)
-
+		if save_encrypted {
+			os.WriteFile(pack.Name()+".ENCRYPTED.zip", pack_data, 0666)
+		}
 		fmt.Printf("Decrypting...\n")
 		if err := decrypt_pack(pack_data, pack.Name()+".mcpack", keys[pack.UUID()]); err != nil {
 			panic(err)

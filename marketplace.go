@@ -63,6 +63,7 @@ func decrypt_pack(pack_zip []byte, filename, key string) error {
 		}
 		buf, _ := io.ReadAll(ff)
 		dec, _ := cfb_decrypt(buf[0x100:], []byte(key))
+		dec = bytes.Split(dec, []byte("\x00"))[0] // remove trailing \x00 (example: play.galaxite.net)
 		fw, _ := zw.Create("contents.json")
 		fw.Write(dec)
 		if err := json.Unmarshal(dec, &content); err != nil {
