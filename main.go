@@ -125,6 +125,12 @@ func main() {
 		target += ":19132"
 	}
 
+	host, _, err := net.SplitHostPort(target)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Invalid target: %s\n", err)
+		os.Exit(1)
+	}
+
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -145,16 +151,14 @@ func main() {
 	token := get_token()
 	src := auth.RefreshTokenSource(&token)
 
-	var packet_func func(header packet.Header, payload []byte, src, dst net.Addr)
+	var packet_func func(header packet.Header, payload []byte, src, dst net.Addr) = nil
 	if debug {
 		packet_func = PacketLogger
-	} else {
-		packet_func = nil
 	}
 
 	// connect
 	fmt.Printf("Connecting to %s\n", target)
-	serverConn, err := minecraft.Dialer{
+	serverConn, err = minecraft.Dialer{
 		TokenSource: src,
 		PacketFunc:  packet_func,
 	}.DialContext(ctx, "raknet", target)
@@ -174,29 +178,29 @@ func main() {
 	}
 
 	println("Connected")
-	println("ripping Resource Packs")
 
-	// dump keys, download and decrypt the packs
-	keys := make(map[string]string)
-	for _, pack := range serverConn.ResourcePacks() {
-		keys[pack.UUID()] = pack.ContentKey()
-		fmt.Printf("ResourcePack(Id: %s Key: %s | Name: %s Version: %s)\n", pack.UUID(), keys[pack.UUID()], pack.Name(), pack.Version())
+	if len(serverConn.ResourcePacks()) > 0 {
+		println("ripping Resource Packs")
+		os.Mkdir(host, 0777)
 
-		fmt.Printf("Downloading...\n")
-		pack_data, err := download_pack(pack)
-		if err != nil {
-			panic(err)
-		}
-		if save_encrypted {
-			os.WriteFile(pack.Name()+".ENCRYPTED.zip", pack_data, 0666)
-		}
-		fmt.Printf("Decrypting...\n")
-		if err := decrypt_pack(pack_data, pack.Name()+".mcpack", keys[pack.UUID()]); err != nil {
-			panic(fmt.Errorf("failed to decrypt %s: %s", pack.Name(), err))
-		}
-	}
+		// dump keys, download and decrypt the packs
+		keys := make(map[string]string)
+		for _, pack := range serverConn.ResourcePacks() {
+			keys[pack.UUID()] = pack.ContentKey()
+			fmt.Printf("ResourcePack(Id: %s Key: %s | Name: %s Version: %s)\n", pack.UUID(), keys[pack.UUID()], pack.Name(), pack.Version())
 
-	if len(keys) > 0 {
+			pack_data, err := download_pack(pack)
+			if err != nil {
+				panic(fmt.Errorf("failed to download pack: %s", err))
+			}
+			if save_encrypted {
+				os.WriteFile(host+"/"+pack.Name()+".ENCRYPTED.zip", pack_data, 0666)
+			}
+			fmt.Printf("Decrypting...\n")
+			if err := decrypt_pack(pack_data, host+"/"+pack.Name()+".mcpack", keys[pack.UUID()]); err != nil {
+				panic(fmt.Errorf("failed to decrypt %s: %s", pack.Name(), err))
+			}
+		}
 		fmt.Printf("Writing keys to %s\n", KEYS_FILE)
 		dump_keys(keys)
 	} else {

@@ -59,17 +59,22 @@ func decrypt_pack(pack_zip []byte, filename, key string) error {
 	{
 		ff, err := z.Open("contents.json")
 		if err != nil {
-			return err
+			if os.IsNotExist(err) {
+				content = ContentJson{}
+			} else {
+				return err
+			}
+		} else {
+			buf, _ := io.ReadAll(ff)
+			dec, _ := cfb_decrypt(buf[0x100:], []byte(key))
+			dec = bytes.Split(dec, []byte("\x00"))[0] // remove trailing \x00 (example: play.galaxite.net)
+			fw, _ := zw.Create("contents.json")
+			fw.Write(dec)
+			if err := json.Unmarshal(dec, &content); err != nil {
+				return err
+			}
+			written["contents.json"] = true
 		}
-		buf, _ := io.ReadAll(ff)
-		dec, _ := cfb_decrypt(buf[0x100:], []byte(key))
-		dec = bytes.Split(dec, []byte("\x00"))[0] // remove trailing \x00 (example: play.galaxite.net)
-		fw, _ := zw.Create("contents.json")
-		fw.Write(dec)
-		if err := json.Unmarshal(dec, &content); err != nil {
-			return err
-		}
-		written["contents.json"] = true
 	}
 
 	// copy and decrypt all content
