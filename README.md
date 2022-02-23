@@ -1,1 +1,1 @@
-Connect to an Minecraft Bedrock Edition server, download all the resourcepacks, their contentkeys and decrypt them
+apparently mojang decided to dmca this readme so heres a new one 
