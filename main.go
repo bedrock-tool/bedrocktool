@@ -26,6 +26,8 @@ import (
 const TOKEN_FILE = "token.json"
 const KEYS_FILE = "keys.db"
 
+var G_src oauth2.TokenSource
+
 func get_token() oauth2.Token {
 	var token oauth2.Token
 	var err error
@@ -110,9 +112,11 @@ func main() {
 	var target string
 	var save_encrypted bool
 	var debug bool
+	var mode_world bool
 	flag.StringVar(&target, "target", "", "[serverip:port]")
 	flag.BoolVar(&save_encrypted, "save_encrypted", false, "save encrypted zips")
 	flag.BoolVar(&debug, "debug", false, "debug mode")
+	flag.BoolVar(&mode_world, "world", false, "world mode")
 	flag.Parse()
 	if target == "" {
 		fmt.Printf("Enter Server: ")
@@ -150,10 +154,16 @@ func main() {
 	// authenticate
 	token := get_token()
 	src := auth.RefreshTokenSource(&token)
+	G_src = src
 
 	var packet_func func(header packet.Header, payload []byte, src, dst net.Addr) = nil
 	if debug {
 		packet_func = PacketLogger
+	}
+
+	if mode_world || true {
+		run_world_downloader()
+		os.Exit(0)
 	}
 
 	// connect
