@@ -99,7 +99,6 @@ func input_server() string {
 
 func main() {
 	flag.BoolVar(&G_debug, "debug", false, "debug mode")
-	flag.Parse()
 
 	// authenticate
 	token := get_token()
