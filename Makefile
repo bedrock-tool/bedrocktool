@@ -1,8 +1,8 @@
 GC = go build -ldflags "-s -w"
-NAME = resourcedumper
+NAME = bedrocktool
 SRCS = $(wildcard *.go)
 
-all: ${NAME}.exe ${NAME}-linux ${NAME}-mac
+all: windows linux
 
 
 $(NAME).exe: $(SRCS)
@@ -11,7 +11,7 @@ $(NAME).exe: $(SRCS)
 $(NAME)-linux: $(SRCS)
 	GOOS=linux $(GC) -o $@
 
-$(NAME)-mac: $(SRCS)
+$(NAME)-mac: $(SRCS) # possibly broken
 	GOOS=darwin $(GC) -o $@
 
 
