@@ -1,1 +1,0 @@
-apparently mojang decided to dmca this readme so heres a new one 
