@@ -1,4 +1,4 @@
-module bedrock_server_resourcepack_dumper
+module bedrocktool
 
 go 1.17
 
