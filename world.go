@@ -42,7 +42,7 @@ var finish_button widget.Clickable
 
 // for player drawing
 var chunk_px_size int = 0
-var block_coord protocol.ChunkPos
+var block_coord_top_left protocol.ChunkPos
 
 // the state used for drawing and saving
 type WorldState struct {
@@ -106,7 +106,7 @@ func ProcessChunk(chunk *packet.LevelChunk) {
 	world_state.Chunks[chunk.Position] = chunk
 	world_state._mutex.Unlock()
 	G_window.Invalidate()
-	os.WriteFile("chunk.chunk", chunk.RawPayload, 0644)
+	//os.WriteFile("chunk.chunk", chunk.RawPayload, 0644)
 }
 
 func ProcessActor(actor *packet.AddActor) {
@@ -169,11 +169,13 @@ func handleConn(conn *minecraft.Conn, listener *minecraft.Listener, target strin
 				return
 			}
 
-			switch pk := pk.(type) {
+			switch _pk := pk.(type) {
 			case *packet.RequestChunkRadius:
-				pk.ChunkRadius = 32 // does this do anything?
+				pk = &packet.RequestChunkRadius{ // rewrite packet to send a bigger radius
+					ChunkRadius: 32,
+				}
 			case *packet.MovePlayer:
-				ProcessMove(pk)
+				ProcessMove(_pk)
 			}
 
 			if err := serverConn.WritePacket(pk); err != nil {
@@ -206,6 +208,8 @@ func handleConn(conn *minecraft.Conn, listener *minecraft.Listener, target strin
 				ProcessActor(pk)
 			case *packet.UpdateBlock:
 				ProcessBlockUpdate(pk)
+			case *packet.ChunkRadiusUpdated:
+				fmt.Printf("ChunkRadiusUpdated: %d\n", pk.ChunkRadius)
 			}
 
 			if err := conn.WritePacket(pk); err != nil {
@@ -237,7 +241,7 @@ func layout_chunks(gtx layout.Context) layout.Dimensions {
 	count_z := float64(z_max - z_min + 1)
 
 	chunk_px_size = int(math.Min(x/count_x, z/count_z))
-	block_coord = protocol.ChunkPos{int32(x_min), int32(z_min)}
+	block_coord_top_left = protocol.ChunkPos{int32(x_min) * int32(chunk_px_size), int32(z_min) * int32(chunk_px_size)}
 
 	for _, chunk := range world_state.Chunks {
 		x := ((int(chunk.Position.X()) - x_min) * chunk_px_size)
@@ -255,8 +259,8 @@ func draw_player_icon(gtx layout.Context) {
 
 	// calcuate screen position based on chunk position and the chunks screen position
 	player_screen := f32.Point{
-		X: player.Position.X() - float32(block_coord.X()*int32(chunk_px_size)),
-		Y: player.Position.Z() - float32(block_coord.Z()*int32(chunk_px_size)),
+		X: player.Position.X() - float32(block_coord_top_left.X()),
+		Y: player.Position.Z() - float32(block_coord_top_left.Z()),
 	}
 
 	op.Affine(f32.Affine2D{}.Rotate(f32.Pt(5, 5), player.HeadYaw*(math.Pi/180)).Offset(player_screen)).Add(gtx.Ops) // rotate and offset relative to first chunk
