@@ -8,6 +8,7 @@ import (
 	"image/color"
 	"log"
 	"math"
+	"net"
 	"os"
 	"strings"
 	"sync"
@@ -23,6 +24,10 @@ import (
 	"gioui.org/text"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/df-mc/dragonfly/server/block/cube"
+	"github.com/df-mc/dragonfly/server/world"
+	"github.com/df-mc/dragonfly/server/world/chunk"
+	"github.com/df-mc/dragonfly/server/world/mcdb"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
@@ -40,27 +45,22 @@ var G_state int = state_working
 var theme = material.NewTheme(gofont.Collection())
 var finish_button widget.Clickable
 
-// for player drawing
-var chunk_px_size int = 0
-var block_coord_top_left protocol.ChunkPos
-
 // the state used for drawing and saving
 type WorldState struct {
-	Chunks       map[protocol.ChunkPos]*packet.LevelChunk
-	SubChunks    map[protocol.ChunkPos]*packet.SubChunk
-	Entities     map[int64]*packet.AddActor
-	BlockUpdates []*packet.UpdateBlock
-	PlayerPos    packet.MovePlayer
-	_mutex       sync.Mutex
+	Dimension  int
+	Dimensions map[int]*mcdb.Provider
+	Entities   map[int][]world.SaveableEntity
+	ChunkCount int
+	PlayerPos  packet.MovePlayer
+	img        image.NRGBA
+	_mutex     sync.Mutex
 }
 
 var world_state *WorldState = &WorldState{
-	Chunks:       make(map[protocol.ChunkPos]*packet.LevelChunk),
-	SubChunks:    make(map[protocol.ChunkPos]*packet.SubChunk),
-	Entities:     make(map[int64]*packet.AddActor),
-	BlockUpdates: make([]*packet.UpdateBlock, 0),
-	PlayerPos:    packet.MovePlayer{},
-	_mutex:       sync.Mutex{},
+	Dimensions: make(map[int]*mcdb.Provider),
+	Entities:   make(map[int][]world.SaveableEntity),
+	PlayerPos:  packet.MovePlayer{},
+	_mutex:     sync.Mutex{},
 }
 
 func init() {
@@ -86,6 +86,26 @@ func world_main(args []string) error {
 		target += ":19132"
 	}
 
+	_status := minecraft.NewStatusProvider("Server")
+	listener, err := minecraft.ListenConfig{
+		StatusProvider: _status,
+	}.Listen("raknet", ":19132")
+	if err != nil {
+		return err
+	}
+	defer listener.Close()
+
+	go func() {
+		for {
+			c, err := listener.Accept()
+			if err != nil {
+				log.Fatal(err)
+			}
+			// not a goroutine, only 1 client at a time
+			handleConn(c.(*minecraft.Conn), listener, target)
+		}
+	}()
+
 	go func() {
 		G_window = app.NewWindow()
 		if err := run_gui(target); err != nil {
@@ -98,29 +118,29 @@ func world_main(args []string) error {
 }
 
 func ProcessSubChunk(sub_chunk *packet.SubChunk) {
-
 }
 
-func ProcessChunk(chunk *packet.LevelChunk) {
-	world_state._mutex.Lock()
-	world_state.Chunks[chunk.Position] = chunk
-	world_state._mutex.Unlock()
+func draw_chunk(pos protocol.ChunkPos, ch *chunk.Chunk) {
+	// TODO
+}
+
+func ProcessChunk(pk *packet.LevelChunk) {
+	ch, err := chunk.NetworkDecode(uint32(pk.HighestSubChunk), pk.RawPayload, int(pk.SubChunkCount), cube.Range{-64, 320})
+	if err != nil {
+		log.Fatal(err)
+	}
+	world_state.Dimensions[world_state.Dimension].SaveChunk(world.ChunkPos(pk.Position), ch)
+	world_state.ChunkCount++
+	draw_chunk(pk.Position, ch)
 	G_window.Invalidate()
-	//os.WriteFile("chunk.chunk", chunk.RawPayload, 0644)
 }
 
 func ProcessActor(actor *packet.AddActor) {
-	world_state._mutex.Lock()
-	world_state.Entities[actor.EntityUniqueID] = actor
-	world_state._mutex.Unlock()
-	G_window.Invalidate()
+	// TODO
 }
 
 func ProcessBlockUpdate(update *packet.UpdateBlock) {
-	world_state._mutex.Lock()
-	world_state.BlockUpdates = append(world_state.BlockUpdates, update)
-	world_state._mutex.Unlock()
-	G_window.Invalidate()
+	// TODO
 }
 
 func ProcessMove(player *packet.MovePlayer) {
@@ -134,9 +154,15 @@ func SetState(state int) {
 }
 
 func handleConn(conn *minecraft.Conn, listener *minecraft.Listener, target string) {
+	var packet_func func(header packet.Header, payload []byte, src, dst net.Addr) = nil
+	if G_debug {
+		packet_func = PacketLogger
+	}
+
 	serverConn, err := minecraft.Dialer{
 		TokenSource: G_src,
 		ClientData:  conn.ClientData(),
+		PacketFunc:  packet_func,
 	}.Dial("raknet", target)
 	if err != nil {
 		panic(err)
@@ -200,6 +226,13 @@ func handleConn(conn *minecraft.Conn, listener *minecraft.Listener, target strin
 			}
 
 			switch pk := pk.(type) {
+			case *packet.ChangeDimension:
+				world_state.Dimension = int(pk.Dimension)
+				world_state.Entities[world_state.Dimension] = nil
+				world_state.Dimensions[world_state.Dimension], err = mcdb.New(fmt.Sprintf("worlds/%d", world_state.Dimension), world.Overworld)
+				if err != nil {
+					panic(err)
+				}
 			case *packet.LevelChunk:
 				ProcessChunk(pk)
 			case *packet.SubChunk:
@@ -228,42 +261,15 @@ func draw_rect(gtx layout.Context, rect image.Rectangle, col color.NRGBA) {
 
 func layout_chunks(gtx layout.Context) layout.Dimensions {
 	world_state._mutex.Lock()
-	var x_min, x_max, z_min, z_max int
-	for _, chunk := range world_state.Chunks {
-		x_min = int(math.Min(float64(x_min), float64(chunk.Position.X())))
-		x_max = int(math.Max(float64(x_max), float64(chunk.Position.X())))
-		z_min = int(math.Min(float64(z_min), float64(chunk.Position.Z())))
-		z_max = int(math.Max(float64(z_max), float64(chunk.Position.Z())))
-	}
-	x := float64(gtx.Constraints.Max.X - gtx.Constraints.Min.X)
-	z := float64(gtx.Constraints.Max.Y - gtx.Constraints.Min.Y)
-	count_x := float64(x_max - x_min + 1)
-	count_z := float64(z_max - z_min + 1)
-
-	chunk_px_size = int(math.Min(x/count_x, z/count_z))
-	block_coord_top_left = protocol.ChunkPos{int32(x_min) * int32(chunk_px_size), int32(z_min) * int32(chunk_px_size)}
-
-	for _, chunk := range world_state.Chunks {
-		x := ((int(chunk.Position.X()) - x_min) * chunk_px_size)
-		z := ((int(chunk.Position.Z()) - z_min) * chunk_px_size)
-		draw_rect(gtx, image.Rect(x, z, x+chunk_px_size, z+chunk_px_size), color.NRGBA{0, 255, 0, 255})
-	}
-
 	draw_player_icon(gtx)
 	world_state._mutex.Unlock()
-	return layout.Dimensions{Size: image.Point{X: chunk_px_size * int(count_x), Y: chunk_px_size * int(count_z)}}
+	return layout.Dimensions{Size: image.Point{X: 100, Y: 100}}
 }
 
 func draw_player_icon(gtx layout.Context) {
 	player := world_state.PlayerPos
 
-	// calcuate screen position based on chunk position and the chunks screen position
-	player_screen := f32.Point{
-		X: player.Position.X() - float32(block_coord_top_left.X()),
-		Y: player.Position.Z() - float32(block_coord_top_left.Z()),
-	}
-
-	op.Affine(f32.Affine2D{}.Rotate(f32.Pt(5, 5), player.HeadYaw*(math.Pi/180)).Offset(player_screen)).Add(gtx.Ops) // rotate and offset relative to first chunk
+	op.Affine(f32.Affine2D{}.Rotate(f32.Pt(5, 5), player.HeadYaw*(math.Pi/180))).Add(gtx.Ops) // rotate and offset relative to first chunk
 	draw_rect(gtx, image.Rectangle{image.Point{X: 0, Y: 0}, image.Point{X: 10, Y: 10}}, color.NRGBA{255, 180, 0, 255})
 }
 
@@ -276,7 +282,7 @@ func draw_working(gtx layout.Context) {
 				Axis: layout.Vertical,
 			}.Layout(gtx,
 				layout.Flexed(0.1, func(gtx layout.Context) layout.Dimensions { // top text
-					title := material.H2(theme, fmt.Sprintf("Chunks: %d\n", len(world_state.Chunks)))
+					title := material.H2(theme, fmt.Sprintf("Chunks: %d\n", world_state.ChunkCount))
 					title.Alignment = text.Middle
 					title.Color = color.NRGBA{R: 127, G: 0, B: 0, A: 255}
 					return title.Layout(gtx)
@@ -288,7 +294,7 @@ func draw_working(gtx layout.Context) {
 		}),
 		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
 			b := material.Button(theme, &finish_button, "Finish")
-			b.Color = color.NRGBA{R: 0, G: 127, B: 0, A: 255}
+			b.Color = color.NRGBA{R: 255, G: 255, B: 255, A: 255}
 			return b.Layout(gtx)
 		}),
 	)
@@ -300,7 +306,10 @@ func draw_working(gtx layout.Context) {
 }
 
 func begin_save_world(world *WorldState) {
-
+	for i, dim := range world.Dimensions {
+		dim.Close()
+		world.Dimensions[i] = nil
+	}
 }
 
 func draw_saving(gtx layout.Context) {
@@ -310,25 +319,6 @@ func draw_saving(gtx layout.Context) {
 func run_gui(target string) error {
 	th := material.NewTheme(gofont.Collection())
 	var ops op.Ops
-
-	_status := minecraft.NewStatusProvider("Server")
-	listener, err := minecraft.ListenConfig{
-		StatusProvider: _status,
-	}.Listen("raknet", ":19132")
-	if err != nil {
-		return err
-	}
-	defer listener.Close()
-
-	go func() {
-		for {
-			c, err := listener.Accept()
-			if err != nil {
-				log.Fatal(err)
-			}
-			go handleConn(c.(*minecraft.Conn), listener, target)
-		}
-	}()
 
 	for {
 		e := <-G_window.Events()
