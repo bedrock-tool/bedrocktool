@@ -5,3 +5,5 @@ bedrocktool-*
 bedrocktool.exe
 keys.db
 *ace.go
+skins/
+worlds/
