@@ -26,6 +26,8 @@ func init() {
 	register_command("skins", "skin stealer", skin_main)
 }
 
+var players = make(map[string]string)
+
 var out_path string
 var name_regexp = regexp.MustCompile(`§.`)
 
@@ -93,6 +95,9 @@ func write_skin_animations(output_path string, skin protocol.Skin) {
 }
 
 func write_skin(name string, skin protocol.Skin) {
+	if !strings.HasPrefix(name, player) {
+		return
+	}
 	fmt.Printf("Writing skin for %s\n", name)
 	complex := false
 	skin_dir := path.Join(out_path, name)
@@ -116,10 +121,13 @@ func write_skin(name string, skin protocol.Skin) {
 	}
 }
 
+var player string
+
 func skin_main(args []string) error {
 	var server string
 	var help bool
 	flag.StringVar(&server, "target", "", "target server")
+	flag.StringVar(&player, "player", "", "only download the skin of this player")
 	flag.BoolVar(&help, "help", false, "show help")
 	flag.CommandLine.Parse(args)
 	if help {
@@ -191,6 +199,12 @@ func skin_main(args []string) error {
 				return err
 			}
 			switch _pk := pk.(type) {
+			case *packet.PlayerSkin:
+				name := players[_pk.UUID.String()]
+				if name == "" {
+					name = _pk.UUID.String()
+				}
+				write_skin(name, _pk.Skin)
 			case *packet.PlayerList:
 				if _pk.ActionType == 1 { // remove
 					continue
@@ -201,6 +215,7 @@ func skin_main(args []string) error {
 						name = player.UUID.String()
 					}
 					write_skin(name, player.Skin)
+					players[player.UUID.String()] = name
 				}
 			}
 		}
