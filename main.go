@@ -110,7 +110,13 @@ func main() {
 			fmt.Printf("\t%s\t%s\n", name, cmd.Desc)
 		}
 		fmt.Printf("Use '%s <command>' to run a command\n", os.Args[0])
-		return
+
+		fmt.Printf("Input Command: ")
+		reader := bufio.NewReader(os.Stdin)
+		target, _ := reader.ReadString('\n')
+		r, _ := regexp.Compile(`[\n\r]`)
+		target = string(r.ReplaceAll([]byte(target), []byte("")))
+		os.Args = append(os.Args, target)
 	}
 
 	cmd := cmds[os.Args[1]]
