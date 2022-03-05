@@ -1,15 +1,18 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"image"
 	"image/png"
+	"io"
 	"net"
 	"os"
 	"os/signal"
+	"path"
 	"regexp"
 	"strings"
 	"syscall"
@@ -40,9 +43,19 @@ func cleanup_name(name string) string {
 	return name
 }
 
-// write skin as png without geometry
-func write_skin_simple(name string, skin protocol.Skin) {
-	f, err := os.Create(fmt.Sprintf("%s/%s.png", out_path, name))
+func write_skin_geometry(output_path string, skin protocol.Skin) {
+	os.Mkdir(output_path, 0755)
+	f, err := os.Create(path.Join(output_path, "geometry.json"))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to write skin geom %s: %s\n", out_path, err)
+		return
+	}
+	defer f.Close()
+	io.Copy(f, bytes.NewReader(skin.SkinGeometry))
+}
+
+func write_skin_texture(name string, skin protocol.Skin) {
+	f, err := os.Create(name + ".png")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error writing skin: %s\n", err)
 		return
@@ -57,13 +70,49 @@ func write_skin_simple(name string, skin protocol.Skin) {
 	}
 }
 
+func write_skin_cape(output_path string, skin protocol.Skin) {
+	os.Mkdir(output_path, 0755)
+	f, err := os.Create(path.Join(output_path, "cape.png"))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to write skin cape %s: %s\n", out_path, err)
+		return
+	}
+	defer f.Close()
+	cape_tex := image.NewRGBA(image.Rect(0, 0, int(skin.CapeImageWidth), int(skin.CapeImageHeight)))
+	cape_tex.Pix = skin.CapeData
+
+	if err := png.Encode(f, cape_tex); err != nil {
+		fmt.Fprintf(os.Stderr, "Error writing skin: %s\n", err)
+		return
+	}
+}
+
+func write_skin_animations(output_path string, skin protocol.Skin) {
+	os.Mkdir(output_path, 0755)
+	fmt.Printf("%s has animations (unimplemented)\n", output_path)
+}
+
 func write_skin(name string, skin protocol.Skin) {
 	fmt.Printf("Writing skin for %s\n", name)
+	complex := false
+	skin_dir := path.Join(out_path, name)
 	if len(skin.SkinGeometry) > 0 {
-		fmt.Printf("%s has geometry\n", name)
-		write_skin_simple(name, skin)
+		write_skin_geometry(skin_dir, skin)
+		complex = true
+	}
+	if len(skin.CapeData) > 0 {
+		write_skin_cape(skin_dir, skin)
+		complex = true
+	}
+	if len(skin.Animations) > 0 {
+		write_skin_animations(skin_dir, skin)
+		complex = true
+	}
+
+	if complex {
+		write_skin_texture(path.Join(skin_dir, "skin"), skin)
 	} else {
-		write_skin_simple(name, skin)
+		write_skin_texture(skin_dir, skin)
 	}
 }
 

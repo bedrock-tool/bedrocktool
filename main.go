@@ -92,7 +92,7 @@ func input_server() string {
 	fmt.Printf("Enter Server: ")
 	reader := bufio.NewReader(os.Stdin)
 	target, _ := reader.ReadString('\n')
-	r, _ := regexp.Compile(`[^\n\r]`)
+	r, _ := regexp.Compile(`[\n\r]`)
 	target = string(r.ReplaceAll([]byte(target), []byte("")))
 	return target
 }
