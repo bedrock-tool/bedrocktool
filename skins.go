@@ -27,6 +27,7 @@ func init() {
 }
 
 var players = make(map[string]string)
+var player_counts = make(map[string]int)
 
 var out_path string
 var name_regexp = regexp.MustCompile(`§.`)
@@ -204,7 +205,8 @@ func skin_main(args []string) error {
 				if name == "" {
 					name = _pk.UUID.String()
 				}
-				write_skin(name, _pk.Skin)
+				player_counts[name]++
+				write_skin(fmt.Sprintf("%s_%d", name, player_counts[name]), _pk.Skin)
 			case *packet.PlayerList:
 				if _pk.ActionType == 1 { // remove
 					continue
