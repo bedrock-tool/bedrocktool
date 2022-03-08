@@ -1,29 +1,22 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"image"
 	"image/color"
+	"image/draw"
+	"image/png"
 	"log"
-	"math"
 	"net"
 	"os"
-	"strings"
+	"path"
 	"sync"
+	"time"
 
-	"gioui.org/app"
-	"gioui.org/f32"
-	"gioui.org/font/gofont"
-	"gioui.org/io/system"
-	"gioui.org/layout"
-	"gioui.org/op"
-	"gioui.org/op/clip"
-	"gioui.org/op/paint"
-	"gioui.org/text"
-	"gioui.org/widget"
-	"gioui.org/widget/material"
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/df-mc/dragonfly/server/world/chunk"
@@ -33,58 +26,61 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 )
 
-const (
-	state_not_connected = iota
-	state_working
-	state_saving
-	state_done
-)
+const VIEW_MAP_ID = 0x424242
 
-var G_window *app.Window
-var G_state int = state_working
-var theme = material.NewTheme(gofont.Collection())
-var finish_button widget.Clickable
+var MAP_ITEM_PACKET packet.InventoryContent = packet.InventoryContent{
+	WindowID: 119,
+	Content: []protocol.ItemInstance{
+		{
+			StackNetworkID: 1,
+			Stack: protocol.ItemStack{
+				ItemType: protocol.ItemType{
+					NetworkID:     420,
+					MetadataValue: 0,
+				},
+				BlockRuntimeID: 0,
+				Count:          1,
+				NBTData: map[string]interface{}{
+					"map_uuid": int64(VIEW_MAP_ID),
+				},
+			},
+		},
+	},
+}
 
 // the state used for drawing and saving
 type WorldState struct {
-	Dimension  int
-	Dimensions map[int]*mcdb.Provider
-	Entities   map[int][]world.SaveableEntity
-	ChunkCount int
-	PlayerPos  packet.MovePlayer
-	img        image.NRGBA
-	_mutex     sync.Mutex
+	Dimension *mcdb.Provider
+	Entities  []world.SaveableEntity
+	PlayerPos packet.MovePlayer
+	img       *image.RGBA
+	chunks    map[protocol.ChunkPos]interface{}
+	_mutex    sync.Mutex
 }
 
 var world_state *WorldState = &WorldState{
-	Dimensions: make(map[int]*mcdb.Provider),
-	Entities:   make(map[int][]world.SaveableEntity),
-	PlayerPos:  packet.MovePlayer{},
-	_mutex:     sync.Mutex{},
+	Dimension: nil,
+	Entities:  make([]world.SaveableEntity, 0),
+	PlayerPos: packet.MovePlayer{},
+	img:       image.NewRGBA(image.Rect(0, 0, 128, 128)),
+	chunks:    make(map[protocol.ChunkPos]interface{}),
+	_mutex:    sync.Mutex{},
 }
 
 func init() {
 	register_command("world", "Launch world downloading proxy", world_main)
 }
 
-func world_main(args []string) error {
-	var target string
-	var help bool
-	flag.StringVar(&target, "target", "", "target server")
-	flag.BoolVar(&help, "help", false, "show help")
-	fmt.Printf("%v\n", args)
+func world_main(ctx context.Context, args []string) error {
+	var server string
+	flag.StringVar(&server, "server", "", "target server")
 	flag.CommandLine.Parse(args)
-	if help {
+	if G_help {
 		flag.Usage()
 		return nil
 	}
 
-	if target == "" {
-		target = input_server()
-	}
-	if len(strings.Split(target, ":")) == 1 {
-		target += ":19132"
-	}
+	_, server = server_input(ctx, server)
 
 	_status := minecraft.NewStatusProvider("Server")
 	listener, err := minecraft.ListenConfig{
@@ -95,33 +91,99 @@ func world_main(args []string) error {
 	}
 	defer listener.Close()
 
-	go func() {
-		for {
-			c, err := listener.Accept()
-			if err != nil {
-				log.Fatal(err)
-			}
-			// not a goroutine, only 1 client at a time
-			handleConn(c.(*minecraft.Conn), listener, target)
-		}
-	}()
+	fmt.Printf("Listening on %s\n", listener.Addr())
 
-	go func() {
-		G_window = app.NewWindow()
-		if err := run_gui(target); err != nil {
-			log.Fatal(err)
-		}
-		os.Exit(0)
-	}()
-	app.Main()
+	c, err := listener.Accept()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// not a goroutine, only 1 client at a time
+	handleConn(ctx, c.(*minecraft.Conn), listener, server)
+
 	return nil
 }
 
-func ProcessSubChunk(sub_chunk *packet.SubChunk) {
+func draw_chunk(pos protocol.ChunkPos, ch *chunk.Chunk) {
+	if world_state.chunks[pos] != nil {
+		return
+	}
+
+	world_state.chunks[pos] = true
+	min := protocol.ChunkPos{}
+	max := protocol.ChunkPos{}
+	for _ch := range world_state.chunks {
+		if _ch.X() < min.X() {
+			min[0] = _ch.X()
+		}
+		if _ch.Z() < min.Z() {
+			min[1] = _ch.Z()
+		}
+		if _ch.X() > max.X() {
+			max[0] = _ch.X()
+		}
+		if _ch.Z() > max.Z() {
+			max[1] = _ch.Z()
+		}
+	}
+
+	px_per_chunk := 128 / int(max[0]-min[0]+1)
+
+	world_state.img.Pix = make([]uint8, world_state.img.Rect.Dx()*world_state.img.Rect.Dy()*4)
+
+	{
+		f, _ := os.Create("chunks.json")
+		json.NewEncoder(f).Encode(world_state.chunks)
+		f.Close()
+	}
+
+	for _ch := range world_state.chunks {
+		px_pos := image.Point{X: int(_ch.X() - min.X()), Y: int(_ch.Z() - min.Z())}
+		draw.Draw(
+			world_state.img,
+			image.Rect(
+				px_pos.X*px_per_chunk,
+				px_pos.Y*px_per_chunk,
+				(px_pos.X+1)*px_per_chunk,
+				(px_pos.Y+1)*px_per_chunk,
+			),
+			image.White,
+			image.Point{},
+			draw.Src,
+		)
+	}
+
+	{
+		f, _ := os.Create("test.png")
+		png.Encode(f, world_state.img)
+		f.Close()
+	}
 }
 
-func draw_chunk(pos protocol.ChunkPos, ch *chunk.Chunk) {
-	// TODO
+var _map_send_lock = false
+
+func get_map_update() *packet.ClientBoundMapItemData {
+	if _map_send_lock {
+		return nil
+	}
+	_map_send_lock = true
+
+	pixels := make([][]color.RGBA, 128)
+	for y := 0; y < 128; y++ {
+		pixels[y] = make([]color.RGBA, 128)
+		for x := 0; x < 128; x++ {
+			pixels[y][x] = world_state.img.At(x, y).(color.RGBA)
+		}
+	}
+
+	_map_send_lock = false
+	return &packet.ClientBoundMapItemData{
+		MapID:       VIEW_MAP_ID,
+		Width:       128,
+		Height:      128,
+		Pixels:      pixels,
+		UpdateFlags: 2,
+	}
 }
 
 func ProcessChunk(pk *packet.LevelChunk) {
@@ -129,10 +191,58 @@ func ProcessChunk(pk *packet.LevelChunk) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	world_state.Dimensions[world_state.Dimension].SaveChunk(world.ChunkPos(pk.Position), ch)
-	world_state.ChunkCount++
+	world_state.Dimension.SaveChunk((world.ChunkPos)(pk.Position), ch)
 	draw_chunk(pk.Position, ch)
-	G_window.Invalidate()
+}
+
+var gamemode_ids = map[int32]world.GameMode{
+	0: world.GameModeSurvival,
+	1: world.GameModeCreative,
+	2: world.GameModeAdventure,
+	3: world.GameModeSpectator,
+	4: world.GameModeCreative,
+}
+
+var dimension_ids = map[int32]world.Dimension{
+	0: world.Overworld,
+	1: world.Nether,
+	2: world.End,
+}
+
+var difficulty_ids = map[int32]world.Difficulty{
+	0: world.DifficultyPeaceful,
+	1: world.DifficultyEasy,
+	2: world.DifficultyNormal,
+	3: world.DifficultyHard,
+}
+
+func ProcessStartGame(pk *packet.StartGame) {
+	fmt.Printf("StartGame: %+v\n", pk)
+	dimension, err := mcdb.New(path.Join("worlds", pk.WorldName), dimension_ids[pk.Dimension])
+	if err != nil {
+		log.Fatal(err)
+	}
+	world_state.Dimension = dimension
+	world_state.chunks = make(map[protocol.ChunkPos]interface{})
+	dimension.SaveSettings(&world.Settings{
+		Name: pk.WorldName,
+		Spawn: cube.Pos{
+			int(pk.WorldSpawn[0]),
+			int(pk.WorldSpawn[1]),
+			int(pk.WorldSpawn[2]),
+		},
+		Time:            pk.Time,
+		TimeCycle:       true,
+		RainTime:        int64(pk.RainLevel), // ?
+		Raining:         pk.RainLevel > 0,
+		ThunderTime:     int64(pk.LightningLevel),
+		Thundering:      pk.LightningLevel > 0,
+		WeatherCycle:    true,
+		CurrentTick:     pk.Time,
+		DefaultGameMode: gamemode_ids[pk.WorldGameMode],
+		Difficulty:      difficulty_ids[pk.Difficulty],
+		TickRange:       6,
+	})
 }
 
 func ProcessActor(actor *packet.AddActor) {
@@ -145,51 +255,62 @@ func ProcessBlockUpdate(update *packet.UpdateBlock) {
 
 func ProcessMove(player *packet.MovePlayer) {
 	world_state.PlayerPos = *player
-	G_window.Invalidate()
 }
 
-func SetState(state int) {
-	G_state = state
-	G_window.Invalidate()
-}
-
-func handleConn(conn *minecraft.Conn, listener *minecraft.Listener, target string) {
+func handleConn(ctx context.Context, conn *minecraft.Conn, listener *minecraft.Listener, target string) {
 	var packet_func func(header packet.Header, payload []byte, src, dst net.Addr) = nil
 	if G_debug {
 		packet_func = PacketLogger
 	}
 
+	fmt.Printf("Connecting to %s\n", target)
 	serverConn, err := minecraft.Dialer{
 		TokenSource: G_src,
 		ClientData:  conn.ClientData(),
 		PacketFunc:  packet_func,
-	}.Dial("raknet", target)
+	}.DialContext(ctx, "raknet", target)
 	if err != nil {
-		panic(err)
+		fmt.Fprintf(os.Stderr, "Failed to connect to %s: %s\n", target, err)
+		return
 	}
-	var g sync.WaitGroup
-	g.Add(2)
-	go func() {
-		if err := conn.StartGame(serverConn.GameData()); err != nil {
-			panic(err)
-		}
-		g.Done()
-	}()
-	go func() {
-		if err := serverConn.DoSpawn(); err != nil {
-			panic(err)
-		}
-		g.Done()
-	}()
-	g.Wait()
 
-	SetState(state_working)
+	errs := make(chan error, 2)
+	go func() {
+		errs <- conn.StartGame(serverConn.GameData())
+	}()
+	go func() {
+		errs <- serverConn.DoSpawn()
+	}()
+
+	// wait for both to finish
+	for i := 0; i < 2; i++ {
+		select {
+		case err := <-errs:
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to start game: %s\n", err)
+				return
+			}
+		case <-ctx.Done():
+			fmt.Fprintf(os.Stderr, "Connection cancelled\n")
+			return
+		}
+	}
+
+	G_exit = func() {
+		serverConn.Close()
+		conn.Close()
+		listener.Close()
+		world_state.Dimension.Close()
+	}
+
+	done := make(chan struct{})
 
 	go func() { // client loop
 		defer listener.Disconnect(conn, "connection lost")
 		defer serverConn.Close()
-		defer finish_button.Click()
+		defer func() { done <- struct{}{} }()
 		for {
+			skip := false
 			pk, err := conn.ReadPacket()
 			if err != nil {
 				return
@@ -202,20 +323,47 @@ func handleConn(conn *minecraft.Conn, listener *minecraft.Listener, target strin
 				}
 			case *packet.MovePlayer:
 				ProcessMove(_pk)
+			case *packet.MapInfoRequest:
+				fmt.Printf("MapInfoRequest: %d\n", _pk.MapID)
+				if _pk.MapID == VIEW_MAP_ID {
+					if update_pk := get_map_update(); update_pk != nil {
+						conn.WritePacket(update_pk)
+					}
+					skip = true
+				}
 			}
 
-			if err := serverConn.WritePacket(pk); err != nil {
-				if disconnect, ok := errors.Unwrap(err).(minecraft.DisconnectError); ok {
-					_ = listener.Disconnect(conn, disconnect.Error())
+			if !skip {
+				if err := serverConn.WritePacket(pk); err != nil {
+					if disconnect, ok := errors.Unwrap(err).(minecraft.DisconnectError); ok {
+						_ = listener.Disconnect(conn, disconnect.Error())
+					}
+					return
 				}
-				return
+			}
+		}
+
+	}()
+
+	go func() { // send map item
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			for {
+				time.Sleep(1 * time.Second)
+				err := conn.WritePacket(&MAP_ITEM_PACKET)
+				if err != nil {
+					return
+				}
 			}
 		}
 	}()
+
 	go func() { // server loop
 		defer serverConn.Close()
 		defer listener.Disconnect(conn, "connection lost")
-		defer finish_button.Click()
+		defer func() { done <- struct{}{} }()
 		for {
 			pk, err := serverConn.ReadPacket()
 			if err != nil {
@@ -226,17 +374,19 @@ func handleConn(conn *minecraft.Conn, listener *minecraft.Listener, target strin
 			}
 
 			switch pk := pk.(type) {
-			case *packet.ChangeDimension:
-				world_state.Dimension = int(pk.Dimension)
-				world_state.Entities[world_state.Dimension] = nil
-				world_state.Dimensions[world_state.Dimension], err = mcdb.New(fmt.Sprintf("worlds/%d", world_state.Dimension), world.Overworld)
-				if err != nil {
-					panic(err)
-				}
+			case *packet.StartGame:
+				ProcessStartGame(pk)
 			case *packet.LevelChunk:
 				ProcessChunk(pk)
-			case *packet.SubChunk:
-				ProcessSubChunk(pk)
+				if _pk := get_map_update(); _pk != nil {
+					if err := conn.WritePacket(_pk); err != nil {
+						panic(err)
+					}
+				}
+				conn.WritePacket(&packet.Text{
+					TextType: 3,
+					Message:  fmt.Sprintf("%d chunks loaded", len(world_state.chunks)),
+				})
 			case *packet.AddActor:
 				ProcessActor(pk)
 			case *packet.UpdateBlock:
@@ -250,97 +400,11 @@ func handleConn(conn *minecraft.Conn, listener *minecraft.Listener, target strin
 			}
 		}
 	}()
-}
 
-func draw_rect(gtx layout.Context, rect image.Rectangle, col color.NRGBA) {
-	cl := clip.Rect{Min: rect.Min, Max: rect.Max}.Push(gtx.Ops)
-	paint.ColorOp{Color: col}.Add(gtx.Ops)
-	paint.PaintOp{}.Add(gtx.Ops)
-	cl.Pop()
-}
-
-func layout_chunks(gtx layout.Context) layout.Dimensions {
-	world_state._mutex.Lock()
-	draw_player_icon(gtx)
-	world_state._mutex.Unlock()
-	return layout.Dimensions{Size: image.Point{X: 100, Y: 100}}
-}
-
-func draw_player_icon(gtx layout.Context) {
-	player := world_state.PlayerPos
-
-	op.Affine(f32.Affine2D{}.Rotate(f32.Pt(5, 5), player.HeadYaw*(math.Pi/180))).Add(gtx.Ops) // rotate and offset relative to first chunk
-	draw_rect(gtx, image.Rectangle{image.Point{X: 0, Y: 0}, image.Point{X: 10, Y: 10}}, color.NRGBA{255, 180, 0, 255})
-}
-
-func draw_working(gtx layout.Context) {
-	layout.Stack{
-		Alignment: layout.Center,
-	}.Layout(gtx,
-		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{
-				Axis: layout.Vertical,
-			}.Layout(gtx,
-				layout.Flexed(0.1, func(gtx layout.Context) layout.Dimensions { // top text
-					title := material.H2(theme, fmt.Sprintf("Chunks: %d\n", world_state.ChunkCount))
-					title.Alignment = text.Middle
-					title.Color = color.NRGBA{R: 127, G: 0, B: 0, A: 255}
-					return title.Layout(gtx)
-				}),
-				layout.Flexed(0.9, func(gtx layout.Context) layout.Dimensions { // centered chunk view
-					return layout.Center.Layout(gtx, layout_chunks)
-				}),
-			)
-		}),
-		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
-			b := material.Button(theme, &finish_button, "Finish")
-			b.Color = color.NRGBA{R: 255, G: 255, B: 255, A: 255}
-			return b.Layout(gtx)
-		}),
-	)
-
-	if finish_button.Clicked() {
-		SetState(state_saving)
-		go begin_save_world(world_state)
-	}
-}
-
-func begin_save_world(world *WorldState) {
-	for i, dim := range world.Dimensions {
-		dim.Close()
-		world.Dimensions[i] = nil
-	}
-}
-
-func draw_saving(gtx layout.Context) {
-
-}
-
-func run_gui(target string) error {
-	th := material.NewTheme(gofont.Collection())
-	var ops op.Ops
-
-	for {
-		e := <-G_window.Events()
-		switch e := e.(type) {
-		case system.DestroyEvent:
-			return e.Err
-		case system.FrameEvent:
-			gtx := layout.NewContext(&ops, e)
-
-			switch G_state {
-			case state_not_connected:
-				title := material.H1(th, fmt.Sprintf("Connect to %s to start", "thelocalserverip"))
-				title.Alignment = text.Middle
-				title.Color = color.NRGBA{R: 127, G: 0, B: 0, A: 255}
-				title.Layout(gtx)
-			case state_working:
-				draw_working(gtx)
-			case state_saving:
-				draw_saving(gtx)
-			}
-
-			e.Frame(gtx.Ops)
-		}
+	select {
+	case <-ctx.Done():
+		return
+	case <-done:
+		return
 	}
 }
