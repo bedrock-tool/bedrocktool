@@ -53,8 +53,7 @@ func (skin *Skin) WriteCape(output_path string) error {
 
 func (skin *Skin) WriteAnimations(output_path string) error {
 	os.Mkdir(output_path, 0755)
-	fmt.Printf("%s has animations (unimplemented)\n", output_path)
-	return nil
+	return fmt.Errorf("%s has animations (unimplemented)", output_path)
 }
 
 func (skin *Skin) WriteTexture(output_path string) error {
@@ -124,7 +123,7 @@ func cleanup_name(name string) string {
 }
 
 func write_skin(output_path, name string, skin protocol.Skin) {
-	if !strings.HasPrefix(name, player) {
+	if !strings.HasPrefix(name, skin_filter_player) {
 		return
 	}
 	fmt.Printf("Writing skin for %s\n", name)
@@ -134,17 +133,41 @@ func write_skin(output_path, name string, skin protocol.Skin) {
 	}
 }
 
-var player string // who to filter
-var players = make(map[string]string)
-var player_counts = make(map[string]int)
+var skin_filter_player string // who to filter
+var skin_players = make(map[string]string)
+var skin_player_counts = make(map[string]int)
+
+func process_packet_skins(out_path string, pk packet.Packet) {
+	switch _pk := pk.(type) {
+	case *packet.PlayerSkin:
+		name := skin_players[_pk.UUID.String()]
+		if name == "" {
+			name = _pk.UUID.String()
+		}
+		skin_player_counts[name]++
+		name = fmt.Sprintf("%s_%d", name, skin_player_counts[name])
+		write_skin(out_path, name, _pk.Skin)
+	case *packet.PlayerList:
+		if _pk.ActionType == 1 { // remove
+			return
+		}
+		for _, player := range _pk.Entries {
+			name := cleanup_name(player.Username)
+			if name == "" {
+				name = player.UUID.String()
+			}
+			write_skin(out_path, name, player.Skin)
+			skin_players[player.UUID.String()] = name
+		}
+	}
+}
 
 func skin_main(ctx context.Context, args []string) error {
 	var server string
-	var help bool
 	flag.StringVar(&server, "server", "", "target server")
-	flag.StringVar(&player, "player", "", "only download the skin of this player")
+	flag.StringVar(&skin_filter_player, "player", "", "only download the skin of this player")
 	flag.CommandLine.Parse(args)
-	if help {
+	if G_help {
 		flag.Usage()
 		return nil
 	}
@@ -167,12 +190,7 @@ func skin_main(ctx context.Context, args []string) error {
 		return err
 	}
 
-	defer func() {
-		if serverConn != nil {
-			serverConn.Close()
-			serverConn = nil
-		}
-	}()
+	defer serverConn.Close()
 
 	if err := serverConn.DoSpawnContext(ctx); err != nil {
 		return err
@@ -188,27 +206,6 @@ func skin_main(ctx context.Context, args []string) error {
 		if err != nil {
 			return err
 		}
-		switch _pk := pk.(type) {
-		case *packet.PlayerSkin:
-			name := players[_pk.UUID.String()]
-			if name == "" {
-				name = _pk.UUID.String()
-			}
-			player_counts[name]++
-			name = fmt.Sprintf("%s_%d", name, player_counts[name])
-			write_skin(out_path, name, _pk.Skin)
-		case *packet.PlayerList:
-			if _pk.ActionType == 1 { // remove
-				continue
-			}
-			for _, player := range _pk.Entries {
-				name := cleanup_name(player.Username)
-				if name == "" {
-					name = player.UUID.String()
-				}
-				write_skin(out_path, name, player.Skin)
-				players[player.UUID.String()] = name
-			}
-		}
+		process_packet_skins(out_path, pk)
 	}
 }

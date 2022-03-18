@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -51,7 +50,7 @@ var MAP_ITEM_PACKET packet.InventoryContent = packet.InventoryContent{
 // the state used for drawing and saving
 type WorldState struct {
 	Dimension *mcdb.Provider
-	Entities  []world.SaveableEntity
+	WorldName string
 	PlayerPos packet.MovePlayer
 	img       *image.RGBA
 	chunks    map[protocol.ChunkPos]interface{}
@@ -60,12 +59,14 @@ type WorldState struct {
 
 var world_state *WorldState = &WorldState{
 	Dimension: nil,
-	Entities:  make([]world.SaveableEntity, 0),
+	WorldName: "world",
 	PlayerPos: packet.MovePlayer{},
 	img:       image.NewRGBA(image.Rect(0, 0, 128, 128)),
 	chunks:    make(map[protocol.ChunkPos]interface{}),
 	_mutex:    sync.Mutex{},
 }
+
+var tmp_chunk_cache map[protocol.ChunkPos]*chunk.Chunk = make(map[protocol.ChunkPos]*chunk.Chunk)
 
 func init() {
 	register_command("world", "Launch world downloading proxy", world_main)
@@ -131,12 +132,6 @@ func draw_chunk(pos protocol.ChunkPos, ch *chunk.Chunk) {
 
 	world_state.img.Pix = make([]uint8, world_state.img.Rect.Dx()*world_state.img.Rect.Dy()*4)
 
-	{
-		f, _ := os.Create("chunks.json")
-		json.NewEncoder(f).Encode(world_state.chunks)
-		f.Close()
-	}
-
 	for _ch := range world_state.chunks {
 		px_pos := image.Point{X: int(_ch.X() - min.X()), Y: int(_ch.Z() - min.Z())}
 		draw.Draw(
@@ -191,7 +186,20 @@ func ProcessChunk(pk *packet.LevelChunk) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	world_state.Dimension.SaveChunk((world.ChunkPos)(pk.Position), ch)
+
+	if world_state.Dimension == nil {
+		tmp_chunk_cache[pk.Position] = ch
+	} else {
+		if len(tmp_chunk_cache) > 0 { // write the cached to the world and empty it
+			for pos, ch := range tmp_chunk_cache {
+				world_state.Dimension.SaveChunk((world.ChunkPos)(pos), ch)
+			}
+			tmp_chunk_cache = make(map[protocol.ChunkPos]*chunk.Chunk)
+			fmt.Printf("dumped cache %d\n", len(tmp_chunk_cache))
+		}
+		// save the current chunk
+		world_state.Dimension.SaveChunk((world.ChunkPos)(pk.Position), ch)
+	}
 	draw_chunk(pk.Position, ch)
 }
 
@@ -216,41 +224,17 @@ var difficulty_ids = map[int32]world.Difficulty{
 	3: world.DifficultyHard,
 }
 
-func ProcessStartGame(pk *packet.StartGame) {
-	fmt.Printf("StartGame: %+v\n", pk)
-	dimension, err := mcdb.New(path.Join("worlds", pk.WorldName), dimension_ids[pk.Dimension])
+func ProcessChangeDimension(pk *packet.ChangeDimension) {
+	fmt.Printf("ChangeDimension %d\n", pk.Dimension)
+	dimension, err := mcdb.New(path.Join("worlds", fmt.Sprintf("%s-dim-%d", world_state.WorldName, pk.Dimension)), dimension_ids[pk.Dimension])
 	if err != nil {
 		log.Fatal(err)
 	}
+	if world_state.Dimension != nil {
+		world_state.Dimension.Close()
+	}
 	world_state.Dimension = dimension
 	world_state.chunks = make(map[protocol.ChunkPos]interface{})
-	dimension.SaveSettings(&world.Settings{
-		Name: pk.WorldName,
-		Spawn: cube.Pos{
-			int(pk.WorldSpawn[0]),
-			int(pk.WorldSpawn[1]),
-			int(pk.WorldSpawn[2]),
-		},
-		Time:            pk.Time,
-		TimeCycle:       true,
-		RainTime:        int64(pk.RainLevel), // ?
-		Raining:         pk.RainLevel > 0,
-		ThunderTime:     int64(pk.LightningLevel),
-		Thundering:      pk.LightningLevel > 0,
-		WeatherCycle:    true,
-		CurrentTick:     pk.Time,
-		DefaultGameMode: gamemode_ids[pk.WorldGameMode],
-		Difficulty:      difficulty_ids[pk.Difficulty],
-		TickRange:       6,
-	})
-}
-
-func ProcessActor(actor *packet.AddActor) {
-	// TODO
-}
-
-func ProcessBlockUpdate(update *packet.UpdateBlock) {
-	// TODO
 }
 
 func ProcessMove(player *packet.MovePlayer) {
@@ -374,8 +358,8 @@ func handleConn(ctx context.Context, conn *minecraft.Conn, listener *minecraft.L
 			}
 
 			switch pk := pk.(type) {
-			case *packet.StartGame:
-				ProcessStartGame(pk)
+			case *packet.ChangeDimension:
+				ProcessChangeDimension(pk)
 			case *packet.LevelChunk:
 				ProcessChunk(pk)
 				if _pk := get_map_update(); _pk != nil {
@@ -384,15 +368,9 @@ func handleConn(ctx context.Context, conn *minecraft.Conn, listener *minecraft.L
 					}
 				}
 				conn.WritePacket(&packet.Text{
-					TextType: 3,
+					TextType: packet.TextTypePopup,
 					Message:  fmt.Sprintf("%d chunks loaded", len(world_state.chunks)),
 				})
-			case *packet.AddActor:
-				ProcessActor(pk)
-			case *packet.UpdateBlock:
-				ProcessBlockUpdate(pk)
-			case *packet.ChunkRadiusUpdated:
-				fmt.Printf("ChunkRadiusUpdated: %d\n", pk.ChunkRadius)
 			}
 
 			if err := conn.WritePacket(pk); err != nil {
