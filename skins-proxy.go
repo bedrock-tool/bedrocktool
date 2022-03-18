@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"net"
@@ -60,22 +61,32 @@ func skin_proxy_main(ctx context.Context, args []string) error {
 		return fmt.Errorf("failed to connect to %s: %s", server, err)
 	}
 
+	if err := spawn_conn(ctx, conn, serverConn); err != nil {
+		return err
+	}
+
 	println("Connected")
 	println("Press ctrl+c to exit")
 
 	os.MkdirAll(out_path, 0755)
 
-	errs := make(chan error)
+	errs := make(chan error, 2)
 	go func() { // server -> client
+		defer serverConn.Close()
+		defer listener.Disconnect(conn, "connection lost")
 		for {
 			pk, err := serverConn.ReadPacket()
 			if err != nil {
-				errs <- err
+				if disconnect, ok := errors.Unwrap(err).(minecraft.DisconnectError); ok {
+					_ = listener.Disconnect(conn, disconnect.Error())
+				}
 				return
 			}
 			process_packet_skins(out_path, pk)
 
-			conn.WritePacket(pk)
+			if err = conn.WritePacket(pk); err != nil {
+				return
+			}
 		}
 	}()
 
@@ -83,10 +94,15 @@ func skin_proxy_main(ctx context.Context, args []string) error {
 		for {
 			pk, err := conn.ReadPacket()
 			if err != nil {
-				errs <- err
 				return
 			}
-			serverConn.WritePacket(pk)
+
+			if err := serverConn.WritePacket(pk); err != nil {
+				if disconnect, ok := errors.Unwrap(err).(minecraft.DisconnectError); ok {
+					_ = listener.Disconnect(conn, disconnect.Error())
+				}
+				return
+			}
 		}
 	}()
 

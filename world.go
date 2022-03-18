@@ -241,6 +241,29 @@ func ProcessMove(player *packet.MovePlayer) {
 	world_state.PlayerPos = *player
 }
 
+func spawn_conn(ctx context.Context, conn *minecraft.Conn, serverConn *minecraft.Conn) error {
+	errs := make(chan error, 2)
+	go func() {
+		errs <- conn.StartGame(serverConn.GameData())
+	}()
+	go func() {
+		errs <- serverConn.DoSpawn()
+	}()
+
+	// wait for both to finish
+	for i := 0; i < 2; i++ {
+		select {
+		case err := <-errs:
+			if err != nil {
+				return fmt.Errorf("failed to start game: %s", err)
+			}
+		case <-ctx.Done():
+			return fmt.Errorf("connection cancelled")
+		}
+	}
+	return nil
+}
+
 func handleConn(ctx context.Context, conn *minecraft.Conn, listener *minecraft.Listener, target string) {
 	var packet_func func(header packet.Header, payload []byte, src, dst net.Addr) = nil
 	if G_debug {
@@ -258,26 +281,9 @@ func handleConn(ctx context.Context, conn *minecraft.Conn, listener *minecraft.L
 		return
 	}
 
-	errs := make(chan error, 2)
-	go func() {
-		errs <- conn.StartGame(serverConn.GameData())
-	}()
-	go func() {
-		errs <- serverConn.DoSpawn()
-	}()
-
-	// wait for both to finish
-	for i := 0; i < 2; i++ {
-		select {
-		case err := <-errs:
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Failed to start game: %s\n", err)
-				return
-			}
-		case <-ctx.Done():
-			fmt.Fprintf(os.Stderr, "Connection cancelled\n")
-			return
-		}
+	if err := spawn_conn(ctx, conn, serverConn); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to spawn: %s\n", err)
+		return
 	}
 
 	G_exit = func() {
