@@ -373,10 +373,7 @@ func handleConn(ctx context.Context, conn *minecraft.Conn, listener *minecraft.L
 						panic(err)
 					}
 				}
-				conn.WritePacket(&packet.Text{
-					TextType: packet.TextTypePopup,
-					Message:  fmt.Sprintf("%d chunks loaded", len(world_state.chunks)),
-				})
+				send_popup(conn, fmt.Sprintf("%d chunks loaded", len(world_state.chunks)))
 			}
 
 			if err := conn.WritePacket(pk); err != nil {

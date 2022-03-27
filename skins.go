@@ -136,8 +136,9 @@ func write_skin(output_path, name string, skin protocol.Skin) {
 var skin_filter_player string // who to filter
 var skin_players = make(map[string]string)
 var skin_player_counts = make(map[string]int)
+var processed_skins = make(map[string]bool)
 
-func process_packet_skins(out_path string, pk packet.Packet) {
+func process_packet_skins(conn *minecraft.Conn, out_path string, pk packet.Packet) {
 	switch _pk := pk.(type) {
 	case *packet.PlayerSkin:
 		name := skin_players[_pk.UUID.String()]
@@ -156,8 +157,15 @@ func process_packet_skins(out_path string, pk packet.Packet) {
 			if name == "" {
 				name = player.UUID.String()
 			}
+			if _, ok := processed_skins[name]; ok {
+				continue
+			}
 			write_skin(out_path, name, player.Skin)
 			skin_players[player.UUID.String()] = name
+			processed_skins[name] = true
+			if conn != nil {
+				send_popup(conn, fmt.Sprintf("%s Skin was Saved", name))
+			}
 		}
 	}
 }
@@ -206,6 +214,6 @@ func skin_main(ctx context.Context, args []string) error {
 		if err != nil {
 			return err
 		}
-		process_packet_skins(out_path, pk)
+		process_packet_skins(nil, out_path, pk)
 	}
 }

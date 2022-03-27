@@ -82,7 +82,7 @@ func skin_proxy_main(ctx context.Context, args []string) error {
 				}
 				return
 			}
-			process_packet_skins(out_path, pk)
+			process_packet_skins(conn, out_path, pk)
 
 			if err = conn.WritePacket(pk); err != nil {
 				return
