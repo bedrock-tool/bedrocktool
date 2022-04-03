@@ -4,6 +4,8 @@ go 1.17
 
 require (
 	gioui.org v0.0.0-20220302172730-c0c25b777b1e
+	github.com/df-mc/dragonfly v0.5.1
+	github.com/google/gopacket v1.1.19
 	github.com/sandertv/gophertunnel v1.19.1
 	golang.org/x/oauth2 v0.0.0-20220223155221-ee480838109b
 )
@@ -12,7 +14,6 @@ require (
 	gioui.org/cpu v0.0.0-20220303153501-2b893722ba32 // indirect
 	gioui.org/shader v1.0.6 // indirect
 	github.com/brentp/intintmap v0.0.0-20190211203843-30dc0ade9af9 // indirect
-	github.com/df-mc/dragonfly v0.5.1 // indirect
 	github.com/df-mc/goleveldb v1.1.9 // indirect
 	github.com/go-gl/mathgl v1.0.0 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
