@@ -5,11 +5,9 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"net"
 	"os"
 
 	"github.com/sandertv/gophertunnel/minecraft"
-	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 )
 
 func init() {
@@ -25,9 +23,6 @@ func skin_proxy_main(ctx context.Context, args []string) error {
 		flag.Usage()
 		return nil
 	}
-
-	hostname, server := server_input(ctx, server)
-	out_path := fmt.Sprintf("skins/%s", hostname)
 
 	_status := minecraft.NewStatusProvider("Server")
 	listener, err := minecraft.ListenConfig{
@@ -46,20 +41,11 @@ func skin_proxy_main(ctx context.Context, args []string) error {
 	}
 	conn := c.(*minecraft.Conn)
 
-	var packet_func func(header packet.Header, payload []byte, src, dst net.Addr) = nil
-	if G_debug {
-		packet_func = PacketLogger
-	}
-
-	fmt.Printf("Connecting to %s\n", server)
-	serverConn, err := minecraft.Dialer{
-		TokenSource: G_src,
-		ClientData:  conn.ClientData(),
-		PacketFunc:  packet_func,
-	}.DialContext(ctx, "raknet", server)
+	hostname, serverConn, err := connect_server(ctx, server)
 	if err != nil {
-		return fmt.Errorf("failed to connect to %s: %s", server, err)
+		return err
 	}
+	out_path := fmt.Sprintf("skins/%s", hostname)
 
 	if err := spawn_conn(ctx, conn, serverConn); err != nil {
 		return err

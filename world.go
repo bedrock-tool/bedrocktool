@@ -20,6 +20,7 @@ import (
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/df-mc/dragonfly/server/world/chunk"
 	"github.com/df-mc/dragonfly/server/world/mcdb"
+	"github.com/df-mc/goleveldb/leveldb/opt"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
@@ -226,7 +227,7 @@ var difficulty_ids = map[int32]world.Difficulty{
 
 func ProcessChangeDimension(pk *packet.ChangeDimension) {
 	fmt.Printf("ChangeDimension %d\n", pk.Dimension)
-	dimension, err := mcdb.New(path.Join("worlds", fmt.Sprintf("%s-dim-%d", world_state.WorldName, pk.Dimension)), dimension_ids[pk.Dimension])
+	dimension, err := mcdb.New(path.Join("worlds", fmt.Sprintf("%s-dim-%d", world_state.WorldName, pk.Dimension)), dimension_ids[pk.Dimension], opt.DefaultCompression)
 	if err != nil {
 		log.Fatal(err)
 	}

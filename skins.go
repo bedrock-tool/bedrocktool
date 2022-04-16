@@ -9,7 +9,6 @@ import (
 	"image"
 	"image/png"
 	"io"
-	"net"
 	"os"
 	"path"
 	"regexp"
@@ -180,25 +179,13 @@ func skin_main(ctx context.Context, args []string) error {
 		return nil
 	}
 
-	hostname, server := server_input(ctx, server)
-	out_path := fmt.Sprintf("skins/%s", hostname)
-
-	var packet_func func(header packet.Header, payload []byte, src, dst net.Addr) = nil
-	if G_debug {
-		packet_func = PacketLogger
-	}
-
-	// connect
-	fmt.Printf("Connecting to %s\n", server)
-	serverConn, err := minecraft.Dialer{
-		TokenSource: G_src,
-		PacketFunc:  packet_func,
-	}.DialContext(ctx, "raknet", server)
+	hostname, serverConn, err := connect_server(ctx, server)
 	if err != nil {
 		return err
 	}
-
 	defer serverConn.Close()
+
+	out_path := fmt.Sprintf("skins/%s", hostname)
 
 	if err := serverConn.DoSpawnContext(ctx); err != nil {
 		return err

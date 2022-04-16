@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"net"
@@ -24,54 +23,10 @@ import (
 const TOKEN_FILE = "token.json"
 
 var G_src oauth2.TokenSource
+var G_xbl_token *auth.XBLToken
 var G_debug bool
 var G_help bool
 var G_exit func() = func() { os.Exit(0) }
-
-func get_token() oauth2.Token {
-	var token oauth2.Token
-	if _, err := os.Stat(TOKEN_FILE); err == nil {
-		f, err := os.Open(TOKEN_FILE)
-		if err != nil {
-			panic(err)
-		}
-		defer f.Close()
-		if err := json.NewDecoder(f).Decode(&token); err != nil {
-			panic(err)
-		}
-	} else {
-		token, err := auth.RequestLiveToken()
-		if err != nil {
-			panic(err)
-		}
-
-		buf, err := json.Marshal(token)
-		if err != nil {
-			panic(err)
-		}
-		os.WriteFile(TOKEN_FILE, buf, 0666)
-	}
-	return token
-}
-
-func server_input(ctx context.Context, server string) (string, string) {
-	if server == "" {
-		fmt.Printf("Enter Server: ")
-		reader := bufio.NewReader(os.Stdin)
-		server, _ = reader.ReadString('\n')
-		r, _ := regexp.Compile(`[\n\r]`)
-		server = string(r.ReplaceAll([]byte(server), []byte("")))
-	}
-	if len(strings.Split(server, ":")) == 1 {
-		server += ":19132"
-	}
-	host, _, err := net.SplitHostPort(server)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Invalid server: %s\n", err)
-		os.Exit(1)
-	}
-	return host, server
-}
 
 var pool = packet.NewPool()
 
@@ -156,6 +111,16 @@ func main() {
 	// authenticate
 	token := get_token()
 	G_src = auth.RefreshTokenSource(&token)
+	{
+		_token, err := G_src.Token()
+		if err != nil {
+			panic(err)
+		}
+		G_xbl_token, err = auth.RequestXBLToken(ctx, _token, "https://pocket.realms.minecraft.net/")
+		if err != nil {
+			panic(err)
+		}
+	}
 
 	if len(os.Args) < 2 {
 		select {
