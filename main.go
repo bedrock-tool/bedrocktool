@@ -45,7 +45,7 @@ func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
 	if strings.HasPrefix(strings.Split(src.String(), ":")[1], "19132") {
 		dir = "S->"
 	}
-	switch pk.(type) {
+	switch pk := pk.(type) {
 	case *packet.UpdateBlock:
 		return
 	case *packet.MoveActorAbsolute:
@@ -71,6 +71,17 @@ func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
 	case *packet.MovePlayer:
 		return
 	case *packet.BlockActorData:
+		return
+	case *packet.ResourcePacksInfo:
+		for _, pack := range pk.TexturePacks {
+			fmt.Printf("%s %s\n", pack.ContentIdentity, pack.ContentKey)
+		}
+		fmt.Printf("writing keys file")
+		var keys map[string]string = make(map[string]string)
+		for _, pack := range pk.TexturePacks {
+			keys[pack.ContentIdentity] = pack.ContentKey
+		}
+		dump_keys(keys)
 		return
 	}
 
@@ -151,4 +162,13 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 		os.Exit(1)
 	}
+}
+
+func token_main(ctx context.Context, args []string) error {
+	fmt.Printf("%s\n", G_xbl_token.AuthorizationToken.Token)
+	return nil
+}
+
+func init() {
+	register_command("realms-token", "get xbl3.0 token for pocket.realms.minecraft.net", token_main)
 }

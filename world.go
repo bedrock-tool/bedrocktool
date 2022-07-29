@@ -6,9 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"image"
-	"image/color"
-	"image/draw"
-	"image/png"
 	"log"
 	"net"
 	"os"
@@ -26,31 +23,10 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 )
 
-const VIEW_MAP_ID = 0x424242
-
-var MAP_ITEM_PACKET packet.InventoryContent = packet.InventoryContent{
-	WindowID: 119,
-	Content: []protocol.ItemInstance{
-		{
-			StackNetworkID: 1,
-			Stack: protocol.ItemStack{
-				ItemType: protocol.ItemType{
-					NetworkID:     420,
-					MetadataValue: 0,
-				},
-				BlockRuntimeID: 0,
-				Count:          1,
-				NBTData: map[string]interface{}{
-					"map_uuid": int64(VIEW_MAP_ID),
-				},
-			},
-		},
-	},
-}
-
 // the state used for drawing and saving
 type WorldState struct {
-	Dimension *mcdb.Provider
+	Provider  *mcdb.Provider
+	Dim       world.Dimension
 	WorldName string
 	PlayerPos packet.MovePlayer
 	img       *image.RGBA
@@ -59,7 +35,8 @@ type WorldState struct {
 }
 
 var world_state *WorldState = &WorldState{
-	Dimension: nil,
+	Provider:  nil,
+	Dim:       nil,
 	WorldName: "world",
 	PlayerPos: packet.MovePlayer{},
 	img:       image.NewRGBA(image.Rect(0, 0, 128, 128)),
@@ -75,14 +52,18 @@ func init() {
 
 func world_main(ctx context.Context, args []string) error {
 	var server string
-	flag.StringVar(&server, "server", "", "target server")
+
+	if len(args) >= 1 {
+		server = args[0]
+		args = args[1:]
+	}
+	_, server = server_input(ctx, server)
+
 	flag.CommandLine.Parse(args)
 	if G_help {
 		flag.Usage()
 		return nil
 	}
-
-	_, server = server_input(ctx, server)
 
 	_status := minecraft.NewStatusProvider("Server")
 	listener, err := minecraft.ListenConfig{
@@ -106,101 +87,16 @@ func world_main(ctx context.Context, args []string) error {
 	return nil
 }
 
-func draw_chunk(pos protocol.ChunkPos, ch *chunk.Chunk) {
-	if world_state.chunks[pos] != nil {
-		return
-	}
-
-	world_state.chunks[pos] = true
-	min := protocol.ChunkPos{}
-	max := protocol.ChunkPos{}
-	for _ch := range world_state.chunks {
-		if _ch.X() < min.X() {
-			min[0] = _ch.X()
-		}
-		if _ch.Z() < min.Z() {
-			min[1] = _ch.Z()
-		}
-		if _ch.X() > max.X() {
-			max[0] = _ch.X()
-		}
-		if _ch.Z() > max.Z() {
-			max[1] = _ch.Z()
-		}
-	}
-
-	px_per_chunk := 128 / int(max[0]-min[0]+1)
-
-	world_state.img.Pix = make([]uint8, world_state.img.Rect.Dx()*world_state.img.Rect.Dy()*4)
-
-	for _ch := range world_state.chunks {
-		px_pos := image.Point{X: int(_ch.X() - min.X()), Y: int(_ch.Z() - min.Z())}
-		draw.Draw(
-			world_state.img,
-			image.Rect(
-				px_pos.X*px_per_chunk,
-				px_pos.Y*px_per_chunk,
-				(px_pos.X+1)*px_per_chunk,
-				(px_pos.Y+1)*px_per_chunk,
-			),
-			image.White,
-			image.Point{},
-			draw.Src,
-		)
-	}
-
-	{
-		f, _ := os.Create("test.png")
-		png.Encode(f, world_state.img)
-		f.Close()
-	}
-}
-
-var _map_send_lock = false
-
-func get_map_update() *packet.ClientBoundMapItemData {
-	if _map_send_lock {
-		return nil
-	}
-	_map_send_lock = true
-
-	pixels := make([][]color.RGBA, 128)
-	for y := 0; y < 128; y++ {
-		pixels[y] = make([]color.RGBA, 128)
-		for x := 0; x < 128; x++ {
-			pixels[y][x] = world_state.img.At(x, y).(color.RGBA)
-		}
-	}
-
-	_map_send_lock = false
-	return &packet.ClientBoundMapItemData{
-		MapID:       VIEW_MAP_ID,
-		Width:       128,
-		Height:      128,
-		Pixels:      pixels,
-		UpdateFlags: 2,
-	}
-}
-
 func ProcessChunk(pk *packet.LevelChunk) {
 	ch, err := chunk.NetworkDecode(uint32(pk.HighestSubChunk), pk.RawPayload, int(pk.SubChunkCount), cube.Range{-64, 320})
 	if err != nil {
-		log.Fatal(err)
+		log.Printf(err.Error())
+		return
 	}
 
-	if world_state.Dimension == nil {
-		tmp_chunk_cache[pk.Position] = ch
-	} else {
-		if len(tmp_chunk_cache) > 0 { // write the cached to the world and empty it
-			for pos, ch := range tmp_chunk_cache {
-				world_state.Dimension.SaveChunk((world.ChunkPos)(pos), ch)
-			}
-			tmp_chunk_cache = make(map[protocol.ChunkPos]*chunk.Chunk)
-			fmt.Printf("dumped cache %d\n", len(tmp_chunk_cache))
-		}
-		// save the current chunk
-		world_state.Dimension.SaveChunk((world.ChunkPos)(pk.Position), ch)
-	}
+	// save the current chunk
+	world_state.Provider.SaveChunk((world.ChunkPos)(pk.Position), ch, world_state.Dim)
+
 	draw_chunk(pk.Position, ch)
 }
 
@@ -227,14 +123,16 @@ var difficulty_ids = map[int32]world.Difficulty{
 
 func ProcessChangeDimension(pk *packet.ChangeDimension) {
 	fmt.Printf("ChangeDimension %d\n", pk.Dimension)
-	dimension, err := mcdb.New(path.Join("worlds", fmt.Sprintf("%s-dim-%d", world_state.WorldName, pk.Dimension)), dimension_ids[pk.Dimension], opt.DefaultCompression)
+	folder := path.Join("worlds", fmt.Sprintf("%s-dim-%d", world_state.WorldName, pk.Dimension))
+	provider, err := mcdb.New(folder, opt.DefaultCompression)
 	if err != nil {
 		log.Fatal(err)
 	}
-	if world_state.Dimension != nil {
-		world_state.Dimension.Close()
+	if world_state.Provider != nil {
+		world_state.Provider.Close()
 	}
-	world_state.Dimension = dimension
+	world_state.Provider = provider
+	world_state.Dim = dimension_ids[pk.Dimension]
 	world_state.chunks = make(map[protocol.ChunkPos]interface{})
 }
 
@@ -291,7 +189,7 @@ func handleConn(ctx context.Context, conn *minecraft.Conn, listener *minecraft.L
 		serverConn.Close()
 		conn.Close()
 		listener.Close()
-		world_state.Dimension.Close()
+		world_state.Provider.Close()
 	}
 
 	done := make(chan struct{})
@@ -308,10 +206,6 @@ func handleConn(ctx context.Context, conn *minecraft.Conn, listener *minecraft.L
 			}
 
 			switch _pk := pk.(type) {
-			case *packet.RequestChunkRadius:
-				pk = &packet.RequestChunkRadius{ // rewrite packet to send a bigger radius
-					ChunkRadius: 32,
-				}
 			case *packet.MovePlayer:
 				ProcessMove(_pk)
 			case *packet.MapInfoRequest:
@@ -333,7 +227,6 @@ func handleConn(ctx context.Context, conn *minecraft.Conn, listener *minecraft.L
 				}
 			}
 		}
-
 	}()
 
 	go func() { // send map item
@@ -355,6 +248,14 @@ func handleConn(ctx context.Context, conn *minecraft.Conn, listener *minecraft.L
 		defer serverConn.Close()
 		defer listener.Disconnect(conn, "connection lost")
 		defer func() { done <- struct{}{} }()
+
+		gd := serverConn.GameData()
+		ProcessChangeDimension(&packet.ChangeDimension{
+			Dimension: gd.Dimension,
+			Position:  gd.PlayerPosition,
+			Respawn:   false,
+		})
+
 		for {
 			pk, err := serverConn.ReadPacket()
 			if err != nil {

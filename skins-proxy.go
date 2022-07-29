@@ -16,7 +16,11 @@ func init() {
 
 func skin_proxy_main(ctx context.Context, args []string) error {
 	var server string
-	flag.StringVar(&server, "server", "", "target server")
+	if len(args) >= 1 {
+		server = args[0]
+		args = args[1:]
+	}
+
 	flag.StringVar(&skin_filter_player, "player", "", "only download the skin of this player")
 	flag.CommandLine.Parse(args)
 	if G_help {
