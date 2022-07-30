@@ -45,7 +45,7 @@ func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
 	if strings.HasPrefix(strings.Split(src.String(), ":")[1], "19132") {
 		dir = "S->"
 	}
-	switch pk := pk.(type) {
+	switch pk.(type) {
 	case *packet.UpdateBlock:
 		return
 	case *packet.MoveActorAbsolute:
