@@ -73,15 +73,17 @@ func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
 	case *packet.BlockActorData:
 		return
 	case *packet.ResourcePacksInfo:
-		for _, pack := range pk.TexturePacks {
-			fmt.Printf("%s %s\n", pack.ContentIdentity, pack.ContentKey)
-		}
-		fmt.Printf("writing keys file")
-		var keys map[string]string = make(map[string]string)
-		for _, pack := range pk.TexturePacks {
-			keys[pack.ContentIdentity] = pack.ContentKey
-		}
-		dump_keys(keys)
+		/*
+			for _, pack := range pk.TexturePacks {
+				fmt.Printf("%s %s\n", pack.ContentIdentity, pack.ContentKey)
+			}
+			fmt.Printf("writing keys file")
+			var keys map[string]string = make(map[string]string)
+			for _, pack := range pk.TexturePacks {
+				keys[pack.ContentIdentity] = pack.ContentKey
+			}
+			dump_keys(keys)
+		*/
 		return
 	}
 
