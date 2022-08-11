@@ -14,7 +14,13 @@ jobs:
           check-latest: true
           cache: true
 
-      - run: make
+      - name: Retrieve version
+        run: |
+          echo "::set-output name=TAG_NAME::$(git describe --tags)"
+        id: version
+
+      - name: build
+        run: make
       
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
@@ -23,6 +29,6 @@ jobs:
           prerelease: true
           title: "Development Build"
           files: |
-            bedrocktool_${{ GITHUB_REF:10 }}.exe
-            bedrocktool_${{ GITHUB_REF:10 }}-linux
-            bedrocktool_${{ GITHUB_REF:10 }}-mac
+            bedrocktool_${{ steps.version.outputs.TAG_NAME }}.exe
+            bedrocktool_${{ steps.version.outputs.TAG_NAME }}-linux
+            bedrocktool_${{ steps.version.outputs.TAG_NAME }}-mac
