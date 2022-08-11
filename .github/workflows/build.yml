@@ -1,8 +1,6 @@
 name: ci-build
 on:
-  push:
-    tags:
-      -v*
+  push
 
 jobs:
   run:
