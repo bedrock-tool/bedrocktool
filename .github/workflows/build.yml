@@ -25,6 +25,6 @@ jobs:
           prerelease: true
           title: "Development Build"
           files: |
-            bedrocktool_${GITHUB_REF:10}.exe
-            bedrocktool_${GITHUB_REF:10}-linux
-            bedrocktool_${GITHUB_REF:10}-mac
+            bedrocktool_${{ GITHUB_REF:10 }}.exe
+            bedrocktool_${{ GITHUB_REF:10 }}-linux
+            bedrocktool_${{ GITHUB_REF:10 }}-mac
