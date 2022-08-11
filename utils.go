@@ -93,3 +93,26 @@ func connect_server(ctx context.Context, server string) (hostname string, conn *
 	}
 	return hostname, conn, nil
 }
+
+func spawn_conn(ctx context.Context, conn *minecraft.Conn, serverConn *minecraft.Conn) error {
+	errs := make(chan error, 2)
+	go func() {
+		errs <- conn.StartGame(serverConn.GameData())
+	}()
+	go func() {
+		errs <- serverConn.DoSpawn()
+	}()
+
+	// wait for both to finish
+	for i := 0; i < 2; i++ {
+		select {
+		case err := <-errs:
+			if err != nil {
+				return fmt.Errorf("failed to start game: %s", err)
+			}
+		case <-ctx.Done():
+			return fmt.Errorf("connection cancelled")
+		}
+	}
+	return nil
+}

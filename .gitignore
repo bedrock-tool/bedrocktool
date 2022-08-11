@@ -1,8 +1,13 @@
 token.json
 *.mcpack
 *.zip
-bedrocktool-*
-bedrocktool.exe
+
+bedrocktool_*-linux
+bedrocktool_*-mac
+bedrocktool_*.exe
+__debug_bin
+
+.vscode/launch.json
 keys.db
 *ace.go
 skins/

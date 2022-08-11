@@ -17,6 +17,7 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft/auth"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
+	"golang.org/x/exp/slices"
 	"golang.org/x/oauth2"
 )
 
@@ -26,9 +27,30 @@ var G_src oauth2.TokenSource
 var G_xbl_token *auth.XBLToken
 var G_debug bool
 var G_help bool
-var G_exit func() = func() { os.Exit(0) }
+var G_exit []func() = []func(){}
 
 var pool = packet.NewPool()
+
+var muted_packets = []string{
+	"*packet.UpdateBlock",
+	"*packet.MoveActorAbsolute",
+	"*packet.SetActorMotion",
+	"*packet.SetTime",
+	"*packet.RemoveActor",
+	"*packet.AddActor",
+	"*packet.UpdateAttributes",
+	"*packet.Interact",
+	"*packet.LevelEvent",
+	"*packet.SetActorData",
+	"*packet.MoveActorDelta",
+	"*packet.MovePlayer",
+	"*packet.BlockActorData",
+	"*packet.PlayerAuthInput",
+	//"*packet.LevelChunk",
+	"*packet.LevelSoundEvent",
+	"*packet.ActorEvent",
+	"*packet.NetworkChunkPublisherUpdate",
+}
 
 func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
 	var pk packet.Packet
@@ -45,48 +67,15 @@ func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
 	if strings.HasPrefix(strings.Split(src.String(), ":")[1], "19132") {
 		dir = "S->"
 	}
-	switch pk.(type) {
-	case *packet.UpdateBlock:
-		return
-	case *packet.MoveActorAbsolute:
-		return
-	case *packet.SetActorMotion:
-		return
-	case *packet.SetTime:
-		return
-	case *packet.RemoveActor:
-		return
-	case *packet.AddActor:
-		return
-	case *packet.UpdateAttributes:
-		return
-	case *packet.Interact:
-		return
-	case *packet.LevelEvent:
-		return
-	case *packet.SetActorData:
-		return
-	case *packet.MoveActorDelta:
-		return
-	case *packet.MovePlayer:
-		return
-	case *packet.BlockActorData:
-		return
-	case *packet.ResourcePacksInfo:
-		/*
-			for _, pack := range pk.TexturePacks {
-				fmt.Printf("%s %s\n", pack.ContentIdentity, pack.ContentKey)
-			}
-			fmt.Printf("writing keys file")
-			var keys map[string]string = make(map[string]string)
-			for _, pack := range pk.TexturePacks {
-				keys[pack.ContentIdentity] = pack.ContentKey
-			}
-			dump_keys(keys)
-		*/
+	t := reflect.TypeOf(pk)
+	pk_name := t.String()
+
+	if slices.Contains(muted_packets, pk_name) {
 		return
 	}
-	fmt.Printf("P: %s 0x%x, %s\n", dir, pk.ID(), reflect.TypeOf(pk))
+	switch pk.(type) {
+	}
+	fmt.Printf("P: %s 0x%x, %s\n", dir, pk.ID(), pk_name)
 }
 
 type CMD struct {
@@ -111,13 +100,17 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
+	// exit cleanup
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigs
 		fmt.Printf("\nExiting\n")
 		cancel()
-		G_exit()
+		for i := len(G_exit) - 1; i >= 0; i-- { // go through cleanup functions reversed
+			G_exit[i]()
+		}
+		os.Exit(0)
 	}()
 
 	// authenticate
@@ -163,6 +156,8 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
 		os.Exit(1)
 	}
+
+	sigs <- nil
 }
 
 func token_main(ctx context.Context, args []string) error {

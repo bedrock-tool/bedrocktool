@@ -6,14 +6,13 @@ import (
 	"flag"
 	"fmt"
 	"image"
+	"image/draw"
 	"log"
 	"net"
 	"os"
 	"path"
-	"sync"
 	"time"
 
-	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/df-mc/dragonfly/server/world/chunk"
 	"github.com/df-mc/dragonfly/server/world/mcdb"
@@ -25,28 +24,33 @@ import (
 
 // the state used for drawing and saving
 type WorldState struct {
-	Provider  *mcdb.Provider
+	Provider  *mcdb.Provider // provider for the current world
+	chunks    map[protocol.ChunkPos]*chunk.Chunk
 	Dim       world.Dimension
 	WorldName string
 	PlayerPos packet.MovePlayer
-	img       *image.RGBA
-	chunks    map[protocol.ChunkPos]interface{}
-	_mutex    sync.Mutex
+
+	// ui
+	img           *image.RGBA
+	chunks_images map[protocol.ChunkPos]*image.RGBA // rendered those chunks
+	needRedraw    bool
 }
 
-var world_state *WorldState = &WorldState{
-	Provider:  nil,
-	Dim:       nil,
-	WorldName: "world",
-	PlayerPos: packet.MovePlayer{},
-	img:       image.NewRGBA(image.Rect(0, 0, 128, 128)),
-	chunks:    make(map[protocol.ChunkPos]interface{}),
-	_mutex:    sync.Mutex{},
+var __world_state *WorldState = &WorldState{
+	Provider:      nil,
+	chunks:        make(map[protocol.ChunkPos]*chunk.Chunk),
+	Dim:           nil,
+	WorldName:     "world",
+	PlayerPos:     packet.MovePlayer{},
+	img:           image.NewRGBA(image.Rect(0, 0, 128, 128)),
+	chunks_images: make(map[protocol.ChunkPos]*image.RGBA),
+	needRedraw:    true,
 }
 
-var tmp_chunk_cache map[protocol.ChunkPos]*chunk.Chunk = make(map[protocol.ChunkPos]*chunk.Chunk)
+var black_16x16 = image.NewRGBA(image.Rect(0, 0, 16, 16))
 
 func init() {
+	draw.Draw(black_16x16, image.Rect(0, 0, 16, 16), image.Black, image.Point{}, draw.Src)
 	register_command("world", "Launch world downloading proxy", world_main)
 }
 
@@ -87,80 +91,67 @@ func world_main(ctx context.Context, args []string) error {
 	return nil
 }
 
-func ProcessChunk(pk *packet.LevelChunk) {
-	ch, err := chunk.NetworkDecode(uint32(pk.HighestSubChunk), pk.RawPayload, int(pk.SubChunkCount), cube.Range{-64, 320})
-	if err != nil {
-		log.Printf(err.Error())
-		return
-	}
-
-	// save the current chunk
-	world_state.Provider.SaveChunk((world.ChunkPos)(pk.Position), ch, world_state.Dim)
-
-	draw_chunk(pk.Position, ch)
-}
-
-var gamemode_ids = map[int32]world.GameMode{
-	0: world.GameModeSurvival,
-	1: world.GameModeCreative,
-	2: world.GameModeAdventure,
-	3: world.GameModeSpectator,
-	4: world.GameModeCreative,
-}
-
 var dimension_ids = map[int32]world.Dimension{
 	0: world.Overworld,
 	1: world.Nether,
 	2: world.End,
 }
 
-var difficulty_ids = map[int32]world.Difficulty{
-	0: world.DifficultyPeaceful,
-	1: world.DifficultyEasy,
-	2: world.DifficultyNormal,
-	3: world.DifficultyHard,
+func (w *WorldState) ProcessLevelChunk(pk *packet.LevelChunk, serverConn *minecraft.Conn) {
+	ch, err := chunk.NetworkDecode(uint32(pk.HighestSubChunk), pk.RawPayload, int(pk.SubChunkCount), w.Dim.Range())
+	if err != nil {
+		log.Print(err.Error())
+		return
+	}
+	// perhaps just update the current chunk instead of overwrite
+	w.chunks[pk.Position] = ch
+
+	if pk.SubChunkCount == 0 { // no sub chunks = no blocks known
+		w.chunks_images[pk.Position] = black_16x16
+	} else {
+		w.chunks_images[pk.Position] = Chunk2Img(ch)
+	}
+	w.needRedraw = true
 }
 
-func ProcessChangeDimension(pk *packet.ChangeDimension) {
+func (w *WorldState) ProcessSubChunk(pk *packet.SubChunk) {
+	pos := protocol.ChunkPos{pk.Position.X(), pk.Position.Z()}
+	// get or create chunk ptr
+	ch := w.chunks[pos]
+	if ch == nil { // create an empty chunk if for some reason the server didnt send the chunk before the subchunk
+		fmt.Printf("the server didnt send the chunk before the subchunk!\n")
+		ch = chunk.New(0, w.Dim.Range())
+		w.chunks[pos] = ch
+	}
+	// add the new subs
+	//err := ch.ApplySubChunkEntries(int16(pk.Position.Y()), pk.SubChunkEntries)
+	//if err != nil {
+	//	fmt.Print(err)
+	//}
+	// redraw the chunk
+	w.chunks_images[pos] = Chunk2Img(ch)
+	w.needRedraw = true
+}
+
+func (w *WorldState) ProcessChangeDimension(pk *packet.ChangeDimension) {
 	fmt.Printf("ChangeDimension %d\n", pk.Dimension)
-	folder := path.Join("worlds", fmt.Sprintf("%s-dim-%d", world_state.WorldName, pk.Dimension))
+	folder := path.Join("worlds", fmt.Sprintf("%s-dim-%d", w.WorldName, pk.Dimension))
 	provider, err := mcdb.New(folder, opt.DefaultCompression)
 	if err != nil {
 		log.Fatal(err)
 	}
-	if world_state.Provider != nil {
-		world_state.Provider.Close()
+	if w.Provider != nil {
+		w.Provider.Close()
 	}
-	world_state.Provider = provider
-	world_state.Dim = dimension_ids[pk.Dimension]
-	world_state.chunks = make(map[protocol.ChunkPos]interface{})
+	w.Provider = provider
+	w.Dim = dimension_ids[pk.Dimension]
+	w.chunks = make(map[protocol.ChunkPos]*chunk.Chunk)
+	w.chunks_images = make(map[protocol.ChunkPos]*image.RGBA)
+	w.needRedraw = true
 }
 
-func ProcessMove(player *packet.MovePlayer) {
-	world_state.PlayerPos = *player
-}
-
-func spawn_conn(ctx context.Context, conn *minecraft.Conn, serverConn *minecraft.Conn) error {
-	errs := make(chan error, 2)
-	go func() {
-		errs <- conn.StartGame(serverConn.GameData())
-	}()
-	go func() {
-		errs <- serverConn.DoSpawn()
-	}()
-
-	// wait for both to finish
-	for i := 0; i < 2; i++ {
-		select {
-		case err := <-errs:
-			if err != nil {
-				return fmt.Errorf("failed to start game: %s", err)
-			}
-		case <-ctx.Done():
-			return fmt.Errorf("connection cancelled")
-		}
-	}
-	return nil
+func (w *WorldState) ProcessMove(player *packet.MovePlayer) {
+	w.PlayerPos = *player
 }
 
 func handleConn(ctx context.Context, conn *minecraft.Conn, listener *minecraft.Listener, target string) {
@@ -185,12 +176,13 @@ func handleConn(ctx context.Context, conn *minecraft.Conn, listener *minecraft.L
 		return
 	}
 
-	G_exit = func() {
+	G_exit = append(G_exit, func() {
 		serverConn.Close()
 		conn.Close()
 		listener.Close()
-		world_state.Provider.Close()
-	}
+		println("Closing Provider")
+		__world_state.Provider.Close()
+	})
 
 	done := make(chan struct{})
 
@@ -205,15 +197,12 @@ func handleConn(ctx context.Context, conn *minecraft.Conn, listener *minecraft.L
 				return
 			}
 
-			switch _pk := pk.(type) {
+			switch pk := pk.(type) {
 			case *packet.MovePlayer:
-				ProcessMove(_pk)
+				__world_state.ProcessMove(pk)
 			case *packet.MapInfoRequest:
-				fmt.Printf("MapInfoRequest: %d\n", _pk.MapID)
-				if _pk.MapID == VIEW_MAP_ID {
-					if update_pk := get_map_update(); update_pk != nil {
-						conn.WritePacket(update_pk)
-					}
+				if pk.MapID == VIEW_MAP_ID {
+					__world_state.send_map_update(conn)
 					skip = true
 				}
 			}
@@ -250,7 +239,7 @@ func handleConn(ctx context.Context, conn *minecraft.Conn, listener *minecraft.L
 		defer func() { done <- struct{}{} }()
 
 		gd := serverConn.GameData()
-		ProcessChangeDimension(&packet.ChangeDimension{
+		__world_state.ProcessChangeDimension(&packet.ChangeDimension{
 			Dimension: gd.Dimension,
 			Position:  gd.PlayerPosition,
 			Respawn:   false,
@@ -267,15 +256,13 @@ func handleConn(ctx context.Context, conn *minecraft.Conn, listener *minecraft.L
 
 			switch pk := pk.(type) {
 			case *packet.ChangeDimension:
-				ProcessChangeDimension(pk)
+				__world_state.ProcessChangeDimension(pk)
 			case *packet.LevelChunk:
-				ProcessChunk(pk)
-				if _pk := get_map_update(); _pk != nil {
-					if err := conn.WritePacket(_pk); err != nil {
-						panic(err)
-					}
-				}
-				send_popup(conn, fmt.Sprintf("%d chunks loaded", len(world_state.chunks)))
+				__world_state.ProcessLevelChunk(pk, serverConn)
+				__world_state.send_map_update(conn)
+				send_popup(conn, fmt.Sprintf("%d chunks loaded\n", len(__world_state.chunks)))
+			case *packet.SubChunk:
+				__world_state.ProcessSubChunk(pk)
 			}
 
 			if err := conn.WritePacket(pk); err != nil {
