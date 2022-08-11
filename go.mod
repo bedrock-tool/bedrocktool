@@ -3,17 +3,17 @@ module bedrocktool
 go 1.17
 
 require (
-	github.com/df-mc/dragonfly v0.7.5
+	github.com/df-mc/dragonfly v0.8.1
 	github.com/df-mc/goleveldb v1.1.9
 	github.com/google/gopacket v1.1.19
-	github.com/sandertv/gophertunnel v1.22.3
-	golang.org/x/oauth2 v0.0.0-20220722155238-128564f6959c
+	github.com/sandertv/gophertunnel v1.24.0
+	golang.org/x/oauth2 v0.0.0-20220808172628-8227340efae7
 )
 
 //replace github.com/sandertv/gophertunnel => ./gophertunnel
 //replace github.com/df-mc/dragonfly => ./dragonfly
 
-replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.22.4
+replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.24.1
 
 require (
 	github.com/brentp/intintmap v0.0.0-20190211203843-30dc0ade9af9 // indirect
@@ -30,8 +30,8 @@ require (
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa // indirect
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e // indirect
 	golang.org/x/image v0.0.0-20220722155232-062f8c9fd539 // indirect
-	golang.org/x/net v0.0.0-20220728211354-c7608f3a8462 // indirect
-	golang.org/x/sys v0.0.0-20220728004956-3c1f35247d10 // indirect
+	golang.org/x/net v0.0.0-20220809184613-07c6da5e1ced // indirect
+	golang.org/x/sys v0.0.0-20220808155132-1c4a2a72c664 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect

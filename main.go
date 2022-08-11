@@ -86,7 +86,6 @@ func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
 		*/
 		return
 	}
-
 	fmt.Printf("P: %s 0x%x, %s\n", dir, pk.ID(), reflect.TypeOf(pk))
 }
 
