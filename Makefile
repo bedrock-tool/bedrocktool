@@ -14,15 +14,14 @@ mac: $(NAME)-mac
 
 
 $(NAME).exe: $(SRCS)
+	echo TAG: ${TAG}
 	GOOS=windows $(GC) -o $@
 
 $(NAME)-linux: $(SRCS)
 	GOOS=linux $(GC) -o $@
 
-$(NAME)-mac: $(SRCS) # possibly broken
+$(NAME)-mac: $(SRCS)
 	GOOS=darwin $(GC) -o $@
-
-
 
 
 clean:
