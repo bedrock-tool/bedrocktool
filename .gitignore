@@ -9,6 +9,5 @@ __debug_bin
 
 .vscode/launch.json
 keys.db
-*ace.go
 skins/
 worlds/
