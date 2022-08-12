@@ -14,6 +14,7 @@ jobs:
 # version number
       - uses: actions-ecosystem/action-get-latest-tag@v1
         id: get-latest-tag
+        if: ${{ !env.ACT }}
 
 # build
       - uses: actions/setup-go@v3
@@ -21,6 +22,16 @@ jobs:
           go-version: '1.19'
           check-latest: true
           cache: true
+      
+      - name: decrypt
+        run: |
+          apt update -y
+          apt install git-crypt xxd -y
+          echo ${REPO_KEY} | xxd -r -p > ../bedrock-repo-key.key
+          git-crypt unlock ../bedrock-repo-key.key
+          rm ../bedrock-repo-key.key
+        env:
+          REPO_KEY: ${{ secrets.REPO_KEY }}
 
       - name: build
         run: make windows linux mac
@@ -34,3 +45,4 @@ jobs:
           title: "Development Build"
           files: |
             bedrocktool_*
+        if: ${{ !env.ACT }}

@@ -1,0 +1,5 @@
+{
+    "Replace": {
+        "resourcepack-ace.go": "nop.notgo"
+    }
+}
