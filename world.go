@@ -21,6 +21,8 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
+
+	_ "github.com/df-mc/dragonfly/server/block" // to load blocks
 )
 
 type TPlayerPos struct {
@@ -31,28 +33,30 @@ type TPlayerPos struct {
 }
 
 // the state used for drawing and saving
+
 type WorldState struct {
 	Provider  *mcdb.Provider // provider for the current world
 	chunks    map[protocol.ChunkPos]*chunk.Chunk
 	Dim       world.Dimension
 	WorldName string
-	PlayerPos TPlayerPos
+
+	PlayerPos  TPlayerPos
+	ClientConn *minecraft.Conn
+	ServerConn *minecraft.Conn
 
 	// ui
-	img           *image.RGBA
-	chunks_images map[protocol.ChunkPos]*image.RGBA // rendered those chunks
-	needRedraw    bool
+	ui MapUI
 }
 
-var __world_state *WorldState = &WorldState{
-	Provider:      nil,
-	chunks:        make(map[protocol.ChunkPos]*chunk.Chunk),
-	Dim:           nil,
-	WorldName:     "world",
-	PlayerPos:     TPlayerPos{},
-	img:           image.NewRGBA(image.Rect(0, 0, 128, 128)),
-	chunks_images: make(map[protocol.ChunkPos]*image.RGBA),
-	needRedraw:    true,
+func NewWorldState() *WorldState {
+	return &WorldState{
+		Provider:  nil,
+		chunks:    make(map[protocol.ChunkPos]*chunk.Chunk),
+		Dim:       nil,
+		WorldName: "world",
+		PlayerPos: TPlayerPos{},
+		ui:        NewMapUI(),
+	}
 }
 
 var black_16x16 = image.NewRGBA(image.Rect(0, 0, 16, 16))
@@ -94,7 +98,9 @@ func world_main(ctx context.Context, args []string) error {
 	}
 
 	// not a goroutine, only 1 client at a time
-	handleConn(ctx, c.(*minecraft.Conn), listener, server)
+
+	world_state := NewWorldState()
+	world_state.handleConn(ctx, c.(*minecraft.Conn), listener, server)
 
 	return nil
 }
@@ -105,7 +111,7 @@ var dimension_ids = map[int32]world.Dimension{
 	2: world.End,
 }
 
-func (w *WorldState) ProcessLevelChunk(pk *packet.LevelChunk, serverConn *minecraft.Conn) {
+func (w *WorldState) ProcessLevelChunk(pk *packet.LevelChunk) {
 	ch, err := chunk.NetworkDecode(uint32(pk.HighestSubChunk), pk.RawPayload, int(pk.SubChunkCount), w.Dim.Range())
 	if err != nil {
 		log.Print(err.Error())
@@ -114,11 +120,11 @@ func (w *WorldState) ProcessLevelChunk(pk *packet.LevelChunk, serverConn *minecr
 	existing := w.chunks[pk.Position]
 	if existing == nil {
 		w.chunks[pk.Position] = ch
-		w.chunks_images[pk.Position] = black_16x16
+		w.ui.SetChunk(pk.Position, nil)
 	}
 
 	if pk.SubChunkRequestMode == protocol.SubChunkRequestModeLegacy {
-		w.chunks_images[pk.Position] = Chunk2Img(ch)
+		w.ui.SetChunk(pk.Position, ch)
 	} else {
 		// request all the subchunks
 
@@ -136,7 +142,7 @@ func (w *WorldState) ProcessLevelChunk(pk *packet.LevelChunk, serverConn *minecr
 			max = int(pk.HighestSubChunk)
 		}
 
-		serverConn.WritePacket(&packet.SubChunkRequest{
+		w.ServerConn.WritePacket(&packet.SubChunkRequest{
 			Dimension: int32(w.Dim.EncodeDimension()),
 			Position: protocol.SubChunkPos{
 				pk.Position.X(), 0, pk.Position.Z(),
@@ -144,7 +150,6 @@ func (w *WorldState) ProcessLevelChunk(pk *packet.LevelChunk, serverConn *minecr
 			Offsets: Offset_table[:max],
 		})
 	}
-	w.needRedraw = true
 }
 
 func (w *WorldState) ProcessSubChunk(pk *packet.SubChunk) {
@@ -169,8 +174,16 @@ func (w *WorldState) ProcessSubChunk(pk *packet.SubChunk) {
 
 	// redraw the chunks
 	for pos := range pos_to_redraw {
-		w.chunks_images[pos] = Chunk2Img(w.chunks[pos])
-		w.needRedraw = true
+		w.ui.SetChunk(pos, w.chunks[pos])
+	}
+	w.ui.SchedRedraw()
+}
+
+func (w *WorldState) ProcessAnimate(pk *packet.Animate) {
+	if pk.ActionType == packet.AnimateActionSwingArm {
+		w.ui.ChangeZoom()
+		send_popup(w.ClientConn, fmt.Sprintf("Zoom: %d", w.ui.zoom))
+		w.ui.Send(w)
 	}
 }
 
@@ -187,8 +200,7 @@ func (w *WorldState) ProcessChangeDimension(pk *packet.ChangeDimension) {
 	w.Provider = provider
 	w.Dim = dimension_ids[pk.Dimension]
 	w.chunks = make(map[protocol.ChunkPos]*chunk.Chunk)
-	w.chunks_images = make(map[protocol.ChunkPos]*image.RGBA)
-	w.needRedraw = true
+	w.ui.Reset()
 }
 
 func (w *WorldState) SetPlayerPos(Position mgl32.Vec3, Pitch, Yaw, HeadYaw float32) {
@@ -200,7 +212,9 @@ func (w *WorldState) SetPlayerPos(Position mgl32.Vec3, Pitch, Yaw, HeadYaw float
 	}
 }
 
-func handleConn(ctx context.Context, conn *minecraft.Conn, listener *minecraft.Listener, target string) {
+func (w *WorldState) handleConn(ctx context.Context, conn *minecraft.Conn, listener *minecraft.Listener, target string) {
+	w.ClientConn = conn
+
 	var packet_func func(header packet.Header, payload []byte, src, dst net.Addr) = nil
 	if G_debug {
 		packet_func = PacketLogger
@@ -216,6 +230,7 @@ func handleConn(ctx context.Context, conn *minecraft.Conn, listener *minecraft.L
 		fmt.Fprintf(os.Stderr, "Failed to connect to %s: %s\n", target, err)
 		return
 	}
+	w.ServerConn = serverConn
 
 	if err := spawn_conn(ctx, conn, serverConn); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to spawn: %s\n", err)
@@ -224,10 +239,14 @@ func handleConn(ctx context.Context, conn *minecraft.Conn, listener *minecraft.L
 
 	G_exit = append(G_exit, func() {
 		serverConn.Close()
+		conn.WritePacket(&packet.Disconnect{
+			Message:                 "Closing",
+			HideDisconnectionScreen: false,
+		})
 		conn.Close()
 		listener.Close()
 		println("Closing Provider")
-		__world_state.Provider.Close()
+		w.Provider.Close()
 	})
 
 	done := make(chan struct{})
@@ -245,18 +264,20 @@ func handleConn(ctx context.Context, conn *minecraft.Conn, listener *minecraft.L
 
 			switch pk := pk.(type) {
 			case *packet.MovePlayer:
-				__world_state.SetPlayerPos(pk.Position, pk.Pitch, pk.Yaw, pk.HeadYaw)
+				w.SetPlayerPos(pk.Position, pk.Pitch, pk.Yaw, pk.HeadYaw)
 			case *packet.PlayerAuthInput:
-				__world_state.SetPlayerPos(pk.Position, pk.Pitch, pk.Yaw, pk.HeadYaw)
+				w.SetPlayerPos(pk.Position, pk.Pitch, pk.Yaw, pk.HeadYaw)
 			case *packet.MapInfoRequest:
 				if pk.MapID == VIEW_MAP_ID {
-					__world_state.send_map_update(conn)
+					w.ui.Send(w)
 					skip = true
 				}
 			case *packet.ClientCacheStatus:
 				pk.Enabled = false
 				serverConn.WritePacket(pk)
 				skip = true
+			case *packet.Animate:
+				w.ProcessAnimate(pk)
 			}
 
 			if !skip {
@@ -291,7 +312,7 @@ func handleConn(ctx context.Context, conn *minecraft.Conn, listener *minecraft.L
 		defer func() { done <- struct{}{} }()
 
 		gd := serverConn.GameData()
-		__world_state.ProcessChangeDimension(&packet.ChangeDimension{
+		w.ProcessChangeDimension(&packet.ChangeDimension{
 			Dimension: gd.Dimension,
 			Position:  gd.PlayerPosition,
 			Respawn:   false,
@@ -308,14 +329,13 @@ func handleConn(ctx context.Context, conn *minecraft.Conn, listener *minecraft.L
 
 			switch pk := pk.(type) {
 			case *packet.ChangeDimension:
-				__world_state.ProcessChangeDimension(pk)
+				w.ProcessChangeDimension(pk)
 			case *packet.LevelChunk:
-				__world_state.ProcessLevelChunk(pk, serverConn)
-				__world_state.send_map_update(conn)
-				p := __world_state.PlayerPos.Position
-				send_popup(conn, fmt.Sprintf("%d chunks loaded\npos: %.02f %.02f %.02f\n", len(__world_state.chunks), p.X(), p.Y(), p.Z()))
+				w.ProcessLevelChunk(pk)
+				w.ui.Send(w)
+				send_popup(conn, fmt.Sprintf("%d chunks loaded\n", len(w.chunks)))
 			case *packet.SubChunk:
-				__world_state.ProcessSubChunk(pk)
+				w.ProcessSubChunk(pk)
 			}
 
 			if err := conn.WritePacket(pk); err != nil {

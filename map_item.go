@@ -9,7 +9,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/sandertv/gophertunnel/minecraft"
+	"github.com/df-mc/dragonfly/server/world/chunk"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"golang.org/x/image/bmp"
@@ -37,13 +37,49 @@ var MAP_ITEM_PACKET packet.InventoryContent = packet.InventoryContent{
 	},
 }
 
+type MapUI struct {
+	img           *image.RGBA
+	zoom          int
+	chunks_images map[protocol.ChunkPos]*image.RGBA // rendered those chunks
+	needRedraw    bool
+	send_lock     *sync.Mutex
+}
+
+func NewMapUI() MapUI {
+	return MapUI{
+		img:           image.NewRGBA(image.Rect(0, 0, 128, 128)),
+		zoom:          64,
+		chunks_images: make(map[protocol.ChunkPos]*image.RGBA),
+		needRedraw:    true,
+		send_lock:     &sync.Mutex{},
+	}
+}
+
+func (m *MapUI) Reset() {
+	m.chunks_images = make(map[protocol.ChunkPos]*image.RGBA)
+	m.needRedraw = true
+}
+
+func (m *MapUI) ChangeZoom() {
+	if m.zoom >= 128 {
+		m.zoom = 32 // min
+	} else {
+		m.zoom += 32
+	}
+	m.SchedRedraw()
+}
+
+func (m *MapUI) SchedRedraw() {
+	m.needRedraw = true
+}
+
 // draw chunk images to the map image
-func (w *WorldState) draw_map() {
+func (m *MapUI) Redraw(w *WorldState) {
 	// get the chunk coord bounds
 	min := protocol.ChunkPos{}
 	max := protocol.ChunkPos{}
 	middle := protocol.ChunkPos{}
-	for _ch := range w.chunks {
+	for _ch := range m.chunks_images {
 		if _ch.X() < min.X() {
 			min[0] = _ch.X()
 		}
@@ -61,29 +97,29 @@ func (w *WorldState) draw_map() {
 		}
 	}
 
-	chunks_x := int(max[0] - min[0] + 1)               // how many chunk lengths is x
-	chunks_per_line := math.Min(float64(chunks_x), 64) // at max 64 chunks per line
-	px_per_chunk := int(128 / chunks_per_line)         // how many pixels does every chunk get
+	chunks_x := int(max[0] - min[0] + 1)                            // how many chunk lengths is x
+	chunks_per_line := math.Min(float64(chunks_x), float64(m.zoom)) // at max 64 chunks per line
+	px_per_chunk := int(128 / chunks_per_line)                      // how many pixels does every chunk get
 
-	for i := 0; i < len(w.img.Pix); i++ { // clear canvas
-		w.img.Pix[i] = 0
+	for i := 0; i < len(m.img.Pix); i++ { // clear canvas
+		m.img.Pix[i] = 0
 	}
 
-	for _ch := range w.chunks_images {
+	for _ch := range m.chunks_images {
 		px_pos := image.Point{
 			X: (int(_ch.X()-middle.X()) * px_per_chunk) + 64,
 			Y: (int(_ch.Z()-middle.Z()) * px_per_chunk) + 64,
 		}
-		if px_pos.In(w.img.Rect) {
+		if px_pos.In(m.img.Rect) {
 			draw.Draw(
-				w.img,
+				m.img,
 				image.Rect(
 					px_pos.X,
 					px_pos.Y,
 					px_pos.X+px_per_chunk,
 					px_pos.Y+px_per_chunk,
 				),
-				w.chunks_images[_ch],
+				m.chunks_images[_ch],
 				image.Point{},
 				draw.Src,
 			)
@@ -92,37 +128,49 @@ func (w *WorldState) draw_map() {
 
 	{
 		buf := bytes.NewBuffer(nil)
-		bmp.Encode(buf, w.img)
+		bmp.Encode(buf, m.img)
 		os.WriteFile("test.bmp", buf.Bytes(), 0777)
 	}
 }
 
-var _map_send_lock = sync.Mutex{}
-
-func (w *WorldState) send_map_update(conn *minecraft.Conn) error {
-	if !_map_send_lock.TryLock() {
-		return nil
+// send
+func (m *MapUI) Send(w *WorldState) error {
+	if !m.send_lock.TryLock() {
+		return nil // dont send if send is in progress
 	}
 
-	if w.needRedraw {
-		w.needRedraw = false
-		w.draw_map()
+	if m.needRedraw {
+		m.needRedraw = false
+		m.Redraw(w)
 	}
 
 	pixels := make([][]color.RGBA, 128)
 	for y := 0; y < 128; y++ {
 		pixels[y] = make([]color.RGBA, 128)
 		for x := 0; x < 128; x++ {
-			pixels[y][x] = w.img.At(x, y).(color.RGBA)
+			pixels[y][x] = m.img.At(x, y).(color.RGBA)
 		}
 	}
 
-	_map_send_lock.Unlock()
-	return conn.WritePacket(&packet.ClientBoundMapItemData{
+	m.send_lock.Unlock()
+	return w.ClientConn.WritePacket(&packet.ClientBoundMapItemData{
 		MapID:       VIEW_MAP_ID,
 		Width:       128,
 		Height:      128,
 		Pixels:      pixels,
 		UpdateFlags: 2,
 	})
+}
+
+func (m *MapUI) SetChunk(pos protocol.ChunkPos, ch *chunk.Chunk) {
+	var img *image.RGBA
+	if ch != nil {
+		img = Chunk2Img(ch)
+	} else {
+		img = black_16x16
+	}
+	m.send_lock.Lock() // dont send while adding a chunk
+	m.chunks_images[pos] = img
+	m.send_lock.Unlock()
+	m.SchedRedraw()
 }

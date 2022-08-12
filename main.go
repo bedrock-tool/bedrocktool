@@ -50,6 +50,9 @@ var muted_packets = []string{
 	"*packet.LevelSoundEvent",
 	"*packet.ActorEvent",
 	"*packet.NetworkChunkPublisherUpdate",
+	"*packet.UpdateSubChunkBlocks",
+	"*packet.SubChunk",
+	"*packet.SubChunkRequest",
 }
 
 func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
