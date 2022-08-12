@@ -1,13 +1,18 @@
 package main
 
 import (
+	"bytes"
 	"image"
 	"image/color"
 	"image/draw"
+	"math"
+	"os"
+	"sync"
 
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
+	"golang.org/x/image/bmp"
 )
 
 const VIEW_MAP_ID = 0x424242
@@ -37,6 +42,7 @@ func (w *WorldState) draw_map() {
 	// get the chunk coord bounds
 	min := protocol.ChunkPos{}
 	max := protocol.ChunkPos{}
+	middle := protocol.ChunkPos{}
 	for _ch := range w.chunks {
 		if _ch.X() < min.X() {
 			min[0] = _ch.X()
@@ -50,38 +56,53 @@ func (w *WorldState) draw_map() {
 		if _ch.Z() > max.Z() {
 			max[1] = _ch.Z()
 		}
+		if _ch.X() == int32(w.PlayerPos.Position.X()/16) && _ch.Z() == int32(w.PlayerPos.Position.Z()/16) {
+			middle = _ch
+		}
 	}
 
-	px_per_chunk := 128 / int(max[0]-min[0]+1)
+	chunks_x := int(max[0] - min[0] + 1)               // how many chunk lengths is x
+	chunks_per_line := math.Min(float64(chunks_x), 64) // at max 64 chunks per line
+	px_per_chunk := int(128 / chunks_per_line)         // how many pixels does every chunk get
 
 	for i := 0; i < len(w.img.Pix); i++ { // clear canvas
 		w.img.Pix[i] = 0
 	}
 
-	for _ch := range w.chunks {
-		px_pos := image.Point{X: int(_ch.X() - min.X()), Y: int(_ch.Z() - min.Z())}
-		draw.Draw(
-			w.img,
-			image.Rect(
-				px_pos.X*px_per_chunk,
-				px_pos.Y*px_per_chunk,
-				(px_pos.X+1)*px_per_chunk,
-				(px_pos.Y+1)*px_per_chunk,
-			),
-			w.chunks_images[_ch],
-			image.Point{},
-			draw.Src,
-		)
+	for _ch := range w.chunks_images {
+		px_pos := image.Point{
+			X: (int(_ch.X()-middle.X()) * px_per_chunk) + 64,
+			Y: (int(_ch.Z()-middle.Z()) * px_per_chunk) + 64,
+		}
+		if px_pos.In(w.img.Rect) {
+			draw.Draw(
+				w.img,
+				image.Rect(
+					px_pos.X,
+					px_pos.Y,
+					px_pos.X+px_per_chunk,
+					px_pos.Y+px_per_chunk,
+				),
+				w.chunks_images[_ch],
+				image.Point{},
+				draw.Src,
+			)
+		}
+	}
+
+	{
+		buf := bytes.NewBuffer(nil)
+		bmp.Encode(buf, w.img)
+		os.WriteFile("test.bmp", buf.Bytes(), 0777)
 	}
 }
 
-var _map_send_lock = false
+var _map_send_lock = sync.Mutex{}
 
 func (w *WorldState) send_map_update(conn *minecraft.Conn) error {
-	if _map_send_lock {
+	if !_map_send_lock.TryLock() {
 		return nil
 	}
-	_map_send_lock = true
 
 	if w.needRedraw {
 		w.needRedraw = false
@@ -96,7 +117,7 @@ func (w *WorldState) send_map_update(conn *minecraft.Conn) error {
 		}
 	}
 
-	_map_send_lock = false
+	_map_send_lock.Unlock()
 	return conn.WritePacket(&packet.ClientBoundMapItemData{
 		MapID:       VIEW_MAP_ID,
 		Width:       128,

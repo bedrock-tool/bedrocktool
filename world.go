@@ -17,10 +17,18 @@ import (
 	"github.com/df-mc/dragonfly/server/world/chunk"
 	"github.com/df-mc/dragonfly/server/world/mcdb"
 	"github.com/df-mc/goleveldb/leveldb/opt"
+	"github.com/go-gl/mathgl/mgl32"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 )
+
+type TPlayerPos struct {
+	Position mgl32.Vec3
+	Pitch    float32
+	Yaw      float32
+	HeadYaw  float32
+}
 
 // the state used for drawing and saving
 type WorldState struct {
@@ -28,7 +36,7 @@ type WorldState struct {
 	chunks    map[protocol.ChunkPos]*chunk.Chunk
 	Dim       world.Dimension
 	WorldName string
-	PlayerPos packet.MovePlayer
+	PlayerPos TPlayerPos
 
 	// ui
 	img           *image.RGBA
@@ -41,7 +49,7 @@ var __world_state *WorldState = &WorldState{
 	chunks:        make(map[protocol.ChunkPos]*chunk.Chunk),
 	Dim:           nil,
 	WorldName:     "world",
-	PlayerPos:     packet.MovePlayer{},
+	PlayerPos:     TPlayerPos{},
 	img:           image.NewRGBA(image.Rect(0, 0, 128, 128)),
 	chunks_images: make(map[protocol.ChunkPos]*image.RGBA),
 	needRedraw:    true,
@@ -61,7 +69,7 @@ func world_main(ctx context.Context, args []string) error {
 		server = args[0]
 		args = args[1:]
 	}
-	_, server = server_input(ctx, server)
+	_, server = server_input(server)
 
 	flag.CommandLine.Parse(args)
 	if G_help {
@@ -103,34 +111,67 @@ func (w *WorldState) ProcessLevelChunk(pk *packet.LevelChunk, serverConn *minecr
 		log.Print(err.Error())
 		return
 	}
-	// perhaps just update the current chunk instead of overwrite
-	w.chunks[pk.Position] = ch
-
-	if pk.SubChunkCount == 0 { // no sub chunks = no blocks known
+	existing := w.chunks[pk.Position]
+	if existing == nil {
+		w.chunks[pk.Position] = ch
 		w.chunks_images[pk.Position] = black_16x16
-	} else {
+	}
+
+	if pk.SubChunkRequestMode == protocol.SubChunkRequestModeLegacy {
 		w.chunks_images[pk.Position] = Chunk2Img(ch)
+	} else {
+		// request all the subchunks
+
+		var Offset_table = [][3]int8{
+			{0, 0, 0}, {0, 1, 0}, {0, 2, 0}, {0, 3, 0},
+			{0, 4, 0}, {0, 5, 0}, {0, 6, 0}, {0, 7, 0},
+			{0, 8, 0}, {0, 9, 0}, {0, 10, 0}, {0, 11, 0},
+			{0, 12, 0}, {0, 13, 0}, {0, 14, 0}, {0, 15, 0},
+			{0, 16, 0}, {0, 17, 0}, {0, 18, 0}, {0, 19, 0},
+			{0, 20, 0}, {0, 21, 0}, {0, 22, 0}, {0, 23, 0},
+		}
+
+		max := len(Offset_table) - 1
+		if pk.SubChunkRequestMode == protocol.SubChunkRequestModeLimited {
+			max = int(pk.HighestSubChunk)
+		}
+
+		serverConn.WritePacket(&packet.SubChunkRequest{
+			Dimension: int32(w.Dim.EncodeDimension()),
+			Position: protocol.SubChunkPos{
+				pk.Position.X(), 0, pk.Position.Z(),
+			},
+			Offsets: Offset_table[:max],
+		})
 	}
 	w.needRedraw = true
 }
 
 func (w *WorldState) ProcessSubChunk(pk *packet.SubChunk) {
-	pos := protocol.ChunkPos{pk.Position.X(), pk.Position.Z()}
-	// get or create chunk ptr
-	ch := w.chunks[pos]
-	if ch == nil { // create an empty chunk if for some reason the server didnt send the chunk before the subchunk
-		fmt.Printf("the server didnt send the chunk before the subchunk!\n")
-		ch = chunk.New(0, w.Dim.Range())
-		w.chunks[pos] = ch
+	pos_to_redraw := make(map[protocol.ChunkPos]bool)
+
+	for _, sub := range pk.SubChunkEntries {
+		abs_x := pk.Position[0] + int32(sub.Offset[0])
+		abs_y := pk.Position[1] + int32(sub.Offset[1])
+		abs_z := pk.Position[2] + int32(sub.Offset[2])
+		pos := protocol.ChunkPos{abs_x, abs_z}
+		ch := w.chunks[pos]
+		if ch == nil {
+			fmt.Printf("the server didnt send the chunk before the subchunk!\n")
+			continue
+		}
+		err := ch.ApplySubChunkEntry(int(abs_y), &sub)
+		if err != nil {
+			fmt.Print(err)
+		}
+		pos_to_redraw[pos] = true
 	}
-	// add the new subs
-	//err := ch.ApplySubChunkEntries(int16(pk.Position.Y()), pk.SubChunkEntries)
-	//if err != nil {
-	//	fmt.Print(err)
-	//}
-	// redraw the chunk
-	w.chunks_images[pos] = Chunk2Img(ch)
-	w.needRedraw = true
+
+	// redraw the chunks
+	for pos := range pos_to_redraw {
+		w.chunks_images[pos] = Chunk2Img(w.chunks[pos])
+		w.needRedraw = true
+	}
 }
 
 func (w *WorldState) ProcessChangeDimension(pk *packet.ChangeDimension) {
@@ -150,8 +191,13 @@ func (w *WorldState) ProcessChangeDimension(pk *packet.ChangeDimension) {
 	w.needRedraw = true
 }
 
-func (w *WorldState) ProcessMove(player *packet.MovePlayer) {
-	w.PlayerPos = *player
+func (w *WorldState) SetPlayerPos(Position mgl32.Vec3, Pitch, Yaw, HeadYaw float32) {
+	w.PlayerPos = TPlayerPos{
+		Position: Position,
+		Pitch:    Pitch,
+		Yaw:      Yaw,
+		HeadYaw:  HeadYaw,
+	}
 }
 
 func handleConn(ctx context.Context, conn *minecraft.Conn, listener *minecraft.Listener, target string) {
@@ -199,12 +245,18 @@ func handleConn(ctx context.Context, conn *minecraft.Conn, listener *minecraft.L
 
 			switch pk := pk.(type) {
 			case *packet.MovePlayer:
-				__world_state.ProcessMove(pk)
+				__world_state.SetPlayerPos(pk.Position, pk.Pitch, pk.Yaw, pk.HeadYaw)
+			case *packet.PlayerAuthInput:
+				__world_state.SetPlayerPos(pk.Position, pk.Pitch, pk.Yaw, pk.HeadYaw)
 			case *packet.MapInfoRequest:
 				if pk.MapID == VIEW_MAP_ID {
 					__world_state.send_map_update(conn)
 					skip = true
 				}
+			case *packet.ClientCacheStatus:
+				pk.Enabled = false
+				serverConn.WritePacket(pk)
+				skip = true
 			}
 
 			if !skip {
@@ -260,7 +312,8 @@ func handleConn(ctx context.Context, conn *minecraft.Conn, listener *minecraft.L
 			case *packet.LevelChunk:
 				__world_state.ProcessLevelChunk(pk, serverConn)
 				__world_state.send_map_update(conn)
-				send_popup(conn, fmt.Sprintf("%d chunks loaded\n", len(__world_state.chunks)))
+				p := __world_state.PlayerPos.Position
+				send_popup(conn, fmt.Sprintf("%d chunks loaded\npos: %.02f %.02f %.02f\n", len(__world_state.chunks), p.X(), p.Y(), p.Z()))
 			case *packet.SubChunk:
 				__world_state.ProcessSubChunk(pk)
 			}

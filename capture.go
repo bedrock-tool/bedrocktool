@@ -84,7 +84,7 @@ func packets_main(ctx context.Context, args []string) error {
 	}
 
 	var hostname string
-	hostname, server = server_input(ctx, server)
+	hostname, server = server_input(server)
 
 	_status := minecraft.NewStatusProvider("Server")
 	listener, err := minecraft.ListenConfig{

@@ -46,7 +46,7 @@ var muted_packets = []string{
 	"*packet.MovePlayer",
 	"*packet.BlockActorData",
 	"*packet.PlayerAuthInput",
-	//"*packet.LevelChunk",
+	"*packet.LevelChunk",
 	"*packet.LevelSoundEvent",
 	"*packet.ActorEvent",
 	"*packet.NetworkChunkPublisherUpdate",

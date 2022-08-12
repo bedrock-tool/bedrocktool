@@ -49,7 +49,7 @@ func get_token() oauth2.Token {
 	return token
 }
 
-func server_input(ctx context.Context, server string) (string, string) {
+func server_input(server string) (string, string) {
 	if server == "" {
 		fmt.Printf("Enter Server: ")
 		reader := bufio.NewReader(os.Stdin)
@@ -75,7 +75,7 @@ func connect_server(ctx context.Context, server string) (hostname string, conn *
 			return "", nil, err
 		}
 	} else {
-		hostname, server = server_input(ctx, server)
+		hostname, server = server_input(server)
 	}
 
 	var packet_func func(header packet.Header, payload []byte, src, dst net.Addr) = nil
