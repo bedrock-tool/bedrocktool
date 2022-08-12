@@ -15,13 +15,6 @@ jobs:
       - uses: actions-ecosystem/action-get-latest-tag@v1
         id: get-latest-tag
 
-      - uses: actions-ecosystem/action-bump-semver@v1
-        id: bump-semver
-        with:
-          current_version: ${{ steps.get-latest-tag.outputs.tag }}
-          level: patch
-        if: "${{ github.ref_type }} != 'tag'"
-
 # build
       - uses: actions/setup-go@v3
         with:
@@ -36,7 +29,7 @@ jobs:
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: ${{ steps.bump-semver.outputs.new_version }}
+          automatic_release_tag: ${{ steps.get-latest-tag.outputs.tag }}
           prerelease: true
           title: "Development Build"
           files: |
