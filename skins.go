@@ -184,7 +184,12 @@ func skin_main(ctx context.Context, args []string) error {
 		return nil
 	}
 
-	hostname, serverConn, err := connect_server(ctx, server)
+	address, hostname, err := server_input(server)
+	if err != nil {
+		return err
+	}
+
+	serverConn, err := connect_server(ctx, address, nil)
 	if err != nil {
 		return err
 	}

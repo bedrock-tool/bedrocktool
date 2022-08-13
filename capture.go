@@ -14,7 +14,6 @@ import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcapgo"
-	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 )
@@ -83,45 +82,11 @@ func packets_main(ctx context.Context, args []string) error {
 		return nil
 	}
 
-	var hostname string
-	hostname, server = server_input(server)
+	address, hostname, err := server_input(server)
 
-	_status := minecraft.NewStatusProvider("Server")
-	listener, err := minecraft.ListenConfig{
-		StatusProvider: _status,
-	}.Listen("raknet", ":19132")
+	listener, serverConn, clientConn, err := create_proxy(ctx, address)
 	if err != nil {
 		return err
-	}
-	defer listener.Close()
-
-	fmt.Printf("Listening on %s\n", listener.Addr())
-
-	c, err := listener.Accept()
-	if err != nil {
-		log.Fatal(err)
-	}
-	conn := c.(*minecraft.Conn)
-
-	var packet_func func(header packet.Header, payload []byte, src, dst net.Addr) = nil
-	if G_debug {
-		packet_func = PacketLogger
-	}
-
-	fmt.Printf("Connecting to %s\n", server)
-	serverConn, err := minecraft.Dialer{
-		TokenSource: G_src,
-		ClientData:  conn.ClientData(),
-		PacketFunc:  packet_func,
-	}.DialContext(ctx, "raknet", server)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to connect to %s: %s\n", server, err)
-		return nil
-	}
-
-	if err := spawn_conn(ctx, conn, serverConn); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to spawn: %s\n", err)
-		return nil
 	}
 
 	f, err := os.Create(hostname + "-" + time.Now().Format("2006-01-02_15-04-05") + ".pcap")
@@ -133,25 +98,13 @@ func packets_main(ctx context.Context, args []string) error {
 	w.WriteFileHeader(65536, layers.LinkTypeEthernet)
 
 	_wl := sync.Mutex{}
-	/* TEST
-	{
-		for i := 0; i < 1000; i++ {
-			dump_packet(false, w, &packet.SetTitle{
-				Text: fmt.Sprintf("Test %d", i),
-			})
-			dump_packet(true, w, &packet.MovePlayer{
-				Tick: uint64(i),
-			})
-		}
-	}
-	return nil
-	*/
+
 	go func() {
-		defer listener.Disconnect(conn, "connection lost")
+		defer listener.Disconnect(clientConn, "connection lost")
 		defer serverConn.Close()
 
 		for {
-			pk, err := conn.ReadPacket()
+			pk, err := clientConn.ReadPacket()
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Failed to read packet: %s\n", err)
 				return
@@ -180,7 +133,7 @@ func packets_main(ctx context.Context, args []string) error {
 		dump_packet(false, w, pk)
 		_wl.Unlock()
 
-		err = conn.WritePacket(pk)
+		err = clientConn.WritePacket(pk)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to write packet: %s\n", err)
 			return nil

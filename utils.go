@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"regexp"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/auth"
+	"github.com/sandertv/gophertunnel/minecraft/protocol/login"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"golang.org/x/oauth2"
 )
@@ -49,55 +51,69 @@ func get_token() oauth2.Token {
 	return token
 }
 
-func server_input(server string) (string, string) {
-	if server == "" {
+func server_input(server string) (address, name string, err error) {
+	if server == "" { // no arg provided, interactive input
 		fmt.Printf("Enter Server: ")
 		reader := bufio.NewReader(os.Stdin)
 		server, _ = reader.ReadString('\n')
 		r, _ := regexp.Compile(`[\n\r]`)
 		server = string(r.ReplaceAll([]byte(server), []byte("")))
 	}
-	if len(strings.Split(server, ":")) == 1 {
-		server += ":19132"
+
+	if strings.HasPrefix(server, "realm:") { // for realms use api to get ip address
+		name, address, err = get_realm(strings.Split(server, ":")[1])
+		if err != nil {
+			return "", "", err
+		}
+	} else {
+		// if an actual server address if given
+		// add port if necessary
+		address = server
+		if len(strings.Split(address, ":")) == 1 {
+			address += ":19132"
+		}
+		name = server_url_to_name(address)
 	}
+
+	return address, name, nil
+}
+
+func server_url_to_name(server string) string {
 	host, _, err := net.SplitHostPort(server)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Invalid server: %s\n", err)
 		os.Exit(1)
 	}
-	return host, server
+	return host
 }
 
-func connect_server(ctx context.Context, server string) (hostname string, conn *minecraft.Conn, err error) {
-	if strings.HasPrefix(server, "realm:") {
-		hostname, server, err = get_realm(strings.Split(server, ":")[1])
-		if err != nil {
-			return "", nil, err
-		}
-	} else {
-		hostname, server = server_input(server)
-	}
-
+func connect_server(ctx context.Context, address string, ClientData *login.ClientData) (serverConn *minecraft.Conn, err error) {
 	var packet_func func(header packet.Header, payload []byte, src, dst net.Addr) = nil
 	if G_debug {
 		packet_func = PacketLogger
 	}
 
-	fmt.Printf("Connecting to %s\n", server)
-	conn, err = minecraft.Dialer{
-		TokenSource: G_src,
-		PacketFunc:  packet_func,
-	}.DialContext(ctx, "raknet", server)
-	if err != nil {
-		return "", nil, err
+	cd := login.ClientData{}
+	if ClientData != nil {
+		cd = *ClientData
 	}
-	return hostname, conn, nil
+
+	fmt.Printf("Connecting to %s\n", address)
+	serverConn, err = minecraft.Dialer{
+		TokenSource: G_src,
+		ClientData:  cd,
+		PacketFunc:  packet_func,
+	}.DialContext(ctx, "raknet", address)
+	if err != nil {
+		return nil, err
+	}
+	return serverConn, nil
 }
 
-func spawn_conn(ctx context.Context, conn *minecraft.Conn, serverConn *minecraft.Conn) error {
+func spawn_conn(ctx context.Context, clientConn *minecraft.Conn, serverConn *minecraft.Conn) error {
 	errs := make(chan error, 2)
 	go func() {
-		errs <- conn.StartGame(serverConn.GameData())
+		errs <- clientConn.StartGame(serverConn.GameData())
 	}()
 	go func() {
 		errs <- serverConn.DoSpawn()
@@ -115,4 +131,42 @@ func spawn_conn(ctx context.Context, conn *minecraft.Conn, serverConn *minecraft
 		}
 	}
 	return nil
+}
+
+func create_proxy(ctx context.Context, server_address string) (l *minecraft.Listener, clientConn, serverConn *minecraft.Conn, err error) {
+	_status := minecraft.NewStatusProvider("Server")
+	listener, err := minecraft.ListenConfig{
+		StatusProvider: _status,
+	}.Listen("raknet", ":19132")
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	l = listener
+
+	fmt.Printf("Listening on %s\n", listener.Addr())
+
+	c, err := listener.Accept()
+	if err != nil {
+		log.Fatal(err)
+	}
+	clientConn = c.(*minecraft.Conn)
+
+	cd := clientConn.ClientData()
+	serverConn, err = connect_server(ctx, server_address, &cd)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to connect to %s: %s", server_address, err)
+	}
+
+	if err := spawn_conn(ctx, clientConn, serverConn); err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to spawn: %s", err)
+	}
+
+	G_exit = append(G_exit, func() {
+		serverConn.Close()
+		listener.Disconnect(clientConn, "Closing")
+		clientConn.Close()
+		listener.Close()
+	})
+
+	return l, clientConn, serverConn, nil
 }

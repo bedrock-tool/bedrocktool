@@ -8,8 +8,6 @@ import (
 	"image"
 	"image/draw"
 	"log"
-	"net"
-	"os"
 	"path"
 	"time"
 
@@ -36,9 +34,11 @@ type TPlayerPos struct {
 // the state used for drawing and saving
 
 type WorldState struct {
-	chunks    map[protocol.ChunkPos]*chunk.Chunk
-	Dim       world.Dimension
-	WorldName string
+	chunks       map[protocol.ChunkPos]*chunk.Chunk
+	Dim          world.Dimension
+	WorldName    string
+	ServerName   string
+	worldCounter int
 
 	PlayerPos  TPlayerPos
 	ClientConn *minecraft.Conn
@@ -66,13 +66,12 @@ func init() {
 }
 
 func world_main(ctx context.Context, args []string) error {
-	var server string
+	var server_address string
 
 	if len(args) >= 1 {
-		server = args[0]
+		server_address = args[0]
 		args = args[1:]
 	}
-	_, server = server_input(server)
 
 	flag.CommandLine.Parse(args)
 	if G_help {
@@ -80,26 +79,16 @@ func world_main(ctx context.Context, args []string) error {
 		return nil
 	}
 
-	_status := minecraft.NewStatusProvider("Server")
-	listener, err := minecraft.ListenConfig{
-		StatusProvider: _status,
-	}.Listen("raknet", ":19132")
+	server_address, hostname, err := server_input(server_address)
 	if err != nil {
 		return err
 	}
-	defer listener.Close()
 
-	fmt.Printf("Listening on %s\n", listener.Addr())
-
-	c, err := listener.Accept()
+	listener, clientConn, serverConn, err := create_proxy(ctx, server_address)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
-
-	// not a goroutine, only 1 client at a time
-
-	world_state := NewWorldState()
-	world_state.handleConn(ctx, c.(*minecraft.Conn), listener, server)
+	handleConn(ctx, listener, clientConn, serverConn, hostname)
 
 	return nil
 }
@@ -188,9 +177,8 @@ func (w *WorldState) ProcessAnimate(pk *packet.Animate) {
 
 func (w *WorldState) ProcessChangeDimension(pk *packet.ChangeDimension) {
 	fmt.Printf("ChangeDimension %d\n", pk.Dimension)
+	w.SaveAndReset()
 	w.Dim = dimension_ids[pk.Dimension]
-	w.chunks = make(map[protocol.ChunkPos]*chunk.Chunk)
-	w.ui.Reset()
 }
 
 func (w *WorldState) SetPlayerPos(Position mgl32.Vec3, Pitch, Yaw, HeadYaw float32) {
@@ -220,57 +208,36 @@ func (w *WorldState) SaveAndReset() {
 		int(w.PlayerPos.Position[1]),
 		int(w.PlayerPos.Position[2]),
 	}
+
+	for _, gr := range w.ServerConn.GameData().GameRules {
+		switch gr.Name {
+		// todo
+		}
+	}
+
 	provider.SaveSettings(s)
 	provider.Close()
 	w.chunks = make(map[protocol.ChunkPos]*chunk.Chunk)
 	w.ui.Reset()
 }
 
-func (w *WorldState) handleConn(ctx context.Context, conn *minecraft.Conn, listener *minecraft.Listener, target string) {
-	w.ClientConn = conn
-
-	var packet_func func(header packet.Header, payload []byte, src, dst net.Addr) = nil
-	if G_debug {
-		packet_func = PacketLogger
-	}
-
-	fmt.Printf("Connecting to %s\n", target)
-	serverConn, err := minecraft.Dialer{
-		TokenSource: G_src,
-		ClientData:  conn.ClientData(),
-		PacketFunc:  packet_func,
-	}.DialContext(ctx, "raknet", target)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to connect to %s: %s\n", target, err)
-		return
-	}
-	w.ServerConn = serverConn
-
-	if err := spawn_conn(ctx, conn, serverConn); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to spawn: %s\n", err)
-		return
-	}
+func handleConn(ctx context.Context, l *minecraft.Listener, cc, sc *minecraft.Conn, server_name string) {
+	w := NewWorldState()
+	w.ServerName = server_name
+	w.ClientConn = cc
+	w.ServerConn = sc
 
 	G_exit = append(G_exit, func() {
-		serverConn.Close()
-		conn.WritePacket(&packet.Disconnect{
-			Message:                 "Closing",
-			HideDisconnectionScreen: false,
-		})
-		conn.Close()
-		listener.Close()
 		w.SaveAndReset()
 	})
 
 	done := make(chan struct{})
 
 	go func() { // client loop
-		defer listener.Disconnect(conn, "connection lost")
-		defer serverConn.Close()
 		defer func() { done <- struct{}{} }()
 		for {
 			skip := false
-			pk, err := conn.ReadPacket()
+			pk, err := w.ClientConn.ReadPacket()
 			if err != nil {
 				return
 			}
@@ -287,16 +254,16 @@ func (w *WorldState) handleConn(ctx context.Context, conn *minecraft.Conn, liste
 				}
 			case *packet.ClientCacheStatus:
 				pk.Enabled = false
-				serverConn.WritePacket(pk)
+				w.ServerConn.WritePacket(pk)
 				skip = true
 			case *packet.Animate:
 				w.ProcessAnimate(pk)
 			}
 
 			if !skip {
-				if err := serverConn.WritePacket(pk); err != nil {
+				if err := w.ServerConn.WritePacket(pk); err != nil {
 					if disconnect, ok := errors.Unwrap(err).(minecraft.DisconnectError); ok {
-						_ = listener.Disconnect(conn, disconnect.Error())
+						_ = l.Disconnect(w.ClientConn, disconnect.Error())
 					}
 					return
 				}
@@ -311,7 +278,7 @@ func (w *WorldState) handleConn(ctx context.Context, conn *minecraft.Conn, liste
 		default:
 			for {
 				time.Sleep(1 * time.Second)
-				err := conn.WritePacket(&MAP_ITEM_PACKET)
+				err := w.ClientConn.WritePacket(&MAP_ITEM_PACKET)
 				if err != nil {
 					return
 				}
@@ -320,11 +287,11 @@ func (w *WorldState) handleConn(ctx context.Context, conn *minecraft.Conn, liste
 	}()
 
 	go func() { // server loop
-		defer serverConn.Close()
-		defer listener.Disconnect(conn, "connection lost")
+		defer w.ServerConn.Close()
+		defer l.Disconnect(w.ClientConn, "connection lost")
 		defer func() { done <- struct{}{} }()
 
-		gd := serverConn.GameData()
+		gd := w.ServerConn.GameData()
 		w.ProcessChangeDimension(&packet.ChangeDimension{
 			Dimension: gd.Dimension,
 			Position:  gd.PlayerPosition,
@@ -332,10 +299,10 @@ func (w *WorldState) handleConn(ctx context.Context, conn *minecraft.Conn, liste
 		})
 
 		for {
-			pk, err := serverConn.ReadPacket()
+			pk, err := w.ServerConn.ReadPacket()
 			if err != nil {
 				if disconnect, ok := errors.Unwrap(err).(minecraft.DisconnectError); ok {
-					_ = listener.Disconnect(conn, disconnect.Error())
+					_ = l.Disconnect(w.ClientConn, disconnect.Error())
 				}
 				return
 			}
@@ -346,12 +313,12 @@ func (w *WorldState) handleConn(ctx context.Context, conn *minecraft.Conn, liste
 			case *packet.LevelChunk:
 				w.ProcessLevelChunk(pk)
 				w.ui.Send(w)
-				send_popup(conn, fmt.Sprintf("%d chunks loaded\n", len(w.chunks)))
+				send_popup(w.ClientConn, fmt.Sprintf("%d chunks loaded\n", len(w.chunks)))
 			case *packet.SubChunk:
 				w.ProcessSubChunk(pk)
 			}
 
-			if err := conn.WritePacket(pk); err != nil {
+			if err := w.ClientConn.WritePacket(pk); err != nil {
 				return
 			}
 		}
