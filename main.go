@@ -53,6 +53,7 @@ var muted_packets = []string{
 	"*packet.UpdateSubChunkBlocks",
 	"*packet.SubChunk",
 	"*packet.SubChunkRequest",
+	"*packet.Animate",
 }
 
 func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
@@ -76,7 +77,9 @@ func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
 	if slices.Contains(muted_packets, pk_name) {
 		return
 	}
-	switch pk.(type) {
+	switch pk := pk.(type) {
+	case *packet.Disconnect:
+		fmt.Printf("Disconnect: %s", pk.Message)
 	}
 	fmt.Printf("P: %s 0x%x, %s\n", dir, pk.ID(), pk_name)
 }
@@ -97,6 +100,14 @@ func register_command(name, desc string, main_func func(context.Context, []strin
 	}
 }
 
+func exit() {
+	fmt.Printf("\nExiting\n")
+	for i := len(G_exit) - 1; i >= 0; i-- { // go through cleanup functions reversed
+		G_exit[i]()
+	}
+	os.Exit(0)
+}
+
 func main() {
 	flag.BoolVar(&G_debug, "debug", false, "debug mode")
 	flag.BoolVar(&G_help, "help", false, "show help")
@@ -108,12 +119,8 @@ func main() {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigs
-		fmt.Printf("\nExiting\n")
 		cancel()
-		for i := len(G_exit) - 1; i >= 0; i-- { // go through cleanup functions reversed
-			G_exit[i]()
-		}
-		os.Exit(0)
+		exit()
 	}()
 
 	// authenticate
@@ -160,7 +167,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	sigs <- nil
+	exit()
 }
 
 func token_main(ctx context.Context, args []string) error {

@@ -16,7 +16,7 @@ require (
 //replace github.com/sandertv/gophertunnel => ./gophertunnel
 //replace github.com/df-mc/dragonfly => ./dragonfly
 
-replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.24.2-1
+replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.24.3
 replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.8.1-2
 
 require (

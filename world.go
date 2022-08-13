@@ -13,6 +13,7 @@ import (
 	"path"
 	"time"
 
+	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/df-mc/dragonfly/server/world/chunk"
 	"github.com/df-mc/dragonfly/server/world/mcdb"
@@ -35,7 +36,6 @@ type TPlayerPos struct {
 // the state used for drawing and saving
 
 type WorldState struct {
-	Provider  *mcdb.Provider // provider for the current world
 	chunks    map[protocol.ChunkPos]*chunk.Chunk
 	Dim       world.Dimension
 	WorldName string
@@ -50,7 +50,6 @@ type WorldState struct {
 
 func NewWorldState() *WorldState {
 	return &WorldState{
-		Provider:  nil,
 		chunks:    make(map[protocol.ChunkPos]*chunk.Chunk),
 		Dim:       nil,
 		WorldName: "world",
@@ -189,15 +188,6 @@ func (w *WorldState) ProcessAnimate(pk *packet.Animate) {
 
 func (w *WorldState) ProcessChangeDimension(pk *packet.ChangeDimension) {
 	fmt.Printf("ChangeDimension %d\n", pk.Dimension)
-	folder := path.Join("worlds", fmt.Sprintf("%s-dim-%d", w.WorldName, pk.Dimension))
-	provider, err := mcdb.New(folder, opt.DefaultCompression)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if w.Provider != nil {
-		w.Provider.Close()
-	}
-	w.Provider = provider
 	w.Dim = dimension_ids[pk.Dimension]
 	w.chunks = make(map[protocol.ChunkPos]*chunk.Chunk)
 	w.ui.Reset()
@@ -210,6 +200,30 @@ func (w *WorldState) SetPlayerPos(Position mgl32.Vec3, Pitch, Yaw, HeadYaw float
 		Yaw:      Yaw,
 		HeadYaw:  HeadYaw,
 	}
+}
+
+// writes the world to a folder, resets all the chunks
+func (w *WorldState) SaveAndReset() {
+	fmt.Println("Saving world")
+	folder := path.Join("worlds", fmt.Sprintf("%s-dim-%d", w.WorldName, w.Dim))
+	provider, err := mcdb.New(folder, opt.DefaultCompression)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	for cp, c := range w.chunks {
+		provider.SaveChunk((world.ChunkPos)(cp), c, w.Dim)
+	}
+	s := provider.Settings()
+	s.Spawn = cube.Pos{
+		int(w.PlayerPos.Position[0]),
+		int(w.PlayerPos.Position[1]),
+		int(w.PlayerPos.Position[2]),
+	}
+	provider.SaveSettings(s)
+	provider.Close()
+	w.chunks = make(map[protocol.ChunkPos]*chunk.Chunk)
+	w.ui.Reset()
 }
 
 func (w *WorldState) handleConn(ctx context.Context, conn *minecraft.Conn, listener *minecraft.Listener, target string) {
@@ -245,8 +259,7 @@ func (w *WorldState) handleConn(ctx context.Context, conn *minecraft.Conn, liste
 		})
 		conn.Close()
 		listener.Close()
-		println("Closing Provider")
-		w.Provider.Close()
+		w.SaveAndReset()
 	})
 
 	done := make(chan struct{})
