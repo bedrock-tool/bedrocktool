@@ -83,6 +83,9 @@ func packets_main(ctx context.Context, args []string) error {
 	}
 
 	address, hostname, err := server_input(server)
+	if err != nil {
+		return err
+	}
 
 	listener, serverConn, clientConn, err := create_proxy(ctx, address)
 	if err != nil {

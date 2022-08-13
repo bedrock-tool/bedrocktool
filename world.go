@@ -1,14 +1,18 @@
 package main
 
 import (
+	"archive/zip"
 	"context"
 	"errors"
 	"flag"
 	"fmt"
 	"image"
 	"image/draw"
+	"io/fs"
 	"log"
+	"os"
 	"path"
+	"path/filepath"
 	"time"
 
 	"github.com/df-mc/dragonfly/server/block/cube"
@@ -193,7 +197,8 @@ func (w *WorldState) SetPlayerPos(Position mgl32.Vec3, Pitch, Yaw, HeadYaw float
 // writes the world to a folder, resets all the chunks
 func (w *WorldState) SaveAndReset() {
 	fmt.Println("Saving world")
-	folder := path.Join("worlds", fmt.Sprintf("%s-dim-%d", w.WorldName, w.Dim))
+	folder := path.Join("worlds", fmt.Sprintf("%s/world-%d", w.ServerName, w.worldCounter))
+	os.MkdirAll(folder, 0777)
 	provider, err := mcdb.New(folder, opt.DefaultCompression)
 	if err != nil {
 		log.Fatal(err)
@@ -208,10 +213,72 @@ func (w *WorldState) SaveAndReset() {
 		int(w.PlayerPos.Position[1]),
 		int(w.PlayerPos.Position[2]),
 	}
-
+	ld := provider.LevelDat()
 	for _, gr := range w.ServerConn.GameData().GameRules {
 		switch gr.Name {
+		case "commandblockoutput":
+			ld.CommandBlockOutput = gr.Value.(bool)
+		case "maxcommandchainlength":
+			ld.MaxCommandChainLength = int32(gr.Value.(uint32))
+		case "commandblocksenabled":
+			ld.CommandsEnabled = gr.Value.(bool)
+		case "dodaylightcycle":
+			ld.DoDayLightCycle = gr.Value.(bool)
+		case "doentitydrops":
+			ld.DoEntityDrops = gr.Value.(bool)
+		case "dofiretick":
+			ld.DoFireTick = gr.Value.(bool)
+		case "domobloot":
+			ld.DoMobLoot = gr.Value.(bool)
+		case "domobspawning":
+			ld.DoMobSpawning = gr.Value.(bool)
+		case "dotiledrops":
+			ld.DoTileDrops = gr.Value.(bool)
+		case "doweathercycle":
+			ld.DoWeatherCycle = gr.Value.(bool)
+		case "drowningdamage":
+			ld.DrowningDamage = gr.Value.(bool)
+		case "doinsomnia":
+			ld.DoInsomnia = gr.Value.(bool)
+		case "falldamage":
+			ld.FallDamage = gr.Value.(bool)
+		case "firedamage":
+			ld.FireDamage = gr.Value.(bool)
+		case "keepinventory":
+			ld.KeepInventory = gr.Value.(bool)
+		case "mobgriefing":
+			ld.MobGriefing = gr.Value.(bool)
+		case "pvp":
+			ld.PVP = gr.Value.(bool)
+		case "showcoordinates":
+			ld.ShowCoordinates = gr.Value.(bool)
+		case "naturalregeneration":
+			ld.NaturalRegeneration = gr.Value.(bool)
+		case "tntexplodes":
+			ld.TNTExplodes = gr.Value.(bool)
+		case "sendcommandfeedback":
+			ld.SendCommandFeedback = gr.Value.(bool)
+		case "randomtickspeed":
+			ld.RandomTickSpeed = int32(gr.Value.(uint32))
+		case "doimmediaterespawn":
+			ld.DoImmediateRespawn = gr.Value.(bool)
+		case "showdeathmessages":
+			ld.ShowDeathMessages = gr.Value.(bool)
+		case "functioncommandlimit":
+			ld.FunctionCommandLimit = int32(gr.Value.(uint32))
+		case "spawnradius":
+			ld.SpawnRadius = int32(gr.Value.(uint32))
+		case "showtags":
+			ld.ShowTags = gr.Value.(bool)
+		case "freezedamage":
+			ld.FreezeDamage = gr.Value.(bool)
+		case "respawnblocksexplode":
+			ld.RespawnBlocksExplode = gr.Value.(bool)
+		case "showbordereffect":
+			ld.ShowBorderEffect = gr.Value.(bool)
 		// todo
+		default:
+			fmt.Printf("unknown gamerule: %s\n", gr.Name)
 		}
 	}
 
@@ -219,6 +286,34 @@ func (w *WorldState) SaveAndReset() {
 	provider.Close()
 	w.chunks = make(map[protocol.ChunkPos]*chunk.Chunk)
 	w.ui.Reset()
+
+	w.worldCounter += 1
+
+	filename := folder + ".mcworld"
+	f, err := os.Create(filename)
+	if err != nil {
+		log.Fatal(err)
+	}
+	zw := zip.NewWriter(f)
+	err = filepath.WalkDir(folder, func(path string, d fs.DirEntry, err error) error {
+		if d.Type().IsRegular() {
+			rel := path[len(folder)+1:]
+			zwf, _ := zw.Create(rel)
+			data, err := os.ReadFile(path)
+			if err != nil {
+				fmt.Println(err)
+			}
+			zwf.Write(data)
+		}
+		return nil
+	})
+	if err != nil {
+		fmt.Println(err)
+	}
+	zw.Close()
+	f.Close()
+	fmt.Printf("Saved: %s\n", filename)
+	os.RemoveAll(folder)
 }
 
 func handleConn(ctx context.Context, l *minecraft.Listener, cc, sc *minecraft.Conn, server_name string) {
@@ -292,11 +387,7 @@ func handleConn(ctx context.Context, l *minecraft.Listener, cc, sc *minecraft.Co
 		defer func() { done <- struct{}{} }()
 
 		gd := w.ServerConn.GameData()
-		w.ProcessChangeDimension(&packet.ChangeDimension{
-			Dimension: gd.Dimension,
-			Position:  gd.PlayerPosition,
-			Respawn:   false,
-		})
+		w.Dim = dimension_ids[gd.Dimension]
 
 		for {
 			pk, err := w.ServerConn.ReadPacket()

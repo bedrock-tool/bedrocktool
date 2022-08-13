@@ -11,7 +11,6 @@ import (
 	"os/signal"
 	"reflect"
 	"regexp"
-	"strings"
 	"syscall"
 
 	"github.com/sandertv/gophertunnel/minecraft/auth"
@@ -54,6 +53,7 @@ var muted_packets = []string{
 	"*packet.SubChunk",
 	"*packet.SubChunkRequest",
 	"*packet.Animate",
+	"*packet.NetworkStackLatency",
 }
 
 func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
@@ -67,13 +67,14 @@ func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
 		pk = pkFunc()
 	}
 	pk.Unmarshal(r)
-	dir := "<-C"
-	if strings.HasPrefix(strings.Split(src.String(), ":")[1], "19132") {
-		dir = "S->"
-	}
-	t := reflect.TypeOf(pk)
-	pk_name := t.String()
 
+	dir := "S->C"
+	src_addr, _, _ := net.SplitHostPort(src.String())
+	if IPPrivate(net.ParseIP(src_addr)) {
+		dir = "C->S"
+	}
+
+	pk_name := reflect.TypeOf(pk).String()
 	if slices.Contains(muted_packets, pk_name) {
 		return
 	}
@@ -81,7 +82,7 @@ func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
 	case *packet.Disconnect:
 		fmt.Printf("Disconnect: %s", pk.Message)
 	}
-	fmt.Printf("P: %s 0x%x, %s\n", dir, pk.ID(), pk_name)
+	fmt.Printf("%s 0x%x, %s\n", dir, pk.ID(), pk_name)
 }
 
 type CMD struct {
