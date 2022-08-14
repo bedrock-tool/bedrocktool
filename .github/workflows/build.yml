@@ -44,5 +44,5 @@ jobs:
           prerelease: true
           title: "Development Build"
           files: |
-            bedrocktool_*
+            bedrocktool-*_*
         if: ${{ !env.ACT }}
