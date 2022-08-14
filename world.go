@@ -157,7 +157,7 @@ func (w *WorldState) ProcessSubChunk(pk *packet.SubChunk) {
 			fmt.Printf("the server didnt send the chunk before the subchunk!\n")
 			continue
 		}
-		err := ch.ApplySubChunkEntry(int(abs_y), &sub)
+		err := ch.ApplySubChunkEntry(uint8(abs_y), &sub)
 		if err != nil {
 			fmt.Print(err)
 		}
