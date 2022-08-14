@@ -34,7 +34,7 @@ jobs:
           REPO_KEY: ${{ secrets.REPO_KEY }}
 
       - name: build
-        run: make windows linux mac
+        run: make
 
 # create release
       - uses: "marvinpinto/action-automatic-releases@latest"
