@@ -28,6 +28,8 @@ github.com/klauspost/compress v1.15.9 h1:wKRjX6JRtDdrE9qwa4b/Cip7ACOshUI4smpCQan
 github.com/klauspost/compress v1.15.9/go.mod h1:PhcZ0MbTNciWF3rruxRgKxI5NkcHHrHUDtV4Yw2GlzU=
 github.com/muhammadmuzzammil1998/jsonc v1.0.0 h1:8o5gBQn4ZA3NBA9DlTujCj2a4w0tqWrPVjDwhzkgTIs=
 github.com/muhammadmuzzammil1998/jsonc v1.0.0/go.mod h1:saF2fIVw4banK0H4+/EuqfFLpRnoy5S+ECwTOCcRcSU=
+github.com/olebeck/dragonfly v0.8.2-1 h1:hC0iWH7WFOpsvR3XeTwJSRKtKO+GhEcMq+H+DHUwHWc=
+github.com/olebeck/dragonfly v0.8.2-1/go.mod h1:xgpCDhHoP03RygPaTrzzDwsSTcEZhxNPMV3CAxETj+I=
 github.com/olebeck/dragonfly v0.8.2 h1:UIFDpktsif5pzQp0ewJIOtpzbNzuKHSMCPT69HHhKyo=
 github.com/olebeck/dragonfly v0.8.2/go.mod h1:xgpCDhHoP03RygPaTrzzDwsSTcEZhxNPMV3CAxETj+I=
 github.com/olebeck/gophertunnel v1.24.4 h1:nX7Std61XpXW4VP7KKd2RvinRwx1nGB5l8QnbwrArLE=

@@ -13,6 +13,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/df-mc/dragonfly/server/block/cube"
@@ -67,6 +68,27 @@ var black_16x16 = image.NewRGBA(image.Rect(0, 0, 16, 16))
 func init() {
 	draw.Draw(black_16x16, image.Rect(0, 0, 16, 16), image.Black, image.Point{}, draw.Src)
 	register_command("world", "Launch world downloading proxy", world_main)
+	register_command("test-chunk", "test chunk decode", test_chunk)
+}
+
+func test_chunk(ctx context.Context, args []string) error {
+	if len(args) == 0 {
+		return fmt.Errorf("not enough args")
+	}
+	fname, air, count := args[0], args[1], args[2]
+	_air, _ := strconv.Atoi(air)
+	_count, _ := strconv.Atoi(count)
+	data, err := os.ReadFile(fname)
+	if err != nil {
+		return err
+	}
+
+	ch, err := chunk.NetworkDecode(uint32(_air), data, _count, cube.Range{-64, 319})
+	if err != nil {
+		return err
+	}
+	ch.Range()
+	return nil
 }
 
 func world_main(ctx context.Context, args []string) error {
@@ -181,7 +203,12 @@ func (w *WorldState) ProcessAnimate(pk *packet.Animate) {
 
 func (w *WorldState) ProcessChangeDimension(pk *packet.ChangeDimension) {
 	fmt.Printf("ChangeDimension %d\n", pk.Dimension)
-	w.SaveAndReset()
+	if len(w.chunks) > 0 {
+		w.SaveAndReset()
+	} else {
+		fmt.Println("Info: Skipping save because the world didnt contain any chunks")
+		w.Reset()
+	}
 	w.Dim = dimension_ids[pk.Dimension]
 }
 
@@ -192,6 +219,11 @@ func (w *WorldState) SetPlayerPos(Position mgl32.Vec3, Pitch, Yaw, HeadYaw float
 		Yaw:      Yaw,
 		HeadYaw:  HeadYaw,
 	}
+}
+
+func (w *WorldState) Reset() {
+	w.chunks = make(map[protocol.ChunkPos]*chunk.Chunk)
+	w.ui.Reset()
 }
 
 // writes the world to a folder, resets all the chunks
@@ -288,9 +320,6 @@ func (w *WorldState) SaveAndReset() {
 
 	provider.SaveSettings(s)
 	provider.Close()
-	w.chunks = make(map[protocol.ChunkPos]*chunk.Chunk)
-	w.ui.Reset()
-
 	w.worldCounter += 1
 
 	filename := folder + ".mcworld"
@@ -318,6 +347,7 @@ func (w *WorldState) SaveAndReset() {
 	f.Close()
 	fmt.Printf("Saved: %s\n", filename)
 	os.RemoveAll(folder)
+	w.Reset()
 }
 
 func handleConn(ctx context.Context, l *minecraft.Listener, cc, sc *minecraft.Conn, server_name string) {
