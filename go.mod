@@ -14,11 +14,12 @@ require (
 )
 
 //replace github.com/sandertv/gophertunnel => ./gophertunnel
+
 //replace github.com/df-mc/dragonfly => ./dragonfly
 
 replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.24.4
 
-replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.8.1-3
+replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.8.1-4
 
 require (
 	github.com/brentp/intintmap v0.0.0-20190211203843-30dc0ade9af9 // indirect

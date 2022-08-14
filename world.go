@@ -282,6 +282,10 @@ func (w *WorldState) SaveAndReset() {
 		}
 	}
 
+	// dont generate
+	ld.FlatWorldLayers = `{"biome_id":1,"block_layers":[{"block_data":0,"block_id":0,"count":1},{"block_data":0,"block_id":0,"count":2},{"block_data":0,"block_id":0,"count":1}],"encoding_version":3,"structure_options":null}`
+	ld.Generator = 2
+
 	provider.SaveSettings(s)
 	provider.Close()
 	w.chunks = make(map[protocol.ChunkPos]*chunk.Chunk)
