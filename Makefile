@@ -1,7 +1,7 @@
 GC = go build -ldflags "-s -w"
 TAG = $(shell git describe --tags)
 
-NAME = bedrocktool_${TAG}
+NAME = bedrocktool-${TAG}
 SRCS = $(wildcard *.go)
 
 
@@ -18,26 +18,27 @@ GC += -overlay overlay.json
 endif
 
 
+BUILDS=\
+	windows_amd64.exe\
+	windows_arm64.exe\
+	darwin_amd64\
+	darwin_arm64\
+	linux_amd64\
+	linux_arm64
 
-all: windows linux
 
-.PHONY: all clean windows linux mac
+DISTS=$(BUILDS:%=$(NAME)_%)
 
-windows: $(NAME).exe
-linux: $(NAME)-linux
-mac: $(NAME)-mac
+all: $(DISTS)
 
+.PHONY: all clean $(DISTS)
 
-$(NAME).exe: $(SRCS)
-	echo TAG: ${TAG}
-	GOOS=windows $(GC) -o $@
+$(DISTS): OS = $(word 2,$(subst _, ,$@))
+$(DISTS): ARCH = $(word 1,$(subst ., ,$(word 3,$(subst _, ,$@))))
 
-$(NAME)-linux: $(SRCS)
-	GOOS=linux $(GC) -o $@
-
-$(NAME)-mac: $(SRCS)
-	GOOS=darwin $(GC) -o $@
-
+$(DISTS): $(SRCS)
+	@echo "building: $@"
+	GOOS=$(OS) GOARCH=$(ARCH) $(GC) -o $@
 
 clean:
 	rm $(NAME).exe $(NAME)-linux $(NAME)-mac
