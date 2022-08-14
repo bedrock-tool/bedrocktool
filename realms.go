@@ -1,11 +1,15 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
+
+	"github.com/google/subcommands"
 )
 
 type Realm struct {
@@ -105,4 +109,23 @@ func list_realms() error {
 		fmt.Printf("%s\t\t(%d)\n", realm.Name, realm.Id)
 	}
 	return nil
+}
+
+type TokenCMD struct{}
+
+func (*TokenCMD) Name() string     { return "realms-token" }
+func (*TokenCMD) Synopsis() string { return "print xbl3.0 token for realms api" }
+
+func (c *TokenCMD) SetFlags(f *flag.FlagSet) {}
+func (c *TokenCMD) Usage() string {
+	return c.Name() + ": " + c.Synopsis() + "\n"
+}
+
+func (c *TokenCMD) Execute(_ context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
+	fmt.Printf("%s\n", G_xbl_token.AuthorizationToken.Token)
+	return 0
+}
+
+func init() {
+	register_command(&TokenCMD{})
 }

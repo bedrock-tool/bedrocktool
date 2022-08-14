@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"path"
 	"regexp"
 	"strings"
 
@@ -192,6 +193,7 @@ var PrivateIPNetworks = []net.IPNet{
 	},
 }
 
+// check if ip is private
 func IPPrivate(ip net.IP) bool {
 	for _, ipNet := range PrivateIPNetworks {
 		if ipNet.Contains(ip) {
@@ -199,4 +201,54 @@ func IPPrivate(ip net.IP) bool {
 		}
 	}
 	return false
+}
+
+// GetLocalIP returns the non loopback local IP of the host
+func GetLocalIP() string {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return ""
+	}
+	for _, address := range addrs {
+		// check the address type and if it is not a loopback the display it
+		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				return ipnet.IP.String()
+			}
+		}
+	}
+	return ""
+}
+
+// get longest line length
+func max_len(lines []string) int {
+	o := 0
+	for _, line := range lines {
+		if o < len(line) {
+			o = len(line)
+		}
+	}
+	return o
+}
+
+// make text centered
+func margin_lines(lines []string) string {
+	ret := ""
+	max := max_len(lines)
+	for _, line := range lines {
+		if len(line) != max {
+			ret += strings.Repeat(" ", max/2-len(line)/4)
+		}
+		ret += line + "\n"
+	}
+	return ret
+}
+
+// split path to filename and extension
+func splitext(filename string) (name, ext string) {
+	name, ext = path.Base(filename), path.Ext(filename)
+	if ext != "" {
+		name = strings.TrimSuffix(name, ext)
+	}
+	return
 }

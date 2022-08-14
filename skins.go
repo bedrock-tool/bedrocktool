@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/google/subcommands"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
@@ -101,10 +102,6 @@ func (skin *Skin) Write(output_path, name string) error {
 	return err
 }
 
-func init() {
-	register_command("skins", "skin stealer", skin_main)
-}
-
 var name_regexp = regexp.MustCompile(`§.`)
 
 func cleanup_name(name string) string {
@@ -169,36 +166,41 @@ func process_packet_skins(conn *minecraft.Conn, out_path string, pk packet.Packe
 	}
 }
 
-func skin_main(ctx context.Context, args []string) error {
-	var server string
+type SkinCMD struct {
+	server_address string
+	filter         string
+}
 
-	if len(args) >= 1 {
-		server = args[0]
-		args = args[1:]
-	}
+func (*SkinCMD) Name() string     { return "skins" }
+func (*SkinCMD) Synopsis() string { return "download all skins from players on a server" }
 
-	flag.StringVar(&skin_filter_player, "player", "", "only download the skin of this player")
-	flag.CommandLine.Parse(args)
-	if G_help {
-		flag.Usage()
-		return nil
-	}
+func (c *SkinCMD) SetFlags(f *flag.FlagSet) {
+	f.StringVar(&c.server_address, "address", "", "remote server address")
+	f.StringVar(&c.filter, "filter", "", "player name filter prefix")
+}
+func (c *SkinCMD) Usage() string {
+	return c.Name() + ": " + c.Synopsis() + "\n"
+}
 
-	address, hostname, err := server_input(server)
+func (c *SkinCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
+	address, hostname, err := server_input(c.server_address)
 	if err != nil {
-		return err
+		fmt.Fprint(os.Stderr, err)
+		return 1
 	}
 
 	serverConn, err := connect_server(ctx, address, nil)
 	if err != nil {
-		return err
+		fmt.Fprint(os.Stderr, err)
+		return 1
 	}
 	defer serverConn.Close()
 
 	out_path := fmt.Sprintf("skins/%s", hostname)
 
 	if err := serverConn.DoSpawnContext(ctx); err != nil {
-		return err
+		fmt.Fprint(os.Stderr, err)
+		return 1
 	}
 
 	println("Connected")
@@ -209,8 +211,12 @@ func skin_main(ctx context.Context, args []string) error {
 	for {
 		pk, err := serverConn.ReadPacket()
 		if err != nil {
-			return err
+			return 1
 		}
 		process_packet_skins(nil, out_path, pk)
 	}
+}
+
+func init() {
+	register_command(&SkinCMD{})
 }

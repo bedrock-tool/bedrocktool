@@ -13,15 +13,19 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
+	"strings"
 	"time"
 
 	"github.com/df-mc/dragonfly/server/block/cube"
+	"github.com/df-mc/dragonfly/server/entity"
+	"github.com/df-mc/dragonfly/server/item"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/df-mc/dragonfly/server/world/chunk"
 	"github.com/df-mc/dragonfly/server/world/mcdb"
 	"github.com/df-mc/goleveldb/leveldb/opt"
 	"github.com/go-gl/mathgl/mgl32"
+	"github.com/go-gl/mathgl/mgl64"
+	"github.com/google/subcommands"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
@@ -40,6 +44,7 @@ type TPlayerPos struct {
 
 type WorldState struct {
 	chunks       map[protocol.ChunkPos]*chunk.Chunk
+	entities     map[int64]world.SaveableEntity
 	Dim          world.Dimension
 	WorldName    string
 	ServerName   string
@@ -63,60 +68,58 @@ func NewWorldState() *WorldState {
 	}
 }
 
+var setname_command = protocol.Command{
+	Name:        "setname",
+	Description: "set user defined name for this world",
+	Overloads: []protocol.CommandOverload{
+		{
+			Parameters: []protocol.CommandParameter{
+				{
+					Name:     "name",
+					Type:     protocol.CommandArgTypeFilepath,
+					Optional: false,
+				},
+			},
+		},
+	},
+}
+
 var black_16x16 = image.NewRGBA(image.Rect(0, 0, 16, 16))
 
 func init() {
 	draw.Draw(black_16x16, image.Rect(0, 0, 16, 16), image.Black, image.Point{}, draw.Src)
-	register_command("world", "Launch world downloading proxy", world_main)
-	register_command("test-chunk", "test chunk decode", test_chunk)
+	register_command(&WorldCMD{})
 }
 
-func test_chunk(ctx context.Context, args []string) error {
-	if len(args) == 0 {
-		return fmt.Errorf("not enough args")
-	}
-	fname, air, count := args[0], args[1], args[2]
-	_air, _ := strconv.Atoi(air)
-	_count, _ := strconv.Atoi(count)
-	data, err := os.ReadFile(fname)
-	if err != nil {
-		return err
-	}
-
-	ch, err := chunk.NetworkDecode(uint32(_air), data, _count, cube.Range{-64, 319})
-	if err != nil {
-		return err
-	}
-	ch.Range()
-	return nil
+type WorldCMD struct {
+	server_address string
 }
 
-func world_main(ctx context.Context, args []string) error {
-	var server_address string
+func (*WorldCMD) Name() string     { return "worlds" }
+func (*WorldCMD) Synopsis() string { return "download a world from a server" }
 
-	if len(args) >= 1 {
-		server_address = args[0]
-		args = args[1:]
-	}
+func (p *WorldCMD) SetFlags(f *flag.FlagSet) {
+	f.StringVar(&p.server_address, "address", "", "remote server address")
+}
+func (c *WorldCMD) Usage() string {
+	return c.Name() + ": " + c.Synopsis() + "\n"
+}
 
-	flag.CommandLine.Parse(args)
-	if G_help {
-		flag.Usage()
-		return nil
-	}
-
-	server_address, hostname, err := server_input(server_address)
+func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
+	server_address, hostname, err := server_input(c.server_address)
 	if err != nil {
-		return err
+		fmt.Fprintln(os.Stderr, err)
+		return 1
 	}
 
 	listener, clientConn, serverConn, err := create_proxy(ctx, server_address)
 	if err != nil {
-		return err
+		fmt.Fprintln(os.Stderr, err)
+		return 1
 	}
 	handleConn(ctx, listener, clientConn, serverConn, hostname)
 
-	return nil
+	return 0
 }
 
 var dimension_ids = map[int32]world.Dimension{
@@ -201,6 +204,19 @@ func (w *WorldState) ProcessAnimate(pk *packet.Animate) {
 	}
 }
 
+func (w *WorldState) ProcessAddItemActor(pk *packet.AddItemActor) {
+	it, ok := world.ItemByRuntimeID(pk.Item.StackNetworkID, int16(pk.Item.Stack.MetadataValue))
+	if !ok {
+		return
+	}
+	stack := item.NewStack(it, int(pk.Item.Stack.Count))
+	w.entities[pk.EntityUniqueID] = entity.NewItem(stack, mgl64.Vec3{
+		float64(pk.Position[0]),
+		float64(pk.Position[1]),
+		float64(pk.Position[2]),
+	})
+}
+
 func (w *WorldState) ProcessChangeDimension(pk *packet.ChangeDimension) {
 	fmt.Printf("ChangeDimension %d\n", pk.Dimension)
 	if len(w.chunks) > 0 {
@@ -210,6 +226,23 @@ func (w *WorldState) ProcessChangeDimension(pk *packet.ChangeDimension) {
 		w.Reset()
 	}
 	w.Dim = dimension_ids[pk.Dimension]
+}
+
+func (w *WorldState) SendMessage(text string) {
+	w.ClientConn.WritePacket(&packet.Text{
+		TextType: packet.TextTypeSystem,
+		Message:  "§8[§bBedrocktool§8]§r " + text,
+	})
+}
+
+func (w *WorldState) ProcessCommand(pk *packet.CommandRequest) bool {
+	cmd := strings.Split(pk.CommandLine, " ")
+	if cmd[0] == "/setname" && len(cmd) >= 2 {
+		w.WorldName = strings.Join(cmd[1:], " ")
+		w.SendMessage(fmt.Sprintf("worldName is now: %s", w.WorldName))
+		return true
+	}
+	return false
 }
 
 func (w *WorldState) SetPlayerPos(Position mgl32.Vec3, Pitch, Yaw, HeadYaw float32) {
@@ -223,13 +256,14 @@ func (w *WorldState) SetPlayerPos(Position mgl32.Vec3, Pitch, Yaw, HeadYaw float
 
 func (w *WorldState) Reset() {
 	w.chunks = make(map[protocol.ChunkPos]*chunk.Chunk)
+	w.WorldName = "world"
 	w.ui.Reset()
 }
 
 // writes the world to a folder, resets all the chunks
 func (w *WorldState) SaveAndReset() {
 	fmt.Println("Saving world")
-	folder := path.Join("worlds", fmt.Sprintf("%s/world-%d", w.ServerName, w.worldCounter))
+	folder := path.Join("worlds", fmt.Sprintf("%s/%s-%d", w.ServerName, w.WorldName, w.worldCounter))
 	os.MkdirAll(folder, 0777)
 	provider, err := mcdb.New(folder, opt.DefaultCompression)
 	if err != nil {
@@ -239,6 +273,9 @@ func (w *WorldState) SaveAndReset() {
 	for cp, c := range w.chunks {
 		provider.SaveChunk((world.ChunkPos)(cp), c, w.Dim)
 	}
+
+	//provider.SaveEntities(w.entities)
+
 	s := provider.Settings()
 	s.Spawn = cube.Pos{
 		int(w.PlayerPos.Position[0]),
@@ -356,6 +393,8 @@ func handleConn(ctx context.Context, l *minecraft.Listener, cc, sc *minecraft.Co
 	w.ClientConn = cc
 	w.ServerConn = sc
 
+	w.SendMessage("use /setname <worldname>\nto set the world name")
+
 	G_exit = append(G_exit, func() {
 		w.SaveAndReset()
 	})
@@ -387,6 +426,8 @@ func handleConn(ctx context.Context, l *minecraft.Listener, cc, sc *minecraft.Co
 				skip = true
 			case *packet.Animate:
 				w.ProcessAnimate(pk)
+			case *packet.CommandRequest:
+				skip = w.ProcessCommand(pk)
 			}
 
 			if !skip {
@@ -438,9 +479,13 @@ func handleConn(ctx context.Context, l *minecraft.Listener, cc, sc *minecraft.Co
 			case *packet.LevelChunk:
 				w.ProcessLevelChunk(pk)
 				w.ui.Send(w)
-				send_popup(w.ClientConn, fmt.Sprintf("%d chunks loaded\n", len(w.chunks)))
+				send_popup(w.ClientConn, fmt.Sprintf("%d chunks loaded\nname: %s", len(w.chunks), w.WorldName))
 			case *packet.SubChunk:
 				w.ProcessSubChunk(pk)
+			case *packet.AddItemActor:
+				w.ProcessAddItemActor(pk)
+			case *packet.AvailableCommands:
+				pk.Commands = append(pk.Commands, setname_command)
 			}
 
 			if err := w.ClientConn.WritePacket(pk); err != nil {

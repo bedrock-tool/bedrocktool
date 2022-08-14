@@ -14,6 +14,7 @@ import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcapgo"
+	"github.com/google/subcommands"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 )
@@ -22,7 +23,7 @@ var SrcIp_client = net.IPv4(127, 0, 0, 1)
 var SrcIp_server = net.IPv4(243, 0, 0, 2)
 
 func init() {
-	register_command("capture", "capture packets", packets_main)
+	register_command(&CaptureCMD{})
 }
 
 func dump_packet(from_client bool, w *pcapgo.Writer, pk packet.Packet) {
@@ -73,31 +74,40 @@ func dump_packet(from_client bool, w *pcapgo.Writer, pk packet.Packet) {
 	}
 }
 
-func packets_main(ctx context.Context, args []string) error {
-	var server string
-	flag.StringVar(&server, "server", "", "target server")
-	flag.CommandLine.Parse(args)
-	if G_help {
-		flag.Usage()
-		return nil
-	}
+type CaptureCMD struct {
+	server_address string
+}
 
-	address, hostname, err := server_input(server)
+func (*CaptureCMD) Name() string     { return "capture" }
+func (*CaptureCMD) Synopsis() string { return "capture packets in a pcap file" }
+
+func (p *CaptureCMD) SetFlags(f *flag.FlagSet) {
+	f.StringVar(&p.server_address, "address", "", "remote server address")
+}
+func (c *CaptureCMD) Usage() string {
+	return c.Name() + ": " + c.Synopsis() + "\n"
+}
+
+func (c *CaptureCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
+	address, hostname, err := server_input(c.server_address)
 	if err != nil {
-		return err
+		fmt.Fprintln(os.Stderr, err)
+		return 1
 	}
 
 	listener, serverConn, clientConn, err := create_proxy(ctx, address)
 	if err != nil {
-		return err
+		fmt.Fprintln(os.Stderr, err)
+		return 1
 	}
 
-	f, err := os.Create(hostname + "-" + time.Now().Format("2006-01-02_15-04-05") + ".pcap")
+	fio, err := os.Create(hostname + "-" + time.Now().Format("2006-01-02_15-04-05") + ".pcap")
 	if err != nil {
-		return err
+		fmt.Fprintln(os.Stderr, err)
+		return 1
 	}
-	defer f.Close()
-	w := pcapgo.NewWriter(f)
+	defer fio.Close()
+	w := pcapgo.NewWriter(fio)
 	w.WriteFileHeader(65536, layers.LinkTypeEthernet)
 
 	_wl := sync.Mutex{}
@@ -129,7 +139,7 @@ func packets_main(ctx context.Context, args []string) error {
 		pk, err := serverConn.ReadPacket()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to read packet: %s\n", err)
-			return nil
+			return 1
 		}
 
 		_wl.Lock()
@@ -139,7 +149,7 @@ func packets_main(ctx context.Context, args []string) error {
 		err = clientConn.WritePacket(pk)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to write packet: %s\n", err)
-			return nil
+			return 1
 		}
 	}
 }

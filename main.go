@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"syscall"
 
+	"github.com/google/subcommands"
 	"github.com/sandertv/gophertunnel/minecraft/auth"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
@@ -25,7 +26,6 @@ const TOKEN_FILE = "token.json"
 var G_src oauth2.TokenSource
 var G_xbl_token *auth.XBLToken
 var G_debug bool
-var G_help bool
 var G_exit []func() = []func(){}
 
 var pool = packet.NewPool()
@@ -85,22 +85,6 @@ func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
 	fmt.Printf("%s 0x%x, %s\n", dir, pk.ID(), pk_name)
 }
 
-type CMD struct {
-	Name string
-	Desc string
-	Main func(context.Context, []string) error
-}
-
-var cmds map[string]CMD = make(map[string]CMD)
-
-func register_command(name, desc string, main_func func(context.Context, []string) error) {
-	cmds[name] = CMD{
-		Name: name,
-		Desc: desc,
-		Main: main_func,
-	}
-}
-
 func exit() {
 	fmt.Printf("\nExiting\n")
 	for i := len(G_exit) - 1; i >= 0; i-- { // go through cleanup functions reversed
@@ -109,11 +93,49 @@ func exit() {
 	os.Exit(0)
 }
 
-func main() {
-	flag.BoolVar(&G_debug, "debug", false, "debug mode")
-	flag.BoolVar(&G_help, "help", false, "show help")
+var valid_cmds = make(map[string]string, 0)
 
+func register_command(sub subcommands.Command) {
+	subcommands.Register(sub, "")
+	valid_cmds[sub.Name()] = sub.Synopsis()
+}
+
+func main() {
 	ctx, cancel := context.WithCancel(context.Background())
+
+	flag.BoolVar(&G_debug, "debug", false, "debug mode")
+	enable_dns := flag.Bool("dns", false, "enable dns server for consoles")
+	subcommands.Register(subcommands.HelpCommand(), "")
+	subcommands.ImportantFlag("debug")
+	subcommands.ImportantFlag("dns")
+
+	{ // interactive input
+		if len(os.Args) < 2 {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				fmt.Println("Available commands:")
+				for name, desc := range valid_cmds {
+					fmt.Printf("\t%s\t%s\n", name, desc)
+				}
+				fmt.Printf("Use '%s <command>' to run a command\n", os.Args[0])
+
+				fmt.Printf("Input Command: ")
+				reader := bufio.NewReader(os.Stdin)
+				target, _ := reader.ReadString('\n')
+				r, _ := regexp.Compile(`[\n\r]`)
+				target = string(r.ReplaceAll([]byte(target), []byte("")))
+				os.Args = append(os.Args, target)
+			}
+		}
+	}
+
+	flag.Parse()
+
+	if *enable_dns {
+		init_dns()
+	}
 
 	// exit cleanup
 	sigs := make(chan os.Signal, 1)
@@ -124,58 +146,22 @@ func main() {
 		exit()
 	}()
 
-	// authenticate
-	token := get_token()
-	G_src = auth.RefreshTokenSource(&token)
-	{
-		_token, err := G_src.Token()
-		if err != nil {
-			panic(err)
-		}
-		G_xbl_token, err = auth.RequestXBLToken(ctx, _token, "https://pocket.realms.minecraft.net/")
-		if err != nil {
-			panic(err)
-		}
-	}
-
-	if len(os.Args) < 2 {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			fmt.Println("Available commands:")
-			for name, cmd := range cmds {
-				fmt.Printf("\t%s\t%s\n", name, cmd.Desc)
+	{ // authenticate
+		token := get_token()
+		G_src = auth.RefreshTokenSource(&token)
+		{
+			_token, err := G_src.Token()
+			if err != nil {
+				panic(err)
 			}
-			fmt.Printf("Use '%s <command>' to run a command\n", os.Args[0])
-
-			fmt.Printf("Input Command: ")
-			reader := bufio.NewReader(os.Stdin)
-			target, _ := reader.ReadString('\n')
-			r, _ := regexp.Compile(`[\n\r]`)
-			target = string(r.ReplaceAll([]byte(target), []byte("")))
-			os.Args = append(os.Args, target)
+			G_xbl_token, err = auth.RequestXBLToken(ctx, _token, "https://pocket.realms.minecraft.net/")
+			if err != nil {
+				panic(err)
+			}
 		}
 	}
 
-	cmd := cmds[os.Args[1]]
-	if cmd.Main == nil {
-		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", os.Args[1])
-		os.Exit(1)
-	}
-	if err := cmd.Main(ctx, os.Args[2:]); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-		os.Exit(1)
-	}
-
+	ret := subcommands.Execute(ctx)
 	exit()
-}
-
-func token_main(ctx context.Context, args []string) error {
-	fmt.Printf("%s\n", G_xbl_token.AuthorizationToken.Token)
-	return nil
-}
-
-func init() {
-	register_command("realms-token", "get xbl3.0 token for pocket.realms.minecraft.net", token_main)
+	os.Exit(int(ret))
 }

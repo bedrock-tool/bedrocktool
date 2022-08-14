@@ -7,35 +7,37 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/google/subcommands"
 	"github.com/sandertv/gophertunnel/minecraft"
 )
 
-func init() {
-	register_command("skins-proxy", "skin stealer (proxy)", skin_proxy_main)
+type SkinProxyCMD struct {
+	server_address string
+	filter         string
 }
 
-func skin_proxy_main(ctx context.Context, args []string) error {
-	var server string
-	if len(args) >= 1 {
-		server = args[0]
-		args = args[1:]
-	}
+func (*SkinProxyCMD) Name() string     { return "skins-proxy" }
+func (*SkinProxyCMD) Synopsis() string { return "download skins from players on a server with proxy" }
 
-	flag.StringVar(&skin_filter_player, "player", "", "only download the skin of this player")
-	flag.CommandLine.Parse(args)
-	if G_help {
-		flag.Usage()
-		return nil
-	}
+func (c *SkinProxyCMD) SetFlags(f *flag.FlagSet) {
+	f.StringVar(&c.server_address, "address", "", "remote server address")
+	f.StringVar(&c.filter, "filter", "", "player name filter prefix")
+}
+func (c *SkinProxyCMD) Usage() string {
+	return c.Name() + ": " + c.Synopsis() + "\n"
+}
 
-	address, hostname, err := server_input(server)
+func (c *SkinProxyCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
+	address, hostname, err := server_input(c.server_address)
 	if err != nil {
-		return err
+		fmt.Fprintln(os.Stderr, err)
+		return 1
 	}
 
 	listener, clientConn, serverConn, err := create_proxy(ctx, address)
 	if err != nil {
-		return err
+		fmt.Fprintln(os.Stderr, err)
+		return 1
 	}
 	defer listener.Close()
 
@@ -85,9 +87,14 @@ func skin_proxy_main(ctx context.Context, args []string) error {
 	for {
 		select {
 		case err := <-errs:
-			return err
+			fmt.Fprintln(os.Stderr, err)
+			return 1
 		case <-ctx.Done():
-			return nil
+			return 0
 		}
 	}
+}
+
+func init() {
+	register_command(&SkinProxyCMD{})
 }

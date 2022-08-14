@@ -2,18 +2,21 @@
 
 ## [releases](https://github.com/bedrock-tool/bedrocktool/releases)
 
-<pre>
-Available commands:
-        capture 		capture packets
-        realms-token    get xbl3.0 token
-        ~~packs			downloads resourcepacks from a server~~
-        skins-proxy     skin stealer (proxy)
-        skins   		skin stealer
-        world   		Launch world downloading proxy (NOT WORKING YET)
-</pre>
+```
+Usage: bedrocktool <flags> <subcommand> <subcommand args>
 
-usage:
-`./bedrocktool-<version>.exe <function> <address> [-debug>`
+Subcommands:
+        capture          capture packets in a pcap file
+        help             describe subcommands and their syntax
+        inject           inject files into a minecraft install (USE WITH CAUTION)
+        packs            download resource packs from a server
+        realms-token     print xbl3.0 token for realms api
+        skins            download all skins from players on a server
+        skins-proxy      download skins from players on a server with proxy
+        worlds           download a world from a server
 
-example:
-`./bedrocktool-v1.24.3.exe skins-proxy play.minecraft.net [-debug]`
+
+Top-level flags (use "bedrocktool flags" for a full list):
+  -debug=false: debug mode
+  -dns=false: enable dns server for consoles
+```
