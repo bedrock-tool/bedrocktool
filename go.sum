@@ -39,8 +39,12 @@ github.com/olebeck/dragonfly v0.8.2-1 h1:hC0iWH7WFOpsvR3XeTwJSRKtKO+GhEcMq+H+DHU
 github.com/olebeck/dragonfly v0.8.2-1/go.mod h1:xgpCDhHoP03RygPaTrzzDwsSTcEZhxNPMV3CAxETj+I=
 github.com/olebeck/dragonfly v0.8.2-2 h1:rIUAEJx2ZeQhsRFNkHXrfYR3Zl85WB5spS/SZEH91ag=
 github.com/olebeck/dragonfly v0.8.2-2/go.mod h1:xgpCDhHoP03RygPaTrzzDwsSTcEZhxNPMV3CAxETj+I=
+github.com/olebeck/dragonfly v0.8.2-3 h1:qzcNc76U1E8RXpg98Fv02kxFulhsR/TWcKArqRY+xdY=
+github.com/olebeck/dragonfly v0.8.2-3/go.mod h1:xgpCDhHoP03RygPaTrzzDwsSTcEZhxNPMV3CAxETj+I=
 github.com/olebeck/gophertunnel v1.24.4 h1:nX7Std61XpXW4VP7KKd2RvinRwx1nGB5l8QnbwrArLE=
 github.com/olebeck/gophertunnel v1.24.4/go.mod h1:dMOw79FHxr2azEqiGH20AwdljisAN1kqwu5SjPBnZ5k=
+github.com/olebeck/gophertunnel v1.24.5 h1:FtpHzfp833qQGBSJtKysSmRzFzsSheq5l61d5gTp03s=
+github.com/olebeck/gophertunnel v1.24.5/go.mod h1:dMOw79FHxr2azEqiGH20AwdljisAN1kqwu5SjPBnZ5k=
 github.com/onsi/ginkgo v1.6.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=
 github.com/onsi/ginkgo v1.7.0 h1:WSHQ+IS43OoUrWtD1/bbclrwK8TTH5hzp+umCiuxHgs=
 github.com/onsi/ginkgo v1.7.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=

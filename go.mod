@@ -20,9 +20,9 @@ require (
 
 //replace github.com/df-mc/dragonfly => ./dragonfly
 
-replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.24.4
+replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.24.5
 
-replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.8.2-2
+replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.8.2-3
 
 require (
 	github.com/brentp/intintmap v0.0.0-20190211203843-30dc0ade9af9 // indirect

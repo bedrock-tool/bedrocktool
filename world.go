@@ -303,7 +303,13 @@ func (w *WorldState) Reset() {
 // writes the world to a folder, resets all the chunks
 func (w *WorldState) SaveAndReset() {
 	fmt.Println("Saving world")
-	folder := path.Join("worlds", fmt.Sprintf("%s/%s-%d", w.ServerName, w.WorldName, w.worldCounter))
+	var world_name string
+	if w.WorldName == "world" {
+		world_name = fmt.Sprintf("%s-%d", w.WorldName, w.worldCounter)
+	} else {
+		world_name = w.WorldName
+	}
+	folder := path.Join("worlds", fmt.Sprintf("%s/%s", w.ServerName, world_name))
 	os.MkdirAll(folder, 0777)
 	provider, err := mcdb.New(folder, opt.DefaultCompression)
 	if err != nil {
@@ -336,6 +342,8 @@ func (w *WorldState) SaveAndReset() {
 		int(w.PlayerPos.Position[1]),
 		int(w.PlayerPos.Position[2]),
 	}
+	s.Name = w.WorldName
+
 	ld := provider.LevelDat()
 	for _, gr := range w.ServerConn.GameData().GameRules {
 		switch gr.Name {
@@ -492,6 +500,10 @@ func handleConn(ctx context.Context, l *minecraft.Listener, cc, sc *minecraft.Co
 				pk.Enabled = false
 				w.ServerConn.WritePacket(pk)
 				skip = true
+			case *packet.MobEquipment:
+				if pk.NewItem.Stack.NBTData["map_uuid"] == int64(VIEW_MAP_ID) {
+					skip = true
+				}
 			case *packet.Animate:
 				w.ProcessAnimate(pk)
 			case *packet.CommandRequest:
