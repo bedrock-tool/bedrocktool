@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/google/subcommands"
@@ -35,7 +36,7 @@ func realms_get(path string) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("%d", resp.StatusCode)
+		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
 	}
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -82,7 +83,7 @@ func get_realms() ([]Realm, error) {
 	return realms.Servers, nil
 }
 
-func get_realm(realm_name string) (string, string, error) {
+func get_realm(realm_name, id string) (string, string, error) {
 	// returns: name, address, err
 	realms, err := get_realms()
 	if err != nil {
@@ -90,6 +91,9 @@ func get_realm(realm_name string) (string, string, error) {
 	}
 	for _, realm := range realms {
 		if strings.HasPrefix(realm.Name, realm_name) {
+			if id != "" && id != fmt.Sprint(id) {
+				continue
+			}
 			address, err := realm.Address()
 			if err != nil {
 				return "", "", err
@@ -98,17 +102,6 @@ func get_realm(realm_name string) (string, string, error) {
 		}
 	}
 	return "", "", fmt.Errorf("realm not found")
-}
-
-func list_realms() error {
-	realms, err := get_realms()
-	if err != nil {
-		return err
-	}
-	for _, realm := range realms {
-		fmt.Printf("%s\t\t(%d)\n", realm.Name, realm.Id)
-	}
-	return nil
 }
 
 type TokenCMD struct{}
@@ -126,6 +119,29 @@ func (c *TokenCMD) Execute(_ context.Context, f *flag.FlagSet, _ ...interface{})
 	return 0
 }
 
+type RealmListCMD struct{}
+
+func (*RealmListCMD) Name() string     { return "list-realms" }
+func (*RealmListCMD) Synopsis() string { return "prints all realms you have access to" }
+
+func (c *RealmListCMD) SetFlags(f *flag.FlagSet) {}
+func (c *RealmListCMD) Usage() string {
+	return c.Name() + ": " + c.Synopsis() + "\n"
+}
+
+func (c *RealmListCMD) Execute(_ context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
+	realms, err := get_realms()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	for _, realm := range realms {
+		fmt.Printf("Name: %s\tid: %d\n", realm.Name, realm.Id)
+	}
+	return 0
+}
+
 func init() {
 	register_command(&TokenCMD{})
+	register_command(&RealmListCMD{})
 }

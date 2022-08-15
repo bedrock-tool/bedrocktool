@@ -85,7 +85,7 @@ func (p *CaptureCMD) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&p.server_address, "address", "", "remote server address")
 }
 func (c *CaptureCMD) Usage() string {
-	return c.Name() + ": " + c.Synopsis() + "\n"
+	return c.Name() + ": " + c.Synopsis() + "\n" + SERVER_ADDRESS_HELP
 }
 
 func (c *CaptureCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {

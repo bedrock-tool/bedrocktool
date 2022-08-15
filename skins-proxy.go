@@ -24,7 +24,7 @@ func (c *SkinProxyCMD) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.filter, "filter", "", "player name filter prefix")
 }
 func (c *SkinProxyCMD) Usage() string {
-	return c.Name() + ": " + c.Synopsis() + "\n"
+	return c.Name() + ": " + c.Synopsis() + "\n" + SERVER_ADDRESS_HELP
 }
 
 func (c *SkinProxyCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {

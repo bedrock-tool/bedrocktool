@@ -108,6 +108,7 @@ func main() {
 	subcommands.Register(subcommands.HelpCommand(), "")
 	subcommands.ImportantFlag("debug")
 	subcommands.ImportantFlag("dns")
+	subcommands.HelpCommand()
 
 	{ // interactive input
 		if len(os.Args) < 2 {

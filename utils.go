@@ -19,6 +19,14 @@ import (
 	"golang.org/x/oauth2"
 )
 
+const SERVER_ADDRESS_HELP = `accepted server address formats:
+  123.234.123.234
+  123.234.123.234:19132
+  realm:Username
+  realm:Username:Id
+
+`
+
 func send_popup(conn *minecraft.Conn, text string) {
 	conn.WritePacket(&packet.Text{
 		TextType: packet.TextTypePopup,
@@ -62,10 +70,19 @@ func server_input(server string) (address, name string, err error) {
 	}
 
 	if strings.HasPrefix(server, "realm:") { // for realms use api to get ip address
-		name, address, err = get_realm(strings.Split(server, ":")[1])
+		realm_info := strings.Split(server, ":")
+		id := ""
+		if len(realm_info) == 3 {
+			id = realm_info[2]
+		}
+		name, address, err = get_realm(realm_info[1], id)
 		if err != nil {
 			return "", "", err
 		}
+	} else if strings.HasSuffix(server, ".pcap") {
+		s := strings.Split(server, ".")
+		name = strings.Join(s[:len(s)-1], ".")
+		address = server
 	} else {
 		// if an actual server address if given
 		// add port if necessary
@@ -135,12 +152,6 @@ func spawn_conn(ctx context.Context, clientConn *minecraft.Conn, serverConn *min
 }
 
 func create_proxy(ctx context.Context, server_address string) (l *minecraft.Listener, clientConn, serverConn *minecraft.Conn, err error) {
-	/*
-		if strings.HasSuffix(server_address, ".pcap") {
-			return create_replay_connection(server_address)
-		}
-	*/
-
 	_status := minecraft.NewStatusProvider("Server")
 	listener, err := minecraft.ListenConfig{
 		StatusProvider: _status,
@@ -170,9 +181,9 @@ func create_proxy(ctx context.Context, server_address string) (l *minecraft.List
 
 	G_exit = append(G_exit, func() {
 		serverConn.Close()
-		listener.Disconnect(clientConn, "Closing")
+		l.Disconnect(clientConn, "Closing")
 		clientConn.Close()
-		listener.Close()
+		l.Close()
 	})
 
 	return l, clientConn, serverConn, nil

@@ -102,7 +102,7 @@ func (p *WorldCMD) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&p.server_address, "address", "", "remote server address")
 }
 func (c *WorldCMD) Usage() string {
-	return c.Name() + ": " + c.Synopsis() + "\n"
+	return c.Name() + ": " + c.Synopsis() + "\n" + SERVER_ADDRESS_HELP
 }
 
 func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
