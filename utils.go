@@ -16,6 +16,7 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft/auth"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/login"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
+	"github.com/sandertv/gophertunnel/minecraft/resource"
 	"golang.org/x/oauth2"
 )
 
@@ -152,9 +153,22 @@ func spawn_conn(ctx context.Context, clientConn *minecraft.Conn, serverConn *min
 }
 
 func create_proxy(ctx context.Context, server_address string) (l *minecraft.Listener, clientConn, serverConn *minecraft.Conn, err error) {
+	var packs []*resource.Pack
+	if G_preload_packs {
+		fmt.Println("Preloading resourcepacks")
+		serverConn, err = connect_server(ctx, server_address, nil)
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("failed to connect to %s: %s", server_address, err)
+		}
+		serverConn.Close()
+		packs = serverConn.ResourcePacks()
+		fmt.Printf("%d packs loaded\n", len(packs))
+	}
+
 	_status := minecraft.NewStatusProvider("Server")
 	listener, err := minecraft.ListenConfig{
 		StatusProvider: _status,
+		ResourcePacks:  packs,
 	}.Listen("raknet", ":19132")
 	if err != nil {
 		return nil, nil, nil, err

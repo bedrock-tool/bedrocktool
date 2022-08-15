@@ -22,19 +22,21 @@ func Chunk2Img(c *chunk.Chunk) *image.RGBA {
 			col := color.RGBA{0, 0, 0, 255}
 
 			block_rid := c.Block(x, height, z, 0)
-			b, found := world.BlockByRuntimeID(block_rid)
-			if found {
-				col = b.Color()
-			}
-
-			/*
-				if col.R == 255 && col.B == 255 {
-					name, nbt := b.EncodeBlock()
-					fmt.Printf("unknown color %s %s %s\n", reflect.TypeOf(b), name, nbt)
-					b.Color()
+			if block_rid == 0 && height == 0 { // void
+				col = color.RGBA{0, 0, 0, 255}
+			} else {
+				b, found := world.BlockByRuntimeID(block_rid)
+				if found {
+					col = b.Color()
 				}
-			*/
-
+				/*
+					if col.R == 255 && col.B == 255 {
+						name, nbt := b.EncodeBlock()
+						fmt.Printf("unknown color %d  %s %s %s\n", block_rid, reflect.TypeOf(b), name, nbt)
+						b.Color()
+					}
+				*/
+			}
 			if height_liquid > height {
 				bw := &block.Water{}
 				wcol := bw.Color()

@@ -26,6 +26,7 @@ const TOKEN_FILE = "token.json"
 var G_src oauth2.TokenSource
 var G_xbl_token *auth.XBLToken
 var G_debug bool
+var G_preload_packs bool
 var G_exit []func() = []func(){}
 
 var pool = packet.NewPool()
@@ -104,10 +105,13 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	flag.BoolVar(&G_debug, "debug", false, "debug mode")
+	flag.BoolVar(&G_preload_packs, "preload", false, "preload resourcepacks for proxy")
 	enable_dns := flag.Bool("dns", false, "enable dns server for consoles")
+
 	subcommands.Register(subcommands.HelpCommand(), "")
 	subcommands.ImportantFlag("debug")
 	subcommands.ImportantFlag("dns")
+	subcommands.ImportantFlag("preload")
 	subcommands.HelpCommand()
 
 	{ // interactive input
