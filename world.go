@@ -13,6 +13,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -43,8 +44,10 @@ type TPlayerPos struct {
 // the state used for drawing and saving
 
 type WorldState struct {
+	ispre118     bool
 	chunks       map[protocol.ChunkPos]*chunk.Chunk
 	entities     map[int64]world.SaveableEntity
+	blockNBT     map[protocol.SubChunkPos][]map[string]any
 	Dim          world.Dimension
 	WorldName    string
 	ServerName   string
@@ -61,6 +64,8 @@ type WorldState struct {
 func NewWorldState() *WorldState {
 	return &WorldState{
 		chunks:    make(map[protocol.ChunkPos]*chunk.Chunk),
+		blockNBT:  make(map[protocol.SubChunkPos][]map[string]any),
+		entities:  make(map[int64]world.SaveableEntity),
 		Dim:       nil,
 		WorldName: "world",
 		PlayerPos: TPlayerPos{},
@@ -122,18 +127,43 @@ func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 	return 0
 }
 
+// overworld with 0 - 255 height
+type overworld_legacy struct{}
+
+func (overworld_legacy) Range() cube.Range                 { return cube.Range{0, 255} }
+func (overworld_legacy) EncodeDimension() int              { return 0 }
+func (overworld_legacy) WaterEvaporates() bool             { return false }
+func (overworld_legacy) LavaSpreadDuration() time.Duration { return time.Second * 3 / 2 }
+func (overworld_legacy) WeatherCycle() bool                { return true }
+func (overworld_legacy) TimeCycle() bool                   { return true }
+func (overworld_legacy) String() string                    { return "Overworld" }
+
+var Overworld_legacy overworld_legacy
+
 var dimension_ids = map[int32]world.Dimension{
 	0: world.Overworld,
 	1: world.Nether,
 	2: world.End,
+	// < 1.18
+	10: Overworld_legacy,
+	11: world.Nether,
+	12: world.End,
 }
 
 func (w *WorldState) ProcessLevelChunk(pk *packet.LevelChunk) {
-	ch, err := chunk.NetworkDecode(uint32(pk.HighestSubChunk), pk.RawPayload, int(pk.SubChunkCount), w.Dim.Range())
+	ch, blockNBTs, err := chunk.NetworkDecode(uint32(pk.HighestSubChunk), pk.RawPayload, int(pk.SubChunkCount), w.Dim.Range(), w.ispre118)
 	if err != nil {
 		log.Print(err.Error())
 		return
 	}
+	if blockNBTs != nil {
+		w.blockNBT[protocol.SubChunkPos{
+			pk.Position.X(),
+			0,
+			pk.Position.Z(),
+		}] = blockNBTs
+	}
+
 	existing := w.chunks[pk.Position]
 	if existing == nil {
 		w.chunks[pk.Position] = ch
@@ -177,15 +207,21 @@ func (w *WorldState) ProcessSubChunk(pk *packet.SubChunk) {
 		abs_y := pk.Position[1] + int32(sub.Offset[1])
 		abs_z := pk.Position[2] + int32(sub.Offset[2])
 		pos := protocol.ChunkPos{abs_x, abs_z}
+		pos3 := protocol.SubChunkPos{abs_x, abs_y, abs_z}
 		ch := w.chunks[pos]
 		if ch == nil {
 			fmt.Printf("the server didnt send the chunk before the subchunk!\n")
 			continue
 		}
-		err := ch.ApplySubChunkEntry(uint8(abs_y), &sub)
+		blockNBT, err := ch.ApplySubChunkEntry(uint8(abs_y), &sub)
 		if err != nil {
 			fmt.Print(err)
 		}
+		if blockNBT != nil {
+			fmt.Printf("%+v\n", blockNBT)
+			w.blockNBT[pos3] = blockNBT
+		}
+
 		pos_to_redraw[pos] = true
 	}
 
@@ -225,7 +261,11 @@ func (w *WorldState) ProcessChangeDimension(pk *packet.ChangeDimension) {
 		fmt.Println("Info: Skipping save because the world didnt contain any chunks")
 		w.Reset()
 	}
-	w.Dim = dimension_ids[pk.Dimension]
+	dim_id := pk.Dimension
+	if w.ispre118 {
+		dim_id += 10
+	}
+	w.Dim = dimension_ids[dim_id]
 }
 
 func (w *WorldState) SendMessage(text string) {
@@ -272,6 +312,20 @@ func (w *WorldState) SaveAndReset() {
 
 	for cp, c := range w.chunks {
 		provider.SaveChunk((world.ChunkPos)(cp), c, w.Dim)
+	}
+
+	var blockNBT = make(map[protocol.ChunkPos][]map[string]any)
+
+	for scp, v := range w.blockNBT { // 3d to 2d
+		cp := protocol.ChunkPos{scp.X(), scp.Z()}
+		blockNBT[cp] = append(blockNBT[cp], v...)
+	}
+
+	for cp, v := range blockNBT {
+		err = provider.SaveBlockNBT((world.ChunkPos)(cp), v, w.Dim)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+		}
 	}
 
 	//provider.SaveEntities(w.entities)
@@ -393,6 +447,20 @@ func handleConn(ctx context.Context, l *minecraft.Listener, cc, sc *minecraft.Co
 	w.ClientConn = cc
 	w.ServerConn = sc
 
+	gv := strings.Split(w.ServerConn.GameData().BaseGameVersion, ".")
+	var err error
+	if len(gv) > 1 {
+		var ver int
+		ver, err = strconv.Atoi(gv[1])
+		w.ispre118 = ver < 18
+	}
+	if err != nil || len(gv) <= 1 {
+		fmt.Println("couldnt determine game version, assuming > 1.18")
+	}
+	if w.ispre118 {
+		fmt.Println("using legacy (< 1.18)")
+	}
+
 	w.SendMessage("use /setname <worldname>\nto set the world name")
 
 	G_exit = append(G_exit, func() {
@@ -462,7 +530,11 @@ func handleConn(ctx context.Context, l *minecraft.Listener, cc, sc *minecraft.Co
 		defer func() { done <- struct{}{} }()
 
 		gd := w.ServerConn.GameData()
-		w.Dim = dimension_ids[gd.Dimension]
+		dim_id := gd.Dimension
+		if w.ispre118 {
+			dim_id += 10
+		}
+		w.Dim = dimension_ids[dim_id]
 
 		for {
 			pk, err := w.ServerConn.ReadPacket()
