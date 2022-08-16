@@ -23,8 +23,6 @@ import (
 
 const TOKEN_FILE = "token.json"
 
-var G_src oauth2.TokenSource
-var G_xbl_token *auth.XBLToken
 var G_debug bool
 var G_preload_packs bool
 var G_exit []func() = []func(){}
@@ -101,13 +99,34 @@ func register_command(sub subcommands.Command) {
 	valid_cmds[sub.Name()] = sub.Synopsis()
 }
 
+var G_token_src oauth2.TokenSource
+
+func GetTokenSource() oauth2.TokenSource {
+	if G_token_src != nil {
+		return G_token_src
+	}
+	token := get_token()
+	G_token_src = auth.RefreshTokenSource(&token)
+	new_token, err := G_token_src.Token()
+	if err != nil {
+		panic(err)
+	}
+	if !token.Valid() {
+		fmt.Println("Refreshed token")
+		write_token(new_token)
+	}
+
+	return G_token_src
+}
+
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	flag.BoolVar(&G_debug, "debug", false, "debug mode")
 	flag.BoolVar(&G_preload_packs, "preload", false, "preload resourcepacks for proxy")
 	enable_dns := flag.Bool("dns", false, "enable dns server for consoles")
-
+	println(a)
+	println("")
 	subcommands.Register(subcommands.HelpCommand(), "")
 	subcommands.ImportantFlag("debug")
 	subcommands.ImportantFlag("dns")
@@ -150,21 +169,6 @@ func main() {
 		cancel()
 		exit()
 	}()
-
-	{ // authenticate
-		token := get_token()
-		G_src = auth.RefreshTokenSource(&token)
-		{
-			_token, err := G_src.Token()
-			if err != nil {
-				panic(err)
-			}
-			G_xbl_token, err = auth.RequestXBLToken(ctx, _token, "https://pocket.realms.minecraft.net/")
-			if err != nil {
-				panic(err)
-			}
-		}
-	}
 
 	ret := subcommands.Execute(ctx)
 	exit()

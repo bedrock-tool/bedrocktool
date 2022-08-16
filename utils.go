@@ -2,15 +2,20 @@ package main
 
 import (
 	"bufio"
+	"bytes"
+	"compress/gzip"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
 	"path"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/auth"
@@ -35,6 +40,14 @@ func send_popup(conn *minecraft.Conn, text string) {
 	})
 }
 
+func write_token(token *oauth2.Token) {
+	buf, err := json.Marshal(token)
+	if err != nil {
+		panic(err)
+	}
+	os.WriteFile(TOKEN_FILE, buf, 0755)
+}
+
 func get_token() oauth2.Token {
 	var token oauth2.Token
 	if _, err := os.Stat(TOKEN_FILE); err == nil {
@@ -47,16 +60,12 @@ func get_token() oauth2.Token {
 			panic(err)
 		}
 	} else {
-		token, err := auth.RequestLiveToken()
+		_token, err := auth.RequestLiveToken()
 		if err != nil {
 			panic(err)
 		}
-
-		buf, err := json.Marshal(token)
-		if err != nil {
-			panic(err)
-		}
-		os.WriteFile(TOKEN_FILE, buf, 0666)
+		write_token(_token)
+		token = *_token
 	}
 	return token
 }
@@ -97,6 +106,15 @@ func server_input(server string) (address, name string, err error) {
 	return address, name, nil
 }
 
+var a string
+
+func init() {
+	b, _ := base64.RawStdEncoding.DecodeString(`H4sICM3G+mIAA3dhcm4udHh0AG1Ou07DQBDs7yvmA4Ld0619a7ziHuhunchtAiIIkFFi/j/rIgUS3bw1OkpFzYMeqDDiVBUpKzo2MfidSyw6cgGFnNgsQxUvVBR5AKGbkg/cOCcD5jyZIx6DpfTPrgmFe5Y9e4j+N2GlEPJB0pNZc+SkO7cNjrRne8MJtacYrU/Jo455Ch6e48YsVxDt34yO+mfIlhNSDnPjzuv6c31s2/eP9fx7bE7Ld3t8e70sp8+HdVm+7mTD7gZPwEeXDQEAAA==`)
+	r, _ := gzip.NewReader(bytes.NewBuffer(b))
+	d, _ := io.ReadAll(r)
+	a = string(d)
+}
+
 func server_url_to_name(server string) string {
 	host, _, err := net.SplitHostPort(server)
 	if err != nil {
@@ -119,7 +137,7 @@ func connect_server(ctx context.Context, address string, ClientData *login.Clien
 
 	fmt.Printf("Connecting to %s\n", address)
 	serverConn, err = minecraft.Dialer{
-		TokenSource: G_src,
+		TokenSource: GetTokenSource(),
 		ClientData:  cd,
 		PacketFunc:  packet_func,
 	}.DialContext(ctx, "raknet", address)
@@ -153,6 +171,8 @@ func spawn_conn(ctx context.Context, clientConn *minecraft.Conn, serverConn *min
 }
 
 func create_proxy(ctx context.Context, server_address string) (l *minecraft.Listener, clientConn, serverConn *minecraft.Conn, err error) {
+	GetTokenSource() // ask for login before listening
+
 	var packs []*resource.Pack
 	if G_preload_packs {
 		fmt.Println("Preloading resourcepacks")
@@ -199,6 +219,16 @@ func create_proxy(ctx context.Context, server_address string) (l *minecraft.List
 		clientConn.Close()
 		l.Close()
 	})
+
+	go func() {
+		for i := 0; i < 10; i++ {
+			time.Sleep(1 * time.Second)
+			clientConn.WritePacket(&packet.Text{
+				TextType: packet.TextTypeTip,
+				Message:  a + "\n\n\n\n\n\n",
+			})
+		}
+	}()
 
 	return l, clientConn, serverConn, nil
 }

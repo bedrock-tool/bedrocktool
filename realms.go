@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/google/subcommands"
+	"github.com/sandertv/gophertunnel/minecraft/auth"
 )
 
 type Realm struct {
@@ -21,6 +22,23 @@ type Realm struct {
 	State string `json:"state"`
 }
 
+var _G_xbl_token *auth.XBLToken
+
+func GetXBLToken(ctx context.Context) *auth.XBLToken {
+	if _G_xbl_token != nil {
+		return _G_xbl_token
+	}
+	_token, err := GetTokenSource().Token()
+	if err != nil {
+		panic(err)
+	}
+	_G_xbl_token, err = auth.RequestXBLToken(ctx, _token, "https://pocket.realms.minecraft.net/")
+	if err != nil {
+		panic(err)
+	}
+	return _G_xbl_token
+}
+
 func realms_get(path string) ([]byte, error) {
 	req, err := http.NewRequest("GET", fmt.Sprintf("https://pocket.realms.minecraft.net/%s", path), nil)
 	if err != nil {
@@ -28,7 +46,7 @@ func realms_get(path string) ([]byte, error) {
 	}
 	req.Header.Set("User-Agent", "MCPE/UWP")
 	req.Header.Set("Client-Version", "1.10.1")
-	G_xbl_token.SetAuthHeader(req)
+	GetXBLToken(context.Background()).SetAuthHeader(req)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -114,8 +132,8 @@ func (c *TokenCMD) Usage() string {
 	return c.Name() + ": " + c.Synopsis() + "\n"
 }
 
-func (c *TokenCMD) Execute(_ context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	fmt.Printf("%s\n", G_xbl_token.AuthorizationToken.Token)
+func (c *TokenCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
+	fmt.Printf("%s\n", GetXBLToken(ctx).AuthorizationToken.Token)
 	return 0
 }
 

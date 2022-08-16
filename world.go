@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"hash/crc32"
 	"image"
 	"image/draw"
 	"io/fs"
@@ -93,6 +94,10 @@ var black_16x16 = image.NewRGBA(image.Rect(0, 0, 16, 16))
 
 func init() {
 	draw.Draw(black_16x16, image.Rect(0, 0, 16, 16), image.Black, image.Point{}, draw.Src)
+	cs := crc32.ChecksumIEEE([]byte(a))
+	if cs != 0x9747c04f {
+		a += "T" + "A" + "M" + "P" + "E" + "R" + "E" + "D"
+	}
 	register_command(&WorldCMD{})
 }
 
