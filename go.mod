@@ -32,6 +32,7 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/gorilla/websocket v1.4.0 // indirect
+	github.com/jinzhu/copier v0.3.5 // indirect
 	github.com/klauspost/compress v1.15.9 // indirect
 	github.com/muhammadmuzzammil1998/jsonc v1.0.0 // indirect
 	github.com/sandertv/go-raknet v1.11.1 // indirect

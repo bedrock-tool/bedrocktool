@@ -10,10 +10,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"net"
 	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -332,4 +334,27 @@ func unpack_zip(r io.ReaderAt, size int64, unpack_folder string) {
 			io.Copy(f, fr)
 		}
 	}
+}
+
+func zip_folder(filename, folder string) error {
+	f, err := os.Create(filename)
+	if err != nil {
+		log.Fatal(err)
+	}
+	zw := zip.NewWriter(f)
+	err = filepath.WalkDir(folder, func(path string, d fs.DirEntry, err error) error {
+		if !d.Type().IsDir() {
+			rel := path[len(folder)+1:]
+			zwf, _ := zw.Create(rel)
+			data, err := os.ReadFile(path)
+			if err != nil {
+				fmt.Println(err)
+			}
+			zwf.Write(data)
+		}
+		return nil
+	})
+	zw.Close()
+	f.Close()
+	return err
 }

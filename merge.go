@@ -6,10 +6,12 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/df-mc/dragonfly/server/world/mcdb"
 	"github.com/df-mc/goleveldb/leveldb/opt"
 	"github.com/google/subcommands"
+	"github.com/jinzhu/copier"
 )
 
 type MergeCMD struct {
@@ -41,6 +43,7 @@ func (c *MergeCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 	}
 
 	for i, world_name := range c.worlds {
+		first := i == 0
 		fmt.Printf("Adding %s\n", world_name)
 		s, err := os.Stat(world_name)
 		if errors.Is(err, os.ErrNotExist) {
@@ -51,11 +54,27 @@ func (c *MergeCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 			world_name += "_unpack"
 			unpack_zip(f, s.Size(), world_name)
 		}
-		err = c.merge_worlds(prov_out, world_name, i == 0)
+		err = c.merge_worlds(prov_out, world_name, first)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s %s\n", world_name, err)
 		}
+		if !s.IsDir() {
+			os.RemoveAll(world_name)
+		}
 	}
+
+	if err = prov_out.Close(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	time.Sleep(1 * time.Second)
+
+	if err := zip_folder(out_name+".mcworld", out_name); err != nil {
+		fmt.Fprintf(os.Stderr, "zipping: %s\n", err)
+		return 1
+	}
+
+	//os.RemoveAll(out_name)
 	return 0
 }
 
@@ -96,12 +115,15 @@ func (c *MergeCMD) merge_worlds(prov_out *mcdb.Provider, folder string, first bo
 			if err := prov_out.SaveEntities(i.P, entities, i.D); err != nil {
 				return err
 			}
-
-			if first {
-				prov_out.SaveSettings(prov_in.Settings())
-			}
 			count += 1
 		}
+	}
+
+	if first {
+		fmt.Print("Applying Settings, level.dat\n\n")
+		prov_out.SaveSettings(prov_in.Settings())
+		out_ld := prov_out.LevelDat()
+		copier.Copy(out_ld, prov_in.LevelDat())
 	}
 	fmt.Printf("Added: %d\n", count)
 	return nil

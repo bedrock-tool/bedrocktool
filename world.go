@@ -1,7 +1,6 @@
 package main
 
 import (
-	"archive/zip"
 	"bytes"
 	"context"
 	"errors"
@@ -10,11 +9,9 @@ import (
 	"hash/crc32"
 	"image"
 	"image/draw"
-	"io/fs"
 	"log"
 	"os"
 	"path"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -416,28 +413,10 @@ func (w *WorldState) SaveAndReset() {
 
 	// zip it
 	filename := folder + ".mcworld"
-	f, err := os.Create(filename)
-	if err != nil {
-		log.Fatal(err)
-	}
-	zw := zip.NewWriter(f)
-	err = filepath.WalkDir(folder, func(path string, d fs.DirEntry, err error) error {
-		if d.Type().IsRegular() {
-			rel := path[len(folder)+1:]
-			zwf, _ := zw.Create(rel)
-			data, err := os.ReadFile(path)
-			if err != nil {
-				fmt.Println(err)
-			}
-			zwf.Write(data)
-		}
-		return nil
-	})
-	if err != nil {
+
+	if err := zip_folder(filename, folder); err != nil {
 		fmt.Println(err)
 	}
-	zw.Close()
-	f.Close()
 	fmt.Printf("Saved: %s\n", filename)
 	os.RemoveAll(folder)
 	w.Reset()
