@@ -1,6 +1,7 @@
 package main
 
 import (
+	"archive/zip"
 	"bufio"
 	"bytes"
 	"compress/gzip"
@@ -17,6 +18,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-gl/mathgl/mgl32"
+	"github.com/go-gl/mathgl/mgl64"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/auth"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/login"
@@ -38,6 +41,14 @@ func send_popup(conn *minecraft.Conn, text string) {
 		TextType: packet.TextTypePopup,
 		Message:  text,
 	})
+}
+
+func v32tov64(in mgl32.Vec3) mgl64.Vec3 {
+	return mgl64.Vec3{
+		float64(in[0]),
+		float64(in[1]),
+		float64(in[2]),
+	}
 }
 
 func write_token(token *oauth2.Token) {
@@ -306,4 +317,19 @@ func splitext(filename string) (name, ext string) {
 		name = strings.TrimSuffix(name, ext)
 	}
 	return
+}
+
+func unpack_zip(r io.ReaderAt, size int64, unpack_folder string) {
+	zr, _ := zip.NewReader(r, size)
+	for _, src_file := range zr.File {
+		out_path := path.Join(unpack_folder, src_file.Name)
+		if src_file.Mode().IsDir() {
+			os.Mkdir(out_path, 0755)
+		} else {
+			os.MkdirAll(path.Dir(out_path), 0755)
+			fr, _ := src_file.Open()
+			f, _ := os.Create(path.Join(unpack_folder, src_file.Name))
+			io.Copy(f, fr)
+		}
+	}
 }

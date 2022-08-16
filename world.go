@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/zip"
+	"bytes"
 	"context"
 	"errors"
 	"flag"
@@ -19,18 +20,16 @@ import (
 	"time"
 
 	"github.com/df-mc/dragonfly/server/block/cube"
-	"github.com/df-mc/dragonfly/server/entity"
-	"github.com/df-mc/dragonfly/server/item"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/df-mc/dragonfly/server/world/chunk"
 	"github.com/df-mc/dragonfly/server/world/mcdb"
 	"github.com/df-mc/goleveldb/leveldb/opt"
 	"github.com/go-gl/mathgl/mgl32"
-	"github.com/go-gl/mathgl/mgl64"
 	"github.com/google/subcommands"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
+	"github.com/sandertv/gophertunnel/minecraft/resource"
 
 	_ "github.com/df-mc/dragonfly/server/block" // to load blocks
 )
@@ -53,6 +52,7 @@ type WorldState struct {
 	WorldName    string
 	ServerName   string
 	worldCounter int
+	packs        map[string]*resource.Pack
 
 	PlayerPos  TPlayerPos
 	ClientConn *minecraft.Conn
@@ -103,6 +103,7 @@ func init() {
 
 type WorldCMD struct {
 	server_address string
+	packs          bool
 }
 
 func (*WorldCMD) Name() string     { return "worlds" }
@@ -110,6 +111,7 @@ func (*WorldCMD) Synopsis() string { return "download a world from a server" }
 
 func (p *WorldCMD) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&p.server_address, "address", "", "remote server address")
+	f.BoolVar(&p.packs, "packs", false, "save resourcepacks to the worlds")
 }
 func (c *WorldCMD) Usage() string {
 	return c.Name() + ": " + c.Synopsis() + "\n" + SERVER_ADDRESS_HELP
@@ -127,30 +129,18 @@ func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
-	handleConn(ctx, listener, clientConn, serverConn, hostname)
+
+	c.handleConn(ctx, listener, clientConn, serverConn, hostname)
 
 	return 0
 }
 
-// overworld with 0 - 255 height
-type overworld_legacy struct{}
-
-func (overworld_legacy) Range() cube.Range                 { return cube.Range{0, 255} }
-func (overworld_legacy) EncodeDimension() int              { return 0 }
-func (overworld_legacy) WaterEvaporates() bool             { return false }
-func (overworld_legacy) LavaSpreadDuration() time.Duration { return time.Second * 3 / 2 }
-func (overworld_legacy) WeatherCycle() bool                { return true }
-func (overworld_legacy) TimeCycle() bool                   { return true }
-func (overworld_legacy) String() string                    { return "Overworld" }
-
-var Overworld_legacy overworld_legacy
-
-var dimension_ids = map[int32]world.Dimension{
+var dimension_ids = map[uint8]world.Dimension{
 	0: world.Overworld,
 	1: world.Nether,
 	2: world.End,
 	// < 1.18
-	10: Overworld_legacy,
+	10: world.Overworld_legacy,
 	11: world.Nether,
 	12: world.End,
 }
@@ -245,19 +235,6 @@ func (w *WorldState) ProcessAnimate(pk *packet.Animate) {
 	}
 }
 
-func (w *WorldState) ProcessAddItemActor(pk *packet.AddItemActor) {
-	it, ok := world.ItemByRuntimeID(pk.Item.StackNetworkID, int16(pk.Item.Stack.MetadataValue))
-	if !ok {
-		return
-	}
-	stack := item.NewStack(it, int(pk.Item.Stack.Count))
-	w.entities[pk.EntityUniqueID] = entity.NewItem(stack, mgl64.Vec3{
-		float64(pk.Position[0]),
-		float64(pk.Position[1]),
-		float64(pk.Position[2]),
-	})
-}
-
 func (w *WorldState) ProcessChangeDimension(pk *packet.ChangeDimension) {
 	fmt.Printf("ChangeDimension %d\n", pk.Dimension)
 	if len(w.chunks) > 0 {
@@ -270,7 +247,7 @@ func (w *WorldState) ProcessChangeDimension(pk *packet.ChangeDimension) {
 	if w.ispre118 {
 		dim_id += 10
 	}
-	w.Dim = dimension_ids[dim_id]
+	w.Dim = dimension_ids[uint8(dim_id)]
 }
 
 func (w *WorldState) SendMessage(text string) {
@@ -307,13 +284,15 @@ func (w *WorldState) Reset() {
 
 // writes the world to a folder, resets all the chunks
 func (w *WorldState) SaveAndReset() {
-	fmt.Println("Saving world")
 	var world_name string
 	if w.WorldName == "world" {
 		world_name = fmt.Sprintf("%s-%d", w.WorldName, w.worldCounter)
 	} else {
 		world_name = w.WorldName
 	}
+	fmt.Printf("Saving world %s\n", world_name)
+
+	// open world
 	folder := path.Join("worlds", fmt.Sprintf("%s/%s", w.ServerName, world_name))
 	os.MkdirAll(folder, 0777)
 	provider, err := mcdb.New(folder, opt.DefaultCompression)
@@ -321,17 +300,17 @@ func (w *WorldState) SaveAndReset() {
 		log.Fatal(err)
 	}
 
+	// save chunk data
 	for cp, c := range w.chunks {
 		provider.SaveChunk((world.ChunkPos)(cp), c, w.Dim)
 	}
 
+	// save block nbt data
 	var blockNBT = make(map[protocol.ChunkPos][]map[string]any)
-
 	for scp, v := range w.blockNBT { // 3d to 2d
 		cp := protocol.ChunkPos{scp.X(), scp.Z()}
 		blockNBT[cp] = append(blockNBT[cp], v...)
 	}
-
 	for cp, v := range blockNBT {
 		err = provider.SaveBlockNBT((world.ChunkPos)(cp), v, w.Dim)
 		if err != nil {
@@ -339,8 +318,7 @@ func (w *WorldState) SaveAndReset() {
 		}
 	}
 
-	//provider.SaveEntities(w.entities)
-
+	// write metadata
 	s := provider.Settings()
 	s.Spawn = cube.Pos{
 		int(w.PlayerPos.Position[0]),
@@ -349,6 +327,7 @@ func (w *WorldState) SaveAndReset() {
 	}
 	s.Name = w.WorldName
 
+	// set gamerules
 	ld := provider.LevelDat()
 	for _, gr := range w.ServerConn.GameData().GameRules {
 		switch gr.Name {
@@ -418,7 +397,7 @@ func (w *WorldState) SaveAndReset() {
 		}
 	}
 
-	// dont generate
+	// void world
 	ld.FlatWorldLayers = `{"biome_id":1,"block_layers":[{"block_data":0,"block_id":0,"count":1},{"block_data":0,"block_id":0,"count":2},{"block_data":0,"block_id":0,"count":1}],"encoding_version":3,"structure_options":null}`
 	ld.Generator = 2
 
@@ -426,6 +405,16 @@ func (w *WorldState) SaveAndReset() {
 	provider.Close()
 	w.worldCounter += 1
 
+	for k, p := range w.packs {
+		fmt.Printf("Adding resource pack: %s\n", k)
+		pack_folder := path.Join(folder, "resource_packs", k)
+		os.MkdirAll(pack_folder, 0755)
+		data := make([]byte, p.Len())
+		p.ReadAt(data, 0)
+		unpack_zip(bytes.NewReader(data), int64(len(data)), pack_folder)
+	}
+
+	// zip it
 	filename := folder + ".mcworld"
 	f, err := os.Create(filename)
 	if err != nil {
@@ -454,14 +443,21 @@ func (w *WorldState) SaveAndReset() {
 	w.Reset()
 }
 
-func handleConn(ctx context.Context, l *minecraft.Listener, cc, sc *minecraft.Conn, server_name string) {
+func (c *WorldCMD) handleConn(ctx context.Context, l *minecraft.Listener, cc, sc *minecraft.Conn, server_name string) {
+	var err error
 	w := NewWorldState()
 	w.ServerName = server_name
 	w.ClientConn = cc
 	w.ServerConn = sc
 
+	if c.packs {
+		fmt.Println("reformatting packs")
+		go func() {
+			w.packs, err = w.getPacks()
+		}()
+	}
+
 	gv := strings.Split(w.ServerConn.GameData().BaseGameVersion, ".")
-	var err error
 	if len(gv) > 1 {
 		var ver int
 		ver, err = strconv.Atoi(gv[1])
@@ -551,7 +547,7 @@ func handleConn(ctx context.Context, l *minecraft.Listener, cc, sc *minecraft.Co
 		if w.ispre118 {
 			dim_id += 10
 		}
-		w.Dim = dimension_ids[dim_id]
+		w.Dim = dimension_ids[uint8(dim_id)]
 
 		for {
 			pk, err := w.ServerConn.ReadPacket()
@@ -571,8 +567,6 @@ func handleConn(ctx context.Context, l *minecraft.Listener, cc, sc *minecraft.Co
 				send_popup(w.ClientConn, fmt.Sprintf("%d chunks loaded\nname: %s", len(w.chunks), w.WorldName))
 			case *packet.SubChunk:
 				w.ProcessSubChunk(pk)
-			case *packet.AddItemActor:
-				w.ProcessAddItemActor(pk)
 			case *packet.AvailableCommands:
 				pk.Commands = append(pk.Commands, setname_command)
 			}

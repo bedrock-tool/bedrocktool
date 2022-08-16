@@ -1,1 +1,7 @@
 package main
+
+func (w *WorldState) getPacks() (packs map[string]*resource.Pack, err error) {
+    for _, pack := range w.ServerConn.ResourcePacks() {
+        packs[pack.Name()] = pack
+    }
+}
