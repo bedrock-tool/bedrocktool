@@ -1,22 +1,20 @@
 package main
 
 import (
-	"bytes"
 	"image"
 	"image/color"
 	"image/draw"
 	"math"
-	"os"
 	"sync"
 
 	"github.com/df-mc/dragonfly/server/world/chunk"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
-	"golang.org/x/image/bmp"
 )
 
 const VIEW_MAP_ID = 0x424242
 
+// packet to tell the client that it has a map with id 0x424242 in the offhand
 var MAP_ITEM_PACKET packet.InventoryContent = packet.InventoryContent{
 	WindowID: 119,
 	Content: []protocol.ItemInstance{
@@ -38,10 +36,10 @@ var MAP_ITEM_PACKET packet.InventoryContent = packet.InventoryContent{
 }
 
 type MapUI struct {
-	img           *image.RGBA
-	zoom          int
-	chunks_images map[protocol.ChunkPos]*image.RGBA // rendered those chunks
-	needRedraw    bool
+	img           *image.RGBA                       // rendered image
+	zoom          int                               // chunks per row
+	chunks_images map[protocol.ChunkPos]*image.RGBA // prerendered chunks
+	needRedraw    bool                              // when the map has updated this is true
 	send_lock     *sync.Mutex
 }
 
@@ -55,11 +53,13 @@ func NewMapUI() MapUI {
 	}
 }
 
+// Reset resets the map to inital state
 func (m *MapUI) Reset() {
 	m.chunks_images = make(map[protocol.ChunkPos]*image.RGBA)
 	m.needRedraw = true
 }
 
+// ChangeZoom adds to the zoom value and goes around to 32 once it hits 128
 func (m *MapUI) ChangeZoom() {
 	if m.zoom >= 128 {
 		m.zoom = 32 // min
@@ -69,6 +69,7 @@ func (m *MapUI) ChangeZoom() {
 	m.SchedRedraw()
 }
 
+// SchedRedraw tells the map to redraw the next time its sent
 func (m *MapUI) SchedRedraw() {
 	m.needRedraw = true
 }
@@ -97,8 +98,8 @@ func (m *MapUI) Redraw(w *WorldState) {
 		}
 	}
 
-	chunks_x := int(max[0] - min[0] + 1)                            // how many chunk lengths is x
-	chunks_per_line := math.Min(float64(chunks_x), float64(m.zoom)) // at max 64 chunks per line
+	chunks_x := int(max[0] - min[0] + 1)                            // how many chunk lengths is x coordinate
+	chunks_per_line := math.Min(float64(chunks_x), float64(m.zoom)) // either zoom or how many there actually are
 	px_per_chunk := int(128 / chunks_per_line)                      // how many pixels does every chunk get
 
 	for i := 0; i < len(m.img.Pix); i++ { // clear canvas
@@ -106,7 +107,7 @@ func (m *MapUI) Redraw(w *WorldState) {
 	}
 
 	for _ch := range m.chunks_images {
-		px_pos := image.Point{
+		px_pos := image.Point{ // bottom left corner of the chunk on the map
 			X: (int(_ch.X()-middle.X()) * px_per_chunk) + 64,
 			Y: (int(_ch.Z()-middle.Z()) * px_per_chunk) + 64,
 		}
@@ -125,12 +126,13 @@ func (m *MapUI) Redraw(w *WorldState) {
 			)
 		}
 	}
-
-	{
-		buf := bytes.NewBuffer(nil)
-		bmp.Encode(buf, m.img)
-		os.WriteFile("test.bmp", buf.Bytes(), 0777)
-	}
+	/*
+		{
+			buf := bytes.NewBuffer(nil)
+			bmp.Encode(buf, m.img)
+			os.WriteFile("test.bmp", buf.Bytes(), 0777)
+		}
+	*/
 }
 
 // send
@@ -139,11 +141,13 @@ func (m *MapUI) Send(w *WorldState) error {
 		return nil // dont send if send is in progress
 	}
 
+	// redraw if needed
 	if m.needRedraw {
 		m.needRedraw = false
 		m.Redraw(w)
 	}
 
+	// (ugh)
 	pixels := make([][]color.RGBA, 128)
 	for y := 0; y < 128; y++ {
 		pixels[y] = make([]color.RGBA, 128)

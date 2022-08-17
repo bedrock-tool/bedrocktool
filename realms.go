@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/google/subcommands"
-	"github.com/sandertv/gophertunnel/minecraft/auth"
 )
 
 type Realm struct {
@@ -20,23 +19,6 @@ type Realm struct {
 	Name  string `json:"name"`
 	Motd  string `json:"motd"`
 	State string `json:"state"`
-}
-
-var _G_xbl_token *auth.XBLToken
-
-func GetXBLToken(ctx context.Context) *auth.XBLToken {
-	if _G_xbl_token != nil {
-		return _G_xbl_token
-	}
-	_token, err := GetTokenSource().Token()
-	if err != nil {
-		panic(err)
-	}
-	_G_xbl_token, err = auth.RequestXBLToken(ctx, _token, "https://pocket.realms.minecraft.net/")
-	if err != nil {
-		panic(err)
-	}
-	return _G_xbl_token
 }
 
 func realms_get(path string) ([]byte, error) {

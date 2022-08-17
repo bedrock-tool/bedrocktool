@@ -21,10 +21,12 @@ endif
 BUILDS=\
 	windows_amd64.exe\
 	windows_arm64.exe\
+	windows_arm32.exe\
 	darwin_amd64\
 	darwin_arm64\
 	linux_amd64\
-	linux_arm64
+	linux_arm64\
+	linux_arm32
 
 
 DISTS=$(BUILDS:%=$(NAME)_%)

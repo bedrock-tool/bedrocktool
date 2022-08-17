@@ -24,9 +24,9 @@ type Skin struct {
 	protocol.Skin
 }
 
+// WriteGeometry writes the geometry json for the skin to output_path
 func (skin *Skin) WriteGeometry(output_path string) error {
-	os.Mkdir(output_path, 0755)
-	f, err := os.Create(path.Join(output_path, "geometry.json"))
+	f, err := os.Create(output_path)
 	if err != nil {
 		return fmt.Errorf("failed to write Geometry %s: %s", output_path, err)
 	}
@@ -35,9 +35,9 @@ func (skin *Skin) WriteGeometry(output_path string) error {
 	return nil
 }
 
+// WriteCape writes the cape as a png at output_path
 func (skin *Skin) WriteCape(output_path string) error {
-	os.Mkdir(output_path, 0755)
-	f, err := os.Create(path.Join(output_path, "cape.png"))
+	f, err := os.Create(output_path)
 	if err != nil {
 		return fmt.Errorf("failed to write Cape %s: %s", output_path, err)
 	}
@@ -51,13 +51,15 @@ func (skin *Skin) WriteCape(output_path string) error {
 	return nil
 }
 
+// WriteAnimations writes skin animations to the folder
 func (skin *Skin) WriteAnimations(output_path string) error {
-	os.Mkdir(output_path, 0755)
-	return fmt.Errorf("%s has animations (unimplemented)", output_path)
+	fmt.Printf("Warn: %s has animations (unimplemented)", output_path)
+	return nil
 }
 
+// WriteTexture writes the main texture for this skin to a file
 func (skin *Skin) WriteTexture(output_path string) error {
-	f, err := os.Create(output_path + ".png")
+	f, err := os.Create(output_path)
 	if err != nil {
 		return fmt.Errorf("error writing Texture: %s", err)
 	}
@@ -71,39 +73,39 @@ func (skin *Skin) WriteTexture(output_path string) error {
 	return nil
 }
 
+// Write writes all data for this skin to a folder
 func (skin *Skin) Write(output_path, name string) error {
-	complex := false
 	skin_dir := path.Join(output_path, name)
-	if len(skin.SkinGeometry) > 0 {
-		if err := skin.WriteGeometry(skin_dir); err != nil {
-			return err
-		}
-		complex = true
-	}
-	if len(skin.CapeData) > 0 {
-		if err := skin.WriteCape(skin_dir); err != nil {
-			return err
-		}
-		complex = true
-	}
-	if len(skin.Animations) > 0 {
-		if err := skin.WriteAnimations(skin_dir); err != nil {
-			return err
-		}
-		complex = true
-	}
 
-	var err error
+	have_geometry, have_cape, have_animations := len(skin.SkinGeometry) > 0, len(skin.CapeData) > 0, len(skin.Animations) > 0
+	complex := have_geometry || have_cape || have_animations
+
 	if complex {
-		err = skin.WriteTexture(path.Join(skin_dir, "skin"))
+		os.MkdirAll(skin_dir, 0755)
+		if have_geometry {
+			if err := skin.WriteGeometry(path.Join(skin_dir, "geometry.json")); err != nil {
+				return err
+			}
+		}
+		if have_cape {
+			if err := skin.WriteCape(path.Join(skin_dir, "cape.png")); err != nil {
+				return err
+			}
+		}
+		if have_animations {
+			if err := skin.WriteAnimations(skin_dir); err != nil {
+				return err
+			}
+		}
+		return skin.WriteTexture(path.Join(skin_dir, "skin.png"))
 	} else {
-		err = skin.WriteTexture(skin_dir)
+		return skin.WriteTexture(skin_dir + ".png")
 	}
-	return err
 }
 
 var name_regexp = regexp.MustCompile(`§.`)
 
+// cleans name so it can be used as a filename
 func cleanup_name(name string) string {
 	name = strings.Split(name, "\n")[0]
 	var _tmp struct {
@@ -118,8 +120,10 @@ func cleanup_name(name string) string {
 	return name
 }
 
-func write_skin(output_path, name string, skin protocol.Skin) {
-	if !strings.HasPrefix(name, skin_filter_player) {
+// puts the skin at output_path if the filter matches it
+// internally converts the struct so it can use the extra methods
+func write_skin(output_path, name string, skin protocol.Skin, filter string) {
+	if !strings.HasPrefix(name, filter) {
 		return
 	}
 	fmt.Printf("Writing skin for %s\n", name)
@@ -129,12 +133,11 @@ func write_skin(output_path, name string, skin protocol.Skin) {
 	}
 }
 
-var skin_filter_player string // who to filter
 var skin_players = make(map[string]string)
 var skin_player_counts = make(map[string]int)
 var processed_skins = make(map[string]bool)
 
-func process_packet_skins(conn *minecraft.Conn, out_path string, pk packet.Packet) {
+func process_packet_skins(conn *minecraft.Conn, out_path string, pk packet.Packet, filter string) {
 	switch _pk := pk.(type) {
 	case *packet.PlayerSkin:
 		name := skin_players[_pk.UUID.String()]
@@ -143,7 +146,7 @@ func process_packet_skins(conn *minecraft.Conn, out_path string, pk packet.Packe
 		}
 		skin_player_counts[name]++
 		name = fmt.Sprintf("%s_%d", name, skin_player_counts[name])
-		write_skin(out_path, name, _pk.Skin)
+		write_skin(out_path, name, _pk.Skin, filter)
 	case *packet.PlayerList:
 		if _pk.ActionType == 1 { // remove
 			return
@@ -156,7 +159,7 @@ func process_packet_skins(conn *minecraft.Conn, out_path string, pk packet.Packe
 			if _, ok := processed_skins[name]; ok {
 				continue
 			}
-			write_skin(out_path, name, player.Skin)
+			write_skin(out_path, name, player.Skin, filter)
 			skin_players[player.UUID.String()] = name
 			processed_skins[name] = true
 			if conn != nil {
@@ -213,7 +216,7 @@ func (c *SkinCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}
 		if err != nil {
 			return 1
 		}
-		process_packet_skins(nil, out_path, pk)
+		process_packet_skins(nil, out_path, pk, c.filter)
 	}
 }
 

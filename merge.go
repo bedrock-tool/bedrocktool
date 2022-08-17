@@ -49,16 +49,17 @@ func (c *MergeCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 		if errors.Is(err, os.ErrNotExist) {
 			fmt.Fprintf(os.Stderr, "%s not found\n", world_name)
 		}
-		if !s.IsDir() {
+		if !s.IsDir() { // if its a zip temporarily unpack it to read it
 			f, _ := os.Open(world_name)
 			world_name += "_unpack"
 			unpack_zip(f, s.Size(), world_name)
 		}
+		// merge it into the state
 		err = c.merge_worlds(prov_out, world_name, first)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s %s\n", world_name, err)
 		}
-		if !s.IsDir() {
+		if !s.IsDir() { // remove temp folder again
 			os.RemoveAll(world_name)
 		}
 	}
@@ -74,7 +75,7 @@ func (c *MergeCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 		return 1
 	}
 
-	//os.RemoveAll(out_name)
+	os.RemoveAll(out_name)
 	return 0
 }
 

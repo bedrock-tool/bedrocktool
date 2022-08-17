@@ -2,23 +2,15 @@ package main
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"flag"
 	"fmt"
-	"net"
 	"os"
 	"os/signal"
-	"reflect"
 	"regexp"
 	"syscall"
 
 	"github.com/google/subcommands"
-	"github.com/sandertv/gophertunnel/minecraft/auth"
-	"github.com/sandertv/gophertunnel/minecraft/protocol"
-	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
-	"golang.org/x/exp/slices"
-	"golang.org/x/oauth2"
 )
 
 const TOKEN_FILE = "token.json"
@@ -26,63 +18,6 @@ const TOKEN_FILE = "token.json"
 var G_debug bool
 var G_preload_packs bool
 var G_exit []func() = []func(){}
-
-var pool = packet.NewPool()
-
-var muted_packets = []string{
-	"*packet.UpdateBlock",
-	"*packet.MoveActorAbsolute",
-	"*packet.SetActorMotion",
-	"*packet.SetTime",
-	"*packet.RemoveActor",
-	"*packet.AddActor",
-	"*packet.UpdateAttributes",
-	"*packet.Interact",
-	"*packet.LevelEvent",
-	"*packet.SetActorData",
-	"*packet.MoveActorDelta",
-	"*packet.MovePlayer",
-	"*packet.BlockActorData",
-	"*packet.PlayerAuthInput",
-	"*packet.LevelChunk",
-	"*packet.LevelSoundEvent",
-	"*packet.ActorEvent",
-	"*packet.NetworkChunkPublisherUpdate",
-	"*packet.UpdateSubChunkBlocks",
-	"*packet.SubChunk",
-	"*packet.SubChunkRequest",
-	"*packet.Animate",
-	"*packet.NetworkStackLatency",
-}
-
-func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
-	var pk packet.Packet
-	buf := bytes.NewBuffer(payload)
-	r := protocol.NewReader(buf, 0)
-	pkFunc, ok := pool[header.PacketID]
-	if !ok {
-		pk = &packet.Unknown{PacketID: header.PacketID}
-	} else {
-		pk = pkFunc()
-	}
-	pk.Unmarshal(r)
-
-	dir := "S->C"
-	src_addr, _, _ := net.SplitHostPort(src.String())
-	if IPPrivate(net.ParseIP(src_addr)) {
-		dir = "C->S"
-	}
-
-	pk_name := reflect.TypeOf(pk).String()
-	if slices.Contains(muted_packets, pk_name) {
-		return
-	}
-	switch pk := pk.(type) {
-	case *packet.Disconnect:
-		fmt.Printf("Disconnect: %s", pk.Message)
-	}
-	fmt.Printf("%s 0x%x, %s\n", dir, pk.ID(), pk_name)
-}
 
 func exit() {
 	fmt.Printf("\nExiting\n")
@@ -97,26 +32,6 @@ var valid_cmds = make(map[string]string, 0)
 func register_command(sub subcommands.Command) {
 	subcommands.Register(sub, "")
 	valid_cmds[sub.Name()] = sub.Synopsis()
-}
-
-var G_token_src oauth2.TokenSource
-
-func GetTokenSource() oauth2.TokenSource {
-	if G_token_src != nil {
-		return G_token_src
-	}
-	token := get_token()
-	G_token_src = auth.RefreshTokenSource(&token)
-	new_token, err := G_token_src.Token()
-	if err != nil {
-		panic(err)
-	}
-	if !token.Valid() {
-		fmt.Println("Refreshed token")
-		write_token(new_token)
-	}
-
-	return G_token_src
 }
 
 func main() {

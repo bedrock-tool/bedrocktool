@@ -247,18 +247,11 @@ func (w *WorldState) ProcessChangeDimension(pk *packet.ChangeDimension) {
 	w.Dim = dimension_ids[uint8(dim_id)]
 }
 
-func (w *WorldState) SendMessage(text string) {
-	w.ClientConn.WritePacket(&packet.Text{
-		TextType: packet.TextTypeSystem,
-		Message:  "§8[§bBedrocktool§8]§r " + text,
-	})
-}
-
 func (w *WorldState) ProcessCommand(pk *packet.CommandRequest) bool {
 	cmd := strings.Split(pk.CommandLine, " ")
 	if cmd[0] == "/setname" && len(cmd) >= 2 {
 		w.WorldName = strings.Join(cmd[1:], " ")
-		w.SendMessage(fmt.Sprintf("worldName is now: %s", w.WorldName))
+		send_message(w.ClientConn, fmt.Sprintf("worldName is now: %s", w.WorldName))
 		return true
 	}
 	return false
@@ -430,7 +423,7 @@ func (c *WorldCMD) handleConn(ctx context.Context, l *minecraft.Listener, cc, sc
 		}()
 	}
 
-	{
+	{ // check game version
 		gd := w.ServerConn.GameData()
 		gv := strings.Split(gd.BaseGameVersion, ".")
 		if len(gv) > 1 {
@@ -446,7 +439,7 @@ func (c *WorldCMD) handleConn(ctx context.Context, l *minecraft.Listener, cc, sc
 		}
 	}
 
-	w.SendMessage("use /setname <worldname>\nto set the world name")
+	send_message(w.ClientConn, "use /setname <worldname>\nto set the world name")
 
 	G_exit = append(G_exit, func() {
 		w.SaveAndReset()
@@ -473,10 +466,6 @@ func (c *WorldCMD) handleConn(ctx context.Context, l *minecraft.Listener, cc, sc
 					w.ui.Send(w)
 					skip = true
 				}
-			case *packet.ClientCacheStatus:
-				pk.Enabled = false
-				w.ServerConn.WritePacket(pk)
-				skip = true
 			case *packet.MobEquipment:
 				if pk.NewItem.Stack.NBTData["map_uuid"] == int64(VIEW_MAP_ID) {
 					skip = true

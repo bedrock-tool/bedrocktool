@@ -60,7 +60,7 @@ func (c *SkinProxyCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interf
 				}
 				return
 			}
-			process_packet_skins(clientConn, out_path, pk)
+			process_packet_skins(clientConn, out_path, pk, c.filter)
 
 			if err = clientConn.WritePacket(pk); err != nil {
 				return

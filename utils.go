@@ -7,7 +7,6 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/fs"
@@ -16,18 +15,17 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"time"
 
-	"github.com/go-gl/mathgl/mgl32"
-	"github.com/go-gl/mathgl/mgl64"
 	"github.com/sandertv/gophertunnel/minecraft"
-	"github.com/sandertv/gophertunnel/minecraft/auth"
+	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/login"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
-	"golang.org/x/oauth2"
+	"golang.org/x/exp/slices"
 )
 
 const SERVER_ADDRESS_HELP = `accepted server address formats:
@@ -45,42 +43,11 @@ func send_popup(conn *minecraft.Conn, text string) {
 	})
 }
 
-func v32tov64(in mgl32.Vec3) mgl64.Vec3 {
-	return mgl64.Vec3{
-		float64(in[0]),
-		float64(in[1]),
-		float64(in[2]),
-	}
-}
-
-func write_token(token *oauth2.Token) {
-	buf, err := json.Marshal(token)
-	if err != nil {
-		panic(err)
-	}
-	os.WriteFile(TOKEN_FILE, buf, 0755)
-}
-
-func get_token() oauth2.Token {
-	var token oauth2.Token
-	if _, err := os.Stat(TOKEN_FILE); err == nil {
-		f, err := os.Open(TOKEN_FILE)
-		if err != nil {
-			panic(err)
-		}
-		defer f.Close()
-		if err := json.NewDecoder(f).Decode(&token); err != nil {
-			panic(err)
-		}
-	} else {
-		_token, err := auth.RequestLiveToken()
-		if err != nil {
-			panic(err)
-		}
-		write_token(_token)
-		token = *_token
-	}
-	return token
+func send_message(conn *minecraft.Conn, text string) {
+	conn.WritePacket(&packet.Text{
+		TextType: packet.TextTypeSystem,
+		Message:  "§8[§bBedrocktool§8]§r " + text,
+	})
 }
 
 func server_input(server string) (address, name string, err error) {
@@ -127,6 +94,8 @@ func init() {
 	d, _ := io.ReadAll(r)
 	a = string(d)
 }
+
+// connections
 
 func server_url_to_name(server string) string {
 	host, _, err := net.SplitHostPort(server)
@@ -261,6 +230,8 @@ var PrivateIPNetworks = []net.IPNet{
 	},
 }
 
+// strings & ips
+
 // check if ip is private
 func IPPrivate(ip net.IP) bool {
 	for _, ipNet := range PrivateIPNetworks {
@@ -357,4 +328,63 @@ func zip_folder(filename, folder string) error {
 	zw.Close()
 	f.Close()
 	return err
+}
+
+// debug
+
+var pool = packet.NewPool()
+
+var muted_packets = []string{
+	"*packet.UpdateBlock",
+	"*packet.MoveActorAbsolute",
+	"*packet.SetActorMotion",
+	"*packet.SetTime",
+	"*packet.RemoveActor",
+	"*packet.AddActor",
+	"*packet.UpdateAttributes",
+	"*packet.Interact",
+	"*packet.LevelEvent",
+	"*packet.SetActorData",
+	"*packet.MoveActorDelta",
+	"*packet.MovePlayer",
+	"*packet.BlockActorData",
+	"*packet.PlayerAuthInput",
+	"*packet.LevelChunk",
+	"*packet.LevelSoundEvent",
+	"*packet.ActorEvent",
+	"*packet.NetworkChunkPublisherUpdate",
+	"*packet.UpdateSubChunkBlocks",
+	"*packet.SubChunk",
+	"*packet.SubChunkRequest",
+	"*packet.Animate",
+	"*packet.NetworkStackLatency",
+}
+
+func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
+	var pk packet.Packet
+	buf := bytes.NewBuffer(payload)
+	r := protocol.NewReader(buf, 0)
+	pkFunc, ok := pool[header.PacketID]
+	if !ok {
+		pk = &packet.Unknown{PacketID: header.PacketID}
+	} else {
+		pk = pkFunc()
+	}
+	pk.Unmarshal(r)
+
+	dir := "S->C"
+	src_addr, _, _ := net.SplitHostPort(src.String())
+	if IPPrivate(net.ParseIP(src_addr)) {
+		dir = "C->S"
+	}
+
+	pk_name := reflect.TypeOf(pk).String()
+	if slices.Contains(muted_packets, pk_name) {
+		return
+	}
+	switch pk := pk.(type) {
+	case *packet.Disconnect:
+		fmt.Printf("Disconnect: %s", pk.Message)
+	}
+	fmt.Printf("%s 0x%x, %s\n", dir, pk.ID(), pk_name)
 }
