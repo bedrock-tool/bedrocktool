@@ -275,22 +275,16 @@ func (w *WorldState) SetPlayerPos(Position mgl32.Vec3, Pitch, Yaw, HeadYaw float
 
 func (w *WorldState) Reset() {
 	w.chunks = make(map[protocol.ChunkPos]*chunk.Chunk)
-	w.WorldName = "world"
+	w.WorldName = fmt.Sprintf("world-%d", w.worldCounter)
 	w.ui.Reset()
 }
 
 // writes the world to a folder, resets all the chunks
 func (w *WorldState) SaveAndReset() {
-	var world_name string
-	if w.WorldName == "world" {
-		world_name = fmt.Sprintf("%s-%d", w.WorldName, w.worldCounter)
-	} else {
-		world_name = w.WorldName
-	}
-	fmt.Printf("Saving world %s\n", world_name)
+	fmt.Printf("Saving world %s\n", w.WorldName)
 
 	// open world
-	folder := path.Join("worlds", fmt.Sprintf("%s/%s", w.ServerName, world_name))
+	folder := path.Join("worlds", fmt.Sprintf("%s/%s", w.ServerName, w.WorldName))
 	os.MkdirAll(folder, 0777)
 	provider, err := mcdb.New(folder, opt.DefaultCompression)
 	if err != nil {
@@ -436,17 +430,20 @@ func (c *WorldCMD) handleConn(ctx context.Context, l *minecraft.Listener, cc, sc
 		}()
 	}
 
-	gv := strings.Split(w.ServerConn.GameData().BaseGameVersion, ".")
-	if len(gv) > 1 {
-		var ver int
-		ver, err = strconv.Atoi(gv[1])
-		w.ispre118 = ver < 18
-	}
-	if err != nil || len(gv) <= 1 {
-		fmt.Println("couldnt determine game version, assuming > 1.18")
-	}
-	if w.ispre118 {
-		fmt.Println("using legacy (< 1.18)")
+	{
+		gd := w.ServerConn.GameData()
+		gv := strings.Split(gd.BaseGameVersion, ".")
+		if len(gv) > 1 {
+			var ver int
+			ver, err = strconv.Atoi(gv[1])
+			w.ispre118 = ver < 18
+		}
+		if err != nil || len(gv) <= 1 {
+			fmt.Println("couldnt determine game version, assuming > 1.18")
+		}
+		if w.ispre118 {
+			fmt.Println("using legacy (< 1.18)")
+		}
 	}
 
 	w.SendMessage("use /setname <worldname>\nto set the world name")
