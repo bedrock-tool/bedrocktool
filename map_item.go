@@ -79,7 +79,6 @@ func (m *MapUI) Redraw(w *WorldState) {
 	// get the chunk coord bounds
 	min := protocol.ChunkPos{}
 	max := protocol.ChunkPos{}
-	middle := protocol.ChunkPos{}
 	for _ch := range m.chunks_images {
 		if _ch.X() < min.X() {
 			min[0] = _ch.X()
@@ -93,32 +92,36 @@ func (m *MapUI) Redraw(w *WorldState) {
 		if _ch.Z() > max.Z() {
 			max[1] = _ch.Z()
 		}
-		if _ch.X() == int32(w.PlayerPos.Position.X()/16) && _ch.Z() == int32(w.PlayerPos.Position.Z()/16) {
-			middle = _ch
-		}
 	}
 
-	chunks_x := int(max[0] - min[0] + 1)                            // how many chunk lengths is x coordinate
-	chunks_per_line := math.Min(float64(chunks_x), float64(m.zoom)) // either zoom or how many there actually are
-	px_per_chunk := int(128 / chunks_per_line)                      // how many pixels does every chunk get
+	middle := protocol.ChunkPos{
+		int32(w.PlayerPos.Position.X()),
+		int32(w.PlayerPos.Position.Z()),
+	}
+
+	chunks_x := int(max[0] - min[0] + 1)                                               // how many chunk lengths is x coordinate
+	chunks_per_line := 16 * math.Ceil(math.Min(float64(chunks_x), float64(m.zoom))/16) // either zoom or how many there actually are
+	px_per_block := float64(128 / chunks_per_line / 16)                                // how many pixels per block
 
 	for i := 0; i < len(m.img.Pix); i++ { // clear canvas
 		m.img.Pix[i] = 0
 	}
 
 	for _ch := range m.chunks_images {
+		relative_middle_x := float64(_ch.X()*16 - middle.X())
+		relative_middle_z := float64(_ch.Z()*16 - middle.Z())
 		px_pos := image.Point{ // bottom left corner of the chunk on the map
-			X: (int(_ch.X()-middle.X()) * px_per_chunk) + 64,
-			Y: (int(_ch.Z()-middle.Z()) * px_per_chunk) + 64,
+			X: int(math.Floor(relative_middle_x*px_per_block)) + 64,
+			Y: int(math.Floor(relative_middle_z*px_per_block)) + 64,
 		}
-		if px_pos.In(m.img.Rect) {
+		if px_pos.In(m.img.Rect) || px_pos.Add(image.Point{16, 16}).In(m.img.Rect) {
 			draw.Draw(
 				m.img,
 				image.Rect(
 					px_pos.X,
 					px_pos.Y,
-					px_pos.X+px_per_chunk,
-					px_pos.Y+px_per_chunk,
+					px_pos.X+int(math.Ceil(px_per_block*16)),
+					px_pos.Y+int(math.Ceil(px_per_block*16)),
 				),
 				m.chunks_images[_ch],
 				image.Point{},

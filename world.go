@@ -258,11 +258,17 @@ func (w *WorldState) ProcessCommand(pk *packet.CommandRequest) bool {
 }
 
 func (w *WorldState) SetPlayerPos(Position mgl32.Vec3, Pitch, Yaw, HeadYaw float32) {
+	last := w.PlayerPos
 	w.PlayerPos = TPlayerPos{
 		Position: Position,
 		Pitch:    Pitch,
 		Yaw:      Yaw,
 		HeadYaw:  HeadYaw,
+	}
+
+	if int(last.Position.X()) != int(w.PlayerPos.Position.X()) || int(last.Position.Z()) != int(w.PlayerPos.Position.Z()) {
+		w.ui.SchedRedraw()
+		w.ui.Send(w)
 	}
 }
 
