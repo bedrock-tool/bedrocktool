@@ -19,11 +19,13 @@ endif
 
 
 BUILDS=\
+	windows_386.exe\
 	windows_amd64.exe\
 	windows_arm64.exe\
 	windows_arm.exe\
 	darwin_amd64\
 	darwin_arm64\
+	linux_386\
 	linux_amd64\
 	linux_arm64\
 	linux_arm\
