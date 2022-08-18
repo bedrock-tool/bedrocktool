@@ -3,7 +3,6 @@ package main
 import (
 	"image"
 	"image/color"
-	"image/draw"
 	"math"
 	"sync"
 
@@ -74,6 +73,23 @@ func (m *MapUI) SchedRedraw() {
 	m.needRedraw = true
 }
 
+// draw_img_scaled_pos draws src onto dst at bottom_left, scaled to size
+func draw_img_scaled_pos(dst *image.RGBA, src *image.RGBA, bottom_left image.Point, size_scaled int) {
+	sbx := src.Bounds().Dx()
+	sby := src.Bounds().Dy()
+
+	ratio := float64(sbx) / float64(size_scaled)
+
+	for x_in := 0; x_in < sbx; x_in++ {
+		for y_in := 0; y_in < sby; y_in++ {
+			c := src.At(x_in, y_in)
+			x_out := int(float64(bottom_left.X) + float64(x_in)/ratio)
+			y_out := int(float64(bottom_left.Y) + float64(y_in)/ratio)
+			dst.Set(x_out, y_out, c)
+		}
+	}
+}
+
 // draw chunk images to the map image
 func (m *MapUI) Redraw(w *WorldState) {
 	// get the chunk coord bounds
@@ -99,13 +115,16 @@ func (m *MapUI) Redraw(w *WorldState) {
 		int32(w.PlayerPos.Position.Z()),
 	}
 
-	chunks_x := int(max[0] - min[0] + 1)                                               // how many chunk lengths is x coordinate
-	chunks_per_line := 16 * math.Ceil(math.Min(float64(chunks_x), float64(m.zoom))/16) // either zoom or how many there actually are
-	px_per_block := float64(128 / chunks_per_line / 16)                                // how many pixels per block
+	chunks_x := int(max[0] - min[0] + 1) // how many chunk lengths is x coordinate
+	//chunks_y := int(max[1] - min[1] + 1)
+	chunks_per_line := math.Min(16*math.Ceil(math.Min(float64(chunks_x), float64(m.zoom))/16), 32) // either zoom or how many there actually are
+	px_per_block := float64(128 / chunks_per_line / 16)                                            // how many pixels per block
 
 	for i := 0; i < len(m.img.Pix); i++ { // clear canvas
 		m.img.Pix[i] = 0
 	}
+
+	//img2 := image.NewRGBA(image.Rect(0, 0, chunks_x*16, chunks_y*16))
 
 	for _ch := range m.chunks_images {
 		relative_middle_x := float64(_ch.X()*16 - middle.X())
@@ -114,25 +133,19 @@ func (m *MapUI) Redraw(w *WorldState) {
 			X: int(math.Floor(relative_middle_x*px_per_block)) + 64,
 			Y: int(math.Floor(relative_middle_z*px_per_block)) + 64,
 		}
-		if px_pos.In(m.img.Rect) || px_pos.Add(image.Point{16, 16}).In(m.img.Rect) {
-			draw.Draw(
-				m.img,
-				image.Rect(
-					px_pos.X,
-					px_pos.Y,
-					px_pos.X+int(math.Ceil(px_per_block*16)),
-					px_pos.Y+int(math.Ceil(px_per_block*16)),
-				),
-				m.chunks_images[_ch],
-				image.Point{},
-				draw.Src,
-			)
+		sz_chunk := int(math.Ceil(px_per_block * 16))
+		px_upper := px_pos.Add(image.Point{sz_chunk, sz_chunk})
+		if px_pos.In(m.img.Rect) || px_upper.In(m.img.Rect) {
+			draw_img_scaled_pos(m.img, m.chunks_images[_ch], image.Point{
+				px_pos.X, px_pos.Y,
+			}, sz_chunk)
 		}
 	}
+
 	/*
 		{
 			buf := bytes.NewBuffer(nil)
-			bmp.Encode(buf, m.img)
+			bmp.Encode(buf, img2)
 			os.WriteFile("test.bmp", buf.Bytes(), 0777)
 		}
 	*/
