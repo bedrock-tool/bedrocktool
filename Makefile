@@ -26,7 +26,14 @@ BUILDS=\
 	darwin_arm64\
 	linux_amd64\
 	linux_arm64\
-	linux_arm
+	linux_arm\
+	linux_mips\
+	linux_mips64\
+	linux_mips64le\
+	linux_ppc64\
+	linux_ppc64le\
+	linux_riscv64\
+	linux_s390x
 
 
 DISTS=$(BUILDS:%=$(NAME)_%)
