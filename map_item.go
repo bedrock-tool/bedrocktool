@@ -1,14 +1,18 @@
 package main
 
 import (
+	"bytes"
 	"image"
 	"image/color"
+	"image/draw"
 	"math"
+	"os"
 	"sync"
 
 	"github.com/df-mc/dragonfly/server/world/chunk"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
+	"golang.org/x/image/bmp"
 )
 
 const VIEW_MAP_ID = 0x424242
@@ -116,7 +120,7 @@ func (m *MapUI) Redraw(w *WorldState) {
 	}
 
 	chunks_x := int(max[0] - min[0] + 1) // how many chunk lengths is x coordinate
-	//chunks_y := int(max[1] - min[1] + 1)
+	chunks_y := int(max[1] - min[1] + 1)
 	chunks_per_line := math.Min(16*math.Ceil(math.Min(float64(chunks_x), float64(m.zoom))/16), 32) // either zoom or how many there actually are
 	px_per_block := float64(128 / chunks_per_line / 16)                                            // how many pixels per block
 
@@ -124,7 +128,7 @@ func (m *MapUI) Redraw(w *WorldState) {
 		m.img.Pix[i] = 0
 	}
 
-	//img2 := image.NewRGBA(image.Rect(0, 0, chunks_x*16, chunks_y*16))
+	//
 
 	for _ch := range m.chunks_images {
 		relative_middle_x := float64(_ch.X()*16 - middle.X())
@@ -142,13 +146,30 @@ func (m *MapUI) Redraw(w *WorldState) {
 		}
 	}
 
-	/*
-		{
-			buf := bytes.NewBuffer(nil)
-			bmp.Encode(buf, img2)
-			os.WriteFile("test.bmp", buf.Bytes(), 0777)
+	draw_full := false
+
+	if draw_full {
+		img2 := image.NewRGBA(image.Rect(0, 0, chunks_x*16, chunks_y*16))
+
+		middle_block_x := chunks_x / 2 * 16
+		middle_block_y := chunks_y / 2 * 16
+
+		for _ch := range m.chunks_images {
+			px_pos := image.Point{
+				X: int(_ch.X()*16) - middle_block_x + img2.Rect.Dx(),
+				Y: int(_ch.Z()*16) - middle_block_y + img2.Rect.Dy(),
+			}
+			draw.Draw(img2, image.Rect(
+				px_pos.X,
+				px_pos.Y,
+				px_pos.X+16,
+				px_pos.Y+16,
+			), m.chunks_images[_ch], image.Point{}, draw.Src)
 		}
-	*/
+		buf := bytes.NewBuffer(nil)
+		bmp.Encode(buf, img2)
+		os.WriteFile("test.bmp", buf.Bytes(), 0777)
+	}
 }
 
 // send
