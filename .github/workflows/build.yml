@@ -40,7 +40,6 @@ jobs:
           key: ${{ github.sha }}
 
   release:
-    if: ${{ !env.ACT }}
     needs: build
     name: Release
     runs-on: "ubuntu-latest"
