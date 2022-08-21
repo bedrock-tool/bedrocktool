@@ -8,7 +8,6 @@ require (
 	github.com/go-gl/mathgl v1.0.0
 	github.com/google/gopacket v1.1.19
 	github.com/google/subcommands v1.2.0
-	github.com/google/uuid v1.3.0
 	github.com/miekg/dns v1.1.50
 	github.com/sandertv/gophertunnel v1.24.0
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e
@@ -28,6 +27,7 @@ require (
 	github.com/df-mc/atomic v1.10.0 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
+	github.com/google/uuid v1.3.0 // indirect
 	github.com/jinzhu/copier v0.3.5
 	github.com/klauspost/compress v1.15.9 // indirect
 	github.com/muhammadmuzzammil1998/jsonc v1.0.0 // indirect
