@@ -15,6 +15,8 @@ import (
 
 const TOKEN_FILE = "token.json"
 
+var version string
+
 var G_debug bool
 var G_preload_packs bool
 var G_exit []func() = []func(){}
@@ -35,6 +37,8 @@ func register_command(sub subcommands.Command) {
 }
 
 func main() {
+	fmt.Printf("bedrocktool version: %s\n", version)
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	flag.BoolVar(&G_debug, "debug", false, "debug mode")

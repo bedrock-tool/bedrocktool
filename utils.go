@@ -153,6 +153,12 @@ func spawn_conn(ctx context.Context, clientConn *minecraft.Conn, serverConn *min
 }
 
 func create_proxy(ctx context.Context, server_address string) (l *minecraft.Listener, clientConn, serverConn *minecraft.Conn, err error) {
+	/*
+		if strings.HasSuffix(server_address, ".pcap") {
+			return create_replay_connection(server_address)
+		}
+	*/
+
 	GetTokenSource() // ask for login before listening
 
 	var packs []*resource.Pack

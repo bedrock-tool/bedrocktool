@@ -32,17 +32,14 @@ jobs:
           rm ../bedrock-repo-key.key
         env:
           REPO_KEY: ${{ secrets.REPO_KEY }}
-
-      - name: build
-        run: go get && make -j
-
-# create release
-      - uses: "marvinpinto/action-automatic-releases@latest"
-        with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: ${{ steps.get-latest-tag.outputs.tag }}
-          prerelease: true
-          title: "Development Build"
-          files: |
-            bedrocktool-*_*
         if: ${{ !env.ACT }}
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v3
+        with:
+          distribution: goreleaser
+          version: latest
+          args: release --rm-dist
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
