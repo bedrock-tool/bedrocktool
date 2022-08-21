@@ -33,23 +33,6 @@ jobs:
       - name: build
         run: make -j
 
-      - uses: actions/cache@v2
-        id: restore-build
-        with:
-          path: ./*
-          key: ${{ github.sha }}
-
-  release:
-    needs: build
-    name: Release
-    runs-on: "ubuntu-latest"
-    steps:
-      - uses: actions/cache@v2
-        id: restore-build
-        with:
-          path: ./*
-          key: ${{ github.sha }}
-
       - uses: actions-ecosystem/action-get-latest-tag@v1
         id: get-latest-tag
 
