@@ -150,9 +150,7 @@ func (w *WorldState) ProcessLevelChunk(pk *packet.LevelChunk) {
 	}
 	if blockNBTs != nil {
 		w.blockNBT[protocol.SubChunkPos{
-			pk.Position.X(),
-			0,
-			pk.Position.Z(),
+			pk.Position.X(), 0, pk.Position.Z(),
 		}] = blockNBTs
 	}
 
@@ -210,7 +208,6 @@ func (w *WorldState) ProcessSubChunk(pk *packet.SubChunk) {
 			fmt.Print(err)
 		}
 		if blockNBT != nil {
-			fmt.Printf("%+v\n", blockNBT)
 			w.blockNBT[pos3] = blockNBT
 		}
 

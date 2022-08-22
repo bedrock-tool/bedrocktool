@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/google/subcommands"
 )
@@ -46,27 +47,36 @@ func realms_get(path string) ([]byte, error) {
 }
 
 func (realm *Realm) Address() (string, error) {
-	if G_debug {
-		fmt.Printf("realm.Address()\n")
-	}
-
-	body, err := realms_get(fmt.Sprintf("worlds/%d/join", realm.Id))
-	if err != nil {
-		if strings.Contains(err.Error(), "503") {
-			return "", fmt.Errorf("realm is starting")
+	var body []byte
+	var err error
+	ticker := time.NewTicker(time.Second * 3)
+	defer ticker.Stop()
+	i := 0
+	for range ticker.C {
+		i++
+		body, err = realms_get(fmt.Sprintf("worlds/%d/join", realm.Id))
+		if err != nil {
+			if err.Error() == "HTTP 503" {
+				fmt.Printf("Waiting for the realm to start... %d\033[K\r", i)
+				continue
+			}
+			return "", err
 		}
-		return "", err
+		println()
+
+		var data struct {
+			Address       string `json:"address"`
+			PendingUpdate bool   `json:"pendingUpdate"`
+		}
+		if err := json.Unmarshal(body, &data); err != nil {
+			return "", err
+		}
+		return data.Address, nil
 	}
-	var data struct {
-		Address       string `json:"address"`
-		PendingUpdate bool   `json:"pendingUpdate"`
-	}
-	if err := json.Unmarshal(body, &data); err != nil {
-		return "", err
-	}
-	return data.Address, nil
+	panic("unreachable")
 }
 
+// get_realms lists all realms the user has access to
 func get_realms() ([]Realm, error) {
 	data, err := realms_get("worlds")
 	if err != nil {
@@ -83,8 +93,7 @@ func get_realms() ([]Realm, error) {
 	return realms.Servers, nil
 }
 
-func get_realm(realm_name, id string) (string, string, error) {
-	// returns: name, address, err
+func get_realm(realm_name, id string) (name string, address string, err error) {
 	realms, err := get_realms()
 	if err != nil {
 		return "", "", err
@@ -94,11 +103,12 @@ func get_realm(realm_name, id string) (string, string, error) {
 			if id != "" && id != fmt.Sprint(id) {
 				continue
 			}
-			address, err := realm.Address()
+			name = realm.Name
+			address, err = realm.Address()
 			if err != nil {
 				return "", "", err
 			}
-			return realm.Name, address, nil
+			return
 		}
 	}
 	return "", "", fmt.Errorf("realm not found")

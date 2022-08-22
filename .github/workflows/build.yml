@@ -37,6 +37,7 @@ jobs:
         id: get-latest-tag
 
       - uses: "marvinpinto/action-automatic-releases@latest"
+        if: startsWith(github.ref, 'refs/tags/v')
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           automatic_release_tag: ${{ steps.get-latest-tag.outputs.tag }}
@@ -46,6 +47,7 @@ jobs:
             dist/*
 
       - uses: "marvinpinto/action-automatic-releases@latest"
+        if: "!(startsWith(github.ref, 'refs/tags/v'))"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           automatic_release_tag: latest
