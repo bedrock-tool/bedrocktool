@@ -69,6 +69,7 @@ func server_input(server string) (address, name string, err error) {
 		if err != nil {
 			return "", "", err
 		}
+		name = cleanup_name(name)
 	} else if strings.HasSuffix(server, ".pcap") {
 		s := strings.Split(server, ".")
 		name = strings.Join(s[:len(s)-1], ".")

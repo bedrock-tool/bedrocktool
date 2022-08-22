@@ -103,7 +103,7 @@ func (skin *Skin) Write(output_path, name string) error {
 	}
 }
 
-var name_regexp = regexp.MustCompile(`§.`)
+var name_regexp = regexp.MustCompile(`\||(?:§.?)`)
 
 // cleans name so it can be used as a filename
 func cleanup_name(name string) string {
