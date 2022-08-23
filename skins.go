@@ -73,34 +73,87 @@ func (skin *Skin) WriteTexture(output_path string) error {
 	return nil
 }
 
+func (skin *Skin) WriteTint(output_path string) error {
+	f, err := os.Create(output_path)
+	if err != nil {
+		return fmt.Errorf("failed to write Tint %s: %s", output_path, err)
+	}
+	defer f.Close()
+
+	err = json.NewEncoder(f).Encode(skin.PieceTintColours)
+	if err != nil {
+		return fmt.Errorf("failed to write Tint %s: %s", output_path, err)
+	}
+	return nil
+}
+
+func (skin *Skin) WriteMeta(output_path string) error {
+	f, err := os.Create(output_path)
+	if err != nil {
+		return fmt.Errorf("failed to write Tint %s: %s", output_path, err)
+	}
+	defer f.Close()
+	d, err := json.MarshalIndent(struct {
+		SkinID        string
+		PlayFabID     string
+		PremiumSkin   bool
+		PersonaSkin   bool
+		CapeID        string
+		SkinColour    string
+		ArmSize       string
+		Trusted       bool
+		PersonaPieces []protocol.PersonaPiece
+	}{
+		skin.SkinID,
+		skin.PlayFabID,
+		skin.PremiumSkin,
+		skin.PersonaSkin,
+		skin.CapeID,
+		skin.SkinColour,
+		skin.ArmSize,
+		skin.Trusted,
+		skin.PersonaPieces,
+	}, "", "    ")
+	if err != nil {
+		return err
+	}
+	f.Write(d)
+	return nil
+}
+
 // Write writes all data for this skin to a folder
 func (skin *Skin) Write(output_path, name string) error {
 	skin_dir := path.Join(output_path, name)
 
-	have_geometry, have_cape, have_animations := len(skin.SkinGeometry) > 0, len(skin.CapeData) > 0, len(skin.Animations) > 0
-	complex := have_geometry || have_cape || have_animations
+	have_geometry, have_cape, have_animations, have_tint := len(skin.SkinGeometry) > 0, len(skin.CapeData) > 0, len(skin.Animations) > 0, len(skin.PieceTintColours) > 0
 
-	if complex {
-		os.MkdirAll(skin_dir, 0755)
-		if have_geometry {
-			if err := skin.WriteGeometry(path.Join(skin_dir, "geometry.json")); err != nil {
-				return err
-			}
+	os.MkdirAll(skin_dir, 0755)
+	if have_geometry {
+		if err := skin.WriteGeometry(path.Join(skin_dir, "geometry.json")); err != nil {
+			return err
 		}
-		if have_cape {
-			if err := skin.WriteCape(path.Join(skin_dir, "cape.png")); err != nil {
-				return err
-			}
-		}
-		if have_animations {
-			if err := skin.WriteAnimations(skin_dir); err != nil {
-				return err
-			}
-		}
-		return skin.WriteTexture(path.Join(skin_dir, "skin.png"))
-	} else {
-		return skin.WriteTexture(skin_dir + ".png")
 	}
+	if have_cape {
+		if err := skin.WriteCape(path.Join(skin_dir, "cape.png")); err != nil {
+			return err
+		}
+	}
+	if have_animations {
+		if err := skin.WriteAnimations(skin_dir); err != nil {
+			return err
+		}
+	}
+	if have_tint {
+		if err := skin.WriteTint(path.Join(skin_dir, "tint.json")); err != nil {
+			return err
+		}
+	}
+
+	if err := skin.WriteMeta(path.Join(skin_dir, "metadata.json")); err != nil {
+		return err
+	}
+
+	return skin.WriteTexture(path.Join(skin_dir, "skin.png"))
 }
 
 var name_regexp = regexp.MustCompile(`\||(?:§.?)`)
