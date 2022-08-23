@@ -1,12 +1,12 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 
 	"github.com/sandertv/gophertunnel/minecraft/auth"
+	"github.com/sandertv/gophertunnel/minecraft/realms"
 	"golang.org/x/oauth2"
 )
 
@@ -30,21 +30,13 @@ func GetTokenSource() oauth2.TokenSource {
 	return G_token_src
 }
 
-var _G_xbl_token *auth.XBLToken
+var G_realms_api *realms.Client
 
-func GetXBLToken(ctx context.Context) *auth.XBLToken {
-	if _G_xbl_token != nil {
-		return _G_xbl_token
+func getRealmsApi() *realms.Client {
+	if G_realms_api == nil {
+		G_realms_api = realms.NewClient(GetTokenSource())
 	}
-	_token, err := GetTokenSource().Token()
-	if err != nil {
-		panic(err)
-	}
-	_G_xbl_token, err = auth.RequestXBLToken(ctx, _token, "https://pocket.realms.minecraft.net/")
-	if err != nil {
-		panic(err)
-	}
-	return _G_xbl_token
+	return G_realms_api
 }
 
 func write_token(token *oauth2.Token) {

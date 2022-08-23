@@ -65,7 +65,7 @@ func server_input(server string) (address, name string, err error) {
 		if len(realm_info) == 3 {
 			id = realm_info[2]
 		}
-		name, address, err = get_realm(realm_info[1], id)
+		name, address, err = get_realm(context.Background(), getRealmsApi(), realm_info[1], id)
 		if err != nil {
 			return "", "", err
 		}
