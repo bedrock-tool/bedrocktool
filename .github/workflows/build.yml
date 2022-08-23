@@ -52,4 +52,5 @@ jobs:
           artifacts: dist/*
           tag: latest
           prerelease: true
+          removeArtifacts: true
 
