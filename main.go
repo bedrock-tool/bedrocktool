@@ -94,12 +94,16 @@ func main() {
 	os.Exit(int(ret))
 }
 
-type TransCMD struct{}
+type TransCMD struct {
+	auth bool
+}
 
 func (*TransCMD) Name() string     { return "trans" }
 func (*TransCMD) Synopsis() string { return "" }
 
-func (c *TransCMD) SetFlags(f *flag.FlagSet) {}
+func (c *TransCMD) SetFlags(f *flag.FlagSet) {
+	f.BoolVar(&c.auth, "auth", false, "if it should login to xbox")
+}
 func (c *TransCMD) Usage() string {
 	return c.Name() + ": " + c.Synopsis() + "\n"
 }
@@ -113,6 +117,9 @@ func (c *TransCMD) Execute(_ context.Context, f *flag.FlagSet, _ ...interface{})
 		WHITE    = "\033[47m"
 		RESET    = "\033[0m"
 	)
+	if c.auth {
+		GetTokenSource()
+	}
 	fmt.Println(BLACK_FG + BOLD + BLUE + " Trans " + PINK + " Rights " + WHITE + " Are " + PINK + " Human " + BLUE + " Rights " + RESET)
 	return 0
 }
