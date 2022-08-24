@@ -107,7 +107,7 @@ func server_url_to_name(server string) string {
 	return host
 }
 
-func connect_server(ctx context.Context, address string, ClientData *login.ClientData) (serverConn *minecraft.Conn, err error) {
+func connect_server(ctx context.Context, address string, ClientData *login.ClientData, want_packs bool) (serverConn *minecraft.Conn, err error) {
 	var packet_func func(header packet.Header, payload []byte, src, dst net.Addr) = nil
 	if G_debug {
 		packet_func = PacketLogger
@@ -120,9 +120,10 @@ func connect_server(ctx context.Context, address string, ClientData *login.Clien
 
 	fmt.Printf("Connecting to %s\n", address)
 	serverConn, err = minecraft.Dialer{
-		TokenSource: GetTokenSource(),
-		ClientData:  cd,
-		PacketFunc:  packet_func,
+		TokenSource:   GetTokenSource(),
+		ClientData:    cd,
+		PacketFunc:    packet_func,
+		DownloadPacks: want_packs,
 	}.DialContext(ctx, "raknet", address)
 	if err != nil {
 		return nil, err
@@ -165,7 +166,7 @@ func create_proxy(ctx context.Context, server_address string) (l *minecraft.List
 	var packs []*resource.Pack
 	if G_preload_packs {
 		fmt.Println("Preloading resourcepacks")
-		serverConn, err = connect_server(ctx, server_address, nil)
+		serverConn, err = connect_server(ctx, server_address, nil, true)
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf("failed to connect to %s: %s", server_address, err)
 		}
@@ -193,7 +194,7 @@ func create_proxy(ctx context.Context, server_address string) (l *minecraft.List
 	clientConn = c.(*minecraft.Conn)
 
 	cd := clientConn.ClientData()
-	serverConn, err = connect_server(ctx, server_address, &cd)
+	serverConn, err = connect_server(ctx, server_address, &cd, false)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("failed to connect to %s: %s", server_address, err)
 	}
