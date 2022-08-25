@@ -42,6 +42,7 @@ type TPlayerPos struct {
 
 type WorldState struct {
 	ispre118     bool
+	voidgen      bool
 	chunks       map[protocol.ChunkPos]*chunk.Chunk
 	entities     map[int64]world.SaveableEntity
 	blockNBT     map[protocol.SubChunkPos][]map[string]any
@@ -99,8 +100,9 @@ func init() {
 }
 
 type WorldCMD struct {
-	server_address string
-	packs          bool
+	server_address  string
+	packs           bool
+	enableGenerator bool
 }
 
 func (*WorldCMD) Name() string     { return "worlds" }
@@ -109,6 +111,7 @@ func (*WorldCMD) Synopsis() string { return "download a world from a server" }
 func (p *WorldCMD) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&p.server_address, "address", "", "remote server address")
 	f.BoolVar(&p.packs, "packs", false, "save resourcepacks to the worlds")
+	f.BoolVar(&p.enableGenerator, "gen", false, "if true, doesnt make the saved world a void world")
 }
 func (c *WorldCMD) Usage() string {
 	return c.Name() + ": " + c.Synopsis() + "\n" + SERVER_ADDRESS_HELP
@@ -316,7 +319,8 @@ func (w *WorldState) SaveAndReset() {
 
 	// set gamerules
 	ld := provider.LevelDat()
-	for _, gr := range w.ServerConn.GameData().GameRules {
+	gd := w.ServerConn.GameData()
+	for _, gr := range gd.GameRules {
 		switch gr.Name {
 		case "commandblockoutput":
 			ld.CommandBlockOutput = gr.Value.(bool)
@@ -384,9 +388,13 @@ func (w *WorldState) SaveAndReset() {
 		}
 	}
 
+	ld.RandomSeed = int64(gd.WorldSeed)
+
 	// void world
-	ld.FlatWorldLayers = `{"biome_id":1,"block_layers":[{"block_data":0,"block_id":0,"count":1},{"block_data":0,"block_id":0,"count":2},{"block_data":0,"block_id":0,"count":1}],"encoding_version":3,"structure_options":null}`
-	ld.Generator = 2
+	if w.voidgen {
+		ld.FlatWorldLayers = `{"biome_id":1,"block_layers":[{"block_data":0,"block_id":0,"count":1},{"block_data":0,"block_id":0,"count":2},{"block_data":0,"block_id":0,"count":1}],"encoding_version":3,"structure_options":null}`
+		ld.Generator = 2
+	}
 
 	provider.SaveSettings(s)
 	provider.Close()
@@ -418,6 +426,7 @@ func (c *WorldCMD) handleConn(ctx context.Context, l *minecraft.Listener, cc, sc
 	w.ServerName = server_name
 	w.ClientConn = cc
 	w.ServerConn = sc
+	w.voidgen = !c.enableGenerator
 
 	if c.packs {
 		fmt.Println("reformatting packs")

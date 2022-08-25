@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/sandertv/gophertunnel/minecraft"
+	//"github.com/sandertv/gophertunnel/minecraft/gatherings"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/login"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
@@ -74,6 +75,19 @@ func server_input(server string) (address, name string, err error) {
 		s := strings.Split(server, ".")
 		name = strings.Join(s[:len(s)-1], ".")
 		address = server
+		/*} else if strings.HasPrefix(server, "gathering:") {
+			gathering_info := strings.Split(server, ":")
+			if len(gathering_info) < 2 {
+				return "", "", fmt.Errorf("use: gathering:<uuid>")
+			}
+			gathering_id := gathering_info[1]
+			g := gatherings.NewGathering(GetTokenSource(), gathering_id)
+			address, err = g.Address()
+			if err != nil {
+				return "", "", err
+			}
+			return address, gathering_id, nil
+		} */
 	} else {
 		// if an actual server address if given
 		// add port if necessary
@@ -154,6 +168,21 @@ func spawn_conn(ctx context.Context, clientConn *minecraft.Conn, serverConn *min
 	return nil
 }
 
+type dummyProto struct {
+	id  int32
+	ver string
+}
+
+func (p dummyProto) ID() int32            { return p.id }
+func (p dummyProto) Ver() string          { return p.ver }
+func (p dummyProto) Packets() packet.Pool { return packet.NewPool() }
+func (p dummyProto) ConvertToLatest(pk packet.Packet, _ *minecraft.Conn) []packet.Packet {
+	return []packet.Packet{pk}
+}
+func (p dummyProto) ConvertFromLatest(pk packet.Packet, _ *minecraft.Conn) []packet.Packet {
+	return []packet.Packet{pk}
+}
+
 func create_proxy(ctx context.Context, server_address string) (l *minecraft.Listener, clientConn, serverConn *minecraft.Conn, err error) {
 	/*
 		if strings.HasSuffix(server_address, ".pcap") {
@@ -179,6 +208,9 @@ func create_proxy(ctx context.Context, server_address string) (l *minecraft.List
 	listener, err := minecraft.ListenConfig{
 		StatusProvider: _status,
 		ResourcePacks:  packs,
+		AcceptedProtocols: []minecraft.Protocol{
+			dummyProto{id: 544, ver: "1.19.20"},
+		},
 	}.Listen("raknet", ":19132")
 	if err != nil {
 		return nil, nil, nil, err

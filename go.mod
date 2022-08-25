@@ -16,11 +16,13 @@ require (
 
 //replace github.com/sandertv/gophertunnel => ./gophertunnel
 
+//replace github.com/sandertv/go-raknet => ./go-raknet
+
 //replace github.com/df-mc/dragonfly => ./dragonfly
 
 replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.24.8-2
 
-replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.8.2-5
+replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.8.2-6
 
 require (
 	github.com/brentp/intintmap v0.0.0-20190211203843-30dc0ade9af9 // indirect
@@ -31,7 +33,7 @@ require (
 	github.com/jinzhu/copier v0.3.5
 	github.com/klauspost/compress v1.15.9 // indirect
 	github.com/muhammadmuzzammil1998/jsonc v1.0.0 // indirect
-	github.com/sandertv/go-raknet v1.11.1 // indirect
+	github.com/sandertv/go-raknet v1.11.1
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa // indirect

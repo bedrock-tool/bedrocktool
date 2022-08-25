@@ -39,6 +39,8 @@ github.com/muhammadmuzzammil1998/jsonc v1.0.0 h1:8o5gBQn4ZA3NBA9DlTujCj2a4w0tqWr
 github.com/muhammadmuzzammil1998/jsonc v1.0.0/go.mod h1:saF2fIVw4banK0H4+/EuqfFLpRnoy5S+ECwTOCcRcSU=
 github.com/olebeck/dragonfly v0.8.2-5 h1:0G9dhTQ1Oae1KnmgRjNeqYPQ/PsLFGwMWtQYAJkPICI=
 github.com/olebeck/dragonfly v0.8.2-5/go.mod h1:xgpCDhHoP03RygPaTrzzDwsSTcEZhxNPMV3CAxETj+I=
+github.com/olebeck/dragonfly v0.8.2-6 h1:h7GoXbNMS1OTOfm/QK7QQ3VF4By5Scfk/7Sd0LJ13s0=
+github.com/olebeck/dragonfly v0.8.2-6/go.mod h1:xgpCDhHoP03RygPaTrzzDwsSTcEZhxNPMV3CAxETj+I=
 github.com/olebeck/gophertunnel v1.24.6 h1:Mnpzk9e+eMdfx/wbEsmwQabEbalNzFRu+3iMEBzaVSg=
 github.com/olebeck/gophertunnel v1.24.6/go.mod h1:dMOw79FHxr2azEqiGH20AwdljisAN1kqwu5SjPBnZ5k=
 github.com/olebeck/gophertunnel v1.24.7 h1:EMYLDMxGxzPtoI/Y77KHPcfelkGS+QcjdtStGIqtYFE=
