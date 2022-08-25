@@ -9,9 +9,10 @@ require (
 	github.com/google/gopacket v1.1.19
 	github.com/google/subcommands v1.2.0
 	github.com/miekg/dns v1.1.50
-	github.com/sandertv/gophertunnel v1.24.0
+	github.com/sandertv/gophertunnel v1.24.5
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e
 	golang.org/x/oauth2 v0.0.0-20220808172628-8227340efae7
+	github.com/flytam/filenamify v1.1.1
 )
 
 //replace github.com/sandertv/gophertunnel => ./gophertunnel

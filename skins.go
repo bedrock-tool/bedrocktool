@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/flytam/filenamify"
 	"github.com/google/subcommands"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
@@ -123,6 +124,7 @@ func (skin *Skin) WriteMeta(output_path string) error {
 
 // Write writes all data for this skin to a folder
 func (skin *Skin) Write(output_path, name string) error {
+	name, _ = filenamify.FilenamifyV2(name)
 	skin_dir := path.Join(output_path, name)
 
 	have_geometry, have_cape, have_animations, have_tint := len(skin.SkinGeometry) > 0, len(skin.CapeData) > 0, len(skin.Animations) > 0, len(skin.PieceTintColours) > 0
