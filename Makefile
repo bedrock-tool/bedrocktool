@@ -6,11 +6,12 @@ GC = go build -ldflags "-s -w -X main.version=${TAG}"
 
 # check if packs are supported
 HAVE_PACKS = false
-ifeq ($(shell head -c 7 resourcepack-ace.go),package)
+ifeq ($(shell head -c 7 resourcepack-ace.go.ignore),package)
 HAVE_PACKS = true
 endif
+
 $(info pack support: ${HAVE_PACKS})
-ifneq ($(HAVE_PACKS),true)
+ifeq ($(HAVE_PACKS),true)
 GC += -overlay overlay.json
 endif
 
