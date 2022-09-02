@@ -8,6 +8,8 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"image"
+	"image/color"
 	"io"
 	"io/fs"
 	"log"
@@ -18,7 +20,7 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
-	"time"
+	"unsafe"
 
 	"github.com/sandertv/gophertunnel/minecraft"
 	//"github.com/sandertv/gophertunnel/minecraft/gatherings"
@@ -179,6 +181,7 @@ func (p dummyProto) Packets() packet.Pool { return packet.NewPool() }
 func (p dummyProto) ConvertToLatest(pk packet.Packet, _ *minecraft.Conn) []packet.Packet {
 	return []packet.Packet{pk}
 }
+
 func (p dummyProto) ConvertFromLatest(pk packet.Packet, _ *minecraft.Conn) []packet.Packet {
 	return []packet.Packet{pk}
 }
@@ -241,17 +244,17 @@ func create_proxy(ctx context.Context, server_address string) (l *minecraft.List
 		clientConn.Close()
 		l.Close()
 	})
-
-	go func() {
-		for i := 0; i < 10; i++ {
-			time.Sleep(1 * time.Second)
-			clientConn.WritePacket(&packet.Text{
-				TextType: packet.TextTypeTip,
-				Message:  a + "\n\n\n\n\n\n",
-			})
-		}
-	}()
-
+	/*
+		go func() {
+			for i := 0; i < 10; i++ {
+				time.Sleep(1 * time.Second)
+				clientConn.WritePacket(&packet.Text{
+					TextType: packet.TextTypeTip,
+					Message:  a + "\n\n\n\n\n\n",
+				})
+			}
+		}()
+	*/
 	return l, clientConn, serverConn, nil
 }
 
@@ -337,9 +340,9 @@ func unpack_zip(r io.ReaderAt, size int64, unpack_folder string) {
 	for _, src_file := range zr.File {
 		out_path := path.Join(unpack_folder, src_file.Name)
 		if src_file.Mode().IsDir() {
-			os.Mkdir(out_path, 0755)
+			os.Mkdir(out_path, 0o755)
 		} else {
-			os.MkdirAll(path.Dir(out_path), 0755)
+			os.MkdirAll(path.Dir(out_path), 0o755)
 			fr, _ := src_file.Open()
 			f, _ := os.Create(path.Join(unpack_folder, src_file.Name))
 			io.Copy(f, fr)
@@ -427,4 +430,11 @@ func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
 		fmt.Printf("Disconnect: %s", pk.Message)
 	}
 	fmt.Printf("%s 0x%x, %s\n", dir, pk.ID(), pk_name)
+}
+
+func img2rgba(img *image.RGBA) []color.RGBA {
+	header := *(*reflect.SliceHeader)(unsafe.Pointer(&img.Pix))
+	header.Len /= 4
+	header.Cap /= 4
+	return *(*[]color.RGBA)(unsafe.Pointer(&header))
 }

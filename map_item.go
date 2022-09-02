@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"image"
-	"image/color"
 	"image/draw"
 	"math"
 	"os"
@@ -40,7 +39,7 @@ var MAP_ITEM_PACKET packet.InventoryContent = packet.InventoryContent{
 
 type MapUI struct {
 	img           *image.RGBA                       // rendered image
-	zoom          int                               // chunks per row
+	minZoom       bool                              // 1 pixel per block
 	chunks_images map[protocol.ChunkPos]*image.RGBA // prerendered chunks
 	needRedraw    bool                              // when the map has updated this is true
 	send_lock     *sync.Mutex
@@ -49,7 +48,7 @@ type MapUI struct {
 func NewMapUI() MapUI {
 	return MapUI{
 		img:           image.NewRGBA(image.Rect(0, 0, 128, 128)),
-		zoom:          64,
+		minZoom:       true,
 		chunks_images: make(map[protocol.ChunkPos]*image.RGBA),
 		needRedraw:    true,
 		send_lock:     &sync.Mutex{},
@@ -64,11 +63,7 @@ func (m *MapUI) Reset() {
 
 // ChangeZoom adds to the zoom value and goes around to 32 once it hits 128
 func (m *MapUI) ChangeZoom() {
-	if m.zoom >= 128 {
-		m.zoom = 32 // min
-	} else {
-		m.zoom += 32
-	}
+	m.minZoom = !m.minZoom
 	m.SchedRedraw()
 }
 
@@ -121,14 +116,16 @@ func (m *MapUI) Redraw(w *WorldState) {
 
 	chunks_x := int(max[0] - min[0] + 1) // how many chunk lengths is x coordinate
 	chunks_y := int(max[1] - min[1] + 1)
-	chunks_per_line := math.Min(16*math.Ceil(math.Min(float64(chunks_x), float64(m.zoom))/16), 32) // either zoom or how many there actually are
-	px_per_block := float64(128 / chunks_per_line / 16)                                            // how many pixels per block
+	chunks_per_line := 16 * math.Ceil(math.Min(float64(chunks_x), 32)/16)
+	if m.minZoom {
+		chunks_per_line = 8
+	}
+	px_per_block := float64(128 / chunks_per_line / 16) // how many pixels per block
+	sz_chunk := int(math.Ceil(px_per_block * 16))
 
 	for i := 0; i < len(m.img.Pix); i++ { // clear canvas
 		m.img.Pix[i] = 0
 	}
-
-	//
 
 	for _ch := range m.chunks_images {
 		relative_middle_x := float64(_ch.X()*16 - middle.X())
@@ -137,9 +134,8 @@ func (m *MapUI) Redraw(w *WorldState) {
 			X: int(math.Floor(relative_middle_x*px_per_block)) + 64,
 			Y: int(math.Floor(relative_middle_z*px_per_block)) + 64,
 		}
-		sz_chunk := int(math.Ceil(px_per_block * 16))
-		px_upper := px_pos.Add(image.Point{sz_chunk, sz_chunk})
-		if px_pos.In(m.img.Rect) || px_upper.In(m.img.Rect) {
+
+		if !m.img.Rect.Intersect(image.Rect(px_pos.X, px_pos.Y, px_pos.X+sz_chunk, px_pos.Y+sz_chunk)).Empty() {
 			draw_img_scaled_pos(m.img, m.chunks_images[_ch], image.Point{
 				px_pos.X, px_pos.Y,
 			}, sz_chunk)
@@ -168,7 +164,7 @@ func (m *MapUI) Redraw(w *WorldState) {
 		}
 		buf := bytes.NewBuffer(nil)
 		bmp.Encode(buf, img2)
-		os.WriteFile("test.bmp", buf.Bytes(), 0777)
+		os.WriteFile("test.bmp", buf.Bytes(), 0o777)
 	}
 }
 
@@ -184,21 +180,12 @@ func (m *MapUI) Send(w *WorldState) error {
 		m.Redraw(w)
 	}
 
-	// (ugh)
-	pixels := make([][]color.RGBA, 128)
-	for y := 0; y < 128; y++ {
-		pixels[y] = make([]color.RGBA, 128)
-		for x := 0; x < 128; x++ {
-			pixels[y][x] = m.img.At(x, y).(color.RGBA)
-		}
-	}
-
 	m.send_lock.Unlock()
 	return w.ClientConn.WritePacket(&packet.ClientBoundMapItemData{
 		MapID:       VIEW_MAP_ID,
 		Width:       128,
 		Height:      128,
-		Pixels:      pixels,
+		Pixels:      img2rgba(m.img),
 		UpdateFlags: 2,
 	})
 }

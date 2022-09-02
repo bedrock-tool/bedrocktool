@@ -51,6 +51,8 @@ github.com/olebeck/gophertunnel v1.24.8-1 h1:ECZs6y/ZtvUjhIPlu3RjJr8c5QkOdxdQnoO
 github.com/olebeck/gophertunnel v1.24.8-1/go.mod h1:dMOw79FHxr2azEqiGH20AwdljisAN1kqwu5SjPBnZ5k=
 github.com/olebeck/gophertunnel v1.24.8-2 h1:T7WY2M/GrKTOgcH1RcDiB8LNlhK+PEzGdHSaYP4V518=
 github.com/olebeck/gophertunnel v1.24.8-2/go.mod h1:dMOw79FHxr2azEqiGH20AwdljisAN1kqwu5SjPBnZ5k=
+github.com/olebeck/gophertunnel v1.24.8-3 h1:qR5PCFWUAcUureCt36tLqaXWOjHVsFx66PiKm1obtkY=
+github.com/olebeck/gophertunnel v1.24.8-3/go.mod h1:dMOw79FHxr2azEqiGH20AwdljisAN1kqwu5SjPBnZ5k=
 github.com/olebeck/gophertunnel v1.24.8 h1:jdqBOABDAE1yISqzm9IxIrI+/lJApLBjTieynXUSalw=
 github.com/olebeck/gophertunnel v1.24.8/go.mod h1:dMOw79FHxr2azEqiGH20AwdljisAN1kqwu5SjPBnZ5k=
 github.com/onsi/ginkgo v1.6.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=

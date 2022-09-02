@@ -72,25 +72,60 @@ func NewWorldState() *WorldState {
 	}
 }
 
-var setname_command = protocol.Command{
-	Name:        "setname",
-	Description: "set user defined name for this world",
-	Overloads: []protocol.CommandOverload{
-		{
-			Parameters: []protocol.CommandParameter{
+type IngameCommand struct {
+	exec func(w *WorldState, cmdline []string) bool
+	cmd  protocol.Command
+}
+
+var IngameCommands = map[string]IngameCommand{
+	"setname": {
+		exec: setnameCommand,
+		cmd: protocol.Command{
+			Name:        "setname",
+			Description: "set user defined name for this world",
+			Overloads: []protocol.CommandOverload{
 				{
-					Name:     "name",
-					Type:     protocol.CommandArgTypeFilepath,
-					Optional: false,
+					Parameters: []protocol.CommandParameter{
+						{
+							Name:     "name",
+							Type:     protocol.CommandArgTypeFilepath,
+							Optional: false,
+						},
+					},
 				},
 			},
 		},
 	},
+	"void": {
+		exec: toggleVoid,
+		cmd: protocol.Command{
+			Name:        "void",
+			Description: "toggle if void generator should be used",
+		},
+	},
 }
 
-var black_16x16 = image.NewRGBA(image.Rect(0, 0, 16, 16))
+func setnameCommand(w *WorldState, cmdline []string) bool {
+	w.WorldName = strings.Join(cmdline, " ")
+	send_message(w.ClientConn, fmt.Sprintf("worldName is now: %s", w.WorldName))
+	return true
+}
+
+func toggleVoid(w *WorldState, cmdline []string) bool {
+	w.voidgen = !w.voidgen
+	send_message(w.ClientConn, fmt.Sprintf("using void generator: %t", w.voidgen))
+	return true
+}
+
+var (
+	black_16x16  = image.NewRGBA(image.Rect(0, 0, 16, 16))
+	Offset_table [24]protocol.SubChunkOffset
+)
 
 func init() {
+	for i := range Offset_table {
+		Offset_table[i] = protocol.SubChunkOffset{0, int8(i), 0}
+	}
 	draw.Draw(black_16x16, image.Rect(0, 0, 16, 16), image.Black, image.Point{}, draw.Src)
 	cs := crc32.ChecksumIEEE([]byte(a))
 	if cs != 0x9747c04f {
@@ -100,9 +135,9 @@ func init() {
 }
 
 type WorldCMD struct {
-	server_address  string
-	packs           bool
-	enableGenerator bool
+	server_address string
+	packs          bool
+	enableVoid     bool
 }
 
 func (*WorldCMD) Name() string     { return "worlds" }
@@ -111,8 +146,9 @@ func (*WorldCMD) Synopsis() string { return "download a world from a server" }
 func (p *WorldCMD) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&p.server_address, "address", "", "remote server address")
 	f.BoolVar(&p.packs, "packs", false, "save resourcepacks to the worlds")
-	f.BoolVar(&p.enableGenerator, "gen", false, "if true, doesnt make the saved world a void world")
+	f.BoolVar(&p.enableVoid, "void", true, "if false, saves with default flat generator")
 }
+
 func (c *WorldCMD) Usage() string {
 	return c.Name() + ": " + c.Synopsis() + "\n" + SERVER_ADDRESS_HELP
 }
@@ -168,16 +204,7 @@ func (w *WorldState) ProcessLevelChunk(pk *packet.LevelChunk) {
 	} else {
 		// request all the subchunks
 
-		var Offset_table = []protocol.SubChunkOffset{
-			{0, 0, 0}, {0, 1, 0}, {0, 2, 0}, {0, 3, 0},
-			{0, 4, 0}, {0, 5, 0}, {0, 6, 0}, {0, 7, 0},
-			{0, 8, 0}, {0, 9, 0}, {0, 10, 0}, {0, 11, 0},
-			{0, 12, 0}, {0, 13, 0}, {0, 14, 0}, {0, 15, 0},
-			{0, 16, 0}, {0, 17, 0}, {0, 18, 0}, {0, 19, 0},
-			{0, 20, 0}, {0, 21, 0}, {0, 22, 0}, {0, 23, 0},
-		}
-
-		max := len(Offset_table) - 1
+		max := w.Dim.Range().Height() / 16
 		if pk.SubChunkRequestMode == protocol.SubChunkRequestModeLimited {
 			max = int(pk.HighestSubChunk)
 		}
@@ -227,7 +254,6 @@ func (w *WorldState) ProcessSubChunk(pk *packet.SubChunk) {
 func (w *WorldState) ProcessAnimate(pk *packet.Animate) {
 	if pk.ActionType == packet.AnimateActionSwingArm {
 		w.ui.ChangeZoom()
-		send_popup(w.ClientConn, fmt.Sprintf("Zoom: %d", w.ui.zoom))
 		w.ui.Send(w)
 	}
 }
@@ -249,10 +275,9 @@ func (w *WorldState) ProcessChangeDimension(pk *packet.ChangeDimension) {
 
 func (w *WorldState) ProcessCommand(pk *packet.CommandRequest) bool {
 	cmd := strings.Split(pk.CommandLine, " ")
-	if cmd[0] == "/setname" && len(cmd) >= 2 {
-		w.WorldName = strings.Join(cmd[1:], " ")
-		send_message(w.ClientConn, fmt.Sprintf("worldName is now: %s", w.WorldName))
-		return true
+	name := cmd[0][1:]
+	if h, ok := IngameCommands[name]; ok {
+		return h.exec(w, cmd[1:])
 	}
 	return false
 }
@@ -284,7 +309,9 @@ func (w *WorldState) SaveAndReset() {
 
 	// open world
 	folder := path.Join("worlds", fmt.Sprintf("%s/%s", w.ServerName, w.WorldName))
-	os.MkdirAll(folder, 0777)
+	os.RemoveAll(folder)
+	os.MkdirAll(folder, 0o777)
+
 	provider, err := mcdb.New(folder, opt.DefaultCompression)
 	if err != nil {
 		log.Fatal(err)
@@ -296,7 +323,7 @@ func (w *WorldState) SaveAndReset() {
 	}
 
 	// save block nbt data
-	var blockNBT = make(map[protocol.ChunkPos][]map[string]any)
+	blockNBT := make(map[protocol.ChunkPos][]map[string]any)
 	for scp, v := range w.blockNBT { // 3d to 2d
 		cp := protocol.ChunkPos{scp.X(), scp.Z()}
 		blockNBT[cp] = append(blockNBT[cp], v...)
@@ -403,7 +430,7 @@ func (w *WorldState) SaveAndReset() {
 	for k, p := range w.packs {
 		fmt.Printf("Adding resource pack: %s\n", k)
 		pack_folder := path.Join(folder, "resource_packs", k)
-		os.MkdirAll(pack_folder, 0755)
+		os.MkdirAll(pack_folder, 0o755)
 		data := make([]byte, p.Len())
 		p.ReadAt(data, 0)
 		unpack_zip(bytes.NewReader(data), int64(len(data)), pack_folder)
@@ -426,7 +453,7 @@ func (c *WorldCMD) handleConn(ctx context.Context, l *minecraft.Listener, cc, sc
 	w.ServerName = server_name
 	w.ClientConn = cc
 	w.ServerConn = sc
-	w.voidgen = !c.enableGenerator
+	w.voidgen = c.enableVoid
 
 	if c.packs {
 		fmt.Println("reformatting packs")
@@ -545,7 +572,9 @@ func (c *WorldCMD) handleConn(ctx context.Context, l *minecraft.Listener, cc, sc
 			case *packet.SubChunk:
 				w.ProcessSubChunk(pk)
 			case *packet.AvailableCommands:
-				pk.Commands = append(pk.Commands, setname_command)
+				for _, ic := range IngameCommands {
+					pk.Commands = append(pk.Commands, ic.cmd)
+				}
 			}
 
 			if err := w.ClientConn.WritePacket(pk); err != nil {
