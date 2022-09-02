@@ -12,11 +12,13 @@ import (
 	"github.com/df-mc/goleveldb/leveldb/opt"
 	"github.com/google/subcommands"
 	"github.com/jinzhu/copier"
+	"github.com/sirupsen/logrus"
 )
 
 type MergeCMD struct {
 	worlds []string
 	legacy bool
+	log    *logrus.Logger
 }
 
 func (*MergeCMD) Name() string     { return "merge" }
@@ -25,11 +27,14 @@ func (*MergeCMD) Synopsis() string { return "merge 2 or more worlds" }
 func (c *MergeCMD) SetFlags(f *flag.FlagSet) {
 	f.BoolVar(&c.legacy, "legacy", false, "if the worlds are before 1.18")
 }
+
 func (c *MergeCMD) Usage() string {
 	return c.Name() + ": " + c.Synopsis() + "\n"
 }
 
 func (c *MergeCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
+	c.log = logrus.New()
+
 	if f.NArg() == 0 {
 		fmt.Println("you need to specify 1 or more worlds")
 		return 1
@@ -37,7 +42,7 @@ func (c *MergeCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 	c.worlds = f.Args()
 	out_name := c.worlds[0] + "-merged"
 
-	prov_out, err := mcdb.New(out_name, opt.DefaultCompression)
+	prov_out, err := mcdb.New(c.log, out_name, opt.DefaultCompression)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to open output %s\n", err)
 	}
@@ -80,7 +85,8 @@ func (c *MergeCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 }
 
 func (c *MergeCMD) merge_worlds(prov_out *mcdb.Provider, folder string, first bool) error {
-	prov_in, err := mcdb.New(folder, opt.DefaultCompression)
+	log := logrus.New()
+	prov_in, err := mcdb.New(log, folder, opt.DefaultCompression)
 	if err != nil {
 		return err
 	}

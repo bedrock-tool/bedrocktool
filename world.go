@@ -27,6 +27,7 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
+	"github.com/sirupsen/logrus"
 
 	_ "github.com/df-mc/dragonfly/server/block" // to load blocks
 )
@@ -55,6 +56,8 @@ type WorldState struct {
 	PlayerPos  TPlayerPos
 	ClientConn *minecraft.Conn
 	ServerConn *minecraft.Conn
+
+	log *logrus.Logger
 
 	// ui
 	ui MapUI
@@ -138,6 +141,7 @@ type WorldCMD struct {
 	server_address string
 	packs          bool
 	enableVoid     bool
+	log            *logrus.Logger
 }
 
 func (*WorldCMD) Name() string     { return "worlds" }
@@ -154,6 +158,8 @@ func (c *WorldCMD) Usage() string {
 }
 
 func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
+	c.log = logrus.New()
+
 	server_address, hostname, err := server_input(c.server_address)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -312,7 +318,7 @@ func (w *WorldState) SaveAndReset() {
 	os.RemoveAll(folder)
 	os.MkdirAll(folder, 0o777)
 
-	provider, err := mcdb.New(folder, opt.DefaultCompression)
+	provider, err := mcdb.New(w.log, folder, opt.DefaultCompression)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -454,6 +460,7 @@ func (c *WorldCMD) handleConn(ctx context.Context, l *minecraft.Listener, cc, sc
 	w.ClientConn = cc
 	w.ServerConn = sc
 	w.voidgen = c.enableVoid
+	w.log = c.log
 
 	if c.packs {
 		fmt.Println("reformatting packs")
