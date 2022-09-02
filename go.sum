@@ -43,6 +43,8 @@ github.com/olebeck/dragonfly v0.8.2-5 h1:0G9dhTQ1Oae1KnmgRjNeqYPQ/PsLFGwMWtQYAJk
 github.com/olebeck/dragonfly v0.8.2-5/go.mod h1:xgpCDhHoP03RygPaTrzzDwsSTcEZhxNPMV3CAxETj+I=
 github.com/olebeck/dragonfly v0.8.2-6 h1:h7GoXbNMS1OTOfm/QK7QQ3VF4By5Scfk/7Sd0LJ13s0=
 github.com/olebeck/dragonfly v0.8.2-6/go.mod h1:xgpCDhHoP03RygPaTrzzDwsSTcEZhxNPMV3CAxETj+I=
+github.com/olebeck/dragonfly v0.8.3-0.20220902161600-2f9b3652bbb7 h1:/JD6mWd0/hPcCEvLNB/GGJhqhMBHYV1Hce5vyM9Wy2s=
+github.com/olebeck/dragonfly v0.8.3-0.20220902161600-2f9b3652bbb7/go.mod h1:ObfYlB77fxGLqU2CLquvk8ibAEMYoixiXfs7pxrOGCI=
 github.com/olebeck/gophertunnel v1.24.6 h1:Mnpzk9e+eMdfx/wbEsmwQabEbalNzFRu+3iMEBzaVSg=
 github.com/olebeck/gophertunnel v1.24.6/go.mod h1:dMOw79FHxr2azEqiGH20AwdljisAN1kqwu5SjPBnZ5k=
 github.com/olebeck/gophertunnel v1.24.7 h1:EMYLDMxGxzPtoI/Y77KHPcfelkGS+QcjdtStGIqtYFE=

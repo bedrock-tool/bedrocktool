@@ -23,7 +23,7 @@ require (
 
 replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.24.8-3
 
-replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.8.2-6
+replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.8.3-0.20220902161600-2f9b3652bbb7
 
 require (
 	github.com/brentp/intintmap v0.0.0-20190211203843-30dc0ade9af9 // indirect
