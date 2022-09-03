@@ -2,13 +2,13 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"os"
 
 	"github.com/google/subcommands"
-	"github.com/sandertv/gophertunnel/minecraft"
+	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
+	"github.com/sirupsen/logrus"
 )
 
 type SkinProxyCMD struct {
@@ -23,76 +23,33 @@ func (c *SkinProxyCMD) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.server_address, "address", "", "remote server address")
 	f.StringVar(&c.filter, "filter", "", "player name filter prefix")
 }
+
 func (c *SkinProxyCMD) Usage() string {
 	return c.Name() + ": " + c.Synopsis() + "\n" + SERVER_ADDRESS_HELP
 }
 
 func (c *SkinProxyCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
+	log := logrus.New()
+
 	address, hostname, err := server_input(c.server_address)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
+	out_path := fmt.Sprintf("skins/%s", hostname)
+	os.MkdirAll(out_path, 0o755)
 
-	listener, clientConn, serverConn, err := create_proxy(ctx, address)
+	err = create_proxy(ctx, log, address, nil, func(pk packet.Packet, proxy *ProxyContext, toServer bool) (packet.Packet, error) {
+		if !toServer {
+			process_packet_skins(proxy.client, out_path, pk, c.filter)
+		}
+		return pk, nil
+	})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
-	defer listener.Close()
-
-	out_path := fmt.Sprintf("skins/%s", hostname)
-
-	println("Connected")
-	println("Press ctrl+c to exit")
-
-	os.MkdirAll(out_path, 0755)
-
-	errs := make(chan error, 2)
-	go func() { // server -> client
-		defer serverConn.Close()
-		defer listener.Disconnect(clientConn, "connection lost")
-		for {
-			pk, err := serverConn.ReadPacket()
-			if err != nil {
-				if disconnect, ok := errors.Unwrap(err).(minecraft.DisconnectError); ok {
-					_ = listener.Disconnect(clientConn, disconnect.Error())
-				}
-				return
-			}
-			process_packet_skins(clientConn, out_path, pk, c.filter)
-
-			if err = clientConn.WritePacket(pk); err != nil {
-				return
-			}
-		}
-	}()
-
-	go func() { // client -> server
-		for {
-			pk, err := clientConn.ReadPacket()
-			if err != nil {
-				return
-			}
-
-			if err := serverConn.WritePacket(pk); err != nil {
-				if disconnect, ok := errors.Unwrap(err).(minecraft.DisconnectError); ok {
-					_ = listener.Disconnect(clientConn, disconnect.Error())
-				}
-				return
-			}
-		}
-	}()
-
-	for {
-		select {
-		case err := <-errs:
-			fmt.Fprintln(os.Stderr, err)
-			return 1
-		case <-ctx.Done():
-			return 0
-		}
-	}
+	return 0
 }
 
 func init() {

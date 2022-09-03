@@ -10,26 +10,7 @@ import (
 	"github.com/df-mc/dragonfly/server/world/chunk"
 )
 
-func chunkGetColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) color.RGBA {
-	p := cube.Pos{int(x), int(y), int(z)}
-	have_up := false
-	p.Side(cube.FaceUp).Neighbours(func(neighbour cube.Pos) {
-		if neighbour.X() < 0 || neighbour.X() >= 16 || neighbour.Z() < 0 || neighbour.Z() >= 16 {
-			return
-		}
-		if !have_up {
-			block_rid := c.Block(uint8(neighbour[0]), int16(neighbour[1]), uint8(neighbour[2]), 0)
-			b, found := world.BlockByRuntimeID(block_rid)
-			if found {
-				if _, ok := b.(block.Air); !ok {
-					if _, ok := b.(block.Water); !ok {
-						have_up = true
-					}
-				}
-			}
-		}
-	}, cube.Range{int(y + 1), int(y + 1)})
-
+func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) color.RGBA {
 	col := color.RGBA{0, 0, 0, 255}
 	block_rid := c.Block(x, y, z, 0)
 	if block_rid == 0 && y == 0 { // void
@@ -47,6 +28,30 @@ func chunkGetColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) color.RGBA {
 			}
 		*/
 	}
+	return col
+}
+
+func chunkGetColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) color.RGBA {
+	p := cube.Pos{int(x), int(y), int(z)}
+	have_up := false
+	p.Side(cube.FaceUp).Neighbours(func(neighbour cube.Pos) {
+		if neighbour.X() < 0 || neighbour.X() >= 16 || neighbour.Z() < 0 || neighbour.Z() >= 16 {
+			return
+		}
+		if !have_up {
+			block_rid := c.Block(uint8(neighbour[0]), int16(neighbour[1]), uint8(neighbour[2]), 0)
+			if block_rid > 0 {
+				b, found := world.BlockByRuntimeID(block_rid)
+				if found {
+					if _, ok := b.(block.Air); !ok {
+						have_up = true
+					}
+				}
+			}
+		}
+	}, cube.Range{int(y + 1), int(y + 1)})
+
+	col := blockColorAt(c, x, y, z)
 
 	if have_up {
 		if col.R > 10 {
@@ -75,11 +80,9 @@ func Chunk2Img(c *chunk.Chunk) *image.RGBA {
 			col := chunkGetColorAt(c, x, height, z)
 
 			if height_liquid > height {
-				bw := &block.Water{}
-				wcol := bw.Color()
-				col.R = col.R/2 + wcol.R/2
-				col.G = col.G/2 + wcol.G/2
-				col.B = col.B/2 + wcol.B/2
+				bw := (&block.Water{}).Color()
+				bw.A = uint8(clamp(int(127+(height_liquid-height)*5), 255))
+				col = blendColors(col, bw)
 			}
 
 			img.SetRGBA(int(x), int(z), col)

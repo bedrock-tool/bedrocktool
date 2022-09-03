@@ -23,11 +23,11 @@ import (
 	"unsafe"
 
 	"github.com/sandertv/gophertunnel/minecraft"
+
 	//"github.com/sandertv/gophertunnel/minecraft/gatherings"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/login"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
-	"github.com/sandertv/gophertunnel/minecraft/resource"
 	"golang.org/x/exp/slices"
 )
 
@@ -170,94 +170,6 @@ func spawn_conn(ctx context.Context, clientConn *minecraft.Conn, serverConn *min
 	return nil
 }
 
-type dummyProto struct {
-	id  int32
-	ver string
-}
-
-func (p dummyProto) ID() int32            { return p.id }
-func (p dummyProto) Ver() string          { return p.ver }
-func (p dummyProto) Packets() packet.Pool { return packet.NewPool() }
-func (p dummyProto) ConvertToLatest(pk packet.Packet, _ *minecraft.Conn) []packet.Packet {
-	return []packet.Packet{pk}
-}
-
-func (p dummyProto) ConvertFromLatest(pk packet.Packet, _ *minecraft.Conn) []packet.Packet {
-	return []packet.Packet{pk}
-}
-
-func create_proxy(ctx context.Context, server_address string) (l *minecraft.Listener, clientConn, serverConn *minecraft.Conn, err error) {
-	/*
-		if strings.HasSuffix(server_address, ".pcap") {
-			return create_replay_connection(server_address)
-		}
-	*/
-
-	GetTokenSource() // ask for login before listening
-
-	var packs []*resource.Pack
-	if G_preload_packs {
-		fmt.Println("Preloading resourcepacks")
-		serverConn, err = connect_server(ctx, server_address, nil, true)
-		if err != nil {
-			return nil, nil, nil, fmt.Errorf("failed to connect to %s: %s", server_address, err)
-		}
-		serverConn.Close()
-		packs = serverConn.ResourcePacks()
-		fmt.Printf("%d packs loaded\n", len(packs))
-	}
-
-	_status := minecraft.NewStatusProvider("Server")
-	listener, err := minecraft.ListenConfig{
-		StatusProvider: _status,
-		ResourcePacks:  packs,
-		AcceptedProtocols: []minecraft.Protocol{
-			dummyProto{id: 544, ver: "1.19.20"},
-		},
-	}.Listen("raknet", ":19132")
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	l = listener
-
-	fmt.Printf("Listening on %s\n", listener.Addr())
-
-	c, err := listener.Accept()
-	if err != nil {
-		log.Fatal(err)
-	}
-	clientConn = c.(*minecraft.Conn)
-
-	cd := clientConn.ClientData()
-	serverConn, err = connect_server(ctx, server_address, &cd, false)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to connect to %s: %s", server_address, err)
-	}
-
-	if err := spawn_conn(ctx, clientConn, serverConn); err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to spawn: %s", err)
-	}
-
-	G_exit = append(G_exit, func() {
-		serverConn.Close()
-		l.Disconnect(clientConn, "Closing")
-		clientConn.Close()
-		l.Close()
-	})
-	/*
-		go func() {
-			for i := 0; i < 10; i++ {
-				time.Sleep(1 * time.Second)
-				clientConn.WritePacket(&packet.Text{
-					TextType: packet.TextTypeTip,
-					Message:  a + "\n\n\n\n\n\n",
-				})
-			}
-		}()
-	*/
-	return l, clientConn, serverConn, nil
-}
-
 var PrivateIPNetworks = []net.IPNet{
 	{
 		IP:   net.ParseIP("10.0.0.0"),
@@ -386,7 +298,7 @@ var muted_packets = []string{
 	"*packet.AddActor",
 	"*packet.UpdateAttributes",
 	"*packet.Interact",
-	"*packet.LevelEvent",
+	//"*packet.LevelEvent",
 	"*packet.SetActorData",
 	"*packet.MoveActorDelta",
 	"*packet.MovePlayer",
@@ -401,6 +313,7 @@ var muted_packets = []string{
 	"*packet.SubChunkRequest",
 	"*packet.Animate",
 	"*packet.NetworkStackLatency",
+	"*packet.InventoryTransaction",
 }
 
 func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
@@ -428,6 +341,10 @@ func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
 	switch pk := pk.(type) {
 	case *packet.Disconnect:
 		fmt.Printf("Disconnect: %s", pk.Message)
+	case *packet.Event:
+		fmt.Printf("Event: %d %+v\n", pk.EventType, pk.EventData)
+	case *packet.LevelEvent:
+		fmt.Printf("LevelEvent: %+v\n", pk)
 	}
 	fmt.Printf("%s 0x%x, %s\n", dir, pk.ID(), pk_name)
 }
@@ -437,4 +354,35 @@ func img2rgba(img *image.RGBA) []color.RGBA {
 	header.Len /= 4
 	header.Cap /= 4
 	return *(*[]color.RGBA)(unsafe.Pointer(&header))
+}
+
+// LERP is a linear interpolation function
+func LERP(p1, p2, alpha float64) float64 {
+	return (1-alpha)*p1 + alpha*p2
+}
+
+func blendColorValue(c1, c2, a uint8) uint8 {
+	return uint8(LERP(float64(c1), float64(c2), float64(a)/float64(0xff)))
+}
+
+func blendAlphaValue(a1, a2 uint8) uint8 {
+	return uint8(LERP(float64(a1), float64(0xff), float64(a2)/float64(0xff)))
+}
+
+func blendColors(c1, c2 color.RGBA) (ret color.RGBA) {
+	ret.R = blendColorValue(c1.R, c2.R, c2.A)
+	ret.G = blendColorValue(c1.G, c2.G, c2.A)
+	ret.B = blendColorValue(c1.B, c2.B, c2.A)
+	ret.A = blendAlphaValue(c1.A, c2.A)
+	return ret
+}
+
+func clamp(a, b int) int {
+	if a > b {
+		return b
+	}
+	if a < 0 {
+		return 0
+	}
+	return a
 }

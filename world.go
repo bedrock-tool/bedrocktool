@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"hash/crc32"
@@ -23,7 +22,6 @@ import (
 	"github.com/df-mc/goleveldb/leveldb/opt"
 	"github.com/go-gl/mathgl/mgl32"
 	"github.com/google/subcommands"
-	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
@@ -42,6 +40,7 @@ type TPlayerPos struct {
 // the state used for drawing and saving
 
 type WorldState struct {
+	ctx          context.Context
 	ispre118     bool
 	voidgen      bool
 	chunks       map[protocol.ChunkPos]*chunk.Chunk
@@ -51,11 +50,11 @@ type WorldState struct {
 	WorldName    string
 	ServerName   string
 	worldCounter int
+	withPacks    bool
 	packs        map[string]*resource.Pack
 
-	PlayerPos  TPlayerPos
-	ClientConn *minecraft.Conn
-	ServerConn *minecraft.Conn
+	PlayerPos TPlayerPos
+	proxy     *ProxyContext
 
 	log *logrus.Logger
 
@@ -110,13 +109,13 @@ var IngameCommands = map[string]IngameCommand{
 
 func setnameCommand(w *WorldState, cmdline []string) bool {
 	w.WorldName = strings.Join(cmdline, " ")
-	send_message(w.ClientConn, fmt.Sprintf("worldName is now: %s", w.WorldName))
+	send_message(w.proxy.client, fmt.Sprintf("worldName is now: %s", w.WorldName))
 	return true
 }
 
 func toggleVoid(w *WorldState, cmdline []string) bool {
 	w.voidgen = !w.voidgen
-	send_message(w.ClientConn, fmt.Sprintf("using void generator: %t", w.voidgen))
+	send_message(w.proxy.client, fmt.Sprintf("using void generator: %t", w.voidgen))
 	return true
 }
 
@@ -166,14 +165,25 @@ func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 		return 1
 	}
 
-	listener, clientConn, serverConn, err := create_proxy(ctx, server_address)
+	w := NewWorldState()
+	w.log = c.log
+	w.voidgen = c.enableVoid
+	w.ServerName = hostname
+	w.withPacks = c.packs
+	w.ctx = ctx
+
+	err = create_proxy(ctx, c.log, server_address, w.OnConnect, func(pk packet.Packet, proxy *ProxyContext, toServer bool) (packet.Packet, error) {
+		if toServer {
+			pk = w.ProcessPacketClient(pk)
+		} else {
+			pk = w.ProcessPacketServer(pk)
+		}
+		return pk, nil
+	})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
-
-	c.handleConn(ctx, listener, clientConn, serverConn, hostname)
-
 	return 0
 }
 
@@ -215,7 +225,7 @@ func (w *WorldState) ProcessLevelChunk(pk *packet.LevelChunk) {
 			max = int(pk.HighestSubChunk)
 		}
 
-		w.ServerConn.WritePacket(&packet.SubChunkRequest{
+		w.proxy.server.WritePacket(&packet.SubChunkRequest{
 			Dimension: int32(w.Dim.EncodeDimension()),
 			Position: protocol.SubChunkPos{
 				pk.Position.X(), 0, pk.Position.Z(),
@@ -352,7 +362,7 @@ func (w *WorldState) SaveAndReset() {
 
 	// set gamerules
 	ld := provider.LevelDat()
-	gd := w.ServerConn.GameData()
+	gd := w.proxy.server.GameData()
 	for _, gr := range gd.GameRules {
 		switch gr.Name {
 		case "commandblockoutput":
@@ -453,25 +463,20 @@ func (w *WorldState) SaveAndReset() {
 	w.Reset()
 }
 
-func (c *WorldCMD) handleConn(ctx context.Context, l *minecraft.Listener, cc, sc *minecraft.Conn, server_name string) {
-	var err error
-	w := NewWorldState()
-	w.ServerName = server_name
-	w.ClientConn = cc
-	w.ServerConn = sc
-	w.voidgen = c.enableVoid
-	w.log = c.log
+func (w *WorldState) OnConnect(proxy *ProxyContext) {
+	w.proxy = proxy
 
-	if c.packs {
+	if w.withPacks {
 		fmt.Println("reformatting packs")
 		go func() {
-			w.packs, err = w.getPacks()
+			w.packs, _ = w.getPacks()
 		}()
 	}
 
 	{ // check game version
-		gd := w.ServerConn.GameData()
+		gd := w.proxy.server.GameData()
 		gv := strings.Split(gd.BaseGameVersion, ".")
+		var err error
 		if len(gv) > 1 {
 			var ver int
 			ver, err = strconv.Atoi(gv[1])
@@ -483,117 +488,75 @@ func (c *WorldCMD) handleConn(ctx context.Context, l *minecraft.Listener, cc, sc
 		if w.ispre118 {
 			fmt.Println("using legacy (< 1.18)")
 		}
+
+		dim_id := gd.Dimension
+		if w.ispre118 {
+			dim_id += 10
+		}
+		w.Dim = dimension_ids[uint8(dim_id)]
 	}
 
-	send_message(w.ClientConn, "use /setname <worldname>\nto set the world name")
+	send_message(w.proxy.client, "use /setname <worldname>\nto set the world name")
 
 	G_exit = append(G_exit, func() {
 		w.SaveAndReset()
 	})
 
-	done := make(chan struct{})
-
-	go func() { // client loop
-		defer func() { done <- struct{}{} }()
-		for {
-			skip := false
-			pk, err := w.ClientConn.ReadPacket()
-			if err != nil {
-				return
-			}
-
-			switch pk := pk.(type) {
-			case *packet.MovePlayer:
-				w.SetPlayerPos(pk.Position, pk.Pitch, pk.Yaw, pk.HeadYaw)
-			case *packet.PlayerAuthInput:
-				w.SetPlayerPos(pk.Position, pk.Pitch, pk.Yaw, pk.HeadYaw)
-			case *packet.MapInfoRequest:
-				if pk.MapID == VIEW_MAP_ID {
-					w.ui.Send(w)
-					skip = true
-				}
-			case *packet.MobEquipment:
-				if pk.NewItem.Stack.NBTData["map_uuid"] == int64(VIEW_MAP_ID) {
-					skip = true
-				}
-			case *packet.Animate:
-				w.ProcessAnimate(pk)
-			case *packet.CommandRequest:
-				skip = w.ProcessCommand(pk)
-			}
-
-			if !skip {
-				if err := w.ServerConn.WritePacket(pk); err != nil {
-					if disconnect, ok := errors.Unwrap(err).(minecraft.DisconnectError); ok {
-						_ = l.Disconnect(w.ClientConn, disconnect.Error())
-					}
-					return
-				}
-			}
-		}
-	}()
-
 	go func() { // send map item
 		select {
-		case <-ctx.Done():
+		case <-w.ctx.Done():
 			return
 		default:
-			for {
-				time.Sleep(1 * time.Second)
-				err := w.ClientConn.WritePacket(&MAP_ITEM_PACKET)
+			t := time.NewTimer(1 * time.Second)
+			for range t.C {
+				err := w.proxy.client.WritePacket(&MAP_ITEM_PACKET)
 				if err != nil {
 					return
 				}
 			}
 		}
 	}()
+}
 
-	go func() { // server loop
-		defer w.ServerConn.Close()
-		defer l.Disconnect(w.ClientConn, "connection lost")
-		defer func() { done <- struct{}{} }()
-
-		gd := w.ServerConn.GameData()
-		dim_id := gd.Dimension
-		if w.ispre118 {
-			dim_id += 10
+func (w *WorldState) ProcessPacketClient(pk packet.Packet) packet.Packet {
+	switch pk := pk.(type) {
+	case *packet.MovePlayer:
+		w.SetPlayerPos(pk.Position, pk.Pitch, pk.Yaw, pk.HeadYaw)
+	case *packet.PlayerAuthInput:
+		w.SetPlayerPos(pk.Position, pk.Pitch, pk.Yaw, pk.HeadYaw)
+	case *packet.MapInfoRequest:
+		if pk.MapID == VIEW_MAP_ID {
+			w.ui.Send(w)
+			pk = nil
 		}
-		w.Dim = dimension_ids[uint8(dim_id)]
-
-		for {
-			pk, err := w.ServerConn.ReadPacket()
-			if err != nil {
-				if disconnect, ok := errors.Unwrap(err).(minecraft.DisconnectError); ok {
-					_ = l.Disconnect(w.ClientConn, disconnect.Error())
-				}
-				return
-			}
-
-			switch pk := pk.(type) {
-			case *packet.ChangeDimension:
-				w.ProcessChangeDimension(pk)
-			case *packet.LevelChunk:
-				w.ProcessLevelChunk(pk)
-				w.ui.Send(w)
-				send_popup(w.ClientConn, fmt.Sprintf("%d chunks loaded\nname: %s", len(w.chunks), w.WorldName))
-			case *packet.SubChunk:
-				w.ProcessSubChunk(pk)
-			case *packet.AvailableCommands:
-				for _, ic := range IngameCommands {
-					pk.Commands = append(pk.Commands, ic.cmd)
-				}
-			}
-
-			if err := w.ClientConn.WritePacket(pk); err != nil {
-				return
-			}
+	case *packet.MobEquipment:
+		if pk.NewItem.Stack.NBTData["map_uuid"] == int64(VIEW_MAP_ID) {
+			pk = nil
 		}
-	}()
-
-	select {
-	case <-ctx.Done():
-		return
-	case <-done:
-		return
+	case *packet.Animate:
+		w.ProcessAnimate(pk)
+	case *packet.CommandRequest:
+		if w.ProcessCommand(pk) {
+			pk = nil
+		}
 	}
+	return pk
+}
+
+func (w *WorldState) ProcessPacketServer(pk packet.Packet) packet.Packet {
+	switch pk := pk.(type) {
+	case *packet.ChangeDimension:
+		w.ProcessChangeDimension(pk)
+	case *packet.LevelChunk:
+		w.ProcessLevelChunk(pk)
+		w.ui.Send(w)
+		send_popup(w.proxy.client, fmt.Sprintf("%d chunks loaded\nname: %s", len(w.chunks), w.WorldName))
+	case *packet.SubChunk:
+		w.ProcessSubChunk(pk)
+	case *packet.AvailableCommands:
+		for _, ic := range IngameCommands {
+			pk.Commands = append(pk.Commands, ic.cmd)
+		}
+	}
+	return pk
 }

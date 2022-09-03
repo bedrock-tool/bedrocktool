@@ -17,10 +17,13 @@ import (
 	"github.com/google/subcommands"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
+	"github.com/sirupsen/logrus"
 )
 
-var SrcIp_client = net.IPv4(127, 0, 0, 1)
-var SrcIp_server = net.IPv4(243, 0, 0, 2)
+var (
+	SrcIp_client = net.IPv4(127, 0, 0, 1)
+	SrcIp_server = net.IPv4(243, 0, 0, 2)
+)
 
 func init() {
 	register_command(&CaptureCMD{})
@@ -84,18 +87,15 @@ func (*CaptureCMD) Synopsis() string { return "capture packets in a pcap file" }
 func (p *CaptureCMD) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&p.server_address, "address", "", "remote server address")
 }
+
 func (c *CaptureCMD) Usage() string {
 	return c.Name() + ": " + c.Synopsis() + "\n" + SERVER_ADDRESS_HELP
 }
 
 func (c *CaptureCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	address, hostname, err := server_input(c.server_address)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 1
-	}
+	log := logrus.New()
 
-	listener, serverConn, clientConn, err := create_proxy(ctx, address)
+	address, hostname, err := server_input(c.server_address)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
@@ -112,44 +112,15 @@ func (c *CaptureCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interfac
 
 	_wl := sync.Mutex{}
 
-	go func() {
-		defer listener.Disconnect(clientConn, "connection lost")
-		defer serverConn.Close()
-
-		for {
-			pk, err := clientConn.ReadPacket()
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Failed to read packet: %s\n", err)
-				return
-			}
-
-			_wl.Lock()
-			dump_packet(true, w, pk)
-			_wl.Unlock()
-
-			err = serverConn.WritePacket(pk)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Failed to write packet: %s\n", err)
-				return
-			}
-		}
-	}()
-
-	for {
-		pk, err := serverConn.ReadPacket()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to read packet: %s\n", err)
-			return 1
-		}
-
+	err = create_proxy(ctx, log, address, nil, func(pk packet.Packet, proxy *ProxyContext, toServer bool) (packet.Packet, error) {
 		_wl.Lock()
-		dump_packet(false, w, pk)
+		dump_packet(toServer, w, pk)
 		_wl.Unlock()
-
-		err = clientConn.WritePacket(pk)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to write packet: %s\n", err)
-			return 1
-		}
+		return pk, nil
+	})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
 	}
+	return 0
 }

@@ -181,7 +181,7 @@ func (m *MapUI) Send(w *WorldState) error {
 	}
 
 	m.send_lock.Unlock()
-	return w.ClientConn.WritePacket(&packet.ClientBoundMapItemData{
+	return w.proxy.client.WritePacket(&packet.ClientBoundMapItemData{
 		MapID:       VIEW_MAP_ID,
 		Width:       128,
 		Height:      128,
