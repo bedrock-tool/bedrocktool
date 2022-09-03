@@ -109,13 +109,13 @@ var IngameCommands = map[string]IngameCommand{
 
 func setnameCommand(w *WorldState, cmdline []string) bool {
 	w.WorldName = strings.Join(cmdline, " ")
-	send_message(w.proxy.client, fmt.Sprintf("worldName is now: %s", w.WorldName))
+	w.proxy.sendMessage(fmt.Sprintf("worldName is now: %s", w.WorldName))
 	return true
 }
 
 func toggleVoid(w *WorldState, cmdline []string) bool {
 	w.voidgen = !w.voidgen
-	send_message(w.proxy.client, fmt.Sprintf("using void generator: %t", w.voidgen))
+	w.proxy.sendMessage(fmt.Sprintf("using void generator: %t", w.voidgen))
 	return true
 }
 
@@ -496,7 +496,7 @@ func (w *WorldState) OnConnect(proxy *ProxyContext) {
 		w.Dim = dimension_ids[uint8(dim_id)]
 	}
 
-	send_message(w.proxy.client, "use /setname <worldname>\nto set the world name")
+	w.proxy.sendMessage("use /setname <worldname>\nto set the world name")
 
 	G_exit = append(G_exit, func() {
 		w.SaveAndReset()
@@ -509,9 +509,11 @@ func (w *WorldState) OnConnect(proxy *ProxyContext) {
 		default:
 			t := time.NewTimer(1 * time.Second)
 			for range t.C {
-				err := w.proxy.client.WritePacket(&MAP_ITEM_PACKET)
-				if err != nil {
-					return
+				if w.proxy.client != nil {
+					err := w.proxy.client.WritePacket(&MAP_ITEM_PACKET)
+					if err != nil {
+						return
+					}
 				}
 			}
 		}
@@ -550,7 +552,7 @@ func (w *WorldState) ProcessPacketServer(pk packet.Packet) packet.Packet {
 	case *packet.LevelChunk:
 		w.ProcessLevelChunk(pk)
 		w.ui.Send(w)
-		send_popup(w.proxy.client, fmt.Sprintf("%d chunks loaded\nname: %s", len(w.chunks), w.WorldName))
+		w.proxy.sendPopup(fmt.Sprintf("%d chunks loaded\nname: %s", len(w.chunks), w.WorldName))
 	case *packet.SubChunk:
 		w.ProcessSubChunk(pk)
 	case *packet.AvailableCommands:

@@ -39,20 +39,6 @@ const SERVER_ADDRESS_HELP = `accepted server address formats:
 
 `
 
-func send_popup(conn *minecraft.Conn, text string) {
-	conn.WritePacket(&packet.Text{
-		TextType: packet.TextTypePopup,
-		Message:  text,
-	})
-}
-
-func send_message(conn *minecraft.Conn, text string) {
-	conn.WritePacket(&packet.Text{
-		TextType: packet.TextTypeSystem,
-		Message:  "§8[§bBedrocktool§8]§r " + text,
-	})
-}
-
 func server_input(server string) (address, name string, err error) {
 	if server == "" { // no arg provided, interactive input
 		fmt.Printf("Enter Server: ")

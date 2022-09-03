@@ -21,7 +21,7 @@ require (
 
 //replace github.com/df-mc/dragonfly => ./dragonfly
 
-replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.24.8-3
+replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.24.8-4
 
 replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.8.3-0.20220902161600-2f9b3652bbb7
 

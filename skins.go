@@ -129,7 +129,7 @@ func (skin *Skin) Write(output_path, name string) error {
 
 	have_geometry, have_cape, have_animations, have_tint := len(skin.SkinGeometry) > 0, len(skin.CapeData) > 0, len(skin.Animations) > 0, len(skin.PieceTintColours) > 0
 
-	os.MkdirAll(skin_dir, 0755)
+	os.MkdirAll(skin_dir, 0o755)
 	if have_geometry {
 		if err := skin.WriteGeometry(path.Join(skin_dir, "geometry.json")); err != nil {
 			return err
@@ -188,9 +188,11 @@ func write_skin(output_path, name string, skin protocol.Skin, filter string) {
 	}
 }
 
-var skin_players = make(map[string]string)
-var skin_player_counts = make(map[string]int)
-var processed_skins = make(map[string]bool)
+var (
+	skin_players       = make(map[string]string)
+	skin_player_counts = make(map[string]int)
+	processed_skins    = make(map[string]bool)
+)
 
 func process_packet_skins(conn *minecraft.Conn, out_path string, pk packet.Packet, filter string) {
 	switch _pk := pk.(type) {
@@ -218,7 +220,7 @@ func process_packet_skins(conn *minecraft.Conn, out_path string, pk packet.Packe
 			skin_players[player.UUID.String()] = name
 			processed_skins[name] = true
 			if conn != nil {
-				send_popup(conn, fmt.Sprintf("%s Skin was Saved", name))
+				(&ProxyContext{client: conn}).sendPopup(fmt.Sprintf("%s Skin was Saved", name))
 			}
 		}
 	}
@@ -236,6 +238,7 @@ func (c *SkinCMD) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.server_address, "address", "", "remote server address")
 	f.StringVar(&c.filter, "filter", "", "player name filter prefix")
 }
+
 func (c *SkinCMD) Usage() string {
 	return c.Name() + ": " + c.Synopsis() + "\n"
 }
@@ -264,7 +267,7 @@ func (c *SkinCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}
 	println("Connected")
 	println("Press ctrl+c to exit")
 
-	os.MkdirAll(out_path, 0755)
+	os.MkdirAll(out_path, 0o755)
 
 	for {
 		pk, err := serverConn.ReadPacket()

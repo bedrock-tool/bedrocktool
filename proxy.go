@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/sandertv/gophertunnel/minecraft"
@@ -35,10 +36,29 @@ type ProxyContext struct {
 	client   *minecraft.Conn
 	listener *minecraft.Listener
 }
+
 type (
 	PacketCallback  func(pk packet.Packet, proxy *ProxyContext, toServer bool) (packet.Packet, error)
 	ConnectCallback func(proxy *ProxyContext)
 )
+
+func (p *ProxyContext) sendMessage(text string) {
+	if p.client != nil {
+		p.client.WritePacket(&packet.Text{
+			TextType: packet.TextTypeSystem,
+			Message:  "§8[§bBedrocktool§8]§r " + text,
+		})
+	}
+}
+
+func (p *ProxyContext) sendPopup(text string) {
+	if p.client != nil {
+		p.client.WritePacket(&packet.Text{
+			TextType: packet.TextTypePopup,
+			Message:  text,
+		})
+	}
+}
 
 func proxyLoop(ctx context.Context, proxy *ProxyContext, toServer bool, packetCBs []PacketCallback) error {
 	var c1, c2 *minecraft.Conn
@@ -79,11 +99,9 @@ func proxyLoop(ctx context.Context, proxy *ProxyContext, toServer bool, packetCB
 }
 
 func create_proxy(ctx context.Context, log *logrus.Logger, server_address string, onConnect ConnectCallback, packetCB PacketCallback) (err error) {
-	/*
-		if strings.HasSuffix(server_address, ".pcap") {
-			return create_replay_connection(server_address)
-		}
-	*/
+	if strings.HasSuffix(server_address, ".pcap") {
+		return create_replay_connection(ctx, log, server_address, onConnect, packetCB)
+	}
 
 	GetTokenSource() // ask for login before listening
 

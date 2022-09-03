@@ -43,12 +43,16 @@ func dump_packet(from_client bool, w *pcapgo.Writer, pk packet.Packet) {
 		dst_ip = SrcIp_client
 	}
 
-	var packet_data []byte
+	packet_data := bytes.NewBuffer(nil)
 	{
 		_pw := bytes.NewBuffer(nil)
 		pw := protocol.NewWriter(_pw, 0x0)
 		pk.Marshal(pw)
-		packet_data = _pw.Bytes()
+		h := packet.Header{
+			PacketID: pk.ID(),
+		}
+		h.Write(packet_data)
+		packet_data.Write(_pw.Bytes())
 	}
 
 	serialize_buf := gopacket.NewSerializeBuffer()
@@ -58,9 +62,9 @@ func dump_packet(from_client bool, w *pcapgo.Writer, pk packet.Packet) {
 		&layers.IPv4{
 			SrcIP:  src_ip,
 			DstIP:  dst_ip,
-			Length: uint16(len(packet_data)),
+			Length: uint16(packet_data.Len()),
 		},
-		gopacket.Payload(packet_data),
+		gopacket.Payload(packet_data.Bytes()),
 	)
 	if err != nil {
 		log.Fatal(err)

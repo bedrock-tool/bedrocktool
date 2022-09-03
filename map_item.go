@@ -181,13 +181,16 @@ func (m *MapUI) Send(w *WorldState) error {
 	}
 
 	m.send_lock.Unlock()
-	return w.proxy.client.WritePacket(&packet.ClientBoundMapItemData{
-		MapID:       VIEW_MAP_ID,
-		Width:       128,
-		Height:      128,
-		Pixels:      img2rgba(m.img),
-		UpdateFlags: 2,
-	})
+	if w.proxy.client != nil {
+		return w.proxy.client.WritePacket(&packet.ClientBoundMapItemData{
+			MapID:       VIEW_MAP_ID,
+			Width:       128,
+			Height:      128,
+			Pixels:      img2rgba(m.img),
+			UpdateFlags: 2,
+		})
+	}
+	return nil
 }
 
 func (m *MapUI) SetChunk(pos protocol.ChunkPos, ch *chunk.Chunk) {
