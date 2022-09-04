@@ -17,11 +17,14 @@ jobs:
           check-latest: true
           cache: true
 
+      - uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: git-crypt xxd
+          version: 1.0
+
       - name: decrypt
         if: ${{ !env.ACT }}
         run: |
-          sudo apt update -y
-          sudo apt install git-crypt xxd -y
           echo ${REPO_KEY} | xxd -r -p > ../bedrock-repo-key.key
           git-crypt unlock ../bedrock-repo-key.key
           rm ../bedrock-repo-key.key
