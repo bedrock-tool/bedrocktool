@@ -8,7 +8,6 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/google/gopacket"
 	"github.com/google/gopacket/pcapgo"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
@@ -19,14 +18,6 @@ func SetUnexportedField(field reflect.Value, value interface{}) {
 	reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).
 		Elem().
 		Set(reflect.ValueOf(value))
-}
-
-type PayloadDecoder struct {
-	Payload []byte
-}
-
-func (d PayloadDecoder) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) error {
-	return nil
 }
 
 func create_replay_connection(ctx context.Context, log *logrus.Logger, filename string, onConnect ConnectCallback, packetCB PacketCallback) error {

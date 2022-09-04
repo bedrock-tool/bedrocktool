@@ -36,21 +36,12 @@ jobs:
       - uses: actions-ecosystem/action-get-latest-tag@v1
         id: get-latest-tag
 
-      - name: Create Release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: ncipollo/release-action@v1.10.0
-        with:
-          allowUpdates: true
-          artifacts: dist/*
-          tag: ${{ steps.get-latest-tag.outputs.tag }}
-
       - name: update latest Release
         if: "!(startsWith(github.ref, 'refs/tags/v'))"
         uses: ncipollo/release-action@v1.10.0
         with:
           allowUpdates: true
           artifacts: dist/*
-          tag: latest
+          tag: ${{ steps.get-latest-tag.outputs.tag }}
           prerelease: true
           removeArtifacts: true
-

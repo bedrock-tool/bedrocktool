@@ -61,15 +61,16 @@ type WorldState struct {
 }
 
 func NewWorldState() *WorldState {
-	return &WorldState{
+	w := &WorldState{
 		chunks:    make(map[protocol.ChunkPos]*chunk.Chunk),
 		blockNBT:  make(map[protocol.SubChunkPos][]map[string]any),
 		entities:  make(map[int64]world.SaveableEntity),
 		Dim:       nil,
 		WorldName: "world",
 		PlayerPos: TPlayerPos{},
-		ui:        NewMapUI(),
 	}
+	w.ui = NewMapUI(w)
+	return w
 }
 
 var dimension_ids = map[uint8]world.Dimension{
@@ -233,7 +234,7 @@ func (w *WorldState) ProcessSubChunk(pk *packet.SubChunk) {
 func (w *WorldState) ProcessAnimate(pk *packet.Animate) {
 	if pk.ActionType == packet.AnimateActionSwingArm {
 		w.ui.ChangeZoom()
-		w.ui.Send(w)
+		w.proxy.sendPopup(fmt.Sprintf("Zoom: %d", w.ui.zoomLevel))
 	}
 }
 
@@ -262,7 +263,6 @@ func (w *WorldState) SetPlayerPos(Position mgl32.Vec3, Pitch, Yaw, HeadYaw float
 
 	if int(last.Position.X()) != int(w.PlayerPos.Position.X()) || int(last.Position.Z()) != int(w.PlayerPos.Position.Z()) {
 		w.ui.SchedRedraw()
-		w.ui.Send(w)
 	}
 }
 
@@ -455,6 +455,7 @@ func (w *WorldState) OnConnect(proxy *ProxyContext) {
 		w.SaveAndReset()
 	})
 
+	w.ui.Start()
 	go func() { // send map item
 		select {
 		case <-w.ctx.Done():
@@ -508,7 +509,7 @@ func (w *WorldState) ProcessPacketClient(pk packet.Packet) packet.Packet {
 		w.SetPlayerPos(pk.Position, pk.Pitch, pk.Yaw, pk.HeadYaw)
 	case *packet.MapInfoRequest:
 		if pk.MapID == VIEW_MAP_ID {
-			w.ui.Send(w)
+			w.ui.SchedRedraw()
 			pk = nil
 		}
 	case *packet.MobEquipment:
@@ -527,7 +528,6 @@ func (w *WorldState) ProcessPacketServer(pk packet.Packet) packet.Packet {
 		w.ProcessChangeDimension(pk)
 	case *packet.LevelChunk:
 		w.ProcessLevelChunk(pk)
-		w.ui.Send(w)
 		w.proxy.sendPopup(fmt.Sprintf("%d chunks loaded\nname: %s", len(w.chunks), w.WorldName))
 	case *packet.SubChunk:
 		w.ProcessSubChunk(pk)
