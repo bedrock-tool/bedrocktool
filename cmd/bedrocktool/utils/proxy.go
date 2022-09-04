@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"context"
@@ -34,19 +34,19 @@ func (p dummyProto) ConvertFromLatest(pk packet.Packet, _ *minecraft.Conn) []pac
 }
 
 type ProxyContext struct {
-	server   *minecraft.Conn
-	client   *minecraft.Conn
-	listener *minecraft.Listener
+	Server   *minecraft.Conn
+	Client   *minecraft.Conn
+	Listener *minecraft.Listener
 	commands map[string]IngameCommand
 
 	log *logrus.Logger
 
 	// called for every packet
-	packetFunc PacketFunc
+	PacketFunc PacketFunc
 	// called after game started
-	onConnect ConnectCallback
+	ConnectCB ConnectCallback
 	// called on every packet after login
-	packetCB PacketCallback
+	PacketCB PacketCallback
 }
 
 type (
@@ -55,18 +55,18 @@ type (
 	ConnectCallback func(proxy *ProxyContext)
 )
 
-func (p *ProxyContext) sendMessage(text string) {
-	if p.client != nil {
-		p.client.WritePacket(&packet.Text{
+func (p *ProxyContext) SendMessage(text string) {
+	if p.Client != nil {
+		p.Client.WritePacket(&packet.Text{
 			TextType: packet.TextTypeSystem,
 			Message:  "§8[§bBedrocktool§8]§r " + text,
 		})
 	}
 }
 
-func (p *ProxyContext) sendPopup(text string) {
-	if p.client != nil {
-		p.client.WritePacket(&packet.Text{
+func (p *ProxyContext) SendPopup(text string) {
+	if p.Client != nil {
+		p.Client.WritePacket(&packet.Text{
 			TextType: packet.TextTypePopup,
 			Message:  text,
 		})
@@ -74,12 +74,12 @@ func (p *ProxyContext) sendPopup(text string) {
 }
 
 type IngameCommand struct {
-	exec func(cmdline []string) bool
-	cmd  protocol.Command
+	Exec func(cmdline []string) bool
+	Cmd  protocol.Command
 }
 
-func (p *ProxyContext) addCommand(cmd IngameCommand) {
-	p.commands[cmd.cmd.Name] = cmd
+func (p *ProxyContext) AddCommand(cmd IngameCommand) {
+	p.commands[cmd.Cmd.Name] = cmd
 }
 
 func (p *ProxyContext) CommandHandlerPacketCB(pk packet.Packet, proxy *ProxyContext, toServer bool) (packet.Packet, error) {
@@ -88,13 +88,13 @@ func (p *ProxyContext) CommandHandlerPacketCB(pk packet.Packet, proxy *ProxyCont
 		cmd := strings.Split(pk.CommandLine, " ")
 		name := cmd[0][1:]
 		if h, ok := p.commands[name]; ok {
-			if h.exec(cmd[1:]) {
+			if h.Exec(cmd[1:]) {
 				pk = nil
 			}
 		}
 	case *packet.AvailableCommands:
 		for _, ic := range p.commands {
-			pk.Commands = append(pk.Commands, ic.cmd)
+			pk.Commands = append(pk.Commands, ic.Cmd)
 		}
 	}
 	return pk, nil
@@ -103,11 +103,11 @@ func (p *ProxyContext) CommandHandlerPacketCB(pk packet.Packet, proxy *ProxyCont
 func proxyLoop(ctx context.Context, proxy *ProxyContext, toServer bool, packetCBs []PacketCallback) error {
 	var c1, c2 *minecraft.Conn
 	if toServer {
-		c1 = proxy.client
-		c2 = proxy.server
+		c1 = proxy.Client
+		c2 = proxy.Server
 	} else {
-		c1 = proxy.server
-		c2 = proxy.client
+		c1 = proxy.Server
+		c2 = proxy.Client
 	}
 
 	for {
@@ -150,7 +150,7 @@ func NewProxy(log *logrus.Logger) *ProxyContext {
 
 func (p *ProxyContext) Run(ctx context.Context, server_address string) (err error) {
 	if strings.HasSuffix(server_address, ".pcap") {
-		return create_replay_connection(ctx, p.log, server_address, p.onConnect, p.packetCB)
+		return create_replay_connection(ctx, p.log, server_address, p.ConnectCB, p.PacketCB)
 	}
 
 	GetTokenSource() // ask for login before listening
@@ -158,7 +158,7 @@ func (p *ProxyContext) Run(ctx context.Context, server_address string) (err erro
 	var packs []*resource.Pack
 	if G_preload_packs {
 		p.log.Info("Preloading resourcepacks")
-		serverConn, err := connect_server(ctx, server_address, nil, true, nil)
+		serverConn, err := ConnectServer(ctx, server_address, nil, true, nil)
 		if err != nil {
 			return fmt.Errorf("failed to connect to %s: %s", server_address, err)
 		}
@@ -168,7 +168,7 @@ func (p *ProxyContext) Run(ctx context.Context, server_address string) (err erro
 	}
 
 	_status := minecraft.NewStatusProvider("Server")
-	p.listener, err = minecraft.ListenConfig{
+	p.Listener, err = minecraft.ListenConfig{
 		StatusProvider: _status,
 		ResourcePacks:  packs,
 		AcceptedProtocols: []minecraft.Protocol{
@@ -178,40 +178,40 @@ func (p *ProxyContext) Run(ctx context.Context, server_address string) (err erro
 	if err != nil {
 		return err
 	}
-	defer p.listener.Close()
+	defer p.Listener.Close()
 
-	p.log.Infof("Listening on %s\n", p.listener.Addr())
+	p.log.Infof("Listening on %s\n", p.Listener.Addr())
 
-	c, err := p.listener.Accept()
+	c, err := p.Listener.Accept()
 	if err != nil {
 		p.log.Fatal(err)
 	}
-	p.client = c.(*minecraft.Conn)
+	p.Client = c.(*minecraft.Conn)
 
-	cd := p.client.ClientData()
-	p.server, err = connect_server(ctx, server_address, &cd, false, p.packetFunc)
+	cd := p.Client.ClientData()
+	p.Server, err = ConnectServer(ctx, server_address, &cd, false, p.PacketFunc)
 	if err != nil {
 		return fmt.Errorf("failed to connect to %s: %s", server_address, err)
 	}
 
 	// spawn and start the game
-	if err := spawn_conn(ctx, p.client, p.server); err != nil {
+	if err := spawn_conn(ctx, p.Client, p.Server); err != nil {
 		return fmt.Errorf("failed to spawn: %s", err)
 	}
 
-	defer p.server.Close()
-	defer p.listener.Disconnect(p.client, G_disconnect_reason)
+	defer p.Server.Close()
+	defer p.Listener.Disconnect(p.Client, G_disconnect_reason)
 
-	if p.onConnect != nil {
-		p.onConnect(p)
+	if p.ConnectCB != nil {
+		p.ConnectCB(p)
 	}
 
 	wg := sync.WaitGroup{}
 	cbs := []PacketCallback{
 		p.CommandHandlerPacketCB,
 	}
-	if p.packetCB != nil {
-		cbs = append(cbs, p.packetCB)
+	if p.PacketCB != nil {
+		cbs = append(cbs, p.PacketCB)
 	}
 
 	// server to client

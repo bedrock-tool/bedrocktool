@@ -10,6 +10,8 @@ import (
 	"os"
 	"time"
 
+	"bedrocktool/cmd/bedrocktool/utils"
+
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcapgo"
@@ -24,7 +26,7 @@ var (
 )
 
 func init() {
-	register_command(&CaptureCMD{})
+	utils.RegisterCommand(&CaptureCMD{})
 }
 
 func dump_packet(w *pcapgo.Writer, from_client bool, pk packet.Header, payload []byte) {
@@ -74,11 +76,11 @@ func (p *CaptureCMD) SetFlags(f *flag.FlagSet) {
 }
 
 func (c *CaptureCMD) Usage() string {
-	return c.Name() + ": " + c.Synopsis() + "\n" + SERVER_ADDRESS_HELP
+	return c.Name() + ": " + c.Synopsis() + "\n" + utils.SERVER_ADDRESS_HELP
 }
 
 func (c *CaptureCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	address, hostname, err := server_input(c.server_address)
+	address, hostname, err := utils.ServerInput(c.server_address)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
@@ -93,9 +95,9 @@ func (c *CaptureCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interfac
 	w := pcapgo.NewWriter(fio)
 	w.WriteFileHeader(65536, layers.LinkTypeEthernet)
 
-	proxy := NewProxy(logrus.StandardLogger())
-	proxy.packetFunc = func(header packet.Header, payload []byte, src, dst net.Addr) {
-		from_client := src.String() == proxy.client.LocalAddr().String()
+	proxy := utils.NewProxy(logrus.StandardLogger())
+	proxy.PacketFunc = func(header packet.Header, payload []byte, src, dst net.Addr) {
+		from_client := src.String() == proxy.Client.LocalAddr().String()
 		dump_packet(w, from_client, header, payload)
 	}
 

@@ -1,10 +1,12 @@
-package main
+package skins
 
 import (
 	"context"
 	"flag"
 	"fmt"
 	"os"
+
+	"bedrocktool/cmd/bedrocktool/utils"
 
 	"github.com/google/subcommands"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
@@ -25,11 +27,11 @@ func (c *SkinProxyCMD) SetFlags(f *flag.FlagSet) {
 }
 
 func (c *SkinProxyCMD) Usage() string {
-	return c.Name() + ": " + c.Synopsis() + "\n" + SERVER_ADDRESS_HELP
+	return c.Name() + ": " + c.Synopsis() + "\n" + utils.SERVER_ADDRESS_HELP
 }
 
 func (c *SkinProxyCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	address, hostname, err := server_input(c.server_address)
+	address, hostname, err := utils.ServerInput(c.server_address)
 	if err != nil {
 		logrus.Error(err)
 		return 1
@@ -37,10 +39,10 @@ func (c *SkinProxyCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interf
 	out_path := fmt.Sprintf("skins/%s", hostname)
 	os.MkdirAll(out_path, 0o755)
 
-	proxy := NewProxy(logrus.StandardLogger())
-	proxy.packetCB = func(pk packet.Packet, proxy *ProxyContext, toServer bool) (packet.Packet, error) {
+	proxy := utils.NewProxy(logrus.StandardLogger())
+	proxy.PacketCB = func(pk packet.Packet, proxy *utils.ProxyContext, toServer bool) (packet.Packet, error) {
 		if !toServer {
-			process_packet_skins(proxy.client, out_path, pk, c.filter)
+			process_packet_skins(proxy.Client, out_path, pk, c.filter)
 		}
 		return pk, nil
 	}
@@ -54,5 +56,5 @@ func (c *SkinProxyCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interf
 }
 
 func init() {
-	register_command(&SkinProxyCMD{})
+	utils.RegisterCommand(&SkinProxyCMD{})
 }

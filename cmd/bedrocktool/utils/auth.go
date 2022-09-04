@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"encoding/json"
@@ -9,6 +9,8 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
 )
+
+const TOKEN_FILE = "token.json"
 
 var G_token_src oauth2.TokenSource
 
@@ -32,7 +34,7 @@ func GetTokenSource() oauth2.TokenSource {
 
 var G_realms_api *realms.Client
 
-func getRealmsApi() *realms.Client {
+func GetRealmsApi() *realms.Client {
 	if G_realms_api == nil {
 		G_realms_api = realms.NewClient(GetTokenSource())
 	}
@@ -44,7 +46,7 @@ func write_token(token *oauth2.Token) {
 	if err != nil {
 		panic(err)
 	}
-	os.WriteFile(TOKEN_FILE, buf, 0755)
+	os.WriteFile(TOKEN_FILE, buf, 0o755)
 }
 
 func get_token() oauth2.Token {

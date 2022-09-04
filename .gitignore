@@ -7,12 +7,12 @@ token.json
 *.bmp
 *.bin
 
-bedrocktool
-bedrocktool-*
+/bedrocktool
+/bedrocktool-*
 __debug_bin
 
 .vscode/*
 keys.db
-skins/
-worlds/
-dist/
+/skins/
+/worlds/
+/dist/

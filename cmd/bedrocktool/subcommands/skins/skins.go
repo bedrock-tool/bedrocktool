@@ -1,4 +1,4 @@
-package main
+package skins
 
 import (
 	"bytes"
@@ -11,8 +11,9 @@ import (
 	"io"
 	"os"
 	"path"
-	"regexp"
 	"strings"
+
+	"bedrocktool/cmd/bedrocktool/utils"
 
 	"github.com/flytam/filenamify"
 	"github.com/google/subcommands"
@@ -159,23 +160,6 @@ func (skin *Skin) Write(output_path, name string) error {
 	return skin.WriteTexture(path.Join(skin_dir, "skin.png"))
 }
 
-var name_regexp = regexp.MustCompile(`\||(?:§.?)`)
-
-// cleans name so it can be used as a filename
-func cleanup_name(name string) string {
-	name = strings.Split(name, "\n")[0]
-	var _tmp struct {
-		K string `json:"k"`
-	}
-	err := json.Unmarshal([]byte(name), &_tmp)
-	if err == nil {
-		name = _tmp.K
-	}
-	name = string(name_regexp.ReplaceAll([]byte(name), []byte("")))
-	name = strings.TrimSpace(name)
-	return name
-}
-
 // puts the skin at output_path if the filter matches it
 // internally converts the struct so it can use the extra methods
 func write_skin(output_path, name string, skin protocol.Skin, filter string) {
@@ -210,7 +194,7 @@ func process_packet_skins(conn *minecraft.Conn, out_path string, pk packet.Packe
 			return
 		}
 		for _, player := range _pk.Entries {
-			name := cleanup_name(player.Username)
+			name := utils.CleanupName(player.Username)
 			if name == "" {
 				name = player.UUID.String()
 			}
@@ -221,7 +205,7 @@ func process_packet_skins(conn *minecraft.Conn, out_path string, pk packet.Packe
 			skin_players[player.UUID.String()] = name
 			processed_skins[name] = true
 			if conn != nil {
-				(&ProxyContext{client: conn}).sendPopup(fmt.Sprintf("%s Skin was Saved", name))
+				(&utils.ProxyContext{Client: conn}).SendPopup(fmt.Sprintf("%s Skin was Saved", name))
 			}
 		}
 	}
@@ -245,13 +229,13 @@ func (c *SkinCMD) Usage() string {
 }
 
 func (c *SkinCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	address, hostname, err := server_input(c.server_address)
+	address, hostname, err := utils.ServerInput(c.server_address)
 	if err != nil {
 		fmt.Fprint(os.Stderr, err)
 		return 1
 	}
 
-	serverConn, err := connect_server(ctx, address, nil, false, nil)
+	serverConn, err := utils.ConnectServer(ctx, address, nil, false, nil)
 	if err != nil {
 		fmt.Fprint(os.Stderr, err)
 		return 1
@@ -280,5 +264,5 @@ func (c *SkinCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}
 }
 
 func init() {
-	register_command(&SkinCMD{})
+	utils.RegisterCommand(&SkinCMD{})
 }

@@ -6,7 +6,7 @@ GC = go build -ldflags "-s -w -X main.version=${TAG}"
 
 # check if packs are supported
 HAVE_PACKS = false
-ifeq ($(shell head -c 7 resourcepack-ace.go.ignore),package)
+ifeq ($(shell head -c 7 cmd/bedrocktool/utils/resourcepack-ace.go.ignore),package)
 HAVE_PACKS = true
 endif
 
@@ -42,7 +42,7 @@ dist:
 
 $(DISTS): dist $(SRCS)
 	@echo "building: $@"
-	GOOS=$(OS) GOARCH=$(ARCH) $(GC) -o $@
+	GOOS=$(OS) GOARCH=$(ARCH) $(GC) -o $@ ./cmd/bedrocktool
 
 clean:
 	rm -r dist

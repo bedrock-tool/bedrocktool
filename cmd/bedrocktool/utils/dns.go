@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"fmt"
@@ -82,7 +82,7 @@ func (d *DNSServer) handler(w dns.ResponseWriter, req *dns.Msg) {
 	w.WriteMsg(reply)
 }
 
-func init_dns() {
+func InitDNS() {
 	d := DNSServer{}
 	dns.HandleFunc(".", d.handler)
 

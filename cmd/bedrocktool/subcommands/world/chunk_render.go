@@ -1,8 +1,10 @@
-package main
+package world
 
 import (
 	"image"
 	"image/color"
+
+	"bedrocktool/cmd/bedrocktool/utils"
 
 	"github.com/df-mc/dragonfly/server/block"
 	"github.com/df-mc/dragonfly/server/block/cube"
@@ -81,8 +83,8 @@ func Chunk2Img(c *chunk.Chunk) *image.RGBA {
 
 			if height_liquid > height {
 				bw := (&block.Water{}).Color()
-				bw.A = uint8(clamp(int(127+(height_liquid-height)*5), 255))
-				col = blendColors(col, bw)
+				bw.A = uint8(utils.Clamp(int(127+(height_liquid-height)*5), 255))
+				col = utils.BlendColors(col, bw)
 			}
 
 			img.SetRGBA(int(x), int(z), col)

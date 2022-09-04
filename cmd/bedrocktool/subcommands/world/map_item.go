@@ -1,4 +1,4 @@
-package main
+package world
 
 import (
 	"bytes"
@@ -8,6 +8,8 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	"bedrocktool/cmd/bedrocktool/utils"
 
 	"github.com/df-mc/dragonfly/server/world/chunk"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
@@ -73,12 +75,12 @@ func (m *MapUI) Start() {
 				m.Redraw()
 				m.image_lock.Unlock()
 
-				if m.w.proxy.client != nil {
-					if err := m.w.proxy.client.WritePacket(&packet.ClientBoundMapItemData{
+				if m.w.proxy.Client != nil {
+					if err := m.w.proxy.Client.WritePacket(&packet.ClientBoundMapItemData{
 						MapID:       VIEW_MAP_ID,
 						Width:       128,
 						Height:      128,
-						Pixels:      img2rgba(m.img),
+						Pixels:      utils.Img2rgba(m.img),
 						UpdateFlags: 2,
 					}); err != nil {
 						logrus.Error(err)

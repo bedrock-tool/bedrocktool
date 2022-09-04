@@ -10,33 +10,20 @@ import (
 	"regexp"
 	"syscall"
 
+	"bedrocktool/cmd/bedrocktool/utils"
+
 	"github.com/google/subcommands"
 	"github.com/sirupsen/logrus"
 )
 
-const TOKEN_FILE = "token.json"
-
 var version string
-
-var (
-	G_debug         bool
-	G_preload_packs bool
-	G_exit          []func() = []func(){}
-)
 
 func exit() {
 	logrus.Info("\nExiting\n")
-	for i := len(G_exit) - 1; i >= 0; i-- { // go through cleanup functions reversed
-		G_exit[i]()
+	for i := len(utils.G_exit) - 1; i >= 0; i-- { // go through cleanup functions reversed
+		utils.G_exit[i]()
 	}
 	os.Exit(0)
-}
-
-var valid_cmds = make(map[string]string, 0)
-
-func register_command(sub subcommands.Command) {
-	subcommands.Register(sub, "")
-	valid_cmds[sub.Name()] = sub.Synopsis()
 }
 
 func main() {
@@ -47,10 +34,10 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	flag.BoolVar(&G_debug, "debug", false, "debug mode")
-	flag.BoolVar(&G_preload_packs, "preload", false, "preload resourcepacks for proxy")
+	flag.BoolVar(&utils.G_debug, "debug", false, "debug mode")
+	flag.BoolVar(&utils.G_preload_packs, "preload", false, "preload resourcepacks for proxy")
 	enable_dns := flag.Bool("dns", false, "enable dns server for consoles")
-	println(a)
+	println(utils.A)
 	println("")
 	subcommands.Register(subcommands.HelpCommand(), "")
 	subcommands.ImportantFlag("debug")
@@ -65,7 +52,7 @@ func main() {
 				return
 			default:
 				fmt.Println("Available commands:")
-				for name, desc := range valid_cmds {
+				for name, desc := range utils.ValidCMDs {
 					fmt.Printf("\t%s\t%s\n", name, desc)
 				}
 				fmt.Printf("Use '%s <command>' to run a command\n", os.Args[0])
@@ -83,7 +70,7 @@ func main() {
 	flag.Parse()
 
 	if *enable_dns {
-		init_dns()
+		utils.InitDNS()
 	}
 
 	// exit cleanup
@@ -125,12 +112,12 @@ func (c *TransCMD) Execute(_ context.Context, f *flag.FlagSet, _ ...interface{})
 		RESET    = "\033[0m"
 	)
 	if c.auth {
-		GetTokenSource()
+		utils.GetTokenSource()
 	}
 	fmt.Println(BLACK_FG + BOLD + BLUE + " Trans " + PINK + " Rights " + WHITE + " Are " + PINK + " Human " + BLUE + " Rights " + RESET)
 	return 0
 }
 
 func init() {
-	register_command(&TransCMD{})
+	utils.RegisterCommand(&TransCMD{})
 }

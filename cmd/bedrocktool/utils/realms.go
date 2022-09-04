@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"context"
@@ -56,5 +56,5 @@ func (c *RealmListCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interf
 }
 
 func init() {
-	register_command(&RealmListCMD{})
+	RegisterCommand(&RealmListCMD{})
 }

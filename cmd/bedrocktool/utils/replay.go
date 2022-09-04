@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"bytes"
@@ -36,7 +36,7 @@ func create_replay_connection(ctx context.Context, log *logrus.Logger, filename 
 	SetUnexportedField(reflect.ValueOf(reader).Elem().Field(5), uint32(0xFFFFFFFF))
 
 	proxy := NewProxy(logrus.StandardLogger())
-	proxy.server = minecraft.NewConn()
+	proxy.Server = minecraft.NewConn()
 
 	var fake_header []byte
 	if OLD_BROKEN {
@@ -75,11 +75,11 @@ func create_replay_connection(ctx context.Context, log *logrus.Logger, filename 
 			toServer = bytes.Equal(prefix, []byte("client"))
 		}
 
-		pk_data, err := minecraft.ParseData(payload, proxy.server)
+		pk_data, err := minecraft.ParseData(payload, proxy.Server)
 		if err != nil {
 			return err
 		}
-		pks, err := pk_data.Decode(proxy.server)
+		pks, err := pk_data.Decode(proxy.Server)
 		if err != nil {
 			log.Error(err)
 			continue
@@ -93,7 +93,7 @@ func create_replay_connection(ctx context.Context, log *logrus.Logger, filename 
 			} else {
 				switch pk := pk.(type) {
 				case *packet.StartGame:
-					proxy.server.SetGameData(minecraft.GameData{
+					proxy.Server.SetGameData(minecraft.GameData{
 						WorldName:                    pk.WorldName,
 						WorldSeed:                    pk.WorldSeed,
 						Difficulty:                   pk.Difficulty,
