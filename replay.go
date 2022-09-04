@@ -23,7 +23,7 @@ func SetUnexportedField(field reflect.Value, value interface{}) {
 func create_replay_connection(ctx context.Context, log *logrus.Logger, filename string, onConnect ConnectCallback, packetCB PacketCallback) error {
 	log.Infof("Reading replay %s", filename)
 
-	OLD_BROKEN := true
+	OLD_BROKEN := false
 
 	f, err := os.Open(filename)
 	if err != nil {
@@ -35,17 +35,8 @@ func create_replay_connection(ctx context.Context, log *logrus.Logger, filename 
 	}
 	SetUnexportedField(reflect.ValueOf(reader).Elem().Field(5), uint32(0xFFFFFFFF))
 
-	dummy_conn := minecraft.NewConn()
-	dummy_conn.SetGameData(minecraft.GameData{
-		BaseGameVersion: "1.17.40", // SPECIFIC TO THE SERVER; TODO
-	})
-
-	proxy := ProxyContext{}
-	proxy.server = dummy_conn
-
-	if onConnect != nil {
-		onConnect(&proxy)
-	}
+	proxy := NewProxy(logrus.StandardLogger())
+	proxy.server = minecraft.NewConn()
 
 	var fake_header []byte
 	if OLD_BROKEN {
@@ -58,6 +49,8 @@ func create_replay_connection(ctx context.Context, log *logrus.Logger, filename 
 		fake_header = fake_header_w.Bytes()
 	}
 
+	game_started := false
+
 	start := time.Time{}
 	for {
 		data, ci, err := reader.ReadPacketData()
@@ -67,31 +60,73 @@ func create_replay_connection(ctx context.Context, log *logrus.Logger, filename 
 		if start.Unix() == 0 {
 			start = ci.Timestamp
 		}
-
-		payload := data[0x14:]
-		if len(payload) == 0 {
+		if len(data) < 0x14 {
 			continue
 		}
 
+		var payload []byte
+		var toServer bool
 		if OLD_BROKEN {
-			payload = append(fake_header, payload...)
+			payload = append(fake_header, data[0x14:]...)
+			toServer = data[0x10] != 127
+		} else {
+			prefix := data[0:6]
+			payload = data[6:]
+			toServer = bytes.Equal(prefix, []byte("client"))
 		}
 
-		pk_data, err := minecraft.ParseData(payload, dummy_conn)
+		pk_data, err := minecraft.ParseData(payload, proxy.server)
 		if err != nil {
 			return err
 		}
-		pks, err := pk_data.Decode(dummy_conn)
+		pks, err := pk_data.Decode(proxy.server)
 		if err != nil {
 			log.Error(err)
 			continue
 		}
 
 		for _, pk := range pks {
-			if data[0x10] == 127 { // to client
-				packetCB(pk, &proxy, false)
+			if game_started || OLD_BROKEN {
+				if packetCB != nil {
+					packetCB(pk, proxy, toServer)
+				}
 			} else {
-				packetCB(pk, &proxy, true)
+				switch pk := pk.(type) {
+				case *packet.StartGame:
+					proxy.server.SetGameData(minecraft.GameData{
+						WorldName:                    pk.WorldName,
+						WorldSeed:                    pk.WorldSeed,
+						Difficulty:                   pk.Difficulty,
+						EntityUniqueID:               pk.EntityUniqueID,
+						EntityRuntimeID:              pk.EntityRuntimeID,
+						PlayerGameMode:               pk.PlayerGameMode,
+						PersonaDisabled:              pk.PersonaDisabled,
+						CustomSkinsDisabled:          pk.CustomSkinsDisabled,
+						BaseGameVersion:              pk.BaseGameVersion,
+						PlayerPosition:               pk.PlayerPosition,
+						Pitch:                        pk.Pitch,
+						Yaw:                          pk.Yaw,
+						Dimension:                    pk.Dimension,
+						WorldSpawn:                   pk.WorldSpawn,
+						EditorWorld:                  pk.EditorWorld,
+						WorldGameMode:                pk.WorldGameMode,
+						GameRules:                    pk.GameRules,
+						Time:                         pk.Time,
+						ServerBlockStateChecksum:     pk.ServerBlockStateChecksum,
+						CustomBlocks:                 pk.Blocks,
+						Items:                        pk.Items,
+						PlayerMovementSettings:       pk.PlayerMovementSettings,
+						ServerAuthoritativeInventory: pk.ServerAuthoritativeInventory,
+						Experiments:                  pk.Experiments,
+						ClientSideGeneration:         pk.ClientSideGeneration,
+						ChatRestrictionLevel:         pk.ChatRestrictionLevel,
+						DisablePlayerInteractions:    pk.DisablePlayerInteractions,
+					})
+					game_started = true
+					if onConnect != nil {
+						onConnect(proxy)
+					}
+				}
 			}
 		}
 	}

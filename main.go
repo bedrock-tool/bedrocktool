@@ -18,9 +18,11 @@ const TOKEN_FILE = "token.json"
 
 var version string
 
-var G_debug bool
-var G_preload_packs bool
-var G_exit []func() = []func(){}
+var (
+	G_debug         bool
+	G_preload_packs bool
+	G_exit          []func() = []func(){}
+)
 
 func exit() {
 	logrus.Info("\nExiting\n")
@@ -40,7 +42,7 @@ func register_command(sub subcommands.Command) {
 func main() {
 	logrus.SetLevel(logrus.DebugLevel)
 	if version != "" {
-		logrus.Info("bedrocktool version: %s\n", version)
+		logrus.Infof("bedrocktool version: %s\n", version)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -108,6 +110,7 @@ func (*TransCMD) Synopsis() string { return "" }
 func (c *TransCMD) SetFlags(f *flag.FlagSet) {
 	f.BoolVar(&c.auth, "auth", false, "if it should login to xbox")
 }
+
 func (c *TransCMD) Usage() string {
 	return c.Name() + ": " + c.Synopsis() + "\n"
 }
@@ -127,6 +130,7 @@ func (c *TransCMD) Execute(_ context.Context, f *flag.FlagSet, _ ...interface{})
 	fmt.Println(BLACK_FG + BOLD + BLUE + " Trans " + PINK + " Rights " + WHITE + " Are " + PINK + " Human " + BLUE + " Rights " + RESET)
 	return 0
 }
+
 func init() {
 	register_command(&TransCMD{})
 }

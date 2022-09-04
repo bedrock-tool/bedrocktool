@@ -251,7 +251,7 @@ func (c *SkinCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}
 		return 1
 	}
 
-	serverConn, err := connect_server(ctx, address, nil, false)
+	serverConn, err := connect_server(ctx, address, nil, false, nil)
 	if err != nil {
 		fmt.Fprint(os.Stderr, err)
 		return 1

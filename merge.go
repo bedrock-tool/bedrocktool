@@ -73,7 +73,7 @@ func (c *MergeCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 	time.Sleep(1 * time.Second)
 
 	if err := zip_folder(out_name+".mcworld", out_name); err != nil {
-		logrus.Info("zipping: %s", err)
+		logrus.Infof("zipping: %s", err)
 		return 1
 	}
 

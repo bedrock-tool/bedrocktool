@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"strings"
 	"sync"
 
@@ -37,9 +38,19 @@ type ProxyContext struct {
 	client   *minecraft.Conn
 	listener *minecraft.Listener
 	commands map[string]IngameCommand
+
+	log *logrus.Logger
+
+	// called for every packet
+	packetFunc PacketFunc
+	// called after game started
+	onConnect ConnectCallback
+	// called on every packet after login
+	packetCB PacketCallback
 }
 
 type (
+	PacketFunc      func(header packet.Header, payload []byte, src, dst net.Addr)
 	PacketCallback  func(pk packet.Packet, proxy *ProxyContext, toServer bool) (packet.Packet, error)
 	ConnectCallback func(proxy *ProxyContext)
 )
@@ -127,30 +138,37 @@ func proxyLoop(ctx context.Context, proxy *ProxyContext, toServer bool, packetCB
 	}
 }
 
-func create_proxy(ctx context.Context, log *logrus.Logger, server_address string, onConnect ConnectCallback, packetCB PacketCallback) (err error) {
+func NewProxy(log *logrus.Logger) *ProxyContext {
+	if log == nil {
+		log = logrus.StandardLogger()
+	}
+	return &ProxyContext{
+		log:      log,
+		commands: make(map[string]IngameCommand),
+	}
+}
+
+func (p *ProxyContext) Run(ctx context.Context, server_address string) (err error) {
 	if strings.HasSuffix(server_address, ".pcap") {
-		return create_replay_connection(ctx, log, server_address, onConnect, packetCB)
+		return create_replay_connection(ctx, p.log, server_address, p.onConnect, p.packetCB)
 	}
 
 	GetTokenSource() // ask for login before listening
 
-	proxy := ProxyContext{}
-	proxy.commands = make(map[string]IngameCommand)
-
 	var packs []*resource.Pack
 	if G_preload_packs {
-		log.Info("Preloading resourcepacks")
-		serverConn, err := connect_server(ctx, server_address, nil, true)
+		p.log.Info("Preloading resourcepacks")
+		serverConn, err := connect_server(ctx, server_address, nil, true, nil)
 		if err != nil {
 			return fmt.Errorf("failed to connect to %s: %s", server_address, err)
 		}
 		serverConn.Close()
 		packs = serverConn.ResourcePacks()
-		log.Infof("%d packs loaded\n", len(packs))
+		p.log.Infof("%d packs loaded\n", len(packs))
 	}
 
 	_status := minecraft.NewStatusProvider("Server")
-	proxy.listener, err = minecraft.ListenConfig{
+	p.listener, err = minecraft.ListenConfig{
 		StatusProvider: _status,
 		ResourcePacks:  packs,
 		AcceptedProtocols: []minecraft.Protocol{
@@ -160,46 +178,48 @@ func create_proxy(ctx context.Context, log *logrus.Logger, server_address string
 	if err != nil {
 		return err
 	}
-	defer proxy.listener.Close()
+	defer p.listener.Close()
 
-	log.Infof("Listening on %s\n", proxy.listener.Addr())
+	p.log.Infof("Listening on %s\n", p.listener.Addr())
 
-	c, err := proxy.listener.Accept()
+	c, err := p.listener.Accept()
 	if err != nil {
-		log.Fatal(err)
+		p.log.Fatal(err)
 	}
-	proxy.client = c.(*minecraft.Conn)
+	p.client = c.(*minecraft.Conn)
 
-	cd := proxy.client.ClientData()
-	proxy.server, err = connect_server(ctx, server_address, &cd, false)
+	cd := p.client.ClientData()
+	p.server, err = connect_server(ctx, server_address, &cd, false, p.packetFunc)
 	if err != nil {
 		return fmt.Errorf("failed to connect to %s: %s", server_address, err)
 	}
 
 	// spawn and start the game
-	if err := spawn_conn(ctx, proxy.client, proxy.server); err != nil {
+	if err := spawn_conn(ctx, p.client, p.server); err != nil {
 		return fmt.Errorf("failed to spawn: %s", err)
 	}
 
-	defer proxy.server.Close()
-	defer proxy.listener.Disconnect(proxy.client, G_disconnect_reason)
+	defer p.server.Close()
+	defer p.listener.Disconnect(p.client, G_disconnect_reason)
 
-	if onConnect != nil {
-		onConnect(&proxy)
+	if p.onConnect != nil {
+		p.onConnect(p)
 	}
 
 	wg := sync.WaitGroup{}
 	cbs := []PacketCallback{
-		proxy.CommandHandlerPacketCB,
-		packetCB,
+		p.CommandHandlerPacketCB,
+	}
+	if p.packetCB != nil {
+		cbs = append(cbs, p.packetCB)
 	}
 
 	// server to client
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := proxyLoop(ctx, &proxy, false, cbs); err != nil {
-			log.Error(err)
+		if err := proxyLoop(ctx, p, false, cbs); err != nil {
+			p.log.Error(err)
 			return
 		}
 	}()
@@ -208,8 +228,8 @@ func create_proxy(ctx context.Context, log *logrus.Logger, server_address string
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := proxyLoop(ctx, &proxy, true, cbs); err != nil {
-			log.Error(err)
+		if err := proxyLoop(ctx, p, true, cbs); err != nil {
+			p.log.Error(err)
 			return
 		}
 	}()

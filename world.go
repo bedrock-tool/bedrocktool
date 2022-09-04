@@ -132,14 +132,18 @@ func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 	w.withPacks = c.packs
 	w.ctx = ctx
 
-	err = create_proxy(ctx, logrus.StandardLogger(), server_address, w.OnConnect, func(pk packet.Packet, proxy *ProxyContext, toServer bool) (packet.Packet, error) {
+	proxy := NewProxy(logrus.StandardLogger())
+	proxy.onConnect = w.OnConnect
+	proxy.packetCB = func(pk packet.Packet, proxy *ProxyContext, toServer bool) (packet.Packet, error) {
 		if toServer {
 			pk = w.ProcessPacketClient(pk)
 		} else {
 			pk = w.ProcessPacketServer(pk)
 		}
 		return pk, nil
-	})
+	}
+
+	err = proxy.Run(ctx, server_address)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1

@@ -37,12 +37,15 @@ func (c *SkinProxyCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interf
 	out_path := fmt.Sprintf("skins/%s", hostname)
 	os.MkdirAll(out_path, 0o755)
 
-	err = create_proxy(ctx, logrus.StandardLogger(), address, nil, func(pk packet.Packet, proxy *ProxyContext, toServer bool) (packet.Packet, error) {
+	proxy := NewProxy(logrus.StandardLogger())
+	proxy.packetCB = func(pk packet.Packet, proxy *ProxyContext, toServer bool) (packet.Packet, error) {
 		if !toServer {
 			process_packet_skins(proxy.client, out_path, pk, c.filter)
 		}
 		return pk, nil
-	})
+	}
+
+	err = proxy.Run(ctx, address)
 	if err != nil {
 		logrus.Error(err)
 		return 1
