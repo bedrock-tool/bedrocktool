@@ -8,7 +8,6 @@ import (
 	"hash/crc32"
 	"image"
 	"image/draw"
-	"log"
 	"os"
 	"path"
 	"strconv"
@@ -103,16 +102,16 @@ func init() {
 }
 
 type WorldCMD struct {
-	server_address string
-	packs          bool
-	enableVoid     bool
+	Address    string
+	packs      bool
+	enableVoid bool
 }
 
 func (*WorldCMD) Name() string     { return "worlds" }
 func (*WorldCMD) Synopsis() string { return "download a world from a server" }
 
 func (p *WorldCMD) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&p.server_address, "address", "", "remote server address")
+	f.StringVar(&p.Address, "address", "", "remote server address")
 	f.BoolVar(&p.packs, "packs", false, "save resourcepacks to the worlds")
 	f.BoolVar(&p.enableVoid, "void", true, "if false, saves with default flat generator")
 }
@@ -122,7 +121,7 @@ func (c *WorldCMD) Usage() string {
 }
 
 func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	server_address, hostname, err := utils.ServerInput(c.server_address)
+	server_address, hostname, err := utils.ServerInput(c.Address)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
@@ -166,7 +165,7 @@ func (w *WorldState) toggleVoid(cmdline []string) bool {
 }
 
 func (w *WorldState) ProcessLevelChunk(pk *packet.LevelChunk) {
-	ch, blockNBTs, err := chunk.NetworkDecode(uint32(pk.HighestSubChunk), pk.RawPayload, int(pk.SubChunkCount), w.Dim.Range(), w.ispre118)
+	ch, blockNBTs, err := chunk.NetworkDecode(6692, pk.RawPayload, int(pk.SubChunkCount), w.Dim.Range(), w.ispre118)
 	if err != nil {
 		logrus.Error(err)
 		return
@@ -289,7 +288,7 @@ func (w *WorldState) SaveAndReset() {
 
 	provider, err := mcdb.New(logrus.StandardLogger(), folder, opt.DefaultCompression)
 	if err != nil {
-		log.Fatal(err)
+		logrus.Fatal(err)
 	}
 
 	// save chunk data
@@ -306,7 +305,7 @@ func (w *WorldState) SaveAndReset() {
 	for cp, v := range blockNBT {
 		err = provider.SaveBlockNBT((world.ChunkPos)(cp), v, w.Dim)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
+			logrus.Error(err)
 		}
 	}
 

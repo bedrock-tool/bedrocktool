@@ -45,18 +45,18 @@ func ServerInput(server string) (address, name string, err error) {
 		name = strings.Join(s[:len(s)-1], ".")
 		address = server
 		/*} else if strings.HasPrefix(server, "gathering:") {
-			gathering_info := strings.Split(server, ":")
-			if len(gathering_info) < 2 {
-				return "", "", fmt.Errorf("use: gathering:<uuid>")
-			}
-			gathering_id := gathering_info[1]
-			g := gatherings.NewGathering(GetTokenSource(), gathering_id)
-			address, err = g.Address()
-			if err != nil {
-				return "", "", err
-			}
-			return address, gathering_id, nil
-		} */
+		gathering_info := strings.Split(server, ":")
+		if len(gathering_info) < 2 {
+			return "", "", fmt.Errorf("use: gathering:<uuid>")
+		}
+		gathering_id := gathering_info[1]
+		g := gatherings.NewGathering(GetTokenSource(), gathering_id)
+		address, err = g.Address()
+		if err != nil {
+			return "", "", err
+		}
+		return address, "gathering_"+gathering_id, nil
+		*/
 	} else {
 		// if an actual server address if given
 		// add port if necessary

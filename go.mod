@@ -5,6 +5,7 @@ go 1.19
 require (
 	github.com/df-mc/dragonfly v0.8.1
 	github.com/df-mc/goleveldb v1.1.9
+	github.com/flytam/filenamify v1.1.1
 	github.com/go-gl/mathgl v1.0.0
 	github.com/google/gopacket v1.1.19
 	github.com/google/subcommands v1.2.0
@@ -12,7 +13,12 @@ require (
 	github.com/sandertv/gophertunnel v1.24.5
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e
 	golang.org/x/oauth2 v0.0.0-20220808172628-8227340efae7
-	github.com/flytam/filenamify v1.1.1
+)
+
+require (
+	github.com/fatih/color v1.13.0 // indirect
+	github.com/mattn/go-colorable v0.1.9 // indirect
+	github.com/mattn/go-isatty v0.0.14 // indirect
 )
 
 //replace github.com/sandertv/gophertunnel => ./gophertunnel
@@ -23,7 +29,7 @@ require (
 
 replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.24.8-4
 
-replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.8.3-0.20220902161600-2f9b3652bbb7
+replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.8.3-2
 
 require (
 	github.com/brentp/intintmap v0.0.0-20190211203843-30dc0ade9af9 // indirect

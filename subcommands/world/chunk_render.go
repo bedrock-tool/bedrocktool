@@ -12,25 +12,35 @@ import (
 	"github.com/df-mc/dragonfly/server/world/chunk"
 )
 
-func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) color.RGBA {
-	col := color.RGBA{0, 0, 0, 255}
-	block_rid := c.Block(x, y, z, 0)
-	if block_rid == 0 && y == 0 { // void
-		col = color.RGBA{0, 0, 0, 255}
+func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.RGBA) {
+	blockColor = color.RGBA{255, 0, 255, 255}
+	rid := c.Block(x, y, z, 0)
+	if rid == 0 && y == 0 { // void
+		blockColor = color.RGBA{0, 0, 0, 255}
 	} else {
-		b, found := world.BlockByRuntimeID(block_rid)
+		b, found := world.BlockByRuntimeID(rid)
 		if found {
-			col = b.Color()
+			if _, ok := b.(block.Water); ok {
+				y2 := c.HeightMap().At(x, z)
+				blockColor = blockColorAt(c, x, y2, z)
+				depth := y - y2
+
+				bw := (&block.Water{}).Color()
+				bw.A = uint8(utils.Clamp(int(150+depth*7), 255))
+				blockColor = utils.BlendColors(blockColor, bw)
+			} else {
+				blockColor = b.Color()
+			}
 		}
 		/*
-			if col.R == 255 && col.B == 255 {
+			if blockColor.R == 0 || blockColor.R == 255 && blockColor.B == 255 {
 				name, nbt := b.EncodeBlock()
-				fmt.Printf("unknown color %d  %s %s %s\n", block_rid, reflect.TypeOf(b), name, nbt)
+				fmt.Printf("unknown color %d  %s %s %s\n", rid, reflect.TypeOf(b), name, nbt)
 				b.Color()
 			}
 		*/
 	}
-	return col
+	return blockColor
 }
 
 func chunkGetColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) color.RGBA {
@@ -71,22 +81,12 @@ func chunkGetColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) color.RGBA {
 
 func Chunk2Img(c *chunk.Chunk) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, 16, 16))
-	hm := c.HeightMap()
-	hml := c.LiquidHeightMap()
+	hm := c.HeightMapWithWater()
 
 	for x := uint8(0); x < 16; x++ {
 		for z := uint8(0); z < 16; z++ {
 			height := hm.At(x, z)
-			height_liquid := hml.At(x, z)
-
 			col := chunkGetColorAt(c, x, height, z)
-
-			if height_liquid > height {
-				bw := (&block.Water{}).Color()
-				bw.A = uint8(utils.Clamp(int(127+(height_liquid-height)*5), 255))
-				col = utils.BlendColors(col, bw)
-			}
-
 			img.SetRGBA(int(x), int(z), col)
 		}
 	}

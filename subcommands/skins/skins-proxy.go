@@ -47,8 +47,7 @@ func (c *SkinProxyCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interf
 		return pk, nil
 	}
 
-	err = proxy.Run(ctx, address)
-	if err != nil {
+	if err := proxy.Run(ctx, address); err != nil {
 		logrus.Error(err)
 		return 1
 	}

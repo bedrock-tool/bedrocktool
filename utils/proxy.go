@@ -164,7 +164,7 @@ func (p *ProxyContext) Run(ctx context.Context, server_address string) (err erro
 		}
 		serverConn.Close()
 		packs = serverConn.ResourcePacks()
-		p.log.Infof("%d packs loaded\n", len(packs))
+		p.log.Infof("%d packs loaded", len(packs))
 	}
 
 	_status := minecraft.NewStatusProvider("Server")
@@ -180,7 +180,7 @@ func (p *ProxyContext) Run(ctx context.Context, server_address string) (err erro
 	}
 	defer p.Listener.Close()
 
-	p.log.Infof("Listening on %s\n", p.Listener.Addr())
+	p.log.Infof("Listening on %s", p.Listener.Addr())
 
 	c, err := p.Listener.Accept()
 	if err != nil {

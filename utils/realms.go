@@ -4,11 +4,11 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/google/subcommands"
 	"github.com/sandertv/gophertunnel/minecraft/realms"
+	"github.com/sirupsen/logrus"
 )
 
 func get_realm(ctx context.Context, api *realms.Client, realm_name, id string) (name string, address string, err error) {
@@ -46,7 +46,7 @@ func (c *RealmListCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interf
 	api := realms.NewClient(GetTokenSource())
 	realms, err := api.Realms(ctx)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		logrus.Error(err)
 		return 1
 	}
 	for _, realm := range realms {

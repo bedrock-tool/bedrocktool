@@ -33,11 +33,13 @@ func create_replay_connection(ctx context.Context, log *logrus.Logger, filename 
 	if err != nil {
 		return err
 	}
+	// maximum packet size
 	SetUnexportedField(reflect.ValueOf(reader).Elem().Field(5), uint32(0xFFFFFFFF))
 
 	proxy := NewProxy(logrus.StandardLogger())
 	proxy.Server = minecraft.NewConn()
 
+	// on old captures, the packet header is missing
 	var fake_header []byte
 	if OLD_BROKEN {
 		// FOR OLD BROKEN CAPTURES
