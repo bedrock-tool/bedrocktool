@@ -11,6 +11,7 @@ import (
 	"syscall"
 
 	"github.com/google/subcommands"
+	"github.com/sirupsen/logrus"
 )
 
 const TOKEN_FILE = "token.json"
@@ -22,7 +23,7 @@ var G_preload_packs bool
 var G_exit []func() = []func(){}
 
 func exit() {
-	fmt.Printf("\nExiting\n")
+	logrus.Info("\nExiting\n")
 	for i := len(G_exit) - 1; i >= 0; i-- { // go through cleanup functions reversed
 		G_exit[i]()
 	}
@@ -37,7 +38,10 @@ func register_command(sub subcommands.Command) {
 }
 
 func main() {
-	fmt.Printf("bedrocktool version: %s\n", version)
+	logrus.SetLevel(logrus.DebugLevel)
+	if version != "" {
+		logrus.Info("bedrocktool version: %s\n", version)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 

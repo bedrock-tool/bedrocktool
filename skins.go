@@ -19,6 +19,7 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
+	"github.com/sirupsen/logrus"
 )
 
 type Skin struct {
@@ -54,7 +55,7 @@ func (skin *Skin) WriteCape(output_path string) error {
 
 // WriteAnimations writes skin animations to the folder
 func (skin *Skin) WriteAnimations(output_path string) error {
-	fmt.Printf("Warn: %s has animations (unimplemented)", output_path)
+	logrus.Warnf("%s has animations (unimplemented)", output_path)
 	return nil
 }
 
@@ -181,7 +182,7 @@ func write_skin(output_path, name string, skin protocol.Skin, filter string) {
 	if !strings.HasPrefix(name, filter) {
 		return
 	}
-	fmt.Printf("Writing skin for %s\n", name)
+	logrus.Infof("Writing skin for %s\n", name)
 	_skin := &Skin{skin}
 	if err := _skin.Write(output_path, name); err != nil {
 		fmt.Fprintf(os.Stderr, "Error writing skin: %s\n", err)
@@ -264,8 +265,8 @@ func (c *SkinCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}
 		return 1
 	}
 
-	println("Connected")
-	println("Press ctrl+c to exit")
+	logrus.Info("Connected")
+	logrus.Info("Press ctrl+c to exit")
 
 	os.MkdirAll(out_path, 0o755)
 

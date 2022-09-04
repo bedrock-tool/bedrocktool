@@ -56,8 +56,6 @@ type WorldState struct {
 	PlayerPos TPlayerPos
 	proxy     *ProxyContext
 
-	log *logrus.Logger
-
 	// ui
 	ui MapUI
 }
@@ -74,49 +72,14 @@ func NewWorldState() *WorldState {
 	}
 }
 
-type IngameCommand struct {
-	exec func(w *WorldState, cmdline []string) bool
-	cmd  protocol.Command
-}
-
-var IngameCommands = map[string]IngameCommand{
-	"setname": {
-		exec: setnameCommand,
-		cmd: protocol.Command{
-			Name:        "setname",
-			Description: "set user defined name for this world",
-			Overloads: []protocol.CommandOverload{
-				{
-					Parameters: []protocol.CommandParameter{
-						{
-							Name:     "name",
-							Type:     protocol.CommandArgTypeFilepath,
-							Optional: false,
-						},
-					},
-				},
-			},
-		},
-	},
-	"void": {
-		exec: toggleVoid,
-		cmd: protocol.Command{
-			Name:        "void",
-			Description: "toggle if void generator should be used",
-		},
-	},
-}
-
-func setnameCommand(w *WorldState, cmdline []string) bool {
-	w.WorldName = strings.Join(cmdline, " ")
-	w.proxy.sendMessage(fmt.Sprintf("worldName is now: %s", w.WorldName))
-	return true
-}
-
-func toggleVoid(w *WorldState, cmdline []string) bool {
-	w.voidgen = !w.voidgen
-	w.proxy.sendMessage(fmt.Sprintf("using void generator: %t", w.voidgen))
-	return true
+var dimension_ids = map[uint8]world.Dimension{
+	0: world.Overworld,
+	1: world.Nether,
+	2: world.End,
+	// < 1.18
+	10: world.Overworld_legacy,
+	11: world.Nether,
+	12: world.End,
 }
 
 var (
@@ -140,7 +103,6 @@ type WorldCMD struct {
 	server_address string
 	packs          bool
 	enableVoid     bool
-	log            *logrus.Logger
 }
 
 func (*WorldCMD) Name() string     { return "worlds" }
@@ -157,8 +119,6 @@ func (c *WorldCMD) Usage() string {
 }
 
 func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	c.log = logrus.New()
-
 	server_address, hostname, err := server_input(c.server_address)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -166,13 +126,12 @@ func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 	}
 
 	w := NewWorldState()
-	w.log = c.log
 	w.voidgen = c.enableVoid
 	w.ServerName = hostname
 	w.withPacks = c.packs
 	w.ctx = ctx
 
-	err = create_proxy(ctx, c.log, server_address, w.OnConnect, func(pk packet.Packet, proxy *ProxyContext, toServer bool) (packet.Packet, error) {
+	err = create_proxy(ctx, logrus.StandardLogger(), server_address, w.OnConnect, func(pk packet.Packet, proxy *ProxyContext, toServer bool) (packet.Packet, error) {
 		if toServer {
 			pk = w.ProcessPacketClient(pk)
 		} else {
@@ -187,20 +146,22 @@ func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 	return 0
 }
 
-var dimension_ids = map[uint8]world.Dimension{
-	0: world.Overworld,
-	1: world.Nether,
-	2: world.End,
-	// < 1.18
-	10: world.Overworld_legacy,
-	11: world.Nether,
-	12: world.End,
+func (w *WorldState) setnameCommand(cmdline []string) bool {
+	w.WorldName = strings.Join(cmdline, " ")
+	w.proxy.sendMessage(fmt.Sprintf("worldName is now: %s", w.WorldName))
+	return true
+}
+
+func (w *WorldState) toggleVoid(cmdline []string) bool {
+	w.voidgen = !w.voidgen
+	w.proxy.sendMessage(fmt.Sprintf("using void generator: %t", w.voidgen))
+	return true
 }
 
 func (w *WorldState) ProcessLevelChunk(pk *packet.LevelChunk) {
 	ch, blockNBTs, err := chunk.NetworkDecode(uint32(pk.HighestSubChunk), pk.RawPayload, int(pk.SubChunkCount), w.Dim.Range(), w.ispre118)
 	if err != nil {
-		log.Print(err.Error())
+		logrus.Error(err)
 		return
 	}
 	if blockNBTs != nil {
@@ -239,22 +200,24 @@ func (w *WorldState) ProcessSubChunk(pk *packet.SubChunk) {
 	pos_to_redraw := make(map[protocol.ChunkPos]bool)
 
 	for _, sub := range pk.SubChunkEntries {
-		abs_x := pk.Position[0] + int32(sub.Offset[0])
-		abs_y := pk.Position[1] + int32(sub.Offset[1])
-		abs_z := pk.Position[2] + int32(sub.Offset[2])
-		pos := protocol.ChunkPos{abs_x, abs_z}
-		pos3 := protocol.SubChunkPos{abs_x, abs_y, abs_z}
+		var (
+			abs_x  = pk.Position[0] + int32(sub.Offset[0])
+			abs_y  = pk.Position[1] + int32(sub.Offset[1])
+			abs_z  = pk.Position[2] + int32(sub.Offset[2])
+			subpos = protocol.SubChunkPos{abs_x, abs_y, abs_z}
+			pos    = protocol.ChunkPos{abs_x, abs_z}
+		)
 		ch := w.chunks[pos]
 		if ch == nil {
-			fmt.Printf("the server didnt send the chunk before the subchunk!\n")
+			logrus.Errorf("the server didnt send the chunk before the subchunk!")
 			continue
 		}
 		blockNBT, err := ch.ApplySubChunkEntry(uint8(abs_y), &sub)
 		if err != nil {
-			fmt.Print(err)
+			logrus.Error(err)
 		}
 		if blockNBT != nil {
-			w.blockNBT[pos3] = blockNBT
+			w.blockNBT[subpos] = blockNBT
 		}
 
 		pos_to_redraw[pos] = true
@@ -275,11 +238,10 @@ func (w *WorldState) ProcessAnimate(pk *packet.Animate) {
 }
 
 func (w *WorldState) ProcessChangeDimension(pk *packet.ChangeDimension) {
-	fmt.Printf("ChangeDimension %d\n", pk.Dimension)
 	if len(w.chunks) > 0 {
 		w.SaveAndReset()
 	} else {
-		fmt.Println("Info: Skipping save because the world didnt contain any chunks")
+		logrus.Info("Skipping save because the world didnt contain any chunks.")
 		w.Reset()
 	}
 	dim_id := pk.Dimension
@@ -287,15 +249,6 @@ func (w *WorldState) ProcessChangeDimension(pk *packet.ChangeDimension) {
 		dim_id += 10
 	}
 	w.Dim = dimension_ids[uint8(dim_id)]
-}
-
-func (w *WorldState) ProcessCommand(pk *packet.CommandRequest) bool {
-	cmd := strings.Split(pk.CommandLine, " ")
-	name := cmd[0][1:]
-	if h, ok := IngameCommands[name]; ok {
-		return h.exec(w, cmd[1:])
-	}
-	return false
 }
 
 func (w *WorldState) SetPlayerPos(Position mgl32.Vec3, Pitch, Yaw, HeadYaw float32) {
@@ -321,14 +274,14 @@ func (w *WorldState) Reset() {
 
 // writes the world to a folder, resets all the chunks
 func (w *WorldState) SaveAndReset() {
-	fmt.Printf("Saving world %s\n", w.WorldName)
+	logrus.Infof("Saving world %s", w.WorldName)
 
 	// open world
 	folder := path.Join("worlds", fmt.Sprintf("%s/%s", w.ServerName, w.WorldName))
 	os.RemoveAll(folder)
 	os.MkdirAll(folder, 0o777)
 
-	provider, err := mcdb.New(w.log, folder, opt.DefaultCompression)
+	provider, err := mcdb.New(logrus.StandardLogger(), folder, opt.DefaultCompression)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -427,7 +380,7 @@ func (w *WorldState) SaveAndReset() {
 			ld.ShowBorderEffect = gr.Value.(bool)
 		// todo
 		default:
-			fmt.Printf("unknown gamerule: %s\n", gr.Name)
+			logrus.Warnf("unknown gamerule: %s\n", gr.Name)
 		}
 	}
 
@@ -444,7 +397,7 @@ func (w *WorldState) SaveAndReset() {
 	w.worldCounter += 1
 
 	for k, p := range w.packs {
-		fmt.Printf("Adding resource pack: %s\n", k)
+		logrus.Infof("Adding resource pack: %s\n", k)
 		pack_folder := path.Join(folder, "resource_packs", k)
 		os.MkdirAll(pack_folder, 0o755)
 		data := make([]byte, p.Len())
@@ -458,7 +411,7 @@ func (w *WorldState) SaveAndReset() {
 	if err := zip_folder(filename, folder); err != nil {
 		fmt.Println(err)
 	}
-	fmt.Printf("Saved: %s\n", filename)
+	logrus.Infof("Saved: %s\n", filename)
 	os.RemoveAll(folder)
 	w.Reset()
 }
@@ -518,6 +471,33 @@ func (w *WorldState) OnConnect(proxy *ProxyContext) {
 			}
 		}
 	}()
+
+	proxy.addCommand(IngameCommand{
+		exec: w.setnameCommand,
+		cmd: protocol.Command{
+			Name:        "setname",
+			Description: "set user defined name for this world",
+			Overloads: []protocol.CommandOverload{
+				{
+					Parameters: []protocol.CommandParameter{
+						{
+							Name:     "name",
+							Type:     protocol.CommandArgTypeFilepath,
+							Optional: false,
+						},
+					},
+				},
+			},
+		},
+	})
+
+	proxy.addCommand(IngameCommand{
+		exec: w.toggleVoid,
+		cmd: protocol.Command{
+			Name:        "void",
+			Description: "toggle if void generator should be used",
+		},
+	})
 }
 
 func (w *WorldState) ProcessPacketClient(pk packet.Packet) packet.Packet {
@@ -537,10 +517,6 @@ func (w *WorldState) ProcessPacketClient(pk packet.Packet) packet.Packet {
 		}
 	case *packet.Animate:
 		w.ProcessAnimate(pk)
-	case *packet.CommandRequest:
-		if w.ProcessCommand(pk) {
-			pk = nil
-		}
 	}
 	return pk
 }
@@ -555,10 +531,6 @@ func (w *WorldState) ProcessPacketServer(pk packet.Packet) packet.Packet {
 		w.proxy.sendPopup(fmt.Sprintf("%d chunks loaded\nname: %s", len(w.chunks), w.WorldName))
 	case *packet.SubChunk:
 		w.ProcessSubChunk(pk)
-	case *packet.AvailableCommands:
-		for _, ic := range IngameCommands {
-			pk.Commands = append(pk.Commands, ic.cmd)
-		}
 	}
 	return pk
 }

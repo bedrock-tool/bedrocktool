@@ -18,7 +18,6 @@ import (
 type MergeCMD struct {
 	worlds []string
 	legacy bool
-	log    *logrus.Logger
 }
 
 func (*MergeCMD) Name() string     { return "merge" }
@@ -33,26 +32,24 @@ func (c *MergeCMD) Usage() string {
 }
 
 func (c *MergeCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	c.log = logrus.New()
-
 	if f.NArg() == 0 {
-		fmt.Println("you need to specify 1 or more worlds")
+		logrus.Error("you need to specify 1 or more worlds")
 		return 1
 	}
 	c.worlds = f.Args()
 	out_name := c.worlds[0] + "-merged"
 
-	prov_out, err := mcdb.New(c.log, out_name, opt.DefaultCompression)
+	prov_out, err := mcdb.New(logrus.StandardLogger(), out_name, opt.DefaultCompression)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to open output %s\n", err)
 	}
 
 	for i, world_name := range c.worlds {
 		first := i == 0
-		fmt.Printf("Adding %s\n", world_name)
+		logrus.Infof("Adding %s", world_name)
 		s, err := os.Stat(world_name)
 		if errors.Is(err, os.ErrNotExist) {
-			fmt.Fprintf(os.Stderr, "%s not found\n", world_name)
+			logrus.Errorf("%s not found", world_name)
 		}
 		if !s.IsDir() { // if its a zip temporarily unpack it to read it
 			f, _ := os.Open(world_name)
@@ -76,7 +73,7 @@ func (c *MergeCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 	time.Sleep(1 * time.Second)
 
 	if err := zip_folder(out_name+".mcworld", out_name); err != nil {
-		fmt.Fprintf(os.Stderr, "zipping: %s\n", err)
+		logrus.Info("zipping: %s", err)
 		return 1
 	}
 
@@ -85,8 +82,7 @@ func (c *MergeCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 }
 
 func (c *MergeCMD) merge_worlds(prov_out *mcdb.Provider, folder string, first bool) error {
-	log := logrus.New()
-	prov_in, err := mcdb.New(log, folder, opt.DefaultCompression)
+	prov_in, err := mcdb.New(logrus.StandardLogger(), folder, opt.DefaultCompression)
 	if err != nil {
 		return err
 	}
@@ -127,12 +123,12 @@ func (c *MergeCMD) merge_worlds(prov_out *mcdb.Provider, folder string, first bo
 	}
 
 	if first {
-		fmt.Print("Applying Settings, level.dat\n\n")
+		logrus.Debug("Applying Settings and level.dat")
 		prov_out.SaveSettings(prov_in.Settings())
 		out_ld := prov_out.LevelDat()
 		copier.Copy(out_ld, prov_in.LevelDat())
 	}
-	fmt.Printf("Added: %d\n", count)
+	logrus.Infof("Added: %d", count)
 	return nil
 }
 

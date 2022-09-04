@@ -1,14 +1,18 @@
 token.json
+.secrets
+
 *.mcpack
 *.zip
+*.pcap
+*.bmp
+*.bin
 
+bedrocktool
 bedrocktool-*
 __debug_bin
 
-.vscode/launch.json
+.vscode/*
 keys.db
 skins/
 worlds/
-test.bmp
-.secrets
 dist/

@@ -1,8 +1,8 @@
 package main
 
 import (
+	"bytes"
 	"context"
-	"fmt"
 	"os"
 	"reflect"
 	"time"
@@ -11,6 +11,7 @@ import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/pcapgo"
 	"github.com/sandertv/gophertunnel/minecraft"
+	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sirupsen/logrus"
 )
 
@@ -29,7 +30,9 @@ func (d PayloadDecoder) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback)
 }
 
 func create_replay_connection(ctx context.Context, log *logrus.Logger, filename string, onConnect ConnectCallback, packetCB PacketCallback) error {
-	fmt.Printf("Reading replay %s\n", filename)
+	log.Infof("Reading replay %s", filename)
+
+	OLD_BROKEN := true
 
 	f, err := os.Open(filename)
 	if err != nil {
@@ -53,14 +56,16 @@ func create_replay_connection(ctx context.Context, log *logrus.Logger, filename 
 		onConnect(&proxy)
 	}
 
-	/* FOR OLD BROKEN CAPTURES
-	fake_head := packet.Header{
-		PacketID: packet.IDLevelChunk,
+	var fake_header []byte
+	if OLD_BROKEN {
+		// FOR OLD BROKEN CAPTURES
+		fake_head := packet.Header{
+			PacketID: packet.IDLevelChunk,
+		}
+		fake_header_w := bytes.NewBuffer(nil)
+		fake_head.Write(fake_header_w)
+		fake_header = fake_header_w.Bytes()
 	}
-	fake_header_w := bytes.NewBuffer(nil)
-	fake_head.Write(fake_header_w)
-	fake_header := fake_header_w.Bytes()
-	*/
 
 	start := time.Time{}
 	for {
@@ -77,7 +82,9 @@ func create_replay_connection(ctx context.Context, log *logrus.Logger, filename 
 			continue
 		}
 
-		// payload = append(fake_header, payload...)
+		if OLD_BROKEN {
+			payload = append(fake_header, payload...)
+		}
 
 		pk_data, err := minecraft.ParseData(payload, dummy_conn)
 		if err != nil {

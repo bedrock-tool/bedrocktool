@@ -23,6 +23,7 @@ import (
 	"unsafe"
 
 	"github.com/sandertv/gophertunnel/minecraft"
+	"github.com/sirupsen/logrus"
 
 	//"github.com/sandertv/gophertunnel/minecraft/gatherings"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
@@ -120,7 +121,7 @@ func connect_server(ctx context.Context, address string, ClientData *login.Clien
 		cd = *ClientData
 	}
 
-	fmt.Printf("Connecting to %s\n", address)
+	logrus.Infof("Connecting to %s\n", address)
 	serverConn, err = minecraft.Dialer{
 		TokenSource:   GetTokenSource(),
 		ClientData:    cd,
@@ -326,13 +327,9 @@ func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
 	}
 	switch pk := pk.(type) {
 	case *packet.Disconnect:
-		fmt.Printf("Disconnect: %s", pk.Message)
-	case *packet.Event:
-		fmt.Printf("Event: %d %+v\n", pk.EventType, pk.EventData)
-	case *packet.LevelEvent:
-		fmt.Printf("LevelEvent: %+v\n", pk)
+		logrus.Infof("Disconnect: %s", pk.Message)
 	}
-	fmt.Printf("%s 0x%x, %s\n", dir, pk.ID(), pk_name)
+	logrus.Debugf("%s 0x%x, %s\n", dir, pk.ID(), pk_name)
 }
 
 func img2rgba(img *image.RGBA) []color.RGBA {

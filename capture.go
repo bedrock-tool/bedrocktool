@@ -97,8 +97,6 @@ func (c *CaptureCMD) Usage() string {
 }
 
 func (c *CaptureCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	log := logrus.New()
-
 	address, hostname, err := server_input(c.server_address)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -116,7 +114,7 @@ func (c *CaptureCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interfac
 
 	_wl := sync.Mutex{}
 
-	err = create_proxy(ctx, log, address, nil, func(pk packet.Packet, proxy *ProxyContext, toServer bool) (packet.Packet, error) {
+	err = create_proxy(ctx, logrus.StandardLogger(), address, nil, func(pk packet.Packet, proxy *ProxyContext, toServer bool) (packet.Packet, error) {
 		_wl.Lock()
 		dump_packet(toServer, w, pk)
 		_wl.Unlock()

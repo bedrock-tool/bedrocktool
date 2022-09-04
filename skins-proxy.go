@@ -29,24 +29,22 @@ func (c *SkinProxyCMD) Usage() string {
 }
 
 func (c *SkinProxyCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	log := logrus.New()
-
 	address, hostname, err := server_input(c.server_address)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		logrus.Error(err)
 		return 1
 	}
 	out_path := fmt.Sprintf("skins/%s", hostname)
 	os.MkdirAll(out_path, 0o755)
 
-	err = create_proxy(ctx, log, address, nil, func(pk packet.Packet, proxy *ProxyContext, toServer bool) (packet.Packet, error) {
+	err = create_proxy(ctx, logrus.StandardLogger(), address, nil, func(pk packet.Packet, proxy *ProxyContext, toServer bool) (packet.Packet, error) {
 		if !toServer {
 			process_packet_skins(proxy.client, out_path, pk, c.filter)
 		}
 		return pk, nil
 	})
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		logrus.Error(err)
 		return 1
 	}
 	return 0

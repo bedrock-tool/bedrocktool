@@ -2,11 +2,11 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 
 	"github.com/sandertv/gophertunnel/minecraft/auth"
 	"github.com/sandertv/gophertunnel/minecraft/realms"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
 )
 
@@ -23,7 +23,7 @@ func GetTokenSource() oauth2.TokenSource {
 		panic(err)
 	}
 	if !token.Valid() {
-		fmt.Println("Refreshed token")
+		logrus.Info("Refreshed token")
 		write_token(new_token)
 	}
 

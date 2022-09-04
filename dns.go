@@ -2,24 +2,26 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net"
 
 	"github.com/miekg/dns"
+	"github.com/sirupsen/logrus"
 )
 
 var override_dns = map[string]bool{
 	"geo.hivebedrock.network.": true,
 }
 
-func answerQuery(remote net.Addr, req *dns.Msg) (reply *dns.Msg) {
+type DNSServer struct{}
+
+func (d *DNSServer) answerQuery(remote net.Addr, req *dns.Msg) (reply *dns.Msg) {
 	reply = new(dns.Msg)
 
 	answered := false
 	for _, q := range req.Question {
 		switch q.Qtype {
 		case dns.TypeA:
-			log.Printf("Query for %s\n", q.Name)
+			logrus.Infof("Query for %s", q.Name)
 
 			if override_dns[q.Name] {
 				host, _, _ := net.SplitHostPort(remote.String())
@@ -35,7 +37,8 @@ func answerQuery(remote net.Addr, req *dns.Msg) (reply *dns.Msg) {
 					}
 				}
 				if ip == "" {
-					log.Panicf("query from outside of own network??")
+					logrus.Warn("query from outside of own network")
+					continue
 				}
 
 				rr, err := dns.NewRR(fmt.Sprintf("%s A %s", q.Name, ip))
@@ -65,12 +68,12 @@ func answerQuery(remote net.Addr, req *dns.Msg) (reply *dns.Msg) {
 	return reply
 }
 
-func dns_handler(w dns.ResponseWriter, req *dns.Msg) {
+func (d *DNSServer) handler(w dns.ResponseWriter, req *dns.Msg) {
 	var reply *dns.Msg
 
 	switch req.Opcode {
 	case dns.OpcodeQuery:
-		reply = answerQuery(w.RemoteAddr(), req)
+		reply = d.answerQuery(w.RemoteAddr(), req)
 	default:
 		reply = new(dns.Msg)
 	}
@@ -80,16 +83,17 @@ func dns_handler(w dns.ResponseWriter, req *dns.Msg) {
 }
 
 func init_dns() {
-	dns.HandleFunc(".", dns_handler)
+	d := DNSServer{}
+	dns.HandleFunc(".", d.handler)
 
 	server := &dns.Server{Addr: ":53", Net: "udp"}
 	go func() {
-		fmt.Printf("Starting dns at %s:53\n", GetLocalIP())
+		logrus.Infof("Starting dns at %s:53\n", GetLocalIP())
 		err := server.ListenAndServe()
 		defer server.Shutdown()
 		if err != nil {
-			log.Printf("Failed to start dns server: %s\n ", err.Error())
-			println("you may have to use bedrockconnect")
+			logrus.Warnf("Failed to start dns server: %s\n ", err.Error())
+			logrus.Info("you may have to use bedrockconnect")
 		}
 	}()
 }

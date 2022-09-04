@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/sandertv/gophertunnel/minecraft"
+	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 	"github.com/sirupsen/logrus"
@@ -35,6 +36,7 @@ type ProxyContext struct {
 	server   *minecraft.Conn
 	client   *minecraft.Conn
 	listener *minecraft.Listener
+	commands map[string]IngameCommand
 }
 
 type (
@@ -58,6 +60,33 @@ func (p *ProxyContext) sendPopup(text string) {
 			Message:  text,
 		})
 	}
+}
+
+type IngameCommand struct {
+	exec func(cmdline []string) bool
+	cmd  protocol.Command
+}
+
+func (p *ProxyContext) addCommand(cmd IngameCommand) {
+	p.commands[cmd.cmd.Name] = cmd
+}
+
+func (p *ProxyContext) CommandHandlerPacketCB(pk packet.Packet, proxy *ProxyContext, toServer bool) (packet.Packet, error) {
+	switch pk := pk.(type) {
+	case *packet.CommandRequest:
+		cmd := strings.Split(pk.CommandLine, " ")
+		name := cmd[0][1:]
+		if h, ok := p.commands[name]; ok {
+			if h.exec(cmd[1:]) {
+				pk = nil
+			}
+		}
+	case *packet.AvailableCommands:
+		for _, ic := range p.commands {
+			pk.Commands = append(pk.Commands, ic.cmd)
+		}
+	}
+	return pk, nil
 }
 
 func proxyLoop(ctx context.Context, proxy *ProxyContext, toServer bool, packetCBs []PacketCallback) error {
@@ -106,17 +135,18 @@ func create_proxy(ctx context.Context, log *logrus.Logger, server_address string
 	GetTokenSource() // ask for login before listening
 
 	proxy := ProxyContext{}
+	proxy.commands = make(map[string]IngameCommand)
 
 	var packs []*resource.Pack
 	if G_preload_packs {
-		fmt.Println("Preloading resourcepacks")
+		log.Info("Preloading resourcepacks")
 		serverConn, err := connect_server(ctx, server_address, nil, true)
 		if err != nil {
 			return fmt.Errorf("failed to connect to %s: %s", server_address, err)
 		}
 		serverConn.Close()
 		packs = serverConn.ResourcePacks()
-		fmt.Printf("%d packs loaded\n", len(packs))
+		log.Infof("%d packs loaded\n", len(packs))
 	}
 
 	_status := minecraft.NewStatusProvider("Server")
@@ -132,7 +162,7 @@ func create_proxy(ctx context.Context, log *logrus.Logger, server_address string
 	}
 	defer proxy.listener.Close()
 
-	fmt.Printf("Listening on %s\n", proxy.listener.Addr())
+	log.Infof("Listening on %s\n", proxy.listener.Addr())
 
 	c, err := proxy.listener.Accept()
 	if err != nil {
@@ -159,12 +189,16 @@ func create_proxy(ctx context.Context, log *logrus.Logger, server_address string
 	}
 
 	wg := sync.WaitGroup{}
+	cbs := []PacketCallback{
+		proxy.CommandHandlerPacketCB,
+		packetCB,
+	}
 
 	// server to client
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := proxyLoop(ctx, &proxy, false, []PacketCallback{packetCB}); err != nil {
+		if err := proxyLoop(ctx, &proxy, false, cbs); err != nil {
 			log.Error(err)
 			return
 		}
@@ -174,7 +208,7 @@ func create_proxy(ctx context.Context, log *logrus.Logger, server_address string
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := proxyLoop(ctx, &proxy, true, []PacketCallback{packetCB}); err != nil {
+		if err := proxyLoop(ctx, &proxy, true, cbs); err != nil {
 			log.Error(err)
 			return
 		}
