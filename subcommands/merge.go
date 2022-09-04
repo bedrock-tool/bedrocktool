@@ -1,4 +1,4 @@
-package main
+package subcommands
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"bedrocktool/cmd/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils"
 
 	"github.com/df-mc/dragonfly/server/world/mcdb"
 	"github.com/df-mc/goleveldb/leveldb/opt"

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"bedrocktool/cmd/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils"
 
 	"github.com/google/subcommands"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"

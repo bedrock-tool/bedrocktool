@@ -4,7 +4,7 @@ import (
 	"image"
 	"image/color"
 
-	"bedrocktool/cmd/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils"
 
 	"github.com/df-mc/dragonfly/server/block"
 	"github.com/df-mc/dragonfly/server/block/cube"

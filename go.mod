@@ -1,4 +1,4 @@
-module bedrocktool
+module github.com/bedrock-tool/bedrocktool
 
 go 1.19
 
@@ -34,9 +34,9 @@ require (
 	github.com/jinzhu/copier v0.3.5
 	github.com/klauspost/compress v1.15.9 // indirect
 	github.com/muhammadmuzzammil1998/jsonc v1.0.0 // indirect
-	github.com/sandertv/go-raknet v1.11.1
-	github.com/sirupsen/logrus v1.9.0 // indirect
-	go.uber.org/atomic v1.10.0 // indirect
+	github.com/sandertv/go-raknet v1.11.1 // indirect
+	github.com/sirupsen/logrus v1.9.0
+	go.uber.org/atomic v1.10.0
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa // indirect
 	golang.org/x/image v0.0.0-20220722155232-062f8c9fd539
 	golang.org/x/mod v0.6.0-dev.0.20220106191415-9b9b3d81d5e3 // indirect

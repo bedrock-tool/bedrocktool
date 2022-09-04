@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"bedrocktool/cmd/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils"
 
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"

@@ -1,4 +1,4 @@
-package main
+package subcommands
 
 import (
 	"bytes"
@@ -10,7 +10,7 @@ import (
 	"os"
 	"time"
 
-	"bedrocktool/cmd/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"

@@ -10,7 +10,11 @@ import (
 	"regexp"
 	"syscall"
 
-	"bedrocktool/cmd/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils"
+
+	_ "github.com/bedrock-tool/bedrocktool/subcommands"
+	_ "github.com/bedrock-tool/bedrocktool/subcommands/skins"
+	_ "github.com/bedrock-tool/bedrocktool/subcommands/world"
 
 	"github.com/google/subcommands"
 	"github.com/sirupsen/logrus"

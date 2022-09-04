@@ -13,7 +13,7 @@ import (
 	"path"
 	"strings"
 
-	"bedrocktool/cmd/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils"
 
 	"github.com/flytam/filenamify"
 	"github.com/google/subcommands"
