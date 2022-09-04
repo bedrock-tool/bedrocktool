@@ -41,3 +41,4 @@ jobs:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           automatic_release_tag: ${{ steps.get-latest-tag.outputs.tag }}
           files: dist/*
+          prerelease: false
