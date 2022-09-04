@@ -28,7 +28,7 @@ jobs:
         env:
           REPO_KEY: ${{ secrets.REPO_KEY }}
       
-      - run: go get
+      - run: go get ./cmd/bedrocktool
 
       - name: build
         run: make -j
