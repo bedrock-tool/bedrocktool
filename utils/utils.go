@@ -25,8 +25,8 @@ import (
 const SERVER_ADDRESS_HELP = `accepted server address formats:
   123.234.123.234
   123.234.123.234:19132
-  realm:Username
-  realm:Username:Id
+  realm:<Realmname>
+  realm:<Realmname>:<Id>
 
 `
 

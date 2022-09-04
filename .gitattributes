@@ -1,1 +1,1 @@
-cmd/bedrocktool/utils/resourcepack-ace.go.ignore filter=git-crypt diff=git-crypt
+utils/resourcepack-ace.go.ignore filter=git-crypt diff=git-crypt
