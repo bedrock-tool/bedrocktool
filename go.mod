@@ -5,6 +5,7 @@ go 1.19
 require (
 	github.com/df-mc/dragonfly v0.8.1
 	github.com/df-mc/goleveldb v1.1.9
+	github.com/fatih/color v1.13.0
 	github.com/flytam/filenamify v1.1.1
 	github.com/go-gl/mathgl v1.0.0
 	github.com/google/gopacket v1.1.19
@@ -16,7 +17,6 @@ require (
 )
 
 require (
-	github.com/fatih/color v1.13.0 // indirect
 	github.com/mattn/go-colorable v0.1.9 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
 )
@@ -36,7 +36,7 @@ require (
 	github.com/df-mc/atomic v1.10.0 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
-	github.com/google/uuid v1.3.0 // indirect
+	github.com/google/uuid v1.3.0
 	github.com/jinzhu/copier v0.3.5
 	github.com/klauspost/compress v1.15.9 // indirect
 	github.com/muhammadmuzzammil1998/jsonc v1.0.0 // indirect
