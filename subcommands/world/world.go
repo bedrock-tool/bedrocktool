@@ -59,7 +59,7 @@ type WorldState struct {
 	proxy     *utils.ProxyContext
 
 	// ui
-	ui MapUI
+	ui *MapUI
 }
 
 func NewWorldState() *WorldState {
@@ -143,10 +143,14 @@ func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 	proxy := utils.NewProxy(logrus.StandardLogger())
 	proxy.ConnectCB = w.OnConnect
 	proxy.PacketCB = func(pk packet.Packet, proxy *utils.ProxyContext, toServer bool) (packet.Packet, error) {
+		var forward bool
 		if toServer {
-			pk = w.ProcessPacketClient(pk)
+			pk, forward = w.ProcessPacketClient(pk)
 		} else {
-			pk = w.ProcessPacketServer(pk)
+			pk, forward = w.ProcessPacketServer(pk)
+		}
+		if !forward {
+			return nil, nil
 		}
 		return pk, nil
 	}
@@ -320,10 +324,11 @@ func (w *WorldState) SaveAndReset() {
 
 	// write metadata
 	s := provider.Settings()
+	player := w.proxy.Client.GameData().PlayerPosition
 	s.Spawn = cube.Pos{
-		int(w.PlayerPos.Position[0]),
-		int(w.PlayerPos.Position[1]),
-		int(w.PlayerPos.Position[2]),
+		int(player.X()),
+		int(player.Y()),
+		int(player.Z()),
 	}
 	s.Name = w.WorldName
 
@@ -432,6 +437,16 @@ func (w *WorldState) SaveAndReset() {
 
 func (w *WorldState) OnConnect(proxy *utils.ProxyContext) {
 	w.proxy = proxy
+	gd := w.proxy.Server.GameData()
+
+	/*
+		if len(gd.CustomBlocks) > 0 {
+			for _, be := range gd.CustomBlocks {
+				b := block.ServerCustomBlock(be)
+				world.RegisterBlock(b)
+			}
+		}
+	*/
 
 	if w.withPacks {
 		fmt.Println("reformatting packs")
@@ -441,7 +456,6 @@ func (w *WorldState) OnConnect(proxy *utils.ProxyContext) {
 	}
 
 	{ // check game version
-		gd := w.proxy.Server.GameData()
 		gv := strings.Split(gd.BaseGameVersion, ".")
 		var err error
 		if len(gv) > 1 {
@@ -475,8 +489,8 @@ func (w *WorldState) OnConnect(proxy *utils.ProxyContext) {
 		case <-w.ctx.Done():
 			return
 		default:
-			t := time.NewTimer(1 * time.Second)
-			for range t.C {
+			for {
+				time.Sleep(1 * time.Second)
 				if w.proxy.Client != nil {
 					err := w.proxy.Client.WritePacket(&MAP_ITEM_PACKET)
 					if err != nil {
@@ -515,7 +529,8 @@ func (w *WorldState) OnConnect(proxy *utils.ProxyContext) {
 	})
 }
 
-func (w *WorldState) ProcessPacketClient(pk packet.Packet) packet.Packet {
+func (w *WorldState) ProcessPacketClient(pk packet.Packet) (packet.Packet, bool) {
+	forward := true
 	switch pk := pk.(type) {
 	case *packet.MovePlayer:
 		w.SetPlayerPos(pk.Position, pk.Pitch, pk.Yaw, pk.HeadYaw)
@@ -524,19 +539,19 @@ func (w *WorldState) ProcessPacketClient(pk packet.Packet) packet.Packet {
 	case *packet.MapInfoRequest:
 		if pk.MapID == VIEW_MAP_ID {
 			w.ui.SchedRedraw()
-			pk = nil
+			forward = false
 		}
 	case *packet.MobEquipment:
 		if pk.NewItem.Stack.NBTData["map_uuid"] == int64(VIEW_MAP_ID) {
-			pk = nil
+			forward = false
 		}
 	case *packet.Animate:
 		w.ProcessAnimate(pk)
 	}
-	return pk
+	return pk, forward
 }
 
-func (w *WorldState) ProcessPacketServer(pk packet.Packet) packet.Packet {
+func (w *WorldState) ProcessPacketServer(pk packet.Packet) (packet.Packet, bool) {
 	switch pk := pk.(type) {
 	case *packet.ChangeDimension:
 		w.ProcessChangeDimension(pk)
@@ -546,5 +561,5 @@ func (w *WorldState) ProcessPacketServer(pk packet.Packet) packet.Packet {
 	case *packet.SubChunk:
 		w.ProcessSubChunk(pk)
 	}
-	return pk
+	return pk, true
 }

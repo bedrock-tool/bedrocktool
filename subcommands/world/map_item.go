@@ -2,6 +2,7 @@ package world
 
 import (
 	"bytes"
+	"container/list"
 	"image"
 	"image/draw"
 	"math"
@@ -41,26 +42,34 @@ var MAP_ITEM_PACKET packet.InventoryContent = packet.InventoryContent{
 	},
 }
 
+type RenderElem struct {
+	pos protocol.ChunkPos
+	ch  *chunk.Chunk
+}
+
 type MapUI struct {
-	img           *image.RGBA                       // rendered image
-	zoomLevel     int                               // pixels per chunk
+	img           *image.RGBA // rendered image
+	zoomLevel     int         // pixels per chunk
+	render_queue  *list.List
+	render_lock   *sync.Mutex
 	chunks_images map[protocol.ChunkPos]*image.RGBA // prerendered chunks
 	needRedraw    bool                              // when the map has updated this is true
-	image_lock    *sync.Mutex
 
 	ticker *time.Ticker
 	w      *WorldState
 }
 
-func NewMapUI(w *WorldState) MapUI {
-	return MapUI{
+func NewMapUI(w *WorldState) *MapUI {
+	m := &MapUI{
 		img:           image.NewRGBA(image.Rect(0, 0, 128, 128)),
 		zoomLevel:     16,
+		render_queue:  list.New(),
+		render_lock:   &sync.Mutex{},
 		chunks_images: make(map[protocol.ChunkPos]*image.RGBA),
-		image_lock:    &sync.Mutex{},
 		needRedraw:    true,
 		w:             w,
 	}
+	return m
 }
 
 func (m *MapUI) Start() {
@@ -68,12 +77,12 @@ func (m *MapUI) Start() {
 	go func() {
 		for range m.ticker.C {
 			if m.needRedraw {
-				if !m.image_lock.TryLock() {
-					continue // dont send if send is in progress
+				if !m.render_lock.TryLock() {
+					continue
 				}
 				m.needRedraw = false
 				m.Redraw()
-				m.image_lock.Unlock()
+				m.render_lock.Unlock()
 
 				if m.w.proxy.Client != nil {
 					if err := m.w.proxy.Client.WritePacket(&packet.ClientBoundMapItemData{
@@ -137,6 +146,20 @@ func draw_img_scaled_pos(dst *image.RGBA, src *image.RGBA, bottom_left image.Poi
 
 // draw chunk images to the map image
 func (m *MapUI) Redraw() {
+	for {
+		e := m.render_queue.Back()
+		if e == nil {
+			break
+		}
+		r := e.Value.(RenderElem)
+		if r.ch != nil {
+			m.chunks_images[r.pos] = Chunk2Img(r.ch)
+		} else {
+			m.chunks_images[r.pos] = black_16x16
+		}
+		m.render_queue.Remove(e)
+	}
+
 	// get the chunk coord bounds
 	min := protocol.ChunkPos{}
 	max := protocol.ChunkPos{}
@@ -215,12 +238,8 @@ func (m *MapUI) Redraw() {
 }
 
 func (m *MapUI) SetChunk(pos protocol.ChunkPos, ch *chunk.Chunk) {
-	var img *image.RGBA = black_16x16
-	if ch != nil {
-		img = Chunk2Img(ch)
-	}
-	m.image_lock.Lock() // dont send while adding a chunk
-	m.chunks_images[pos] = img
-	m.image_lock.Unlock()
+	m.render_lock.Lock()
+	defer m.render_lock.Unlock()
+	m.render_queue.PushBack(RenderElem{pos, ch})
 	m.SchedRedraw()
 }

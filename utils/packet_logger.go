@@ -68,8 +68,6 @@ func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
 	switch pk := pk.(type) {
 	case *packet.Disconnect:
 		logrus.Infof("Disconnect: %s", pk.Message)
-	case *packet.Event:
-		logrus.Infof("Event %d  %+v", pk.EventType, pk.EventData)
 	}
 
 	dir := color.GreenString("S") + "->" + color.CyanString("C")
