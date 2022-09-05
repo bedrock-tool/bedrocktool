@@ -39,6 +39,7 @@ var MutedPackets = []string{
 	"packet.Animate",
 	"packet.NetworkStackLatency",
 	"packet.InventoryTransaction",
+	"packet.PlaySound",
 }
 
 var ExtraVerbose []string
@@ -50,6 +51,13 @@ func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
 	} else {
 		pk = &packet.Unknown{PacketID: header.PacketID}
 	}
+
+	defer func() {
+		if recoveredErr := recover(); recoveredErr != nil {
+			logrus.Errorf("%T: %w", pk, recoveredErr.(error))
+		}
+	}()
+
 	pk.Unmarshal(protocol.NewReader(bytes.NewBuffer(payload), 0))
 
 	pk_name := reflect.TypeOf(pk).String()[1:]

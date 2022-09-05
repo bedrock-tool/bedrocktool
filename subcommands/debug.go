@@ -40,6 +40,9 @@ func (c *DebugProxyCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...inter
 	filters := strings.Split(c.filter, ",")
 	if len(filters) > 0 {
 		for _, v := range filters {
+			if len(v) == 0 {
+				continue
+			}
 			if string(v[0]) == "*" {
 				v = v[1:]
 			}
