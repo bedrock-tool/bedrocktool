@@ -1,8 +1,10 @@
-TAG = $(shell git describe --tags)
+TAG = $(shell git describe --exclude "r-*" --tags)
+$(info ::set-output name=tag::$(TAG))
+
 NAME = bedrocktool-${TAG}
 SRCS = $(wildcard **/*.go)
 
-GC = go build -ldflags "-s -w -X utils.Version=${TAG}"
+GC = go build -ldflags "-s -w -X github.com/bedrock-tool/bedrocktool/utils.Version=${TAG}"
 
 .PHONY: dists clean updates
 
