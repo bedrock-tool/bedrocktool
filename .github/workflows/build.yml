@@ -31,6 +31,7 @@ jobs:
         env:
           REPO_KEY: ${{ secrets.REPO_KEY }}
       
+      - run: go install github.com/sanbornm/go-selfupdate/cmd/go-selfupdate
       - run: go get ./cmd/bedrocktool
 
       - name: Install SSH Key
