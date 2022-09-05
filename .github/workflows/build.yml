@@ -41,17 +41,15 @@ jobs:
           known_hosts: ${{ secrets.KNOWN_HOSTS }}
 
       - name: build
+        id: build
         run: make -j dists updates
 
       - name: Deploy with rsync
         run: rsync -avz ./public/ olebeck@${{ secrets.SSH_HOST }}:/var/www/updates/bedrocktool/
 
-      - uses: actions-ecosystem/action-get-latest-tag@v1
-        id: get-latest-tag
-
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: ${{ steps.get-latest-tag.outputs.tag }}
+          automatic_release_tag: r-${{ steps.build.outputs.tag }}
           files: dist/*
           prerelease: false
