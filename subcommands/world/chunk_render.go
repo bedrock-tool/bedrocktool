@@ -30,6 +30,9 @@ func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.R
 				bw := (&block.Water{}).Color()
 				bw.A = uint8(utils.Clamp(int(150+depth*7), 255))
 				blockColor = utils.BlendColors(blockColor, bw)
+				blockColor.R -= uint8(depth * 2)
+				blockColor.G -= uint8(depth * 2)
+				blockColor.B -= uint8(depth * 2)
 			} else {
 				blockColor = b.Color()
 			}

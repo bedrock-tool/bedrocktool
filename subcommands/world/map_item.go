@@ -2,15 +2,14 @@ package world
 
 import (
 	"bytes"
-	"container/list"
 	"image"
 	"image/draw"
 	"math"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/utils"
+	"golang.design/x/lockfree"
 
 	"github.com/df-mc/dragonfly/server/world/chunk"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
@@ -48,12 +47,11 @@ type RenderElem struct {
 }
 
 type MapUI struct {
-	img           *image.RGBA // rendered image
-	zoomLevel     int         // pixels per chunk
-	render_queue  *list.List
-	render_lock   *sync.Mutex
-	chunks_images map[protocol.ChunkPos]*image.RGBA // prerendered chunks
-	needRedraw    bool                              // when the map has updated this is true
+	img            *image.RGBA // rendered image
+	zoomLevel      int         // pixels per chunk
+	renderQueue    *lockfree.Queue
+	renderedChunks map[protocol.ChunkPos]*image.RGBA // prerendered chunks
+	needRedraw     bool                              // when the map has updated this is true
 
 	ticker *time.Ticker
 	w      *WorldState
@@ -61,13 +59,12 @@ type MapUI struct {
 
 func NewMapUI(w *WorldState) *MapUI {
 	m := &MapUI{
-		img:           image.NewRGBA(image.Rect(0, 0, 128, 128)),
-		zoomLevel:     16,
-		render_queue:  list.New(),
-		render_lock:   &sync.Mutex{},
-		chunks_images: make(map[protocol.ChunkPos]*image.RGBA),
-		needRedraw:    true,
-		w:             w,
+		img:            image.NewRGBA(image.Rect(0, 0, 128, 128)),
+		zoomLevel:      16,
+		renderQueue:    lockfree.NewQueue(),
+		renderedChunks: make(map[protocol.ChunkPos]*image.RGBA),
+		needRedraw:     true,
+		w:              w,
 	}
 	return m
 }
@@ -77,12 +74,8 @@ func (m *MapUI) Start() {
 	go func() {
 		for range m.ticker.C {
 			if m.needRedraw {
-				if !m.render_lock.TryLock() {
-					continue
-				}
 				m.needRedraw = false
 				m.Redraw()
-				m.render_lock.Unlock()
 
 				if m.w.proxy.Client != nil {
 					if err := m.w.proxy.Client.WritePacket(&packet.ClientBoundMapItemData{
@@ -109,8 +102,8 @@ func (m *MapUI) Stop() {
 
 // Reset resets the map to inital state
 func (m *MapUI) Reset() {
-	m.chunks_images = make(map[protocol.ChunkPos]*image.RGBA)
-	m.needRedraw = true
+	m.renderedChunks = make(map[protocol.ChunkPos]*image.RGBA)
+	m.SchedRedraw()
 }
 
 // ChangeZoom adds to the zoom value and goes around to 32 once it hits 128
@@ -133,7 +126,6 @@ func draw_img_scaled_pos(dst *image.RGBA, src *image.RGBA, bottom_left image.Poi
 	sby := src.Bounds().Dy()
 
 	ratio := float64(sbx) / float64(size_scaled)
-
 	for x_in := 0; x_in < sbx; x_in++ {
 		for y_in := 0; y_in < sby; y_in++ {
 			c := src.At(x_in, y_in)
@@ -147,23 +139,21 @@ func draw_img_scaled_pos(dst *image.RGBA, src *image.RGBA, bottom_left image.Poi
 // draw chunk images to the map image
 func (m *MapUI) Redraw() {
 	for {
-		e := m.render_queue.Back()
-		if e == nil {
+		r, ok := m.renderQueue.Dequeue().(*RenderElem)
+		if !ok {
 			break
 		}
-		r := e.Value.(RenderElem)
 		if r.ch != nil {
-			m.chunks_images[r.pos] = Chunk2Img(r.ch)
+			m.renderedChunks[r.pos] = Chunk2Img(r.ch)
 		} else {
-			m.chunks_images[r.pos] = black_16x16
+			m.renderedChunks[r.pos] = black_16x16
 		}
-		m.render_queue.Remove(e)
 	}
 
 	// get the chunk coord bounds
 	min := protocol.ChunkPos{}
 	max := protocol.ChunkPos{}
-	for _ch := range m.chunks_images {
+	for _ch := range m.renderedChunks {
 		if _ch.X() < min.X() {
 			min[0] = _ch.X()
 		}
@@ -196,7 +186,7 @@ func (m *MapUI) Redraw() {
 		m.img.Pix[i] = 0
 	}
 
-	for _ch := range m.chunks_images {
+	for _ch := range m.renderedChunks {
 		relative_middle_x := float64(_ch.X()*16 - middle.X())
 		relative_middle_z := float64(_ch.Z()*16 - middle.Z())
 		px_pos := image.Point{ // bottom left corner of the chunk on the map
@@ -205,7 +195,7 @@ func (m *MapUI) Redraw() {
 		}
 
 		if !m.img.Rect.Intersect(image.Rect(px_pos.X, px_pos.Y, px_pos.X+sz_chunk, px_pos.Y+sz_chunk)).Empty() {
-			draw_img_scaled_pos(m.img, m.chunks_images[_ch], image.Point{
+			draw_img_scaled_pos(m.img, m.renderedChunks[_ch], image.Point{
 				px_pos.X, px_pos.Y,
 			}, sz_chunk)
 		}
@@ -219,17 +209,17 @@ func (m *MapUI) Redraw() {
 		middle_block_x := chunks_x / 2 * 16
 		middle_block_y := chunks_y / 2 * 16
 
-		for _ch := range m.chunks_images {
+		for pos := range m.renderedChunks {
 			px_pos := image.Point{
-				X: int(_ch.X()*16) - middle_block_x + img2.Rect.Dx(),
-				Y: int(_ch.Z()*16) - middle_block_y + img2.Rect.Dy(),
+				X: int(pos.X()*16) - middle_block_x + img2.Rect.Dx(),
+				Y: int(pos.Z()*16) - middle_block_y + img2.Rect.Dy(),
 			}
 			draw.Draw(img2, image.Rect(
 				px_pos.X,
 				px_pos.Y,
 				px_pos.X+16,
 				px_pos.Y+16,
-			), m.chunks_images[_ch], image.Point{}, draw.Src)
+			), m.renderedChunks[pos], image.Point{}, draw.Src)
 		}
 		buf := bytes.NewBuffer(nil)
 		bmp.Encode(buf, img2)
@@ -238,8 +228,6 @@ func (m *MapUI) Redraw() {
 }
 
 func (m *MapUI) SetChunk(pos protocol.ChunkPos, ch *chunk.Chunk) {
-	m.render_lock.Lock()
-	defer m.render_lock.Unlock()
-	m.render_queue.PushBack(RenderElem{pos, ch})
+	m.renderQueue.Enqueue(&RenderElem{pos, ch})
 	m.SchedRedraw()
 }
