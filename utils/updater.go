@@ -10,8 +10,6 @@ var Updater = &selfupdate.Updater{
 	CurrentVersion: Version,
 	ApiURL:         updateServer,
 	BinURL:         updateServer,
-	DiffURL:        updateServer,
 	Dir:            "update/",
 	CmdName:        "bedrocktool", // app name
-
 }

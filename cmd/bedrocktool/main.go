@@ -39,7 +39,7 @@ func main() {
 		logrus.Error(err)
 	}
 
-	if err == nil && newVersion != utils.Version {
+	if newVersion != "" {
 		logrus.Infof("Update Available: %s", newVersion)
 	}
 
