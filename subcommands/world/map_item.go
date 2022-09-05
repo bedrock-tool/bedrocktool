@@ -215,11 +215,9 @@ func (m *MapUI) Redraw() {
 }
 
 func (m *MapUI) SetChunk(pos protocol.ChunkPos, ch *chunk.Chunk) {
-	var img *image.RGBA
+	var img *image.RGBA = black_16x16
 	if ch != nil {
 		img = Chunk2Img(ch)
-	} else {
-		img = black_16x16
 	}
 	m.image_lock.Lock() // dont send while adding a chunk
 	m.chunks_images[pos] = img

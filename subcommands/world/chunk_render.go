@@ -22,8 +22,10 @@ func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.R
 		if found {
 			if _, ok := b.(block.Water); ok {
 				y2 := c.HeightMap().At(x, z)
-				blockColor = blockColorAt(c, x, y2, z)
 				depth := y - y2
+				if depth > 0 {
+					blockColor = blockColorAt(c, x, y2, z)
+				}
 
 				bw := (&block.Water{}).Color()
 				bw.A = uint8(utils.Clamp(int(150+depth*7), 255))

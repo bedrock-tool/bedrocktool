@@ -14,7 +14,7 @@ import (
 
 var Pool = packet.NewPool()
 
-var muted_packets = []string{
+var MutedPackets = []string{
 	"packet.UpdateBlock",
 	"packet.MoveActorAbsolute",
 	"packet.SetActorMotion",
@@ -41,6 +41,8 @@ var muted_packets = []string{
 	"packet.InventoryTransaction",
 }
 
+var ExtraVerbose []string
+
 func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
 	var pk packet.Packet
 	if pkFunc, ok := Pool[header.PacketID]; ok {
@@ -51,13 +53,15 @@ func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
 	pk.Unmarshal(protocol.NewReader(bytes.NewBuffer(payload), 0))
 
 	pk_name := reflect.TypeOf(pk).String()[1:]
-	if slices.Contains(muted_packets, pk_name) {
+	if slices.Contains(MutedPackets, pk_name) {
 		return
 	}
 
 	switch pk := pk.(type) {
 	case *packet.Disconnect:
 		logrus.Infof("Disconnect: %s", pk.Message)
+	case *packet.Event:
+		logrus.Infof("Event %d  %+v", pk.EventType, pk.EventData)
 	}
 
 	dir := color.GreenString("S") + "->" + color.CyanString("C")
@@ -67,4 +71,8 @@ func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
 	}
 
 	logrus.Debugf("%s 0x%02x, %s", dir, pk.ID(), pk_name)
+
+	if slices.Contains(ExtraVerbose, pk_name) {
+		logrus.Debugf("%+v\n", pk)
+	}
 }

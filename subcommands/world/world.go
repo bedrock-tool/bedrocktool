@@ -29,6 +29,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	_ "github.com/df-mc/dragonfly/server/block" // to load blocks
+	//_ "net/http/pprof"
 )
 
 type TPlayerPos struct {
@@ -121,6 +122,12 @@ func (c *WorldCMD) Usage() string {
 }
 
 func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
+	/*
+		go func() {
+			http.ListenAndServe(":8000", nil)
+		}()
+	*/
+
 	server_address, hostname, err := utils.ServerInput(c.Address)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -165,6 +172,11 @@ func (w *WorldState) toggleVoid(cmdline []string) bool {
 }
 
 func (w *WorldState) ProcessLevelChunk(pk *packet.LevelChunk) {
+	_, exists := w.chunks[pk.Position]
+	if exists {
+		return
+	}
+
 	ch, blockNBTs, err := chunk.NetworkDecode(6692, pk.RawPayload, int(pk.SubChunkCount), w.Dim.Range(), w.ispre118)
 	if err != nil {
 		logrus.Error(err)
@@ -176,15 +188,12 @@ func (w *WorldState) ProcessLevelChunk(pk *packet.LevelChunk) {
 		}] = blockNBTs
 	}
 
-	existing := w.chunks[pk.Position]
-	if existing == nil {
-		w.chunks[pk.Position] = ch
-		w.ui.SetChunk(pk.Position, nil)
-	}
+	w.chunks[pk.Position] = ch
 
 	if pk.SubChunkRequestMode == protocol.SubChunkRequestModeLegacy {
 		w.ui.SetChunk(pk.Position, ch)
 	} else {
+		w.ui.SetChunk(pk.Position, nil)
 		// request all the subchunks
 
 		max := w.Dim.Range().Height() / 16
