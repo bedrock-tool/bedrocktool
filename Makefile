@@ -1,12 +1,14 @@
 TAG = $(shell git describe --tags)
 NAME = bedrocktool-${TAG}
-SRCS = $(wildcard *.go)
+SRCS = $(wildcard **/*.go)
 
-GC = go build -ldflags "-s -w -X main.version=${TAG}"
+GC = go build -ldflags "-s -w -X utils.Version=${TAG}"
+
+.PHONY: dists clean updates
 
 # check if packs are supported
 HAVE_PACKS = false
-ifeq ($(shell head -c 7 cmd/bedrocktool/utils/resourcepack-ace.go.ignore),package)
+ifeq ($(shell head -c 7 ./utils/resourcepack-ace.go.ignore),package)
 HAVE_PACKS = true
 endif
 
@@ -14,6 +16,9 @@ $(info pack support: ${HAVE_PACKS})
 ifeq ($(HAVE_PACKS),true)
 GC += -overlay overlay.json
 endif
+
+bedrocktool: $(SRCS)
+	$(GC) -o $@ ./cmd/bedrocktool
 
 BUILDS=\
 	windows_386.exe\
@@ -27,22 +32,28 @@ BUILDS=\
 	linux_arm64\
 	linux_arm
 
-
 DISTS=$(BUILDS:%=dist/$(NAME)_%)
-
-all: $(DISTS)
-
-.PHONY: all clean
-
+dists: $(DISTS)
 $(DISTS): OS = $(word 2,$(subst _, ,$@))
 $(DISTS): ARCH = $(word 1,$(subst ., ,$(word 3,$(subst _, ,$@))))
+$(DISTS): BUILD = builds/$(OS)-$(ARCH)
 
-dist:
-	mkdir -p dist
+dist builds:
+	mkdir -p dist builds
 
-$(DISTS): dist $(SRCS)
-	@echo "building: $@"
-	GOOS=$(OS) GOARCH=$(ARCH) $(GC) -o $@ ./cmd/bedrocktool
+$(DISTS): dist builds $(SRCS)
+	$(info building: $@)
+	GOOS=$(OS) GOARCH=$(ARCH) $(GC) -o $(BUILD) ./cmd/bedrocktool
+	cp $(BUILD) $@
+
+
+UPDATES=$(BUILDS)
+$(UPDATES): OS = $(word 1,$(subst _, ,$@))
+$(UPDATES): ARCH = $(word 1,$(subst ., ,$(word 2,$(subst _, ,$@))))
+updates: $(UPDATES)
+
+$(UPDATES): $(DISTS)
+	go-selfupdate -platform $(OS)-$(ARCH) builds/ $(TAG)
 
 clean:
-	rm -r dist
+	rm -r dist builds public

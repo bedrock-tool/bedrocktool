@@ -20,8 +20,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var version string
-
 func exit() {
 	logrus.Info("\nExiting\n")
 	for i := len(utils.G_exit) - 1; i >= 0; i-- { // go through cleanup functions reversed
@@ -32,8 +30,17 @@ func exit() {
 
 func main() {
 	logrus.SetLevel(logrus.DebugLevel)
-	if version != "" {
-		logrus.Infof("bedrocktool version: %s\n", version)
+	if utils.Version != "" {
+		logrus.Infof("bedrocktool version: %s", utils.Version)
+	}
+
+	newVersion, err := utils.Updater.UpdateAvailable()
+	if err != nil {
+		logrus.Error(err)
+	}
+
+	if err == nil && newVersion != utils.Version {
+		logrus.Infof("Update Available: %s", newVersion)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -41,8 +48,7 @@ func main() {
 	flag.BoolVar(&utils.G_debug, "debug", false, "debug mode")
 	flag.BoolVar(&utils.G_preload_packs, "preload", false, "preload resourcepacks for proxy")
 	enable_dns := flag.Bool("dns", false, "enable dns server for consoles")
-	println(utils.A)
-	println("")
+
 	subcommands.Register(subcommands.HelpCommand(), "")
 	subcommands.ImportantFlag("debug")
 	subcommands.ImportantFlag("dns")
