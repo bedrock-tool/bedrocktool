@@ -29,6 +29,7 @@ func (c *UpdateCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface
 	}
 	if newVersion == "" {
 		logrus.Info("No Updates available.")
+		return 0
 	}
 	logrus.Infof("Updating to %s", newVersion)
 
