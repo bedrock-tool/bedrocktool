@@ -22,9 +22,22 @@ func (c *UpdateCMD) Usage() string {
 }
 
 func (c *UpdateCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
+	newVersion, err := utils.Updater.UpdateAvailable()
+	if err != nil {
+		logrus.Error(err)
+		return 1
+	}
+	if newVersion == "" {
+		logrus.Info("No Updates available.")
+	}
+	logrus.Infof("Updating to %s", newVersion)
+
 	if err := utils.Updater.Update(); err != nil {
 		logrus.Error(err)
+		return 1
 	}
+
+	logrus.Infof("Updated!")
 	return 0
 }
 
