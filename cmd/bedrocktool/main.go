@@ -29,6 +29,24 @@ func exit() {
 }
 
 func main() {
+	defer func() {
+		if err := recover(); err != nil {
+			logrus.Errorf("Fatal Error occurred.")
+			println("")
+			println("--COPY FROM HERE--")
+			logrus.Infof("Version: %s", utils.Version)
+			logrus.Infof("Cmdline: %s", os.Args)
+			logrus.Errorf("Error: %s", err)
+			println("--END COPY HERE--")
+			println("")
+			println("if you want to report this error, please open an issue at")
+			println("https://github.com/bedrock-tool/bedrocktool/issues")
+			println("And attach the error info, describe what you did to get this error.")
+			println("Thanks!\n")
+			os.Exit(1)
+		}
+	}()
+
 	logrus.SetLevel(logrus.DebugLevel)
 	if utils.Version != "" {
 		logrus.Infof("bedrocktool version: %s", utils.Version)
