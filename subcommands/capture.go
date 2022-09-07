@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"context"
 	"flag"
-	"fmt"
-	"log"
 	"net"
 	"os"
 	"time"
@@ -50,7 +48,7 @@ func dump_packet(w *pcapgo.Writer, from_client bool, pk packet.Header, payload [
 		gopacket.Payload(packet_data.Bytes()),
 	)
 	if err != nil {
-		log.Fatal(err)
+		logrus.Fatal(err)
 	}
 
 	err = w.WritePacket(gopacket.CaptureInfo{
@@ -60,7 +58,7 @@ func dump_packet(w *pcapgo.Writer, from_client bool, pk packet.Header, payload [
 		InterfaceIndex: 1,
 	}, serialize_buf.Bytes())
 	if err != nil {
-		log.Fatal(err)
+		logrus.Fatal(err)
 	}
 }
 
@@ -82,13 +80,13 @@ func (c *CaptureCMD) Usage() string {
 func (c *CaptureCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
 	address, hostname, err := utils.ServerInput(c.server_address)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		logrus.Fatal(err)
 		return 1
 	}
 
 	fio, err := os.Create(hostname + "-" + time.Now().Format("2006-01-02_15-04-05") + ".pcap")
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		logrus.Fatal(err)
 		return 1
 	}
 	defer fio.Close()
@@ -103,7 +101,7 @@ func (c *CaptureCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interfac
 
 	err = proxy.Run(ctx, address)
 	if err != nil {
-		logrus.Error(err)
+		logrus.Fatal(err)
 		return 1
 	}
 	return 0

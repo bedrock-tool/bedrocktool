@@ -449,7 +449,6 @@ func (w *WorldState) OnConnect(proxy *utils.ProxyContext) {
 	*/
 
 	if w.withPacks {
-		fmt.Println("reformatting packs")
 		go func() {
 			w.packs, _ = utils.GetPacks(w.proxy.Server)
 		}()
@@ -464,10 +463,10 @@ func (w *WorldState) OnConnect(proxy *utils.ProxyContext) {
 			w.ispre118 = ver < 18
 		}
 		if err != nil || len(gv) <= 1 {
-			fmt.Println("couldnt determine game version, assuming > 1.18")
+			logrus.Info("couldnt determine game version, assuming > 1.18")
 		}
 		if w.ispre118 {
-			fmt.Println("using legacy (< 1.18)")
+			logrus.Info("using legacy (< 1.18)")
 		}
 
 		dim_id := gd.Dimension

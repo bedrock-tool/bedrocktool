@@ -89,6 +89,9 @@ func ConnectServer(ctx context.Context, address string, ClientData *login.Client
 	if err != nil {
 		return nil, err
 	}
+
+	logrus.Debug("Connected.")
+	Client_addr = serverConn.LocalAddr()
 	return serverConn, nil
 }
 

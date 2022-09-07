@@ -70,7 +70,7 @@ func NewMapUI(w *WorldState) *MapUI {
 }
 
 func (m *MapUI) Start() {
-	m.ticker = time.NewTicker(66 * time.Millisecond)
+	m.ticker = time.NewTicker(33 * time.Millisecond)
 	go func() {
 		for range m.ticker.C {
 			if m.needRedraw {
@@ -123,14 +123,13 @@ func (m *MapUI) SchedRedraw() {
 // draw_img_scaled_pos draws src onto dst at bottom_left, scaled to size
 func draw_img_scaled_pos(dst *image.RGBA, src *image.RGBA, bottom_left image.Point, size_scaled int) {
 	sbx := src.Bounds().Dx()
-	sby := src.Bounds().Dy()
+	ratio := int(float64(sbx) / float64(size_scaled))
 
-	ratio := float64(sbx) / float64(size_scaled)
-	for x_in := 0; x_in < sbx; x_in++ {
-		for y_in := 0; y_in < sby; y_in++ {
+	for x_out := bottom_left.X; x_out < bottom_left.X+size_scaled; x_out++ {
+		for y_out := bottom_left.Y; y_out < bottom_left.Y+size_scaled; y_out++ {
+			x_in := (x_out - bottom_left.X) * ratio
+			y_in := (y_out - bottom_left.Y) * ratio
 			c := src.At(x_in, y_in)
-			x_out := int(float64(bottom_left.X) + float64(x_in)/ratio)
-			y_out := int(float64(bottom_left.Y) + float64(y_in)/ratio)
 			dst.Set(x_out, y_out, c)
 		}
 	}
@@ -176,11 +175,10 @@ func (m *MapUI) Redraw() {
 	chunks_x := int(max[0] - min[0] + 1) // how many chunk lengths is x coordinate
 	chunks_y := int(max[1] - min[1] + 1)
 
-	total_width := 16 * math.Ceil(float64(chunks_x)/16)
-	chunks_per_line := math.Min(total_width, float64(128/m.zoomLevel))
-
-	px_per_block := float64(128 / chunks_per_line / 16) // how many pixels per block
-	sz_chunk := int(math.Ceil(px_per_block * 16))
+	// total_width := 32 * math.Ceil(float64(chunks_x)/32)
+	chunks_per_line := float64(128 / m.zoomLevel)
+	px_per_block := 128 / chunks_per_line / 16 // how many pixels per block
+	sz_chunk := int(math.Floor(px_per_block * 16))
 
 	for i := 0; i < len(m.img.Pix); i++ { // clear canvas
 		m.img.Pix[i] = 0

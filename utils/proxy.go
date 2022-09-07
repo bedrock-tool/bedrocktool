@@ -148,6 +148,8 @@ func NewProxy(log *logrus.Logger) *ProxyContext {
 	}
 }
 
+var Client_addr net.Addr
+
 func (p *ProxyContext) Run(ctx context.Context, server_address string) (err error) {
 	if strings.HasSuffix(server_address, ".pcap") {
 		return create_replay_connection(ctx, p.log, server_address, p.ConnectCB, p.PacketCB)

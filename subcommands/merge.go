@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"flag"
-	"fmt"
 	"os"
 	"time"
 
@@ -43,7 +42,8 @@ func (c *MergeCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 
 	prov_out, err := mcdb.New(logrus.StandardLogger(), out_name, opt.DefaultCompression)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to open output %s\n", err)
+		logrus.Errorf("failed to open output %s", err)
+		return 1
 	}
 
 	for i, world_name := range c.worlds {
@@ -51,7 +51,7 @@ func (c *MergeCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 		logrus.Infof("Adding %s", world_name)
 		s, err := os.Stat(world_name)
 		if errors.Is(err, os.ErrNotExist) {
-			logrus.Errorf("%s not found", world_name)
+			logrus.Fatalf("%s not found", world_name)
 		}
 		if !s.IsDir() { // if its a zip temporarily unpack it to read it
 			f, _ := os.Open(world_name)
@@ -61,7 +61,8 @@ func (c *MergeCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 		// merge it into the state
 		err = c.merge_worlds(prov_out, world_name, first)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s %s\n", world_name, err)
+			logrus.Errorf("%s %s", world_name, err)
+			return 1
 		}
 		if !s.IsDir() { // remove temp folder again
 			os.RemoveAll(world_name)
@@ -69,7 +70,7 @@ func (c *MergeCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 	}
 
 	if err = prov_out.Close(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		logrus.Error(err)
 		return 1
 	}
 	time.Sleep(1 * time.Second)
