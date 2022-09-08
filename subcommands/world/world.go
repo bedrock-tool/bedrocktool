@@ -478,7 +478,7 @@ func (w *WorldState) OnConnect(proxy *utils.ProxyContext) {
 
 	w.proxy.SendMessage("use /setname <worldname>\nto set the world name")
 
-	utils.G_exit = append(utils.G_exit, func() {
+	utils.G_cleanup_funcs = append(utils.G_cleanup_funcs, func() {
 		w.SaveAndReset()
 	})
 

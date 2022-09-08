@@ -20,12 +20,11 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func exit() {
-	logrus.Info("\nExiting\n")
-	for i := len(utils.G_exit) - 1; i >= 0; i-- { // go through cleanup functions reversed
-		utils.G_exit[i]()
+func cleanup() {
+	logrus.Info("\nCleaning up\n")
+	for i := len(utils.G_cleanup_funcs) - 1; i >= 0; i-- { // go through cleanup functions reversed
+		utils.G_cleanup_funcs[i]()
 	}
-	os.Exit(0)
 }
 
 func main() {
@@ -43,6 +42,10 @@ func main() {
 			println("https://github.com/bedrock-tool/bedrocktool/issues")
 			println("And attach the error info, describe what you did to get this error.")
 			println("Thanks!\n")
+			if utils.G_interactive {
+				input := bufio.NewScanner(os.Stdin)
+				input.Scan()
+			}
 			os.Exit(1)
 		}
 	}()
@@ -91,6 +94,7 @@ func main() {
 				r, _ := regexp.Compile(`[\n\r]`)
 				target = string(r.ReplaceAll([]byte(target), []byte("")))
 				os.Args = append(os.Args, target)
+				utils.G_interactive = true
 			}
 		}
 	}
@@ -107,11 +111,17 @@ func main() {
 	go func() {
 		<-sigs
 		cancel()
-		exit()
+		cleanup()
 	}()
 
 	ret := subcommands.Execute(ctx)
-	exit()
+	cleanup()
+
+	if utils.G_interactive {
+		logrus.Info("Press Enter to exit.")
+		input := bufio.NewScanner(os.Stdin)
+		input.Scan()
+	}
 	os.Exit(int(ret))
 }
 
