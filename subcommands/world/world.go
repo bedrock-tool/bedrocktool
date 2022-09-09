@@ -8,6 +8,7 @@ import (
 	"hash/crc32"
 	"image"
 	"image/draw"
+	"image/png"
 	"os"
 	"path"
 	"strconv"
@@ -53,6 +54,7 @@ type WorldState struct {
 	ServerName   string
 	worldCounter int
 	withPacks    bool
+	saveImage    bool
 	packs        map[string]*resource.Pack
 
 	PlayerPos TPlayerPos
@@ -106,6 +108,7 @@ type WorldCMD struct {
 	Address    string
 	packs      bool
 	enableVoid bool
+	saveImage  bool
 }
 
 func (*WorldCMD) Name() string     { return "worlds" }
@@ -115,6 +118,7 @@ func (p *WorldCMD) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&p.Address, "address", "", "remote server address")
 	f.BoolVar(&p.packs, "packs", false, "save resourcepacks to the worlds")
 	f.BoolVar(&p.enableVoid, "void", true, "if false, saves with default flat generator")
+	f.BoolVar(&p.saveImage, "image", false, "saves an png of the map at the end")
 }
 
 func (c *WorldCMD) Usage() string {
@@ -138,6 +142,7 @@ func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 	w.voidgen = c.enableVoid
 	w.ServerName = hostname
 	w.withPacks = c.packs
+	w.saveImage = c.saveImage
 	w.ctx = ctx
 
 	proxy := utils.NewProxy(logrus.StandardLogger())
@@ -422,6 +427,11 @@ func (w *WorldState) SaveAndReset() {
 		data := make([]byte, p.Len())
 		p.ReadAt(data, 0)
 		utils.UnpackZip(bytes.NewReader(data), int64(len(data)), pack_folder)
+	}
+
+	if w.saveImage {
+		f, _ := os.Create(folder + ".png")
+		png.Encode(f, w.ui.ToImage())
 	}
 
 	// zip it

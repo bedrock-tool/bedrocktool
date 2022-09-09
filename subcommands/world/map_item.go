@@ -41,6 +41,25 @@ var MAP_ITEM_PACKET packet.InventoryContent = packet.InventoryContent{
 	},
 }
 
+func (m *MapUI) get_bounds() (min, max protocol.ChunkPos) {
+	// get the chunk coord bounds
+	for _ch := range m.renderedChunks {
+		if _ch.X() < min.X() {
+			min[0] = _ch.X()
+		}
+		if _ch.Z() < min.Z() {
+			min[1] = _ch.Z()
+		}
+		if _ch.X() > max.X() {
+			max[0] = _ch.X()
+		}
+		if _ch.Z() > max.Z() {
+			max[1] = _ch.Z()
+		}
+	}
+	return
+}
+
 type RenderElem struct {
 	pos protocol.ChunkPos
 	ch  *chunk.Chunk
@@ -149,31 +168,10 @@ func (m *MapUI) Redraw() {
 		}
 	}
 
-	// get the chunk coord bounds
-	min := protocol.ChunkPos{}
-	max := protocol.ChunkPos{}
-	for _ch := range m.renderedChunks {
-		if _ch.X() < min.X() {
-			min[0] = _ch.X()
-		}
-		if _ch.Z() < min.Z() {
-			min[1] = _ch.Z()
-		}
-		if _ch.X() > max.X() {
-			max[0] = _ch.X()
-		}
-		if _ch.Z() > max.Z() {
-			max[1] = _ch.Z()
-		}
-	}
-
 	middle := protocol.ChunkPos{
 		int32(m.w.PlayerPos.Position.X()),
 		int32(m.w.PlayerPos.Position.Z()),
 	}
-
-	chunks_x := int(max[0] - min[0] + 1) // how many chunk lengths is x coordinate
-	chunks_y := int(max[1] - min[1] + 1)
 
 	// total_width := 32 * math.Ceil(float64(chunks_x)/32)
 	chunks_per_line := float64(128 / m.zoomLevel)
@@ -202,27 +200,37 @@ func (m *MapUI) Redraw() {
 	draw_full := false
 
 	if draw_full {
-		img2 := image.NewRGBA(image.Rect(0, 0, chunks_x*16, chunks_y*16))
-
-		middle_block_x := chunks_x / 2 * 16
-		middle_block_y := chunks_y / 2 * 16
-
-		for pos := range m.renderedChunks {
-			px_pos := image.Point{
-				X: int(pos.X()*16) - middle_block_x + img2.Rect.Dx(),
-				Y: int(pos.Z()*16) - middle_block_y + img2.Rect.Dy(),
-			}
-			draw.Draw(img2, image.Rect(
-				px_pos.X,
-				px_pos.Y,
-				px_pos.X+16,
-				px_pos.Y+16,
-			), m.renderedChunks[pos], image.Point{}, draw.Src)
-		}
+		img2 := m.ToImage()
 		buf := bytes.NewBuffer(nil)
 		bmp.Encode(buf, img2)
 		os.WriteFile("test.bmp", buf.Bytes(), 0o777)
 	}
+}
+
+func (m *MapUI) ToImage() *image.RGBA {
+	// get the chunk coord bounds
+	min, max := m.get_bounds()
+	chunks_x := int(max[0] - min[0] + 1) // how many chunk lengths is x coordinate
+	chunks_y := int(max[1] - min[1] + 1)
+
+	img2 := image.NewRGBA(image.Rect(0, 0, chunks_x*16, chunks_y*16))
+
+	middle_block_x := chunks_x / 2 * 16
+	middle_block_y := chunks_y / 2 * 16
+
+	for pos := range m.renderedChunks {
+		px_pos := image.Point{
+			X: int(pos.X()*16) - middle_block_x + img2.Rect.Dx(),
+			Y: int(pos.Z()*16) - middle_block_y + img2.Rect.Dy(),
+		}
+		draw.Draw(img2, image.Rect(
+			px_pos.X,
+			px_pos.Y,
+			px_pos.X+16,
+			px_pos.Y+16,
+		), m.renderedChunks[pos], image.Point{}, draw.Src)
+	}
+	return img2
 }
 
 func (m *MapUI) SetChunk(pos protocol.ChunkPos, ch *chunk.Chunk) {
