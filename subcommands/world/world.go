@@ -432,6 +432,7 @@ func (w *WorldState) SaveAndReset() {
 	if w.saveImage {
 		f, _ := os.Create(folder + ".png")
 		png.Encode(f, w.ui.ToImage())
+		f.Close()
 	}
 
 	// zip it
