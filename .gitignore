@@ -6,6 +6,7 @@ token.json
 *.pcap
 *.bmp
 *.bin
+*.log
 
 /bedrocktool
 /bedrocktool-*
