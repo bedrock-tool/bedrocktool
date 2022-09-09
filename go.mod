@@ -11,6 +11,7 @@ require (
 	github.com/google/gopacket v1.1.19
 	github.com/google/subcommands v1.2.0
 	github.com/miekg/dns v1.1.50
+	github.com/sanbornm/go-selfupdate v0.0.0-20210106163404-c9b625feac49
 	github.com/sandertv/gophertunnel v1.24.5
 	golang.design/x/lockfree v0.0.1
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e
@@ -18,11 +19,11 @@ require (
 )
 
 require (
+	github.com/changkun/lockfree v0.0.1 // indirect
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
 	github.com/kr/binarydist v0.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.9 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
-	github.com/sanbornm/go-selfupdate v0.0.0-20210106163404-c9b625feac49 // indirect
 	gopkg.in/inconshreveable/go-update.v0 v0.0.0-20150814200126-d8b0b1d421aa // indirect
 )
 
@@ -34,7 +35,7 @@ require (
 
 replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.24.8-5
 
-replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.8.3-2
+replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.8.3-3
 
 require (
 	github.com/brentp/intintmap v0.0.0-20190211203843-30dc0ade9af9 // indirect
@@ -47,7 +48,7 @@ require (
 	github.com/muhammadmuzzammil1998/jsonc v1.0.0 // indirect
 	github.com/sandertv/go-raknet v1.11.1 // indirect
 	github.com/sirupsen/logrus v1.9.0
-	go.uber.org/atomic v1.10.0
+	go.uber.org/atomic v1.10.0 // indirect
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa // indirect
 	golang.org/x/image v0.0.0-20220722155232-062f8c9fd539
 	golang.org/x/mod v0.6.0-dev.0.20220106191415-9b9b3d81d5e3 // indirect
