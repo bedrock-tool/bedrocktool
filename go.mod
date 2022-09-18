@@ -1,8 +1,11 @@
-module github.com/bedrock-tool/bedrocktool
+module github.com/bedrock-tool/bedrocktool/bedrock-skin-bot
 
 go 1.19
 
 require (
+	github.com/BurntSushi/toml v1.2.0
+	github.com/disgoorg/dislog v1.0.6
+	github.com/disgoorg/snowflake v1.1.0
 	github.com/fatih/color v1.13.0
 	github.com/flytam/filenamify v1.1.1
 	github.com/google/subcommands v1.2.0
@@ -13,11 +16,8 @@ require (
 )
 
 require (
-	github.com/BurntSushi/toml v1.2.0 // indirect
 	github.com/disgoorg/disgo v0.7.5-0.20220326145558-0c7982618192 // indirect
-	github.com/disgoorg/dislog v1.0.6 // indirect
 	github.com/disgoorg/log v1.2.0 // indirect
-	github.com/disgoorg/snowflake v1.1.0 // indirect
 	github.com/go-gl/mathgl v1.0.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
@@ -42,7 +42,7 @@ replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.8.3-3
 require (
 	github.com/df-mc/atomic v1.10.0 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
-	github.com/google/uuid v1.3.0 // indirect
+	github.com/google/uuid v1.3.0
 	github.com/klauspost/compress v1.15.10 // indirect
 	github.com/muhammadmuzzammil1998/jsonc v1.0.0 // indirect
 	github.com/sandertv/go-raknet v1.11.1 // indirect

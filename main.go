@@ -9,7 +9,7 @@ import (
 	"syscall"
 
 	"github.com/BurntSushi/toml"
-	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/bedrock-skin-bot/utils"
 	"github.com/disgoorg/dislog"
 	"github.com/disgoorg/snowflake"
 
