@@ -43,7 +43,7 @@ dist builds:
 
 $(DISTS): dist builds $(SRCS)
 	$(info building: $@)
-	GOOS=$(OS) GOARCH=$(ARCH) $(GC) -o $(BUILD) ./cmd/bedrocktool
+	GOOS=$(OS) GOARCH=$(ARCH) $(GC) -o $(BUILD) .
 	cp $(BUILD) $@
 
 

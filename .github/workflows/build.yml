@@ -18,7 +18,7 @@ jobs:
           cache: true
       
       - run: go install github.com/sanbornm/go-selfupdate/cmd/go-selfupdate
-      - run: go get ./cmd/bedrocktool
+      - run: go get .
 
       - name: Install SSH Key
         uses: shimataro/ssh-key-action@v2
