@@ -2,6 +2,10 @@
   Server = "https://api.server.network/api/v1"
   Key = "randomhere"
 
+[Discord]
+  WebhookId = "1"
+  WebhookToken = "E"
+
 [[Users]]
 Name = "Namehere"
 Address = "geo.hivebedrock.network"

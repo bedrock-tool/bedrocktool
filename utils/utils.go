@@ -3,9 +3,7 @@ package utils
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net"
-	"path"
 	"regexp"
 	"strings"
 
@@ -74,38 +72,8 @@ func ConnectServer(ctx context.Context, address, clientName string, packetFunc P
 		return nil, err
 	}
 
+	local_addr = serverConn.LocalAddr()
+
 	logrus.Debug("Connected.")
 	return serverConn, nil
-}
-
-func spawn_conn(ctx context.Context, clientConn *minecraft.Conn, serverConn *minecraft.Conn) error {
-	errs := make(chan error, 2)
-	go func() {
-		errs <- clientConn.StartGame(serverConn.GameData())
-	}()
-	go func() {
-		errs <- serverConn.DoSpawn()
-	}()
-
-	// wait for both to finish
-	for i := 0; i < 2; i++ {
-		select {
-		case err := <-errs:
-			if err != nil {
-				return fmt.Errorf("failed to start game: %s", err)
-			}
-		case <-ctx.Done():
-			return fmt.Errorf("connection cancelled")
-		}
-	}
-	return nil
-}
-
-// SplitExt splits path to filename and extension
-func SplitExt(filename string) (name, ext string) {
-	name, ext = path.Base(filename), path.Ext(filename)
-	if ext != "" {
-		name = strings.TrimSuffix(name, ext)
-	}
-	return
 }
