@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
+	"time"
 
 	"github.com/BurntSushi/toml"
 	"github.com/bedrock-tool/bedrocktool/bedrock-skin-bot/utils"
@@ -27,8 +29,9 @@ type Config struct {
 		WebhookToken string
 	}
 	Users []struct {
-		Name           string
-		ServrerAddress string
+		Name            string
+		ServerAddresses string
+		Multi           bool
 	}
 }
 
@@ -104,7 +107,7 @@ func main() {
 		logrus.Info("Enabling discord Error logs")
 		dlog, err := dislog.New(
 			// Sets which logging levels to send to the webhook
-			dislog.WithLogLevels(dislog.WarnLevelAndAbove...),
+			dislog.WithLogLevels(dislog.ErrorLevelAndAbove...),
 			// Sets webhook id & token
 			dislog.WithWebhookIDToken(snowflake.Snowflake(config.Discord.WebhookId), config.Discord.WebhookToken),
 		)
@@ -125,8 +128,32 @@ func main() {
 
 	// starting the bots
 	for _, v := range config.Users {
-		b := NewBot(v.Name, v.ServrerAddress)
-		go b.Start(ctx)
+		addresses := strings.Split(v.ServerAddresses, " ")
+		for _, address := range addresses {
+			if !strings.Contains(address, ":") {
+				address = address + ":19132"
+			}
+			for {
+				IPs, err := findAllIps(address)
+				if err != nil {
+					logrus.Errorf("Failed to lookup ips %s", err)
+					time.Sleep(30 * time.Second)
+					continue
+				}
+
+				if !v.Multi {
+					IPs = IPs[:1]
+				}
+
+				logrus.Infof("Starting %d Bots as %s on %s", len(IPs), v.Name, address)
+				for i, ip := range IPs {
+					b := NewBot(v.Name, ip, fmt.Sprintf("%s-%d", address, i))
+					go b.Start(ctx)
+				}
+				break
+			}
+		}
+
 	}
 
 	<-ctx.Done()

@@ -37,25 +37,24 @@ func (u *Uploader) Check() error {
 	return nil
 }
 
-func (u *Uploader) UploadSkin(skin *Skin, username, xuid string, BuildPlatform int32, serverAddress string) error {
-	logrus.Infof("Uploading Skin %s", username)
+func (u *Uploader) UploadSkin(skin *Skin, username, xuid string, serverAddress string) error {
+	logrus.Infof("Uploading Skin %s %s", serverAddress, username)
 
 	body, _ := json.Marshal(struct {
 		Username      string
 		Xuid          string
-		Platform      int
 		Skin          *jsonSkinData
 		ServerAddress string
-	}{username, xuid, int(BuildPlatform), skin.Json(), serverAddress})
+	}{username, xuid, skin.Json(), serverAddress})
 
 	req, _ := http.NewRequest("POST", u.APIServer+"/submit", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := u.doRequest(req)
 	if err != nil {
-		return err
+		logrus.Warn(err)
 	}
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("failed to upload Skin %s, %d", username, resp.StatusCode)
+		logrus.Warnf("failed to upload Skin %s, %d", username, resp.StatusCode)
 	}
 	return nil
 }

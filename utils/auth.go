@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path"
+	"sync"
 
 	"github.com/sandertv/gophertunnel/minecraft/auth"
 	"github.com/sirupsen/logrus"
@@ -12,10 +13,16 @@ import (
 
 const TOKEN_FILE = "token.json"
 
-var tokens = map[string]oauth2.TokenSource{}
+var (
+	tokens     = map[string]oauth2.TokenSource{}
+	token_lock = &sync.Mutex{}
+)
 
 // GetTokenSource returns the token source for this username
 func GetTokenSource(name string) oauth2.TokenSource {
+	token_lock.Lock()
+	defer token_lock.Unlock()
+
 	if token, ok := tokens[name]; ok {
 		return token
 	}

@@ -73,7 +73,5 @@ func ConnectServer(ctx context.Context, address, clientName string, packetFunc P
 	}
 
 	local_addr = serverConn.LocalAddr()
-
-	logrus.Debug("Connected.")
 	return serverConn, nil
 }

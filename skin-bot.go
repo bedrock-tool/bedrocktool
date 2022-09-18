@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -20,6 +21,8 @@ type Bot struct {
 	Name string
 	// Address is the server address this bot will connect to
 	Address string
+	// ServerName is the readable name of the server
+	ServerName string
 	// serverConn is the connection to the server
 	serverConn *minecraft.Conn
 	ctx        context.Context
@@ -30,16 +33,20 @@ type Bot struct {
 }
 
 // NewBot creates a new bot
-func NewBot(name, address string) *Bot {
+func NewBot(name, address, serverName string) *Bot {
 	if !strings.Contains(address, ":") {
 		address = address + ":19132"
 	}
 
 	b := &Bot{
-		Name:    name,
-		Address: address,
+		Name:       name,
+		Address:    address,
+		ServerName: serverName,
 		log: func() *logrus.Entry {
-			return logrus.StandardLogger().WithField("Bot", name)
+			return logrus.StandardLogger().WithFields(logrus.Fields{
+				"Bot":     name,
+				"Address": address,
+			})
 		},
 		players: map[uuid.UUID]protocol.PlayerListEntry{},
 	}
@@ -50,12 +57,53 @@ func NewBot(name, address string) *Bot {
 // Start runs the bot indefinitely
 func (b *Bot) Start(ctx context.Context) {
 	b.ctx = ctx
+
 	for {
-		if err := b.do(); err != nil {
-			b.log().Error(err)
+		IPs, err := findAllIps(b.Address)
+		if err != nil {
+			b.log().Errorf("Failed to lookup ips %s", err)
+			time.Sleep(30 * time.Second)
+			continue
 		}
-		time.Sleep(30 * time.Second)
+		for i, ip := range IPs {
+			go func(i int, ip string) {
+				t1 := time.Now()
+				for {
+					if err := b.do(); err != nil {
+						b.log().Error(err)
+					}
+					if time.Since(t1) < 10*time.Second {
+						b.log().Error("Failed to fast, exiting this instance")
+						break
+					}
+					time.Sleep(30 * time.Second)
+				}
+			}(i, ip)
+		}
+		break
 	}
+}
+
+func findAllIps(Address string) (ret []string, err error) {
+	host, _, err := net.SplitHostPort(Address)
+	if err != nil {
+		return nil, err
+	}
+	tmp := map[string]bool{}
+	for i := 0; i < 5; i++ {
+		time.Sleep(1 * time.Second)
+		ips, err := net.LookupHost(host)
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range ips {
+			tmp[v] = true
+		}
+	}
+	for k := range tmp {
+		ret = append(ret, k)
+	}
+	return ret, nil
 }
 
 // do runs until error
@@ -119,7 +167,6 @@ func (b *Bot) maybeSubmitPlayer(entry protocol.PlayerListEntry) {
 		&utils.Skin{entry.Skin},
 		username,
 		entry.XUID,
-		entry.BuildPlatform,
-		b.Address,
+		b.ServerName,
 	)
 }
