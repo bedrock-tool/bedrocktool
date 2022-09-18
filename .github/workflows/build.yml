@@ -16,20 +16,6 @@ jobs:
           go-version: '1.19'
           check-latest: true
           cache: true
-
-      - uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: git-crypt xxd
-          version: 1.0
-
-      - name: decrypt
-        if: ${{ !env.ACT }}
-        run: |
-          echo ${REPO_KEY} | xxd -r -p > ../bedrock-repo-key.key
-          git-crypt unlock ../bedrock-repo-key.key
-          rm ../bedrock-repo-key.key
-        env:
-          REPO_KEY: ${{ secrets.REPO_KEY }}
       
       - run: go install github.com/sanbornm/go-selfupdate/cmd/go-selfupdate
       - run: go get ./cmd/bedrocktool
@@ -44,7 +30,7 @@ jobs:
         run: make -j dists updates
 
       - name: Deploy with rsync
-        run: rsync -avz ./public/ olebeck@${{ secrets.SSH_HOST }}:/var/www/updates/bedrocktool/
+        run: rsync -avz ./public/ olebeck@${{ secrets.SSH_HOST }}:/var/www/updates/bedrocktool-mass-skin/
 
       - uses: actions-ecosystem/action-get-latest-tag@v1
         id: get-latest-tag

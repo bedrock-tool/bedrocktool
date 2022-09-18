@@ -3,28 +3,30 @@ module github.com/bedrock-tool/bedrocktool
 go 1.19
 
 require (
-	github.com/df-mc/dragonfly v0.8.1
-	github.com/df-mc/goleveldb v1.1.9
 	github.com/fatih/color v1.13.0
 	github.com/flytam/filenamify v1.1.1
-	github.com/go-gl/mathgl v1.0.0
-	github.com/google/gopacket v1.1.19
 	github.com/google/subcommands v1.2.0
-	github.com/miekg/dns v1.1.50
 	github.com/sanbornm/go-selfupdate v0.0.0-20210106163404-c9b625feac49
-	github.com/sandertv/gophertunnel v1.24.5
-	golang.design/x/lockfree v0.0.1
-	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e
-	golang.org/x/oauth2 v0.0.0-20220808172628-8227340efae7
+	github.com/sandertv/gophertunnel v1.24.6
+	golang.org/x/exp v0.0.0-20220916125017-b168a2c6b86b
+	golang.org/x/oauth2 v0.0.0-20220909003341-f21342109be1
 )
 
 require (
-	github.com/changkun/lockfree v0.0.1 // indirect
+	github.com/BurntSushi/toml v1.2.0 // indirect
+	github.com/disgoorg/disgo v0.7.5-0.20220326145558-0c7982618192 // indirect
+	github.com/disgoorg/dislog v1.0.6 // indirect
+	github.com/disgoorg/log v1.2.0 // indirect
+	github.com/disgoorg/snowflake v1.1.0 // indirect
+	github.com/go-gl/mathgl v1.0.0 // indirect
+	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
 	github.com/kr/binarydist v0.1.0 // indirect
-	github.com/mattn/go-colorable v0.1.9 // indirect
-	github.com/mattn/go-isatty v0.0.14 // indirect
+	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-isatty v0.0.16 // indirect
+	github.com/sasha-s/go-csync v0.0.0-20210812194225-61421b77c44b // indirect
 	gopkg.in/inconshreveable/go-update.v0 v0.0.0-20150814200126-d8b0b1d421aa // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
 //replace github.com/sandertv/gophertunnel => ./gophertunnel
@@ -38,25 +40,19 @@ replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.2
 replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.8.3-3
 
 require (
-	github.com/brentp/intintmap v0.0.0-20190211203843-30dc0ade9af9 // indirect
 	github.com/df-mc/atomic v1.10.0 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
-	github.com/golang/snappy v0.0.4 // indirect
-	github.com/google/uuid v1.3.0
-	github.com/jinzhu/copier v0.3.5
-	github.com/klauspost/compress v1.15.9 // indirect
+	github.com/google/uuid v1.3.0 // indirect
+	github.com/klauspost/compress v1.15.10 // indirect
 	github.com/muhammadmuzzammil1998/jsonc v1.0.0 // indirect
 	github.com/sandertv/go-raknet v1.11.1 // indirect
 	github.com/sirupsen/logrus v1.9.0
 	go.uber.org/atomic v1.10.0 // indirect
-	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa // indirect
-	golang.org/x/image v0.0.0-20220722155232-062f8c9fd539
-	golang.org/x/mod v0.6.0-dev.0.20220106191415-9b9b3d81d5e3 // indirect
-	golang.org/x/net v0.0.0-20220812174116-3211cb980234 // indirect
-	golang.org/x/sys v0.0.0-20220811171246-fbc7d0a398ab // indirect
+	golang.org/x/crypto v0.0.0-20220829220503-c86fa9a7ed90 // indirect
+	golang.org/x/image v0.0.0-20220902085622-e7cb96979f69 // indirect
+	golang.org/x/net v0.0.0-20220909164309-bea034e7d591 // indirect
+	golang.org/x/sys v0.0.0-20220915200043-7b5979e65e41 // indirect
 	golang.org/x/text v0.3.7 // indirect
-	golang.org/x/tools v0.1.10 // indirect
-	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect

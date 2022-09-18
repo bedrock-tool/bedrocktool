@@ -1,25 +1,18 @@
-package skins
+package utils
 
 import (
 	"bytes"
-	"context"
+	"encoding/base64"
 	"encoding/json"
-	"flag"
 	"fmt"
 	"image"
 	"image/png"
 	"io"
 	"os"
 	"path"
-	"strings"
-
-	"github.com/bedrock-tool/bedrocktool/utils"
 
 	"github.com/flytam/filenamify"
-	"github.com/google/subcommands"
-	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
-	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sirupsen/logrus"
 )
 
@@ -160,109 +153,75 @@ func (skin *Skin) Write(output_path, name string) error {
 	return skin.WriteTexture(path.Join(skin_dir, "skin.png"))
 }
 
-// puts the skin at output_path if the filter matches it
-// internally converts the struct so it can use the extra methods
-func write_skin(output_path, name string, skin protocol.Skin, filter string) {
-	if !strings.HasPrefix(name, filter) {
-		return
-	}
-	logrus.Infof("Writing skin for %s\n", name)
-	_skin := &Skin{skin}
-	if err := _skin.Write(output_path, name); err != nil {
-		fmt.Fprintf(os.Stderr, "Error writing skin: %s\n", err)
-	}
+type skin_anim struct {
+	ImageWidth, ImageHeight uint32
+	ImageData               string
+	AnimationType           uint32
+	FrameCount              float32
+	ExpressionType          uint32
 }
 
-var (
-	skin_players       = make(map[string]string)
-	skin_player_counts = make(map[string]int)
-	processed_skins    = make(map[string]bool)
-)
-
-func process_packet_skins(conn *minecraft.Conn, out_path string, pk packet.Packet, filter string) {
-	switch _pk := pk.(type) {
-	case *packet.PlayerSkin:
-		name := skin_players[_pk.UUID.String()]
-		if name == "" {
-			name = _pk.UUID.String()
-		}
-		skin_player_counts[name]++
-		name = fmt.Sprintf("%s_%d", name, skin_player_counts[name])
-		write_skin(out_path, name, _pk.Skin, filter)
-	case *packet.PlayerList:
-		if _pk.ActionType == 1 { // remove
-			return
-		}
-		for _, player := range _pk.Entries {
-			name := utils.CleanupName(player.Username)
-			if name == "" {
-				name = player.UUID.String()
-			}
-			if _, ok := processed_skins[name]; ok {
-				continue
-			}
-			write_skin(out_path, name, player.Skin, filter)
-			skin_players[player.UUID.String()] = name
-			processed_skins[name] = true
-			if conn != nil {
-				(&utils.ProxyContext{Client: conn}).SendPopup(fmt.Sprintf("%s Skin was Saved", name))
-			}
-		}
-	}
+type jsonSkinData struct {
+	SkinID                          string
+	PlayFabID                       string
+	SkinResourcePatch               string
+	SkinImageWidth, SkinImageHeight uint32
+	SkinData                        string
+	Animations                      []skin_anim
+	CapeImageWidth, CapeImageHeight uint32
+	CapeData                        string
+	SkinGeometry                    string
+	AnimationData                   string
+	GeometryDataEngineVersion       string
+	PremiumSkin                     bool
+	PersonaSkin                     bool
+	PersonaCapeOnClassicSkin        bool
+	PrimaryUser                     bool
+	CapeID                          string
+	FullID                          string
+	SkinColour                      string
+	ArmSize                         string
+	PersonaPieces                   []protocol.PersonaPiece
+	PieceTintColours                []protocol.PersonaPieceTintColour
+	Trusted                         bool
 }
 
-type SkinCMD struct {
-	server_address string
-	filter         string
-}
-
-func (*SkinCMD) Name() string     { return "skins" }
-func (*SkinCMD) Synopsis() string { return "download all skins from players on a server" }
-
-func (c *SkinCMD) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&c.server_address, "address", "", "remote server address")
-	f.StringVar(&c.filter, "filter", "", "player name filter prefix")
-}
-
-func (c *SkinCMD) Usage() string {
-	return c.Name() + ": " + c.Synopsis() + "\n"
-}
-
-func (c *SkinCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	address, hostname, err := utils.ServerInput(c.server_address)
-	if err != nil {
-		fmt.Fprint(os.Stderr, err)
-		return 1
+func (s *Skin) Json() *jsonSkinData {
+	var skin_animations []skin_anim
+	for _, sa := range s.Animations {
+		skin_animations = append(skin_animations, skin_anim{
+			ImageWidth:     sa.ImageWidth,
+			ImageHeight:    sa.ImageHeight,
+			ImageData:      base64.RawStdEncoding.EncodeToString(sa.ImageData),
+			AnimationType:  sa.AnimationType,
+			FrameCount:     sa.FrameCount,
+			ExpressionType: sa.ExpressionType,
+		})
 	}
-
-	serverConn, err := utils.ConnectServer(ctx, address, nil, false, nil)
-	if err != nil {
-		fmt.Fprint(os.Stderr, err)
-		return 1
+	return &jsonSkinData{
+		SkinID:                    s.SkinID,
+		PlayFabID:                 s.PlayFabID,
+		SkinResourcePatch:         base64.RawStdEncoding.EncodeToString(s.SkinResourcePatch),
+		SkinImageWidth:            s.SkinImageWidth,
+		SkinImageHeight:           s.SkinImageHeight,
+		SkinData:                  base64.RawStdEncoding.EncodeToString(s.SkinData),
+		Animations:                skin_animations,
+		CapeImageWidth:            s.CapeImageWidth,
+		CapeImageHeight:           s.CapeImageHeight,
+		CapeData:                  base64.RawStdEncoding.EncodeToString(s.CapeData),
+		SkinGeometry:              base64.RawStdEncoding.EncodeToString(s.SkinGeometry),
+		AnimationData:             base64.RawStdEncoding.EncodeToString(s.AnimationData),
+		GeometryDataEngineVersion: base64.RawStdEncoding.EncodeToString(s.GeometryDataEngineVersion),
+		PremiumSkin:               s.PremiumSkin,
+		PersonaSkin:               s.PersonaSkin,
+		PersonaCapeOnClassicSkin:  s.PersonaCapeOnClassicSkin,
+		PrimaryUser:               s.PrimaryUser,
+		CapeID:                    s.CapeID,
+		FullID:                    s.FullID,
+		SkinColour:                s.SkinColour,
+		ArmSize:                   s.ArmSize,
+		PersonaPieces:             s.PersonaPieces,
+		PieceTintColours:          s.PieceTintColours,
+		Trusted:                   s.Trusted,
 	}
-	defer serverConn.Close()
-
-	out_path := fmt.Sprintf("skins/%s", hostname)
-
-	if err := serverConn.DoSpawnContext(ctx); err != nil {
-		fmt.Fprint(os.Stderr, err)
-		return 1
-	}
-
-	logrus.Info("Connected")
-	logrus.Info("Press ctrl+c to exit")
-
-	os.MkdirAll(out_path, 0o755)
-
-	for {
-		pk, err := serverConn.ReadPacket()
-		if err != nil {
-			return 1
-		}
-		process_packet_skins(nil, out_path, pk, c.filter)
-	}
-}
-
-func init() {
-	utils.RegisterCommand(&SkinCMD{})
 }

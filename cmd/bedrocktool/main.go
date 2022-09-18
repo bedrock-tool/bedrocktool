@@ -1,24 +1,36 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"flag"
 	"fmt"
 	"os"
 	"os/signal"
-	"regexp"
 	"syscall"
 
+	"github.com/BurntSushi/toml"
 	"github.com/bedrock-tool/bedrocktool/utils"
-
-	_ "github.com/bedrock-tool/bedrocktool/subcommands"
-	_ "github.com/bedrock-tool/bedrocktool/subcommands/skins"
-	_ "github.com/bedrock-tool/bedrocktool/subcommands/world"
+	"github.com/disgoorg/dislog"
+	"github.com/disgoorg/snowflake"
 
 	"github.com/google/subcommands"
 	"github.com/sirupsen/logrus"
 )
+
+type Config struct {
+	API struct {
+		Server string
+		Key    string
+	}
+	Discord struct {
+		WebhookId    string
+		WebhookToken string
+	}
+	Users []struct {
+		Name           string
+		ServrerAddress string
+	}
+}
 
 func cleanup() {
 	logrus.Info("\nCleaning up\n")
@@ -42,68 +54,15 @@ func main() {
 			println("https://github.com/bedrock-tool/bedrocktool/issues")
 			println("And attach the error info, describe what you did to get this error.")
 			println("Thanks!\n")
-			if utils.G_interactive {
-				input := bufio.NewScanner(os.Stdin)
-				input.Scan()
-			}
 			os.Exit(1)
 		}
 	}()
 
 	logrus.SetLevel(logrus.DebugLevel)
-	if utils.Version != "" {
-		logrus.Infof("bedrocktool version: %s", utils.Version)
-	}
-
-	newVersion, err := utils.Updater.UpdateAvailable()
-	if err != nil {
-		logrus.Error(err)
-	}
-
-	if newVersion != "" {
-		logrus.Infof("Update Available: %s", newVersion)
-	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-
 	flag.BoolVar(&utils.G_debug, "debug", false, "debug mode")
-	flag.BoolVar(&utils.G_preload_packs, "preload", false, "preload resourcepacks for proxy")
-	enable_dns := flag.Bool("dns", false, "enable dns server for consoles")
-
-	subcommands.Register(subcommands.HelpCommand(), "")
-	subcommands.ImportantFlag("debug")
-	subcommands.ImportantFlag("dns")
-	subcommands.ImportantFlag("preload")
-	subcommands.HelpCommand()
-
-	{ // interactive input
-		if len(os.Args) < 2 {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				fmt.Println("Available commands:")
-				for name, desc := range utils.ValidCMDs {
-					fmt.Printf("\t%s\t%s\n", name, desc)
-				}
-				fmt.Printf("Use '%s <command>' to run a command\n", os.Args[0])
-
-				fmt.Printf("Input Command: ")
-				reader := bufio.NewReader(os.Stdin)
-				target, _ := reader.ReadString('\n')
-				r, _ := regexp.Compile(`[\n\r]`)
-				target = string(r.ReplaceAll([]byte(target), []byte("")))
-				os.Args = append(os.Args, target)
-				utils.G_interactive = true
-			}
-		}
-	}
-
 	flag.Parse()
-
-	if *enable_dns {
-		utils.InitDNS()
-	}
 
 	// exit cleanup
 	sigs := make(chan os.Signal, 1)
@@ -114,27 +73,73 @@ func main() {
 		cleanup()
 	}()
 
-	ret := subcommands.Execute(ctx)
-	cleanup()
+	var config Config
 
-	if utils.G_interactive {
-		logrus.Info("Press Enter to exit.")
-		input := bufio.NewScanner(os.Stdin)
-		input.Scan()
+	if _, err := os.Stat("config.toml"); err == nil {
+		_, err := toml.DecodeFile("config.toml", &config)
+		if err != nil {
+			logrus.Fatal(err)
+		}
 	}
-	os.Exit(int(ret))
+
+	{ // save config
+		f, _ := os.Create("config.toml")
+		defer f.Close()
+		if err := toml.NewEncoder(f).Encode(&config); err != nil {
+			logrus.Fatal(err)
+		}
+	}
+
+	if config.API.Server == "" {
+		logrus.Fatal("API.Server undefined")
+	}
+	if config.API.Key == "" {
+		logrus.Fatal("API.Key undefined")
+	}
+	if len(config.Users) == 0 {
+		logrus.Warn("No Users defined")
+	}
+
+	if config.Discord.WebhookId != "" {
+		logrus.Info("Enabling discord Error logs")
+		dlog, err := dislog.New(
+			// Sets which logging levels to send to the webhook
+			dislog.WithLogLevels(dislog.WarnLevelAndAbove...),
+			// Sets webhook id & token
+			dislog.WithWebhookIDToken(snowflake.Snowflake(config.Discord.WebhookId), config.Discord.WebhookToken),
+		)
+		if err != nil {
+			logrus.Fatal("error initializing dislog: ", err)
+		}
+		defer dlog.Close(ctx)
+		logrus.StandardLogger().AddHook(dlog)
+	}
+
+	{ // setup api client
+		utils.APIClient.APIServer = config.API.Server
+		utils.APIClient.APIKey = config.API.Key
+		if err := utils.APIClient.Check(); err != nil {
+			logrus.Fatal(err)
+		}
+	}
+
+	// starting the bots
+	for _, v := range config.Users {
+		b := NewBot(v.Name, v.ServrerAddress)
+		go b.Start(ctx)
+	}
+
+	<-ctx.Done()
+	cleanup()
+	os.Exit(0)
 }
 
-type TransCMD struct {
-	auth bool
-}
+type TransCMD struct{}
 
 func (*TransCMD) Name() string     { return "trans" }
 func (*TransCMD) Synopsis() string { return "" }
 
-func (c *TransCMD) SetFlags(f *flag.FlagSet) {
-	f.BoolVar(&c.auth, "auth", false, "if it should login to xbox")
-}
+func (c *TransCMD) SetFlags(f *flag.FlagSet) {}
 
 func (c *TransCMD) Usage() string {
 	return c.Name() + ": " + c.Synopsis() + "\n"
@@ -149,9 +154,6 @@ func (c *TransCMD) Execute(_ context.Context, f *flag.FlagSet, _ ...interface{})
 		WHITE    = "\033[47m"
 		RESET    = "\033[0m"
 	)
-	if c.auth {
-		utils.GetTokenSource()
-	}
 	fmt.Println(BLACK_FG + BOLD + BLUE + " Trans " + PINK + " Rights " + WHITE + " Are " + PINK + " Human " + BLUE + " Rights " + RESET)
 	return 0
 }

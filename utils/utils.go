@@ -1,13 +1,9 @@
 package utils
 
 import (
-	"bytes"
-	"compress/gzip"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net"
 	"path"
 	"regexp"
@@ -18,7 +14,6 @@ import (
 
 	//"github.com/sandertv/gophertunnel/minecraft/gatherings"
 
-	"github.com/sandertv/gophertunnel/minecraft/protocol/login"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 )
 
@@ -32,19 +27,8 @@ const SERVER_ADDRESS_HELP = `accepted server address formats:
 
 var (
 	G_debug         bool
-	G_preload_packs bool
-	G_interactive   bool
 	G_cleanup_funcs []func() = []func(){}
 )
-
-var A string
-
-func init() {
-	b, _ := base64.RawStdEncoding.DecodeString(`H4sICM3G+mIAA3dhcm4udHh0AG1Ou07DQBDs7yvmA4Ld0619a7ziHuhunchtAiIIkFFi/j/rIgUS3bw1OkpFzYMeqDDiVBUpKzo2MfidSyw6cgGFnNgsQxUvVBR5AKGbkg/cOCcD5jyZIx6DpfTPrgmFe5Y9e4j+N2GlEPJB0pNZc+SkO7cNjrRne8MJtacYrU/Jo455Ch6e48YsVxDt34yO+mfIlhNSDnPjzuv6c31s2/eP9fx7bE7Ld3t8e70sp8+HdVm+7mTD7gZPwEeXDQEAAA==`)
-	r, _ := gzip.NewReader(bytes.NewBuffer(b))
-	d, _ := io.ReadAll(r)
-	A = string(d)
-}
 
 var name_regexp = regexp.MustCompile(`\||(?:§.?)`)
 
@@ -65,34 +49,32 @@ func CleanupName(name string) string {
 
 // connections
 
-func ConnectServer(ctx context.Context, address string, ClientData *login.ClientData, want_packs bool, packetFunc PacketFunc) (serverConn *minecraft.Conn, err error) {
+type (
+	PacketFunc func(header packet.Header, payload []byte, src, dst net.Addr)
+)
+
+func ConnectServer(ctx context.Context, address, clientName string, packetFunc PacketFunc) (serverConn *minecraft.Conn, err error) {
+	var local_addr net.Addr
 	packet_func := func(header packet.Header, payload []byte, src, dst net.Addr) {
 		if G_debug {
-			PacketLogger(header, payload, src, dst)
+			PacketLogger(header, payload, src, dst, local_addr)
 			if packetFunc != nil {
 				packetFunc(header, payload, src, dst)
 			}
 		}
 	}
 
-	cd := login.ClientData{}
-	if ClientData != nil {
-		cd = *ClientData
-	}
-
-	logrus.Infof("Connecting to %s\n", address)
+	logrus.Infof("Connecting to %s", address)
 	serverConn, err = minecraft.Dialer{
-		TokenSource:   GetTokenSource(),
-		ClientData:    cd,
+		TokenSource:   GetTokenSource(clientName),
 		PacketFunc:    packet_func,
-		DownloadPacks: want_packs,
+		DownloadPacks: false,
 	}.DialContext(ctx, "raknet", address)
 	if err != nil {
 		return nil, err
 	}
 
 	logrus.Debug("Connected.")
-	Client_addr = serverConn.LocalAddr()
 	return serverConn, nil
 }
 
@@ -119,30 +101,6 @@ func spawn_conn(ctx context.Context, clientConn *minecraft.Conn, serverConn *min
 	return nil
 }
 
-// get longest line length
-func max_len(lines []string) int {
-	o := 0
-	for _, line := range lines {
-		if o < len(line) {
-			o = len(line)
-		}
-	}
-	return o
-}
-
-// make text centered
-func MarginLines(lines []string) string {
-	ret := ""
-	max := max_len(lines)
-	for _, line := range lines {
-		if len(line) != max {
-			ret += strings.Repeat(" ", max/2-len(line)/4)
-		}
-		ret += line + "\n"
-	}
-	return ret
-}
-
 // SplitExt splits path to filename and extension
 func SplitExt(filename string) (name, ext string) {
 	name, ext = path.Base(filename), path.Ext(filename)
@@ -150,14 +108,4 @@ func SplitExt(filename string) (name, ext string) {
 		name = strings.TrimSuffix(name, ext)
 	}
 	return
-}
-
-func Clamp(a, b int) int {
-	if a > b {
-		return b
-	}
-	if a < 0 {
-		return 0
-	}
-	return a
 }

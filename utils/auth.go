@@ -3,70 +3,74 @@ package utils
 import (
 	"encoding/json"
 	"os"
+	"path"
 
 	"github.com/sandertv/gophertunnel/minecraft/auth"
-	"github.com/sandertv/gophertunnel/minecraft/realms"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
 )
 
 const TOKEN_FILE = "token.json"
 
-var G_token_src oauth2.TokenSource
+var tokens = map[string]oauth2.TokenSource{}
 
-func GetTokenSource() oauth2.TokenSource {
-	if G_token_src != nil {
-		return G_token_src
+// GetTokenSource returns the token source for this username
+func GetTokenSource(name string) oauth2.TokenSource {
+	if token, ok := tokens[name]; ok {
+		return token
 	}
-	token := get_token()
-	G_token_src = auth.RefreshTokenSource(&token)
-	new_token, err := G_token_src.Token()
+
+	token, err := read_token(name)
+	if err != nil {
+		logrus.Errorf("failed to read token for %s", name)
+	}
+
+	tokens[name] = auth.RefreshTokenSource(token)
+	new_token, err := tokens[name].Token()
 	if err != nil {
 		panic(err)
 	}
 	if !token.Valid() {
-		logrus.Info("Refreshed token")
-		write_token(new_token)
+		logrus.Infof("Refreshed token for %s", name)
+		write_token(name, new_token)
 	}
 
-	return G_token_src
+	return tokens[name]
 }
 
-var G_realms_api *realms.Client
-
-func GetRealmsApi() *realms.Client {
-	if G_realms_api == nil {
-		G_realms_api = realms.NewClient(GetTokenSource())
-	}
-	return G_realms_api
-}
-
-func write_token(token *oauth2.Token) {
+// write_token writes the token for this user to a json file
+func write_token(name string, token *oauth2.Token) {
+	os.Mkdir("tokens", 0o775)
+	fname := path.Join("tokens", name+".json")
 	buf, err := json.Marshal(token)
 	if err != nil {
 		panic(err)
 	}
-	os.WriteFile(TOKEN_FILE, buf, 0o755)
+	os.WriteFile(fname, buf, 0o755)
 }
 
-func get_token() oauth2.Token {
-	var token oauth2.Token
-	if _, err := os.Stat(TOKEN_FILE); err == nil {
-		f, err := os.Open(TOKEN_FILE)
+// read_token reads the token of this user from a json file
+// asks for interactive login if not found
+func read_token(name string) (*oauth2.Token, error) {
+	fname := path.Join("tokens", name+".json")
+	if _, err := os.Stat(fname); err == nil {
+		f, err := os.Open(fname)
 		if err != nil {
 			panic(err)
 		}
 		defer f.Close()
+		var token oauth2.Token
 		if err := json.NewDecoder(f).Decode(&token); err != nil {
-			panic(err)
+			return nil, err
 		}
+		return &token, nil
 	} else {
+		logrus.Infof("Login for %s", name)
 		_token, err := auth.RequestLiveToken()
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
-		write_token(_token)
-		token = *_token
+		write_token(name, _token)
+		return _token, nil
 	}
-	return token
 }

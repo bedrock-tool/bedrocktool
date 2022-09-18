@@ -1,5 +1,6 @@
 token.json
 .secrets
+config.toml
 
 *.mcpack
 *.zip
@@ -19,3 +20,4 @@ keys.db
 /dist/
 /public/
 /builds/
+/tokens/

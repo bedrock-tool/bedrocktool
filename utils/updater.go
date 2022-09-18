@@ -11,5 +11,5 @@ var Updater = &selfupdate.Updater{
 	ApiURL:         updateServer,
 	BinURL:         updateServer,
 	Dir:            "update/",
-	CmdName:        "bedrocktool", // app name
+	CmdName:        "bedrocktool-mass-skin", // app name
 }

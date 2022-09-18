@@ -44,7 +44,7 @@ var MutedPackets = []string{
 
 var ExtraVerbose []string
 
-func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
+func PacketLogger(header packet.Header, payload []byte, src, dst, local_addr net.Addr) {
 	var pk packet.Packet
 	if pkFunc, ok := Pool[header.PacketID]; ok {
 		pk = pkFunc()
@@ -73,16 +73,8 @@ func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
 	dir_S2C := color.GreenString("S") + "->" + color.CyanString("C")
 	dir_C2S := color.CyanString("C") + "->" + color.GreenString("S")
 	var dir string = dir_S2C
-
-	if Client_addr != nil {
-		if src == Client_addr {
-			dir = dir_C2S
-		}
-	} else {
-		src_addr, _, _ := net.SplitHostPort(src.String())
-		if IPPrivate(net.ParseIP(src_addr)) {
-			dir = dir_C2S
-		}
+	if src == local_addr {
+		dir = dir_C2S
 	}
 
 	logrus.Debugf("%s 0x%02x, %s", dir, pk.ID(), pk_name)

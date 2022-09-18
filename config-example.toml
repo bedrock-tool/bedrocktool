@@ -1,0 +1,11 @@
+[API]
+  Server = "https://api.server.network/api/v1"
+  Key = "randomhere"
+
+[[Users]]
+Name = "Namehere"
+Address = "geo.hivebedrock.network"
+
+[[Users]]
+Name = "Name2here"
+Address = "play.mojang.com"
