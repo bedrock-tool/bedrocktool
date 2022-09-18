@@ -48,6 +48,8 @@ github.com/muhammadmuzzammil1998/jsonc v1.0.0 h1:8o5gBQn4ZA3NBA9DlTujCj2a4w0tqWr
 github.com/muhammadmuzzammil1998/jsonc v1.0.0/go.mod h1:saF2fIVw4banK0H4+/EuqfFLpRnoy5S+ECwTOCcRcSU=
 github.com/olebeck/gophertunnel v1.24.8-5 h1:hOxMUYbrPq6KlAkSgb506iURRj3l4e/4Ze/qQeSffds=
 github.com/olebeck/gophertunnel v1.24.8-5/go.mod h1:dMOw79FHxr2azEqiGH20AwdljisAN1kqwu5SjPBnZ5k=
+github.com/olebeck/gophertunnel v1.24.8-6 h1:hGst0yxsFvszy4wJkcbfhXjN2wScID3zmjPbdcYlCJU=
+github.com/olebeck/gophertunnel v1.24.8-6/go.mod h1:dMOw79FHxr2azEqiGH20AwdljisAN1kqwu5SjPBnZ5k=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/sanbornm/go-selfupdate v0.0.0-20210106163404-c9b625feac49 h1:LuxslTBxJrrNeKfqoywIERWWhH43TgiVAiPEVlhgNBA=

@@ -43,10 +43,14 @@ func NewBot(name, address, serverName string) *Bot {
 		Address:    address,
 		ServerName: serverName,
 		log: func() *logrus.Entry {
-			return logrus.StandardLogger().WithFields(logrus.Fields{
+			fields := logrus.Fields{
 				"Bot":     name,
 				"Address": address,
-			})
+			}
+			if serverName != address {
+				fields["ServerName"] = serverName
+			}
+			return logrus.StandardLogger().WithFields(fields)
 		},
 		players: map[uuid.UUID]protocol.PlayerListEntry{},
 	}
