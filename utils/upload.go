@@ -37,8 +37,11 @@ func (u *Uploader) Check() error {
 	return nil
 }
 
+var c = 0
+
 func (u *Uploader) UploadSkin(skin *Skin, username, xuid string, serverAddress string) error {
-	logrus.Infof("Uploading Skin %s %s", serverAddress, username)
+	c += 1
+	logrus.Infof("Uploading Skin %s %s %d", serverAddress, username, c)
 
 	body, _ := json.Marshal(struct {
 		Username      string

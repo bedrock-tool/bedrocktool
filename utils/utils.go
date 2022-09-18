@@ -62,11 +62,18 @@ func ConnectServer(ctx context.Context, address, clientName string, packetFunc P
 		}
 	}
 
+	key, chainData, err := GetChain(clientName)
+	if err != nil {
+		return nil, err
+	}
+
 	logrus.Infof("Connecting to %s", address)
 	serverConn, err = minecraft.Dialer{
 		TokenSource:   GetTokenSource(clientName),
 		PacketFunc:    packet_func,
 		DownloadPacks: false,
+		Key:           key,
+		ChainData:     chainData,
 	}.DialContext(ctx, "raknet", address)
 	if err != nil {
 		return nil, err

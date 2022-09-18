@@ -1,11 +1,14 @@
 package utils
 
 import (
+	"context"
+	"crypto/ecdsa"
 	"encoding/json"
 	"os"
 	"path"
 	"sync"
 
+	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/auth"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
@@ -13,9 +16,17 @@ import (
 
 const TOKEN_FILE = "token.json"
 
+type MCChain struct {
+	key       *ecdsa.PrivateKey
+	chainData string
+}
+
 var (
 	tokens     = map[string]oauth2.TokenSource{}
 	token_lock = &sync.Mutex{}
+
+	chains     = map[string]*MCChain{}
+	chain_lock = &sync.Mutex{}
 )
 
 // GetTokenSource returns the token source for this username
@@ -43,6 +54,24 @@ func GetTokenSource(name string) oauth2.TokenSource {
 	}
 
 	return tokens[name]
+}
+
+// GetChain gets a chain for this user
+func GetChain(name string) (key *ecdsa.PrivateKey, chainData string, err error) {
+	chain_lock.Lock()
+	defer chain_lock.Unlock()
+	if chain, ok := chains[name]; ok {
+		return chain.key, chain.chainData, nil
+	}
+	key, chainData, err = minecraft.CreateChain(context.Background(), GetTokenSource(name))
+	if err != nil {
+		return nil, "", err
+	}
+	chains[name] = &MCChain{
+		key:       key,
+		chainData: chainData,
+	}
+	return key, chainData, nil
 }
 
 // write_token writes the token for this user to a json file

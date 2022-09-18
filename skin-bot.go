@@ -58,29 +58,16 @@ func NewBot(name, address, serverName string) *Bot {
 func (b *Bot) Start(ctx context.Context) {
 	b.ctx = ctx
 
+	t1 := time.Now()
 	for {
-		IPs, err := findAllIps(b.Address)
-		if err != nil {
-			b.log().Errorf("Failed to lookup ips %s", err)
-			time.Sleep(30 * time.Second)
-			continue
+		if err := b.do(); err != nil {
+			b.log().Error(err)
 		}
-		for i, ip := range IPs {
-			go func(i int, ip string) {
-				t1 := time.Now()
-				for {
-					if err := b.do(); err != nil {
-						b.log().Error(err)
-					}
-					if time.Since(t1) < 10*time.Second {
-						b.log().Error("Failed to fast, exiting this instance")
-						break
-					}
-					time.Sleep(30 * time.Second)
-				}
-			}(i, ip)
+		if time.Since(t1) < 10*time.Second {
+			b.log().Error("Failed to fast, exiting this instance")
+			break
 		}
-		break
+		time.Sleep(30 * time.Second)
 	}
 }
 
