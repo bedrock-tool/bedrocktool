@@ -31,13 +31,3 @@ jobs:
 
       - name: Deploy with rsync
         run: rsync -avz ./public/ olebeck@${{ secrets.SSH_HOST }}:/var/www/updates/bedrocktool-mass-skin/
-
-      - uses: actions-ecosystem/action-get-latest-tag@v1
-        id: get-latest-tag
-
-      - uses: "marvinpinto/action-automatic-releases@latest"
-        with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: ${{ steps.get-latest-tag.outputs.tag }}
-          files: dist/*
-          prerelease: false
