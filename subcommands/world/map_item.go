@@ -191,9 +191,7 @@ func (m *MapUI) Redraw() {
 		}
 
 		if !m.img.Rect.Intersect(image.Rect(px_pos.X, px_pos.Y, px_pos.X+sz_chunk, px_pos.Y+sz_chunk)).Empty() {
-			draw_img_scaled_pos(m.img, m.renderedChunks[_ch], image.Point{
-				px_pos.X, px_pos.Y,
-			}, sz_chunk)
+			draw_img_scaled_pos(m.img, m.renderedChunks[_ch], px_pos, sz_chunk)
 		}
 	}
 

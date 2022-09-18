@@ -476,12 +476,10 @@ func (w *WorldState) OnConnect(proxy *utils.ProxyContext) {
 		if err != nil || len(gv) <= 1 {
 			logrus.Info("couldnt determine game version, assuming > 1.18")
 		}
-		if w.ispre118 {
-			logrus.Info("using legacy (< 1.18)")
-		}
 
 		dim_id := gd.Dimension
 		if w.ispre118 {
+			logrus.Info("using legacy (< 1.18)")
 			dim_id += 10
 		}
 		w.Dim = dimension_ids[uint8(dim_id)]
