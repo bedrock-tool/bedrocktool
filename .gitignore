@@ -11,6 +11,7 @@ config.toml
 
 /bedrocktool
 /bedrocktool-*
+/bedrock-skin-bot
 __debug_bin
 
 .vscode/*

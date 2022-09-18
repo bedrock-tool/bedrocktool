@@ -1,24 +1,14 @@
 TAG = $(shell git describe --exclude "r-*" --tags)
-NAME = bedrocktool-${TAG}
+NAME = bedrock-skin-bot-${TAG}
 SRCS = $(wildcard **/*.go)
 
-GC = go build -ldflags "-s -w -X github.com/bedrock-tool/bedrocktool/utils.Version=${TAG}"
+GC = go build -ldflags "-s -w -X github.com/bedrock-tool/bedrocktool/bedrock-skin-bot/utils.Version=${TAG}"
 
 .PHONY: dists clean updates
 
-# check if packs are supported
-HAVE_PACKS = false
-ifeq ($(shell head -c 7 ./utils/resourcepack-ace.go.ignore),package)
-HAVE_PACKS = true
-endif
 
-$(info pack support: ${HAVE_PACKS})
-ifeq ($(HAVE_PACKS),true)
-GC += -overlay overlay.json
-endif
-
-bedrocktool: $(SRCS)
-	$(GC) -o $@ ./cmd/bedrocktool
+bedrock-skin-bot: $(SRCS)
+	$(GC) -o $@ .
 
 BUILDS=\
 	windows_386.exe\
