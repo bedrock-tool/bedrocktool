@@ -9,7 +9,6 @@ require (
 	github.com/fatih/color v1.13.0
 	github.com/flytam/filenamify v1.1.1
 	github.com/google/subcommands v1.2.0
-	github.com/sanbornm/go-selfupdate v0.0.0-20210106163404-c9b625feac49
 	github.com/sandertv/gophertunnel v1.24.6
 	golang.org/x/exp v0.0.0-20220916125017-b168a2c6b86b
 	golang.org/x/oauth2 v0.0.0-20220909003341-f21342109be1
@@ -20,12 +19,9 @@ require (
 	github.com/disgoorg/log v1.2.0 // indirect
 	github.com/go-gl/mathgl v1.0.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
-	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
-	github.com/kr/binarydist v0.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.16 // indirect
 	github.com/sasha-s/go-csync v0.0.0-20210812194225-61421b77c44b // indirect
-	gopkg.in/inconshreveable/go-update.v0 v0.0.0-20150814200126-d8b0b1d421aa // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
