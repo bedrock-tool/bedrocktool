@@ -16,18 +16,6 @@ jobs:
           go-version: '1.19'
           check-latest: true
           cache: true
-      
-      - run: go install github.com/sanbornm/go-selfupdate/cmd/go-selfupdate
-      - run: go get .
-
-      - name: Install SSH Key
-        uses: shimataro/ssh-key-action@v2
-        with:
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          known_hosts: ${{ secrets.KNOWN_HOSTS }}
 
       - name: build
-        run: make -j dists updates
-
-      - name: Deploy with rsync
-        run: rsync -avz ./public/ olebeck@${{ secrets.SSH_HOST }}:/var/www/updates/bedrocktool-mass-skin/
+        run: go build .
