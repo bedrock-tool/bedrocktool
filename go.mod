@@ -15,23 +15,31 @@ require (
 )
 
 require (
+	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/disgoorg/disgo v0.7.5-0.20220326145558-0c7982618192 // indirect
 	github.com/disgoorg/log v1.2.0 // indirect
 	github.com/go-gl/mathgl v1.0.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.16 // indirect
+	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
+	github.com/prometheus/client_golang v1.13.0 // indirect
+	github.com/prometheus/client_model v0.2.0 // indirect
+	github.com/prometheus/common v0.37.0 // indirect
+	github.com/prometheus/procfs v0.8.0 // indirect
+	github.com/rabbitmq/amqp091-go v1.5.0 // indirect
 	github.com/sasha-s/go-csync v0.0.0-20210812194225-61421b77c44b // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-//replace github.com/sandertv/gophertunnel => ./gophertunnel
+replace github.com/sandertv/gophertunnel => ./gophertunnel
 
 //replace github.com/sandertv/go-raknet => ./go-raknet
 
 //replace github.com/df-mc/dragonfly => ./dragonfly
 
-replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.24.8-6
+//replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.24.8-6
 
 replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.8.3-3
 

@@ -48,7 +48,6 @@ func main() {
 			logrus.Errorf("Fatal Error occurred.")
 			println("")
 			println("--COPY FROM HERE--")
-			logrus.Infof("Version: %s", utils.Version)
 			logrus.Infof("Cmdline: %s", os.Args)
 			logrus.Errorf("Error: %s", err)
 			println("--END COPY HERE--")
@@ -78,50 +77,53 @@ func main() {
 
 	var config Config
 
-	if _, err := os.Stat("config.toml"); err == nil {
-		_, err := toml.DecodeFile("config.toml", &config)
-		if err != nil {
-			logrus.Fatal(err)
+	{
+		if _, err := os.Stat("config.toml"); err == nil {
+			_, err := toml.DecodeFile("config.toml", &config)
+			if err != nil {
+				logrus.Fatal(err)
+			}
 		}
-	}
 
-	{ // save config
-		f, _ := os.Create("config.toml")
-		defer f.Close()
-		if err := toml.NewEncoder(f).Encode(&config); err != nil {
-			logrus.Fatal(err)
+		{ // save config
+			f, _ := os.Create("config.toml")
+			defer f.Close()
+			if err := toml.NewEncoder(f).Encode(&config); err != nil {
+				logrus.Fatal(err)
+			}
 		}
-	}
 
-	if config.API.Server == "" {
-		logrus.Fatal("API.Server undefined")
-	}
-	if config.API.Key == "" {
-		logrus.Fatal("API.Key undefined")
-	}
-	if len(config.Users) == 0 {
-		logrus.Warn("No Users defined")
-	}
-
-	if config.Discord.WebhookId != "" {
-		logrus.Info("Enabling discord Error logs")
-		dlog, err := dislog.New(
-			// Sets which logging levels to send to the webhook
-			dislog.WithLogLevels(dislog.ErrorLevelAndAbove...),
-			// Sets webhook id & token
-			dislog.WithWebhookIDToken(snowflake.Snowflake(config.Discord.WebhookId), config.Discord.WebhookToken),
-		)
-		if err != nil {
-			logrus.Fatal("error initializing dislog: ", err)
+		if config.API.Server == "" {
+			logrus.Fatal("API.Server undefined")
 		}
-		defer dlog.Close(ctx)
-		logrus.StandardLogger().AddHook(dlog)
+		if config.API.Key == "" {
+			logrus.Fatal("API.Key undefined")
+		}
+		if len(config.Users) == 0 {
+			logrus.Warn("No Users defined")
+		}
+
+		if config.Discord.WebhookId != "" {
+			logrus.Info("Enabling discord Error logs")
+			dlog, err := dislog.New(
+				// Sets which logging levels to send to the webhook
+				dislog.WithLogLevels(dislog.ErrorLevelAndAbove...),
+				// Sets webhook id & token
+				dislog.WithWebhookIDToken(snowflake.Snowflake(config.Discord.WebhookId), config.Discord.WebhookToken),
+			)
+			if err != nil {
+				logrus.Fatal("error initializing dislog: ", err)
+			}
+			defer dlog.Close(ctx)
+			logrus.StandardLogger().AddHook(dlog)
+		}
 	}
 
 	{ // setup api client
-		utils.APIClient.APIServer = config.API.Server
-		utils.APIClient.APIKey = config.API.Key
-		if err := utils.APIClient.Check(); err != nil {
+		if err := utils.InitAPIClient(config.API.Server, config.API.Key); err != nil {
+			logrus.Fatal(err)
+		}
+		if err := utils.APIClient.Start(); err != nil {
 			logrus.Fatal(err)
 		}
 	}
@@ -150,6 +152,7 @@ func main() {
 					b := NewBot(v.Name, ip, fmt.Sprintf("%s-%d", address, i))
 					go b.Start(ctx)
 				}
+				time.Sleep(10 * time.Second)
 				break
 			}
 		}

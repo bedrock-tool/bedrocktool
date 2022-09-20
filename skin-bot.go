@@ -30,6 +30,7 @@ type Bot struct {
 
 	// map of uuids to player entries
 	players map[uuid.UUID]protocol.PlayerListEntry
+	spawned bool
 }
 
 // NewBot creates a new bot
@@ -62,12 +63,21 @@ func NewBot(name, address, serverName string) *Bot {
 func (b *Bot) Start(ctx context.Context) {
 	b.ctx = ctx
 
+	utils.APIClient.Metrics.RunningBots.Inc()
+	defer utils.APIClient.Metrics.RunningBots.Dec()
+
 	t1 := time.Now()
 	for {
+		t2 := time.Now()
+		if ctx.Err() != nil {
+			break
+		}
 		if err := b.do(); err != nil {
+			utils.APIClient.Metrics.DisconnectEvents.Inc()
 			b.log().Error(err)
 		}
-		if time.Since(t1) < 10*time.Second {
+		if time.Since(t1) < 10*time.Second || (time.Since(t2) < 10*time.Second && !b.spawned) {
+			utils.APIClient.Metrics.DeadBots.Inc()
 			b.log().Error("Failed to fast, exiting this instance")
 			break
 		}
@@ -99,6 +109,7 @@ func findAllIps(Address string) (ret []string, err error) {
 
 // do runs until error
 func (b *Bot) do() (err error) {
+	b.spawned = false
 	b.serverConn, err = utils.ConnectServer(b.ctx, b.Address, b.Name, nil)
 	if err != nil {
 		return fmt.Errorf("failed to connect to server %s", err)
@@ -111,11 +122,18 @@ func (b *Bot) do() (err error) {
 	}
 
 	b.log().Info("Spawned")
+	b.spawned = true
 	for {
 		pk, err := b.serverConn.ReadPacket()
 		if err != nil {
 			return err
 		}
+
+		switch pk := pk.(type) {
+		case *packet.Disconnect:
+			return fmt.Errorf("Disconnected from server: %s", pk.Message)
+		}
+
 		b.processSkinsPacket(pk)
 	}
 }

@@ -1,6 +1,7 @@
 token.json
 .secrets
 config.toml
+node_id.txt
 
 *.mcpack
 *.zip
