@@ -6,6 +6,7 @@ import (
 	"net"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sirupsen/logrus"
@@ -81,4 +82,26 @@ func ConnectServer(ctx context.Context, address, clientName string, packetFunc P
 
 	local_addr = serverConn.LocalAddr()
 	return serverConn, nil
+}
+
+func FindAllIps(Address string) (ret []string, err error) {
+	host, _, err := net.SplitHostPort(Address)
+	if err != nil {
+		return nil, err
+	}
+	tmp := map[string]bool{}
+	for i := 0; i < 5; i++ {
+		time.Sleep(1 * time.Second)
+		ips, err := net.LookupHost(host)
+		if err != nil {
+			return nil, err
+		}
+		for _, v := range ips {
+			tmp[v] = true
+		}
+	}
+	for k := range tmp {
+		ret = append(ret, k)
+	}
+	return ret, nil
 }

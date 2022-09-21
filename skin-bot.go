@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"net"
 	"strings"
 	"time"
 
@@ -29,8 +28,9 @@ type Bot struct {
 	log        func() *logrus.Entry
 
 	// map of uuids to player entries
-	players map[uuid.UUID]protocol.PlayerListEntry
-	spawned bool
+	players                       map[uuid.UUID]protocol.PlayerListEntry
+	spawned                       bool
+	haveSuccessfullyConnectedOnce bool
 }
 
 // NewBot creates a new bot
@@ -66,9 +66,8 @@ func (b *Bot) Start(ctx context.Context) {
 	utils.APIClient.Metrics.RunningBots.Inc()
 	defer utils.APIClient.Metrics.RunningBots.Dec()
 
-	t1 := time.Now()
 	for {
-		t2 := time.Now()
+		tstart := time.Now()
 		if ctx.Err() != nil {
 			break
 		}
@@ -76,54 +75,41 @@ func (b *Bot) Start(ctx context.Context) {
 			utils.APIClient.Metrics.DisconnectEvents.Inc()
 			b.log().Error(err)
 		}
-		if time.Since(t1) < 10*time.Second || (time.Since(t2) < 10*time.Second && !b.spawned) {
+		shortRun := time.Since(tstart) < 10*time.Second
+		if shortRun && (!b.spawned || !b.haveSuccessfullyConnectedOnce) {
 			utils.APIClient.Metrics.DeadBots.Inc()
-			b.log().Error("Failed to fast, exiting this instance")
-			break
+			b.log().Error("Failed to fast, Cooldown 30 minutes")
+			time.Sleep(30 * time.Minute)
+		} else {
+			b.haveSuccessfullyConnectedOnce = true
 		}
 		time.Sleep(30 * time.Second)
 	}
 }
 
-func findAllIps(Address string) (ret []string, err error) {
-	host, _, err := net.SplitHostPort(Address)
-	if err != nil {
-		return nil, err
-	}
-	tmp := map[string]bool{}
-	for i := 0; i < 5; i++ {
-		time.Sleep(1 * time.Second)
-		ips, err := net.LookupHost(host)
-		if err != nil {
-			return nil, err
-		}
-		for _, v := range ips {
-			tmp[v] = true
-		}
-	}
-	for k := range tmp {
-		ret = append(ret, k)
-	}
-	return ret, nil
-}
-
 // do runs until error
 func (b *Bot) do() (err error) {
 	b.spawned = false
+	b.players = map[uuid.UUID]protocol.PlayerListEntry{}
+
+	// connect
 	b.serverConn, err = utils.ConnectServer(b.ctx, b.Address, b.Name, nil)
 	if err != nil {
 		return fmt.Errorf("failed to connect to server %s", err)
 	}
 	defer b.serverConn.Close()
 
+	// spawn
 	b.log().Info("Spawning")
 	if err := b.serverConn.DoSpawnContext(b.ctx); err != nil {
 		return fmt.Errorf("failed to spawn: %s", err)
 	}
-
 	b.log().Info("Spawned")
 	b.spawned = true
+
 	for {
+		// reconnect if no packets for 2 minutes
+		b.serverConn.SetReadDeadline(time.Now().Add(2 * time.Minute))
 		pk, err := b.serverConn.ReadPacket()
 		if err != nil {
 			return err
@@ -131,7 +117,7 @@ func (b *Bot) do() (err error) {
 
 		switch pk := pk.(type) {
 		case *packet.Disconnect:
-			return fmt.Errorf("Disconnected from server: %s", pk.Message)
+			return fmt.Errorf("disconnected from server: %s", pk.Message)
 		}
 
 		b.processSkinsPacket(pk)

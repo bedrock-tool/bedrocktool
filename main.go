@@ -126,6 +126,8 @@ func main() {
 		if err := utils.APIClient.Start(); err != nil {
 			logrus.Fatal(err)
 		}
+		// remove after exit
+		defer utils.APIClient.Metrics.Pusher.Delete()
 	}
 
 	// starting the bots
@@ -136,7 +138,7 @@ func main() {
 				address = address + ":19132"
 			}
 			for {
-				IPs, err := findAllIps(address)
+				IPs, err := utils.FindAllIps(address)
 				if err != nil {
 					logrus.Errorf("Failed to lookup ips %s", err)
 					time.Sleep(30 * time.Second)
