@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -9,6 +11,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus/push"
 	"github.com/sirupsen/logrus"
@@ -88,9 +91,15 @@ func (u *apiClient) UploadSkin(skin *Skin, username, xuid string, serverAddress 
 		Xuid          string
 		Skin          *jsonSkinData
 		ServerAddress string
-	}{username, xuid, skin.Json(), serverAddress})
+		Time          int64
+	}{username, xuid, skin.Json(), serverAddress, time.Now().Unix()})
 
-	err := u.queue.Publish(context.Background(), []byte(body))
+	buf := bytes.NewBuffer(nil)
+	w := gzip.NewWriter(buf)
+	w.Write(body)
+	w.Close()
+
+	err := u.queue.Publish(context.Background(), buf.Bytes(), "application/json-gz")
 	if err != nil {
 		logrus.Warn(err)
 	}

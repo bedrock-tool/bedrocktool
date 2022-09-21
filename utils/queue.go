@@ -55,7 +55,7 @@ func (c *apiQueue) Reconnect() {
 }
 
 // Publish publishes a request to the amqp queue
-func (c *apiQueue) Publish(ctx context.Context, data []byte) error {
+func (c *apiQueue) Publish(ctx context.Context, data []byte, contentType string) error {
 	select { // non blocking channel - if there is no error will go to default where we do nothing
 	case err := <-c.err:
 		if err != nil {
@@ -66,7 +66,7 @@ func (c *apiQueue) Publish(ctx context.Context, data []byte) error {
 	}
 
 	p := amqp.Publishing{
-		ContentType: "application/json",
+		ContentType: contentType,
 		Body:        data,
 	}
 	if err := c.channel.PublishWithContext(ctx, "", c.queue.Name, false, false, p); err != nil {
