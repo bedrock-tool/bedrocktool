@@ -4,9 +4,11 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"math/rand"
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -14,7 +16,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/bedrock-skin-bot/utils"
 	"github.com/disgoorg/dislog"
 	"github.com/disgoorg/snowflake"
-	"golang.org/x/exp/slices"
+	"golang.org/x/exp/maps"
 
 	"github.com/google/subcommands"
 	"github.com/sirupsen/logrus"
@@ -30,10 +32,10 @@ type Config struct {
 		WebhookToken string
 	}
 	Users []struct {
-		Name            string
-		ServerAddresses string
-		Multi           bool
+		Name    string
+		Address string
 	}
+	ServerAddresses string
 	ServerBlacklist []string
 }
 
@@ -43,6 +45,13 @@ func cleanup() {
 		utils.G_cleanup_funcs[i]()
 	}
 }
+
+// ip -> bot
+var bots_lock = &sync.Mutex{}
+var bots = make(map[string]*Bot)
+
+// ip -> time to retry
+var ip_waitlist = make(map[string]time.Time)
 
 func main() {
 	defer func() {
@@ -73,6 +82,7 @@ func main() {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigs
+		println("cancel")
 		cancel()
 		cleanup()
 	}()
@@ -133,43 +143,71 @@ func main() {
 	}
 
 	// starting the bots
-	for _, v := range config.Users {
-		addresses := strings.Split(v.ServerAddresses, " ")
-		for _, address := range addresses {
-			if !strings.Contains(address, ":") {
-				address = address + ":19132"
-			}
-			for {
-				IPs, err := utils.FindAllIps(address)
-				if err != nil {
-					logrus.Errorf("Failed to lookup ips %s", err)
-					time.Sleep(30 * time.Second)
-					continue
-				}
+	for {
+		servers := strings.Split(config.ServerAddresses, " ")
 
-				if !v.Multi {
-					IPs = IPs[:1]
-				}
-
-				count := 0
-				for i, ip := range IPs {
-					if slices.Contains(config.ServerBlacklist, ip) {
-						logrus.Info("Skipped %s for %s", ip, address)
-						continue
-					}
-					b := NewBot(v.Name, ip, fmt.Sprintf("%s-%d", address, i))
-					go b.Start(ctx)
-					count += 1
-				}
-				logrus.Infof("Started %d Bots as %s on %s", count, v.Name, address)
-				time.Sleep(10 * time.Second)
+		user := config.Users[rand.Intn(len(config.Users))]
+		for _, server := range servers {
+			if ctx.Err() != nil {
 				break
 			}
+
+			if !strings.Contains(server, ":") {
+				server = server + ":19132"
+			}
+			var IPs []string
+			var err error
+			for {
+				// lookup all instances of this server
+				IPs, err = utils.FindAllIps(server)
+				if err != nil {
+					logrus.Errorf("Failed to lookup ips %s", err)
+					select {
+					case <-time.After(30 * time.Second):
+					case <-ctx.Done():
+					}
+					continue
+				}
+				break
+			}
+
+			// connect to all ips that dont have an instance yet
+			count := 0
+			for _, ip := range IPs {
+				_address := ip + ":19132"
+
+				if w, ok := ip_waitlist[_address]; ok {
+					if time.Now().After(w) {
+						delete(ip_waitlist, _address)
+					} else {
+						continue
+					}
+				}
+
+				if _, ok := bots[_address]; ok {
+					continue
+				}
+				b := NewBot(user.Name, _address, fmt.Sprintf("%s %s", server, ip))
+				go b.Start(ctx)
+				count += 1
+			}
+			time.Sleep(1 * time.Second)
+			if count > 0 {
+				logrus.Infof("Started %d Bots as %s on %s", count, user.Name, server)
+				logrus.Infof("Instances: %d", len(maps.Keys(bots)))
+			}
+			logrus.Infof("Waiting: %d", len(maps.Keys(ip_waitlist)))
 		}
 
+		select {
+		case <-time.After(5 * time.Second):
+		case <-ctx.Done():
+		}
+		if ctx.Err() != nil {
+			break
+		}
 	}
 
-	<-ctx.Done()
 	cleanup()
 	os.Exit(0)
 }

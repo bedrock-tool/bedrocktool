@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/bedrock-skin-bot/utils"
@@ -21,8 +20,8 @@ type cachedPlayer struct {
 
 // Bot is an instance that connects to a server and sends skins it receives to the api server.
 type Bot struct {
-	// Name is the username of this bot
-	Name string
+	// Username is the username of this bot
+	Username string
 	// Address is the server address this bot will connect to
 	Address string
 	// ServerName is the readable name of the server
@@ -35,17 +34,12 @@ type Bot struct {
 	// player uuid -> xuid
 	players map[uuid.UUID]cachedPlayer
 	spawned bool
-	dead    bool
 }
 
 // NewBot creates a new bot
 func NewBot(name, address, serverName string) *Bot {
-	if !strings.Contains(address, ":") {
-		address = address + ":19132"
-	}
-
 	b := &Bot{
-		Name:       name,
+		Username:   name,
 		Address:    address,
 		ServerName: serverName,
 		log: func() *logrus.Entry {
@@ -64,30 +58,45 @@ func NewBot(name, address, serverName string) *Bot {
 	return b
 }
 
-// Start runs the bot indefinitely
+// Start runs the bot until it errors hard
 func (b *Bot) Start(ctx context.Context) {
 	b.ctx = ctx
 
-	utils.APIClient.Metrics.RunningBots.Inc()
-	defer utils.APIClient.Metrics.RunningBots.Dec()
+	bots_lock.Lock()
+	bots[b.Address] = b
+	bots_lock.Unlock()
+	defer func() {
+		bots_lock.Lock()
+		delete(bots, b.Address)
+		bots_lock.Unlock()
+	}()
+
+	utils.APIClient.Metrics.RunningBots.WithLabelValues(b.ServerName).Inc()
+	defer utils.APIClient.Metrics.RunningBots.WithLabelValues(b.ServerName).Dec()
 
 	for {
 		tstart := time.Now()
 		if ctx.Err() != nil {
 			break
 		}
-		if err := b.do(); err != nil {
-			utils.APIClient.Metrics.DisconnectEvents.Inc()
-			b.dead = true
-			b.log().Error(err)
+		err := b.do()
+		if ctx.Err() != nil {
+			break
 		}
 
 		shortRun := time.Since(tstart) < 10*time.Second
 		if !b.spawned || shortRun {
-			utils.APIClient.Metrics.DeadBots.Inc()
-			b.log().Error("Failed to fast, Cooldown 30 minutes")
-			time.Sleep(30 * time.Minute)
+			utils.APIClient.Metrics.Deaths.WithLabelValues(b.ServerName, b.Address).Inc()
+			b.log().Warn("Failed to fast, adding ip to waitlist for 15 minutes")
+			ip_waitlist[b.Address] = time.Now().Add(15 * time.Minute)
 		}
+
+		if err != nil {
+			b.log().Warn(err)
+			utils.APIClient.Metrics.DisconnectEvents.
+				WithLabelValues(b.ServerName, b.Address).Inc()
+		}
+
 		time.Sleep(30 * time.Second)
 	}
 }
@@ -98,7 +107,7 @@ func (b *Bot) do() (err error) {
 	b.players = make(map[uuid.UUID]cachedPlayer)
 
 	// connect
-	b.serverConn, err = utils.ConnectServer(b.ctx, b.Address, b.Name, nil)
+	b.serverConn, err = utils.ConnectServer(b.ctx, b.Address, b.Username, nil)
 	if err != nil {
 		return fmt.Errorf("failed to connect to server %s", err)
 	}
@@ -110,11 +119,6 @@ func (b *Bot) do() (err error) {
 	}
 	b.log().Info("Spawned")
 	b.spawned = true
-
-	if b.dead {
-		utils.APIClient.Metrics.DisconnectEvents.Dec()
-		b.dead = false
-	}
 
 	for {
 		// reconnect if no packets for 2 minutes
