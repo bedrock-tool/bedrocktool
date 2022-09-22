@@ -14,6 +14,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/bedrock-skin-bot/utils"
 	"github.com/disgoorg/dislog"
 	"github.com/disgoorg/snowflake"
+	"golang.org/x/exp/slices"
 
 	"github.com/google/subcommands"
 	"github.com/sirupsen/logrus"
@@ -33,6 +34,7 @@ type Config struct {
 		ServerAddresses string
 		Multi           bool
 	}
+	ServerBlacklist []string
 }
 
 func cleanup() {
@@ -149,11 +151,17 @@ func main() {
 					IPs = IPs[:1]
 				}
 
-				logrus.Infof("Starting %d Bots as %s on %s", len(IPs), v.Name, address)
+				count := 0
 				for i, ip := range IPs {
+					if slices.Contains(config.ServerBlacklist, ip) {
+						logrus.Info("Skipped %s for %s", ip, address)
+						continue
+					}
 					b := NewBot(v.Name, ip, fmt.Sprintf("%s-%d", address, i))
 					go b.Start(ctx)
+					count += 1
 				}
+				logrus.Infof("Started %d Bots as %s on %s", count, v.Name, address)
 				time.Sleep(10 * time.Second)
 				break
 			}

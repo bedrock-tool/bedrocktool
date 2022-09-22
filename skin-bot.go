@@ -9,10 +9,15 @@ import (
 	"github.com/bedrock-tool/bedrocktool/bedrock-skin-bot/utils"
 	"github.com/google/uuid"
 	"github.com/sandertv/gophertunnel/minecraft"
-	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sirupsen/logrus"
 )
+
+type cachedPlayer struct {
+	xuid     string
+	uuid     uuid.UUID
+	username string
+}
 
 // Bot is an instance that connects to a server and sends skins it receives to the api server.
 type Bot struct {
@@ -27,10 +32,10 @@ type Bot struct {
 	ctx        context.Context
 	log        func() *logrus.Entry
 
-	// map of uuids to player entries
-	players                       map[uuid.UUID]protocol.PlayerListEntry
-	spawned                       bool
-	haveSuccessfullyConnectedOnce bool
+	// player uuid -> xuid
+	players map[uuid.UUID]cachedPlayer
+	spawned bool
+	dead    bool
 }
 
 // NewBot creates a new bot
@@ -53,7 +58,7 @@ func NewBot(name, address, serverName string) *Bot {
 			}
 			return logrus.StandardLogger().WithFields(fields)
 		},
-		players: map[uuid.UUID]protocol.PlayerListEntry{},
+		players: map[uuid.UUID]cachedPlayer{},
 	}
 
 	return b
@@ -73,15 +78,15 @@ func (b *Bot) Start(ctx context.Context) {
 		}
 		if err := b.do(); err != nil {
 			utils.APIClient.Metrics.DisconnectEvents.Inc()
+			b.dead = true
 			b.log().Error(err)
 		}
+
 		shortRun := time.Since(tstart) < 10*time.Second
-		if shortRun && (!b.spawned || !b.haveSuccessfullyConnectedOnce) {
+		if !b.spawned || shortRun {
 			utils.APIClient.Metrics.DeadBots.Inc()
 			b.log().Error("Failed to fast, Cooldown 30 minutes")
 			time.Sleep(30 * time.Minute)
-		} else {
-			b.haveSuccessfullyConnectedOnce = true
 		}
 		time.Sleep(30 * time.Second)
 	}
@@ -90,7 +95,7 @@ func (b *Bot) Start(ctx context.Context) {
 // do runs until error
 func (b *Bot) do() (err error) {
 	b.spawned = false
-	b.players = map[uuid.UUID]protocol.PlayerListEntry{}
+	b.players = make(map[uuid.UUID]cachedPlayer)
 
 	// connect
 	b.serverConn, err = utils.ConnectServer(b.ctx, b.Address, b.Name, nil)
@@ -100,12 +105,16 @@ func (b *Bot) do() (err error) {
 	defer b.serverConn.Close()
 
 	// spawn
-	b.log().Info("Spawning")
 	if err := b.serverConn.DoSpawnContext(b.ctx); err != nil {
 		return fmt.Errorf("failed to spawn: %s", err)
 	}
 	b.log().Info("Spawned")
 	b.spawned = true
+
+	if b.dead {
+		utils.APIClient.Metrics.DisconnectEvents.Dec()
+		b.dead = false
+	}
 
 	for {
 		// reconnect if no packets for 2 minutes
@@ -133,35 +142,33 @@ func (b *Bot) processSkinsPacket(pk packet.Packet) {
 			b.log().Warnf("%s not found in player list", pk.UUID.String())
 			return
 		}
-		player.Skin = pk.Skin
-		b.maybeSubmitPlayer(player)
+		b.maybeSubmitPlayer(player, &utils.Skin{pk.Skin})
 
 	case *packet.PlayerList:
 		if pk.ActionType == 1 { // remove
 			return
 		}
 		for _, entry := range pk.Entries {
-			b.maybeSubmitPlayer(entry)
+			b.maybeSubmitPlayer(cachedPlayer{
+				xuid:     entry.XUID,
+				uuid:     entry.UUID,
+				username: entry.Username,
+			}, &utils.Skin{entry.Skin})
 		}
 	}
 }
 
-func (b *Bot) maybeSubmitPlayer(entry protocol.PlayerListEntry) {
-	b.players[entry.UUID] = entry
+func (b *Bot) maybeSubmitPlayer(player cachedPlayer, skin *utils.Skin) {
+	b.players[player.uuid] = player
 
-	if entry.XUID == b.serverConn.IdentityData().XUID {
+	if player.xuid == b.serverConn.IdentityData().XUID {
 		return
 	}
 
-	username := utils.CleanupName(entry.Username)
-	if len(entry.XUID) < 5 || username == "" { // only xbox logged in users (maybe bad)
+	username := utils.CleanupName(player.username)
+	if len(player.xuid) < 5 || username == "" { // only xbox logged in users (maybe bad)
 		return
 	}
 
-	go utils.APIClient.UploadSkin(
-		&utils.Skin{entry.Skin},
-		username,
-		entry.XUID,
-		b.ServerName,
-	)
+	go utils.APIClient.UploadSkin(skin, username, player.xuid, b.ServerName)
 }
