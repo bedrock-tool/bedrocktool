@@ -4,46 +4,50 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"net/http"
-	"os"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus/push"
 	"github.com/sirupsen/logrus"
 )
 
+type Metrics interface {
+	// Start starts the metric pusher
+	Start(url, user, password string) error
+	// deletes from pusher
+	Delete()
+}
+
 type apiClient struct {
-	APIServer string
-	APIKey    string
+	server string
+	key    string
 
 	client *http.Client
 
 	queue   apiQueue
-	Metrics *Metrics
+	Metrics Metrics
 }
 
 var APIClient *apiClient
 
-func InitAPIClient(APIServer, APIKey string) error {
+// InitAPIClient creates the api client
+func InitAPIClient(APIServer, APIKey string, metrics Metrics) error {
 	APIClient = &apiClient{
-		APIServer: APIServer,
-		APIKey:    APIKey,
-		client:    &http.Client{},
+		server: APIServer,
+		key:    APIKey,
+		client: &http.Client{},
 		queue: apiQueue{
 			connect_lock: &sync.Mutex{},
 		},
-		Metrics: NewMetrics(),
+		Metrics: metrics,
 	}
 	return nil
 }
 
 func (u *apiClient) doRequest(req *http.Request) (resp *http.Response, err error) {
-	req.Header.Set("Authorization", u.APIKey)
+	req.Header.Set("Authorization", u.key)
 	return u.client.Do(req)
 }
 
@@ -55,7 +59,7 @@ func (u *apiClient) Start() error {
 		PrometheusAuth    string
 	}
 
-	req, _ := http.NewRequest("GET", APIClient.APIServer+"/routes", nil)
+	req, _ := http.NewRequest("GET", APIClient.server+"/routes", nil)
 	resp, err := APIClient.doRequest(req)
 	if err != nil {
 		return nil
@@ -70,19 +74,20 @@ func (u *apiClient) Start() error {
 	u.queue.Reconnect()
 
 	// prometheus
-	auth := strings.Split(response.PrometheusAuth, ":")
-	pusher := push.New(response.PrometheusPushURL, metricNamespace).
-		BasicAuth(auth[0], auth[1]).
-		Grouping("node_id", getNodeId())
-
-	u.Metrics.Attach(pusher)
+	if u.Metrics != nil {
+		auth := strings.Split(response.PrometheusAuth, ":")
+		if err := u.Metrics.Start(response.PrometheusPushURL, auth[0], auth[1]); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }
 
 var c = 0
 
-func (u *apiClient) UploadSkin(skin *Skin, username, xuid string, serverAddress string) error {
+// UploadSkin pushes a skin to the message server
+func (u *apiClient) UploadSkin(skin *Skin, username, xuid string, serverAddress string) {
 	c += 1
 	logrus.Infof("Uploading Skin %s %s %d", serverAddress, username, c)
 
@@ -103,22 +108,4 @@ func (u *apiClient) UploadSkin(skin *Skin, username, xuid string, serverAddress 
 	if err != nil {
 		logrus.Warn(err)
 	}
-	return nil
-}
-
-func randomHex(n int) string {
-	bytes := make([]byte, n)
-	rand.Read(bytes)
-	return hex.EncodeToString(bytes)
-}
-
-func getNodeId() string {
-	if _, err := os.Stat("node_id.txt"); err == nil {
-		d, _ := os.ReadFile("node_id.txt")
-		return strings.Split(string(d), "\n")[0]
-	}
-
-	ret := randomHex(10)
-	os.WriteFile("node_id.txt", []byte(ret), 0o777)
-	return ret
 }

@@ -18,7 +18,6 @@ import (
 	"github.com/disgoorg/snowflake"
 	"golang.org/x/exp/maps"
 
-	"github.com/google/subcommands"
 	"github.com/sirupsen/logrus"
 )
 
@@ -52,6 +51,8 @@ var bots = make(map[string]*Bot)
 
 // ip -> time to retry
 var ip_waitlist = make(map[string]time.Time)
+
+var G_metrics *Metrics
 
 func main() {
 	defer func() {
@@ -132,14 +133,15 @@ func main() {
 	}
 
 	{ // setup api client
-		if err := utils.InitAPIClient(config.API.Server, config.API.Key); err != nil {
+		G_metrics = NewMetrics()
+		if err := utils.InitAPIClient(config.API.Server, config.API.Key, G_metrics); err != nil {
 			logrus.Fatal(err)
 		}
 		if err := utils.APIClient.Start(); err != nil {
 			logrus.Fatal(err)
 		}
 		// remove after exit
-		defer utils.APIClient.Metrics.Pusher.Delete()
+		defer utils.APIClient.Metrics.Delete()
 	}
 
 	// starting the bots
@@ -210,32 +212,4 @@ func main() {
 
 	cleanup()
 	os.Exit(0)
-}
-
-type TransCMD struct{}
-
-func (*TransCMD) Name() string     { return "trans" }
-func (*TransCMD) Synopsis() string { return "" }
-
-func (c *TransCMD) SetFlags(f *flag.FlagSet) {}
-
-func (c *TransCMD) Usage() string {
-	return c.Name() + ": " + c.Synopsis() + "\n"
-}
-
-func (c *TransCMD) Execute(_ context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	const (
-		BLACK_FG = "\033[30m"
-		BOLD     = "\033[1m"
-		BLUE     = "\033[46m"
-		PINK     = "\033[45m"
-		WHITE    = "\033[47m"
-		RESET    = "\033[0m"
-	)
-	fmt.Println(BLACK_FG + BOLD + BLUE + " Trans " + PINK + " Rights " + WHITE + " Are " + PINK + " Human " + BLUE + " Rights " + RESET)
-	return 0
-}
-
-func init() {
-	utils.RegisterCommand(&TransCMD{})
 }

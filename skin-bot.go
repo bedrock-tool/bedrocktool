@@ -71,8 +71,8 @@ func (b *Bot) Start(ctx context.Context) {
 		bots_lock.Unlock()
 	}()
 
-	utils.APIClient.Metrics.RunningBots.WithLabelValues(b.ServerName).Inc()
-	defer utils.APIClient.Metrics.RunningBots.WithLabelValues(b.ServerName).Dec()
+	G_metrics.RunningBots.WithLabelValues(b.ServerName).Inc()
+	defer G_metrics.RunningBots.WithLabelValues(b.ServerName).Dec()
 
 	for {
 		tstart := time.Now()
@@ -86,15 +86,14 @@ func (b *Bot) Start(ctx context.Context) {
 
 		shortRun := time.Since(tstart) < 10*time.Second
 		if !b.spawned || shortRun {
-			utils.APIClient.Metrics.Deaths.WithLabelValues(b.ServerName, b.Address).Inc()
+			G_metrics.Deaths.WithLabelValues(b.ServerName, b.Address).Inc()
 			b.log().Warn("Failed to fast, adding ip to waitlist for 15 minutes")
 			ip_waitlist[b.Address] = time.Now().Add(15 * time.Minute)
 		}
 
 		if err != nil {
 			b.log().Warn(err)
-			utils.APIClient.Metrics.DisconnectEvents.
-				WithLabelValues(b.ServerName, b.Address).Inc()
+			G_metrics.DisconnectEvents.WithLabelValues(b.ServerName, b.Address).Inc()
 		}
 
 		time.Sleep(30 * time.Second)
@@ -146,7 +145,7 @@ func (b *Bot) processSkinsPacket(pk packet.Packet) {
 			b.log().Warnf("%s not found in player list", pk.UUID.String())
 			return
 		}
-		b.maybeSubmitPlayer(player, &utils.Skin{pk.Skin})
+		b.maybeSubmitPlayer(player, &utils.Skin{Skin: pk.Skin})
 
 	case *packet.PlayerList:
 		if pk.ActionType == 1 { // remove
@@ -157,7 +156,7 @@ func (b *Bot) processSkinsPacket(pk packet.Packet) {
 				xuid:     entry.XUID,
 				uuid:     entry.UUID,
 				username: entry.Username,
-			}, &utils.Skin{entry.Skin})
+			}, &utils.Skin{Skin: entry.Skin})
 		}
 	}
 }

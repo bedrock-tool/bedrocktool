@@ -1,6 +1,10 @@
-package utils
+package main
 
 import (
+	"encoding/hex"
+	"math/rand"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -17,12 +21,20 @@ type Metrics struct {
 	Deaths           *prometheus.GaugeVec
 }
 
-func (m *Metrics) Attach(p *push.Pusher) {
-	p.Collector(m.RunningBots).
+func (m *Metrics) Delete() {
+	m.Pusher.Delete()
+}
+
+func (m *Metrics) Start(url, user, password string) error {
+	m.Pusher = push.New(url, metricNamespace).
+		BasicAuth(user, password).
+		Grouping("node_id", getNodeId()).
+		Collector(m.RunningBots).
 		Collector(m.DisconnectEvents).
 		Collector(m.Deaths)
-	m.Pusher = p
-	p.Push()
+	if err := m.Pusher.Push(); err != nil {
+		return err
+	}
 
 	go func() {
 		t := time.NewTicker(15 * time.Second)
@@ -32,6 +44,8 @@ func (m *Metrics) Attach(p *push.Pusher) {
 			}
 		}
 	}()
+
+	return nil
 }
 
 func NewMetrics() *Metrics {
@@ -54,4 +68,21 @@ func NewMetrics() *Metrics {
 	}
 
 	return m
+}
+
+func randomHex(n int) string {
+	bytes := make([]byte, n)
+	rand.Read(bytes)
+	return hex.EncodeToString(bytes)
+}
+
+func getNodeId() string {
+	if _, err := os.Stat("node_id.txt"); err == nil {
+		d, _ := os.ReadFile("node_id.txt")
+		return strings.Split(string(d), "\n")[0]
+	}
+
+	ret := randomHex(10)
+	os.WriteFile("node_id.txt", []byte(ret), 0o777)
+	return ret
 }
