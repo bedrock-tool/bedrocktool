@@ -69,9 +69,9 @@ func ConnectServer(ctx context.Context, address string, ClientData *login.Client
 	packet_func := func(header packet.Header, payload []byte, src, dst net.Addr) {
 		if G_debug {
 			PacketLogger(header, payload, src, dst)
-			if packetFunc != nil {
-				packetFunc(header, payload, src, dst)
-			}
+		}
+		if packetFunc != nil {
+			packetFunc(header, payload, src, dst)
 		}
 	}
 
