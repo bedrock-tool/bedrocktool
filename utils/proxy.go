@@ -83,9 +83,9 @@ func (p *ProxyContext) AddCommand(cmd IngameCommand) {
 }
 
 func (p *ProxyContext) CommandHandlerPacketCB(pk packet.Packet, proxy *ProxyContext, toServer bool) (packet.Packet, error) {
-	switch pk := pk.(type) {
+	switch _pk := pk.(type) {
 	case *packet.CommandRequest:
-		cmd := strings.Split(pk.CommandLine, " ")
+		cmd := strings.Split(_pk.CommandLine, " ")
 		name := cmd[0][1:]
 		if h, ok := p.commands[name]; ok {
 			if h.Exec(cmd[1:]) {
@@ -93,8 +93,13 @@ func (p *ProxyContext) CommandHandlerPacketCB(pk packet.Packet, proxy *ProxyCont
 			}
 		}
 	case *packet.AvailableCommands:
+		cmds := make([]protocol.Command, len(p.commands))
 		for _, ic := range p.commands {
-			pk.Commands = append(pk.Commands, ic.Cmd)
+			cmds = append(cmds, ic.Cmd)
+		}
+		pk = &packet.AvailableCommands{
+			Constraints: _pk.Constraints,
+			Commands:    append(_pk.Commands, cmds...),
 		}
 	}
 	return pk, nil
