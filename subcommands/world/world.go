@@ -5,7 +5,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"hash/crc32"
 	"image"
 	"image/draw"
 	"image/png"
@@ -16,8 +15,12 @@ import (
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/nbtconv"
 
+	"github.com/df-mc/dragonfly/server/block"
 	"github.com/df-mc/dragonfly/server/block/cube"
+	"github.com/df-mc/dragonfly/server/item"
+	"github.com/df-mc/dragonfly/server/item/inventory"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/df-mc/dragonfly/server/world/chunk"
 	"github.com/df-mc/dragonfly/server/world/mcdb"
@@ -28,8 +31,7 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 	"github.com/sirupsen/logrus"
-
-	_ "github.com/df-mc/dragonfly/server/block" // to load blocks
+	//_ "github.com/df-mc/dragonfly/server/block" // to load blocks
 	//_ "net/http/pprof"
 )
 
@@ -40,22 +42,30 @@ type TPlayerPos struct {
 	HeadYaw  float32
 }
 
+type itemContainer struct {
+	OpenPacket *packet.ContainerOpen
+	Content    *packet.InventoryContent
+}
+
 // the state used for drawing and saving
 
 type WorldState struct {
-	ctx          context.Context
-	ispre118     bool
-	voidgen      bool
-	chunks       map[protocol.ChunkPos]*chunk.Chunk
-	entities     map[int64]world.SaveableEntity
-	blockNBT     map[protocol.SubChunkPos][]map[string]any
+	ctx                context.Context
+	ispre118           bool
+	voidgen            bool
+	chunks             map[protocol.ChunkPos]*chunk.Chunk
+	blockNBT           map[protocol.SubChunkPos][]map[string]any
+	openItemContainers map[byte]*itemContainer
+
 	Dim          world.Dimension
 	WorldName    string
 	ServerName   string
 	worldCounter int
-	withPacks    bool
-	saveImage    bool
 	packs        map[string]*resource.Pack
+
+	withPacks           bool
+	saveImage           bool
+	experimentInventory bool
 
 	PlayerPos TPlayerPos
 	proxy     *utils.ProxyContext
@@ -66,12 +76,12 @@ type WorldState struct {
 
 func NewWorldState() *WorldState {
 	w := &WorldState{
-		chunks:    make(map[protocol.ChunkPos]*chunk.Chunk),
-		blockNBT:  make(map[protocol.SubChunkPos][]map[string]any),
-		entities:  make(map[int64]world.SaveableEntity),
-		Dim:       nil,
-		WorldName: "world",
-		PlayerPos: TPlayerPos{},
+		chunks:             make(map[protocol.ChunkPos]*chunk.Chunk),
+		blockNBT:           make(map[protocol.SubChunkPos][]map[string]any),
+		openItemContainers: make(map[byte]*itemContainer),
+		Dim:                nil,
+		WorldName:          "world",
+		PlayerPos:          TPlayerPos{},
 	}
 	w.ui = NewMapUI(w)
 	return w
@@ -97,18 +107,15 @@ func init() {
 		Offset_table[i] = protocol.SubChunkOffset{0, int8(i), 0}
 	}
 	draw.Draw(black_16x16, image.Rect(0, 0, 16, 16), image.Black, image.Point{}, draw.Src)
-	cs := crc32.ChecksumIEEE([]byte(utils.A))
-	if cs != 0x9747c04f {
-		utils.A += "T" + "A" + "M" + "P" + "E" + "R" + "E" + "D"
-	}
 	utils.RegisterCommand(&WorldCMD{})
 }
 
 type WorldCMD struct {
-	Address    string
-	packs      bool
-	enableVoid bool
-	saveImage  bool
+	Address             string
+	packs               bool
+	enableVoid          bool
+	saveImage           bool
+	experimentInventory bool
 }
 
 func (*WorldCMD) Name() string     { return "worlds" }
@@ -119,6 +126,7 @@ func (p *WorldCMD) SetFlags(f *flag.FlagSet) {
 	f.BoolVar(&p.packs, "packs", false, "save resourcepacks to the worlds")
 	f.BoolVar(&p.enableVoid, "void", true, "if false, saves with default flat generator")
 	f.BoolVar(&p.saveImage, "image", false, "saves an png of the map at the end")
+	f.BoolVar(&p.experimentInventory, "inv", false, "enable experimental block inventory saving")
 }
 
 func (c *WorldCMD) Usage() string {
@@ -143,6 +151,7 @@ func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 	w.ServerName = hostname
 	w.withPacks = c.packs
 	w.saveImage = c.saveImage
+	w.experimentInventory = c.experimentInventory
 	w.ctx = ctx
 
 	proxy := utils.NewProxy(logrus.StandardLogger())
@@ -559,6 +568,29 @@ func (w *WorldState) ProcessPacketClient(pk packet.Packet) (packet.Packet, bool)
 	return pk, forward
 }
 
+// stackToItem converts a network ItemStack representation back to an item.Stack.
+func stackToItem(it protocol.ItemStack) item.Stack {
+	t, ok := world.ItemByRuntimeID(it.NetworkID, int16(it.MetadataValue))
+	if !ok {
+		t = block.Air{}
+	}
+	if it.BlockRuntimeID > 0 {
+		// It shouldn't matter if it (for whatever reason) wasn't able to get the block runtime ID,
+		// since on the next line, we assert that the block is an item. If it didn't succeed, it'll
+		// return air anyway.
+		b, _ := world.BlockByRuntimeID(uint32(it.BlockRuntimeID))
+		if t, ok = b.(world.Item); !ok {
+			t = block.Air{}
+		}
+	}
+	//noinspection SpellCheckingInspection
+	if nbter, ok := t.(world.NBTer); ok && len(it.NBTData) != 0 {
+		t = nbter.DecodeNBT(it.NBTData).(world.Item)
+	}
+	s := item.NewStack(t, int(it.Count))
+	return nbtconv.ReadItem(it.NBTData, &s)
+}
+
 func (w *WorldState) ProcessPacketServer(pk packet.Packet) (packet.Packet, bool) {
 	switch pk := pk.(type) {
 	case *packet.ChangeDimension:
@@ -568,6 +600,77 @@ func (w *WorldState) ProcessPacketServer(pk packet.Packet) (packet.Packet, bool)
 		w.proxy.SendPopup(fmt.Sprintf("%d chunks loaded\nname: %s", len(w.chunks), w.WorldName))
 	case *packet.SubChunk:
 		w.ProcessSubChunk(pk)
+	case *packet.ContainerOpen:
+		if w.experimentInventory {
+			// add to open containers
+			existing, ok := w.openItemContainers[pk.WindowID]
+			if !ok {
+				existing = &itemContainer{}
+			}
+			w.openItemContainers[pk.WindowID] = &itemContainer{
+				OpenPacket: pk,
+				Content:    existing.Content,
+			}
+		}
+	case *packet.InventoryContent:
+		if w.experimentInventory {
+			// save content
+			fmt.Printf("WindowID: %d\n", pk.WindowID)
+			existing, ok := w.openItemContainers[byte(pk.WindowID)]
+			if !ok {
+				if pk.WindowID == 0x0 { // inventory
+					w.openItemContainers[byte(pk.WindowID)] = &itemContainer{
+						Content: pk,
+					}
+				}
+				break
+			}
+			existing.Content = pk
+		}
+	case *packet.ContainerClose:
+		if w.experimentInventory {
+			switch pk.WindowID {
+			case protocol.WindowIDArmour: // todo handle
+			case protocol.WindowIDOffHand: // todo handle
+			case protocol.WindowIDUI:
+			case protocol.WindowIDInventory: // todo handle
+			default:
+				// find container info
+				existing, ok := w.openItemContainers[byte(pk.WindowID)]
+				if !ok {
+					logrus.Warn("Closed window that wasnt open")
+					break
+				}
+
+				if existing.Content == nil {
+					break
+				}
+
+				pos := existing.OpenPacket.ContainerPosition
+				cp := protocol.SubChunkPos{pos.X() << 4, pos.Z() << 4}
+
+				// create inventory
+				inv := inventory.New(len(existing.Content.Content), nil)
+				for i, c := range existing.Content.Content {
+					item := stackToItem(c.Stack)
+					inv.SetItem(i, item)
+				}
+
+				// put into subchunk
+				nbts := w.blockNBT[cp]
+				for i, v := range nbts {
+					nbt_pos := protocol.BlockPos{v["x"].(int32), v["y"].(int32), v["z"].(int32)}
+					if nbt_pos == pos {
+						w.blockNBT[cp][i]["Items"] = nbtconv.InvToNBT(inv)
+					}
+				}
+
+				w.proxy.SendMessage("Saved Block Inventory")
+
+				// remove it again
+				delete(w.openItemContainers, byte(pk.WindowID))
+			}
+		}
 	}
 	return pk, true
 }
