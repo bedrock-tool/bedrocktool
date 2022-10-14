@@ -34,7 +34,6 @@ var (
 	G_debug         bool
 	G_preload_packs bool
 	G_interactive   bool
-	G_cleanup_funcs []func() = []func(){}
 )
 
 var A string

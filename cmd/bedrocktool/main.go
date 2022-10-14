@@ -20,13 +20,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func cleanup() {
-	logrus.Info("\nCleaning up\n")
-	for i := len(utils.G_cleanup_funcs) - 1; i >= 0; i-- { // go through cleanup functions reversed
-		utils.G_cleanup_funcs[i]()
-	}
-}
-
 func main() {
 	defer func() {
 		if err := recover(); err != nil {
@@ -111,18 +104,15 @@ func main() {
 	go func() {
 		<-sigs
 		cancel()
-		cleanup()
 	}()
 
-	ret := subcommands.Execute(ctx)
-	cleanup()
+	subcommands.Execute(ctx)
 
 	if utils.G_interactive {
 		logrus.Info("Press Enter to exit.")
 		input := bufio.NewScanner(os.Stdin)
 		input.Scan()
 	}
-	os.Exit(int(ret))
 }
 
 type TransCMD struct {

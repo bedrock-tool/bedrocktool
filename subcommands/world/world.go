@@ -169,6 +169,8 @@ func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 		return pk, nil
 	}
 
+	defer w.SaveAndReset()
+
 	err = proxy.Run(ctx, server_address)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -495,10 +497,6 @@ func (w *WorldState) OnConnect(proxy *utils.ProxyContext) {
 	}
 
 	w.proxy.SendMessage("use /setname <worldname>\nto set the world name")
-
-	utils.G_cleanup_funcs = append(utils.G_cleanup_funcs, func() {
-		w.SaveAndReset()
-	})
 
 	w.ui.Start()
 	go func() { // send map item

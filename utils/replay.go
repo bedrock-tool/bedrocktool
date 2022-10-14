@@ -32,6 +32,7 @@ func create_replay_connection(ctx context.Context, log *logrus.Logger, filename 
 
 	game_started := false
 	for {
+		var magic uint32 = 0
 		var packet_length uint32 = 0
 		var toServer bool = false
 
@@ -41,6 +42,10 @@ func create_replay_connection(ctx context.Context, log *logrus.Logger, filename 
 			return nil
 		}
 
+		binary.Read(f, binary.LittleEndian, &magic)
+		if magic != 0xAAAAAAAA {
+			logrus.Fatal("Wrong Magic")
+		}
 		binary.Read(f, binary.LittleEndian, &packet_length)
 		binary.Read(f, binary.LittleEndian, &toServer)
 		payload := make([]byte, packet_length)
@@ -50,8 +55,14 @@ func create_replay_connection(ctx context.Context, log *logrus.Logger, filename 
 			return nil
 		}
 		if n != int(packet_length) {
-			log.Error("Truncated")
+			log.Errorf("Truncated %d", i)
 			return nil
+		}
+
+		var magic2 uint32
+		binary.Read(f, binary.LittleEndian, &magic2)
+		if magic2 != 0xBBBBBBBB {
+			logrus.Fatal("Wrong Magic2")
 		}
 
 		pk_data, err := minecraft.ParseData(payload, proxy.Server)

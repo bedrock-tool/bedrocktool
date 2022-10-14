@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/utils"
@@ -21,10 +22,20 @@ func init() {
 	utils.RegisterCommand(&CaptureCMD{})
 }
 
+var dump_lock sync.Mutex
+
 func dump_packet(f io.WriteCloser, toServer bool, payload []byte) {
-	binary.Write(f, binary.LittleEndian, uint32(len(payload)))
+	dump_lock.Lock()
+	defer dump_lock.Unlock()
+	f.Write([]byte{0xAA, 0xAA, 0xAA, 0xAA})
+	packet_size := uint32(len(payload))
+	binary.Write(f, binary.LittleEndian, packet_size)
 	binary.Write(f, binary.LittleEndian, toServer)
-	f.Write(payload)
+	_, err := f.Write(payload)
+	if err != nil {
+		logrus.Error(err)
+	}
+	f.Write([]byte{0xBB, 0xBB, 0xBB, 0xBB})
 }
 
 type CaptureCMD struct {
@@ -67,6 +78,7 @@ func (c *CaptureCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interfac
 	}
 
 	err = proxy.Run(ctx, address)
+	time.Sleep(2 * time.Second)
 	if err != nil {
 		logrus.Fatal(err)
 		return 1
