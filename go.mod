@@ -14,7 +14,6 @@ require (
 	github.com/fatih/color v1.13.0
 	github.com/flytam/filenamify v1.1.1
 	github.com/go-gl/mathgl v1.0.0
-	github.com/google/gopacket v1.1.19
 	github.com/google/subcommands v1.2.0
 	github.com/miekg/dns v1.1.50
 	github.com/sanbornm/go-selfupdate v0.0.0-20210106163404-c9b625feac49
@@ -48,7 +47,6 @@ require (
 	golang.org/x/sys v0.0.0-20220928140112-f11e5e49a4ec // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/tools v0.1.12 // indirect
-	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/inconshreveable/go-update.v0 v0.0.0-20150814200126-d8b0b1d421aa // indirect

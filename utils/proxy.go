@@ -157,6 +157,9 @@ var Client_addr net.Addr
 
 func (p *ProxyContext) Run(ctx context.Context, server_address string) (err error) {
 	if strings.HasSuffix(server_address, ".pcap") {
+		return fmt.Errorf("not supported anymore!")
+	}
+	if strings.HasSuffix(server_address, ".pcap2") {
 		return create_replay_connection(ctx, p.log, server_address, p.ConnectCB, p.PacketCB)
 	}
 

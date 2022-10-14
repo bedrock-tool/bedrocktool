@@ -338,7 +338,7 @@ func (w *WorldState) SaveAndReset() {
 
 	// write metadata
 	s := provider.Settings()
-	player := w.proxy.Client.GameData().PlayerPosition
+	player := w.proxy.Server.GameData().PlayerPosition
 	s.Spawn = cube.Pos{
 		int(player.X()),
 		int(player.Y()),

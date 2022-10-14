@@ -1,5 +1,5 @@
 {
     "Replace": {
-        "cmd/bedrocktool/utils/resourcepack.go": "cmd/bedrocktool/utils/resourcepack-ace.go.ignore"
+        "utils/resourcepack.go": "utils/resourcepack-ace.go.ignore"
     }
 }

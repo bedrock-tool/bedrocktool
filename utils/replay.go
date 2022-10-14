@@ -1,80 +1,57 @@
 package utils
 
 import (
-	"bytes"
 	"context"
+	"encoding/binary"
+	"io"
 	"os"
-	"reflect"
-	"time"
-	"unsafe"
 
-	"github.com/google/gopacket/pcapgo"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sirupsen/logrus"
 )
 
-func SetUnexportedField(field reflect.Value, value interface{}) {
-	reflect.NewAt(field.Type(), unsafe.Pointer(field.UnsafeAddr())).
-		Elem().
-		Set(reflect.ValueOf(value))
-}
-
 func create_replay_connection(ctx context.Context, log *logrus.Logger, filename string, onConnect ConnectCallback, packetCB PacketCallback) error {
 	log.Infof("Reading replay %s", filename)
-
-	OLD_BROKEN := false
 
 	f, err := os.Open(filename)
 	if err != nil {
 		return err
 	}
-	reader, err := pcapgo.NewReader(f)
-	if err != nil {
-		return err
+	var size int64
+	{
+		stat, err := f.Stat()
+		if err != nil {
+			return err
+		}
+		size = stat.Size()
 	}
-	// maximum packet size
-	SetUnexportedField(reflect.ValueOf(reader).Elem().Field(5), uint32(0xFFFFFFFF))
 
 	proxy := NewProxy(logrus.StandardLogger())
 	proxy.Server = minecraft.NewConn()
 
-	// on old captures, the packet header is missing
-	var fake_header []byte
-	if OLD_BROKEN {
-		// FOR OLD BROKEN CAPTURES
-		fake_head := packet.Header{
-			PacketID: packet.IDLevelChunk,
-		}
-		fake_header_w := bytes.NewBuffer(nil)
-		fake_head.Write(fake_header_w)
-		fake_header = fake_header_w.Bytes()
-	}
-
 	game_started := false
-
-	start := time.Time{}
 	for {
-		data, ci, err := reader.ReadPacketData()
-		if err != nil {
-			return err
-		}
-		if start.Unix() == 0 {
-			start = ci.Timestamp
-		}
-		if len(data) < 0x14 {
-			continue
+		var packet_length uint32 = 0
+		var toServer bool = false
+
+		offset, _ := f.Seek(0, io.SeekCurrent)
+		if offset == size {
+			log.Info("Reached End")
+			return nil
 		}
 
-		var payload []byte
-		var toServer bool
-		if OLD_BROKEN {
-			payload = append(fake_header, data[0x14:]...)
-			toServer = data[0x10] != 127
-		} else {
-			prefix := data[0:6]
-			payload = data[6:]
-			toServer = bytes.Equal(prefix, []byte("client"))
+		binary.Read(f, binary.LittleEndian, &packet_length)
+		binary.Read(f, binary.LittleEndian, &toServer)
+		payload := make([]byte, packet_length)
+		n, err := f.Read(payload)
+		if err != nil {
+			log.Error(err)
+			return nil
+		}
+		if n != int(packet_length) {
+			log.Error("Truncated")
+			return nil
 		}
 
 		pk_data, err := minecraft.ParseData(payload, proxy.Server)
@@ -88,7 +65,7 @@ func create_replay_connection(ctx context.Context, log *logrus.Logger, filename 
 		}
 
 		for _, pk := range pks {
-			if game_started || OLD_BROKEN {
+			if game_started {
 				if packetCB != nil {
 					packetCB(pk, proxy, toServer)
 				}

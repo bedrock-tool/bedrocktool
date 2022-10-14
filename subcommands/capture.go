@@ -3,16 +3,15 @@ package subcommands
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"flag"
+	"io"
 	"net"
 	"os"
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/utils"
 
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
-	"github.com/google/gopacket/pcapgo"
 	"github.com/google/subcommands"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sirupsen/logrus"
@@ -22,39 +21,10 @@ func init() {
 	utils.RegisterCommand(&CaptureCMD{})
 }
 
-func dump_packet(w *pcapgo.Writer, from_client bool, pk packet.Header, payload []byte) {
-	var err error
-	var prefix []byte
-	if from_client {
-		prefix = []byte("client")
-	} else {
-		prefix = []byte("server")
-	}
-
-	packet_data := bytes.NewBuffer(nil)
-	pk.Write(packet_data)
-	packet_data.Write(payload)
-
-	serialize_buf := gopacket.NewSerializeBuffer()
-	err = gopacket.SerializeLayers(
-		serialize_buf,
-		gopacket.SerializeOptions{},
-		gopacket.Payload(prefix),
-		gopacket.Payload(packet_data.Bytes()),
-	)
-	if err != nil {
-		logrus.Fatal(err)
-	}
-
-	err = w.WritePacket(gopacket.CaptureInfo{
-		Timestamp:      time.Now(),
-		Length:         len(serialize_buf.Bytes()),
-		CaptureLength:  len(serialize_buf.Bytes()),
-		InterfaceIndex: 1,
-	}, serialize_buf.Bytes())
-	if err != nil {
-		logrus.Fatal(err)
-	}
+func dump_packet(f io.WriteCloser, toServer bool, payload []byte) {
+	binary.Write(f, binary.LittleEndian, uint32(len(payload)))
+	binary.Write(f, binary.LittleEndian, toServer)
+	f.Write(payload)
 }
 
 type CaptureCMD struct {
@@ -79,19 +49,21 @@ func (c *CaptureCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interfac
 		return 1
 	}
 
-	fio, err := os.Create(hostname + "-" + time.Now().Format("2006-01-02_15-04-05") + ".pcap")
+	fio, err := os.Create(hostname + "-" + time.Now().Format("2006-01-02_15-04-05") + ".pcap2")
 	if err != nil {
 		logrus.Fatal(err)
 		return 1
 	}
 	defer fio.Close()
-	w := pcapgo.NewWriter(fio)
-	w.WriteFileHeader(65536, layers.LinkTypeEthernet)
 
 	proxy := utils.NewProxy(logrus.StandardLogger())
 	proxy.PacketFunc = func(header packet.Header, payload []byte, src, dst net.Addr) {
 		from_client := src.String() == proxy.Client.LocalAddr().String()
-		dump_packet(w, from_client, header, payload)
+
+		buf := bytes.NewBuffer(nil)
+		header.Write(buf)
+		buf.Write(payload)
+		dump_packet(fio, from_client, buf.Bytes())
 	}
 
 	err = proxy.Run(ctx, address)
