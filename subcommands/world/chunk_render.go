@@ -52,7 +52,7 @@ func chunkGetColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) color.RGBA {
 	p := cube.Pos{int(x), int(y), int(z)}
 	have_up := false
 	p.Side(cube.FaceUp).Neighbours(func(neighbour cube.Pos) {
-		if neighbour.X() < 0 || neighbour.X() >= 16 || neighbour.Z() < 0 || neighbour.Z() >= 16 {
+		if neighbour.X() < 0 || neighbour.X() >= 16 || neighbour.Z() < 0 || neighbour.Z() >= 16 || neighbour.Y() > c.Range().Max() {
 			return
 		}
 		if !have_up {

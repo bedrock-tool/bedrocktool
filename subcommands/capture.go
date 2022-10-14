@@ -18,11 +18,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var (
-	SrcIp_client = net.IPv4(127, 0, 0, 1)
-	SrcIp_server = net.IPv4(243, 0, 0, 2)
-)
-
 func init() {
 	utils.RegisterCommand(&CaptureCMD{})
 }
