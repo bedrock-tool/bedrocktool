@@ -55,7 +55,7 @@ func create_replay_connection(ctx context.Context, log *logrus.Logger, filename 
 			return nil
 		}
 		if n != int(packet_length) {
-			log.Errorf("Truncated %d", i)
+			log.Errorf("Truncated")
 			return nil
 		}
 
