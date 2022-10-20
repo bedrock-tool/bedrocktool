@@ -56,6 +56,7 @@ type WorldState struct {
 	chunks             map[protocol.ChunkPos]*chunk.Chunk
 	blockNBT           map[protocol.SubChunkPos][]map[string]any
 	openItemContainers map[byte]*itemContainer
+	airRid             uint32
 
 	Dim          world.Dimension
 	WorldName    string
@@ -82,6 +83,7 @@ func NewWorldState() *WorldState {
 		Dim:                nil,
 		WorldName:          "world",
 		PlayerPos:          TPlayerPos{},
+		airRid:             6692,
 	}
 	w.ui = NewMapUI(w)
 	return w
@@ -169,13 +171,11 @@ func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 		return pk, nil
 	}
 
-	defer w.SaveAndReset()
-
 	err = proxy.Run(ctx, server_address)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
-		return 1
 	}
+	w.SaveAndReset()
 	return 0
 }
 
@@ -197,7 +197,7 @@ func (w *WorldState) ProcessLevelChunk(pk *packet.LevelChunk) {
 		return
 	}
 
-	ch, blockNBTs, err := chunk.NetworkDecode(6692, pk.RawPayload, int(pk.SubChunkCount), w.Dim.Range(), w.ispre118)
+	ch, blockNBTs, err := chunk.NetworkDecode(w.airRid, pk.RawPayload, int(pk.SubChunkCount), w.Dim.Range(), w.ispre118)
 	if err != nil {
 		logrus.Error(err)
 		return
@@ -308,7 +308,7 @@ func (w *WorldState) Reset() {
 
 // writes the world to a folder, resets all the chunks
 func (w *WorldState) SaveAndReset() {
-	logrus.Infof("Saving world %s", w.WorldName)
+	logrus.Infof("Saving world %s  %d chunks", w.WorldName, len(w.chunks))
 
 	// open world
 	folder := path.Join("worlds", fmt.Sprintf("%s/%s", w.ServerName, w.WorldName))
@@ -461,14 +461,15 @@ func (w *WorldState) OnConnect(proxy *utils.ProxyContext) {
 	w.proxy = proxy
 	gd := w.proxy.Server.GameData()
 
-	/*
-		if len(gd.CustomBlocks) > 0 {
+	if len(gd.CustomBlocks) > 0 {
+		logrus.Info("Using Custom Blocks")
+		/*
 			for _, be := range gd.CustomBlocks {
 				b := block.ServerCustomBlock(be)
 				world.RegisterBlock(b)
 			}
-		}
-	*/
+		*/
+	}
 
 	if w.withPacks {
 		go func() {
@@ -526,7 +527,7 @@ func (w *WorldState) OnConnect(proxy *utils.ProxyContext) {
 					Parameters: []protocol.CommandParameter{
 						{
 							Name:     "name",
-							Type:     protocol.CommandArgTypeFilepath,
+							Type:     protocol.CommandArgTypeString,
 							Optional: false,
 						},
 					},

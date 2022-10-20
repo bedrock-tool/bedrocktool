@@ -3,7 +3,7 @@ module github.com/bedrock-tool/bedrocktool
 go 1.19
 
 //replace github.com/sandertv/gophertunnel => ./gophertunnel
-replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.24.11-1
+replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.24.13-1
 
 //replace github.com/df-mc/dragonfly => ./dragonfly
 replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.8.5-1
@@ -29,7 +29,7 @@ require (
 	github.com/df-mc/atomic v1.10.0 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
-	github.com/google/uuid v1.3.0 // indirect
+	github.com/google/uuid v1.3.0
 	github.com/jinzhu/copier v0.3.5
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
 	github.com/klauspost/compress v1.15.11 // indirect

@@ -4,6 +4,7 @@ token.json
 *.mcpack
 *.zip
 *.pcap
+*.pcap2
 *.bmp
 *.bin
 *.log

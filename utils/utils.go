@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sirupsen/logrus"
 
@@ -81,10 +82,12 @@ func ConnectServer(ctx context.Context, address string, ClientData *login.Client
 
 	logrus.Infof("Connecting to %s\n", address)
 	serverConn, err = minecraft.Dialer{
-		TokenSource:   GetTokenSource(),
-		ClientData:    cd,
-		PacketFunc:    packet_func,
-		DownloadPacks: want_packs,
+		TokenSource: GetTokenSource(),
+		ClientData:  cd,
+		PacketFunc:  packet_func,
+		DownloadResourcePack: func(id uuid.UUID, version string) bool {
+			return want_packs
+		},
 	}.DialContext(ctx, "raknet", address)
 	if err != nil {
 		return nil, err
