@@ -32,7 +32,7 @@ func (c *ChatLogCMD) Usage() string {
 }
 
 func (c *ChatLogCMD) Execute(ctx context.Context, flags *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	address, hostname, err := utils.ServerInput(c.Address)
+	address, hostname, err := utils.ServerInput(ctx, c.Address)
 	if err != nil {
 		logrus.Error(err)
 		return 1

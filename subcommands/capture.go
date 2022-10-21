@@ -54,7 +54,7 @@ func (c *CaptureCMD) Usage() string {
 }
 
 func (c *CaptureCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	address, hostname, err := utils.ServerInput(c.server_address)
+	address, hostname, err := utils.ServerInput(ctx, c.server_address)
 	if err != nil {
 		logrus.Fatal(err)
 		return 1

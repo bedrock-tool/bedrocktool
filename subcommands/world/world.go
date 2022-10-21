@@ -142,7 +142,7 @@ func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 		}()
 	*/
 
-	server_address, hostname, err := utils.ServerInput(c.Address)
+	server_address, hostname, err := utils.ServerInput(ctx, c.Address)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"regexp"
+	"runtime/debug"
 	"syscall"
 
 	"github.com/bedrock-tool/bedrocktool/utils"
@@ -29,6 +29,7 @@ func main() {
 			logrus.Infof("Version: %s", utils.Version)
 			logrus.Infof("Cmdline: %s", os.Args)
 			logrus.Errorf("Error: %s", err)
+			fmt.Println("stacktrace from panic: \n" + string(debug.Stack()))
 			println("--END COPY HERE--")
 			println("")
 			println("if you want to report this error, please open an issue at")
@@ -81,12 +82,11 @@ func main() {
 				}
 				fmt.Printf("Use '%s <command>' to run a command\n", os.Args[0])
 
-				fmt.Printf("Input Command: ")
-				reader := bufio.NewReader(os.Stdin)
-				target, _ := reader.ReadString('\n')
-				r, _ := regexp.Compile(`[\n\r]`)
-				target = string(r.ReplaceAll([]byte(target), []byte("")))
-				os.Args = append(os.Args, target)
+				cmd, cancelled := utils.User_input(ctx, "Input Command: ")
+				if cancelled {
+					return
+				}
+				os.Args = append(os.Args, cmd)
 				utils.G_interactive = true
 			}
 		}
@@ -103,6 +103,7 @@ func main() {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigs
+		println("cancelling")
 		cancel()
 	}()
 

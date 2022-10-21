@@ -29,7 +29,7 @@ func (c *DebugProxyCMD) Usage() string {
 }
 
 func (c *DebugProxyCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	address, _, err := utils.ServerInput(c.Address)
+	address, _, err := utils.ServerInput(ctx, c.Address)
 	if err != nil {
 		logrus.Error(err)
 		return 1

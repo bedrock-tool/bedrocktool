@@ -27,6 +27,18 @@ type Skin struct {
 	protocol.Skin
 }
 
+type SkinMeta struct {
+	SkinID        string
+	PlayFabID     string
+	PremiumSkin   bool
+	PersonaSkin   bool
+	CapeID        string
+	SkinColour    string
+	ArmSize       string
+	Trusted       bool
+	PersonaPieces []protocol.PersonaPiece
+}
+
 // WriteGeometry writes the geometry json for the skin to output_path
 func (skin *Skin) WriteGeometry(output_path string) error {
 	f, err := os.Create(output_path)
@@ -96,17 +108,7 @@ func (skin *Skin) WriteMeta(output_path string) error {
 		return fmt.Errorf("failed to write Tint %s: %s", output_path, err)
 	}
 	defer f.Close()
-	d, err := json.MarshalIndent(struct {
-		SkinID        string
-		PlayFabID     string
-		PremiumSkin   bool
-		PersonaSkin   bool
-		CapeID        string
-		SkinColour    string
-		ArmSize       string
-		Trusted       bool
-		PersonaPieces []protocol.PersonaPiece
-	}{
+	d, err := json.MarshalIndent(SkinMeta{
 		skin.SkinID,
 		skin.PlayFabID,
 		skin.PremiumSkin,
@@ -124,13 +126,17 @@ func (skin *Skin) WriteMeta(output_path string) error {
 	return nil
 }
 
+func (skin *Skin) Complex() bool {
+	have_geometry, have_cape, have_animations, have_tint := len(skin.SkinGeometry) > 0, len(skin.CapeData) > 0, len(skin.Animations) > 0, len(skin.PieceTintColours) > 0
+	return have_geometry || have_cape || have_animations || have_tint
+}
+
 // Write writes all data for this skin to a folder
 func (skin *Skin) Write(output_path, name string) error {
 	name, _ = filenamify.FilenamifyV2(name)
 	skin_dir := path.Join(output_path, name)
 
 	have_geometry, have_cape, have_animations, have_tint := len(skin.SkinGeometry) > 0, len(skin.CapeData) > 0, len(skin.Animations) > 0, len(skin.PieceTintColours) > 0
-
 	os.MkdirAll(skin_dir, 0o755)
 	if have_geometry {
 		if err := skin.WriteGeometry(path.Join(skin_dir, "geometry.json")); err != nil {
@@ -157,17 +163,14 @@ func (skin *Skin) Write(output_path, name string) error {
 		return err
 	}
 
-	return skin.WriteTexture(path.Join(skin_dir, "skin.png"))
+	return skin.WriteTexture(skin_dir + "/skin.png")
 }
 
 // puts the skin at output_path if the filter matches it
 // internally converts the struct so it can use the extra methods
-func write_skin(output_path, name string, skin protocol.Skin, filter string) {
-	if !strings.HasPrefix(name, filter) {
-		return
-	}
+func write_skin(output_path, name string, skin *protocol.Skin) {
 	logrus.Infof("Writing skin for %s\n", name)
-	_skin := &Skin{skin}
+	_skin := &Skin{*skin}
 	if err := _skin.Write(output_path, name); err != nil {
 		fmt.Fprintf(os.Stderr, "Error writing skin: %s\n", err)
 	}
@@ -176,37 +179,73 @@ func write_skin(output_path, name string, skin protocol.Skin, filter string) {
 var (
 	skin_players       = make(map[string]string)
 	skin_player_counts = make(map[string]int)
-	processed_skins    = make(map[string]bool)
 )
 
-func process_packet_skins(conn *minecraft.Conn, out_path string, pk packet.Packet, filter string) {
+func popup_skin_saved(conn *minecraft.Conn, name string) {
+	if conn != nil {
+		(&utils.ProxyContext{Client: conn}).SendPopup(fmt.Sprintf("%s Skin was Saved", name))
+	}
+}
+
+func skin_meta_get_skinid(path string) string {
+	cont, err := os.ReadFile(fmt.Sprintf("%s/metadata.json", path))
+	if err != nil {
+		return ""
+	}
+	var meta SkinMeta
+	if err := json.Unmarshal(cont, &meta); err != nil {
+		return ""
+	}
+	return meta.SkinID
+}
+
+func save_player_skin(conn *minecraft.Conn, out_path, player_name string, skin *protocol.Skin) {
+	count := skin_player_counts[player_name]
+	if count > 0 {
+		meta_id := skin_meta_get_skinid(fmt.Sprintf("%s/%s_%d", out_path, player_name, count-1))
+		if meta_id == skin.SkinID {
+			return // skin same as before
+		}
+	}
+
+	skin_player_counts[player_name]++
+	count++
+	write_skin(out_path, fmt.Sprintf("%s_%d", player_name, count), skin)
+	popup_skin_saved(conn, player_name)
+}
+
+func process_packet_skins(conn *minecraft.Conn, out_path string, pk packet.Packet, filter string, only_if_geom bool) {
 	switch _pk := pk.(type) {
 	case *packet.PlayerSkin:
-		name := skin_players[_pk.UUID.String()]
-		if name == "" {
-			name = _pk.UUID.String()
+		player_name := skin_players[_pk.UUID.String()]
+		if player_name == "" {
+			player_name = _pk.UUID.String()
 		}
-		skin_player_counts[name]++
-		name = fmt.Sprintf("%s_%d", name, skin_player_counts[name])
-		write_skin(out_path, name, _pk.Skin, filter)
+		if !strings.HasPrefix(player_name, filter) {
+			return
+		}
+		if only_if_geom && len(_pk.Skin.SkinGeometry) == 0 {
+			return
+		}
+
+		save_player_skin(conn, out_path, player_name, &_pk.Skin)
 	case *packet.PlayerList:
 		if _pk.ActionType == 1 { // remove
 			return
 		}
 		for _, player := range _pk.Entries {
-			name := utils.CleanupName(player.Username)
-			if name == "" {
-				name = player.UUID.String()
+			player_name := utils.CleanupName(player.Username)
+			if player_name == "" {
+				player_name = player.UUID.String()
 			}
-			if _, ok := processed_skins[name]; ok {
-				continue
+			if !strings.HasPrefix(player_name, filter) {
+				return
 			}
-			write_skin(out_path, name, player.Skin, filter)
-			skin_players[player.UUID.String()] = name
-			processed_skins[name] = true
-			if conn != nil {
-				(&utils.ProxyContext{Client: conn}).SendPopup(fmt.Sprintf("%s Skin was Saved", name))
+			if only_if_geom && len(player.Skin.SkinGeometry) == 0 {
+				return
 			}
+			skin_players[player.UUID.String()] = player_name
+			save_player_skin(conn, out_path, player_name, &player.Skin)
 		}
 	}
 }
@@ -229,7 +268,7 @@ func (c *SkinCMD) Usage() string {
 }
 
 func (c *SkinCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	address, hostname, err := utils.ServerInput(c.server_address)
+	address, hostname, err := utils.ServerInput(ctx, c.server_address)
 	if err != nil {
 		fmt.Fprint(os.Stderr, err)
 		return 1
@@ -259,7 +298,7 @@ func (c *SkinCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}
 		if err != nil {
 			return 1
 		}
-		process_packet_skins(nil, out_path, pk, c.filter)
+		process_packet_skins(nil, out_path, pk, c.filter, false)
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"io"
 	"os"
+	"reflect"
 
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
@@ -31,7 +32,9 @@ func create_replay_connection(ctx context.Context, log *logrus.Logger, filename 
 	proxy.Server = minecraft.NewConn()
 
 	game_started := false
+	i := 0
 	for {
+		i += 1
 		var magic uint32 = 0
 		var packet_length uint32 = 0
 		var toServer bool = false
@@ -55,7 +58,7 @@ func create_replay_connection(ctx context.Context, log *logrus.Logger, filename 
 			return nil
 		}
 		if n != int(packet_length) {
-			log.Errorf("Truncated")
+			log.Errorf("Truncated %d", i)
 			return nil
 		}
 
@@ -76,6 +79,8 @@ func create_replay_connection(ctx context.Context, log *logrus.Logger, filename 
 		}
 
 		for _, pk := range pks {
+			logrus.Printf("%s", reflect.TypeOf(pk).String()[1:])
+
 			if game_started {
 				if packetCB != nil {
 					packetCB(pk, proxy, toServer)

@@ -12,6 +12,25 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+func User_input(ctx context.Context, q string) (string, bool) {
+	c := make(chan string)
+	go func() {
+		fmt.Print(q)
+		reader := bufio.NewReader(os.Stdin)
+		answer, _ := reader.ReadString('\n')
+		r, _ := regexp.Compile(`[\n\r]`)
+		answer = string(r.ReplaceAll([]byte(answer), []byte("")))
+		c <- answer
+	}()
+
+	select {
+	case <-ctx.Done():
+		return "", true
+	case a := <-c:
+		return a, false
+	}
+}
+
 func server_url_to_name(server string) string {
 	host, _, err := net.SplitHostPort(server)
 	if err != nil {
@@ -20,13 +39,13 @@ func server_url_to_name(server string) string {
 	return host
 }
 
-func ServerInput(server string) (address, name string, err error) {
+func ServerInput(ctx context.Context, server string) (address, name string, err error) {
 	if server == "" { // no arg provided, interactive input
-		fmt.Printf("Enter Server: ")
-		reader := bufio.NewReader(os.Stdin)
-		server, _ = reader.ReadString('\n')
-		r, _ := regexp.Compile(`[\n\r]`)
-		server = string(r.ReplaceAll([]byte(server), []byte("")))
+		var cancelled bool
+		server, cancelled = User_input(ctx, "Enter Server: ")
+		if cancelled {
+			return "", "", context.Canceled
+		}
 	}
 
 	if strings.HasPrefix(server, "realm:") { // for realms use api to get ip address
