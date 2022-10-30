@@ -44,8 +44,8 @@ jobs:
       - name: build
         id: build
         run: |
-        make -j dists updates
-        echo "::workflow-command tag=$(git describe --exclude 'r-*' --tags)"
+          make -j dists updates
+          echo "::workflow-command tag=$(git describe --exclude 'r-*' --tags)"
 
       - name: Deploy with rsync
         run: rsync -avz ./public/ olebeck@${{ secrets.SSH_HOST }}:/var/www/updates/bedrocktool/
