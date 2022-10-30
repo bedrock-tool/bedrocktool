@@ -12,9 +12,9 @@ jobs:
         with:
           fetch-depth: 0
       - run: |
-        echo $(git tag -l)
-        git fetch --force --tags
-        echo $(git tag -l)
+          echo $(git tag -l)
+          git fetch --force --tags
+          echo $(git tag -l)
 
       - uses: actions/setup-go@v3
         with:
