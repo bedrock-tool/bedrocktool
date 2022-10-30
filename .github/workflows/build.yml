@@ -11,7 +11,10 @@ jobs:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - run: git fetch --tags && echo $(git tag -l)
+      - run: |
+        echo $(git tag -l)
+        git fetch --force --tags
+        echo $(git tag -l)
 
       - uses: actions/setup-go@v3
         with:
@@ -46,7 +49,7 @@ jobs:
         id: build
         run: |
           make -j dists updates
-          echo "::set-output name=tag::$(git describe --exclude 'r-*' --tags)"
+          echo "::set-output name=tag::$(git describe --exclude 'r-*' --tags --always)"
 
       - name: Deploy with rsync
         run: rsync -avz ./public/ olebeck@${{ secrets.SSH_HOST }}:/var/www/updates/bedrocktool/

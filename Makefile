@@ -1,4 +1,4 @@
-TAG = $(shell git describe --exclude "r-*" --tags)
+TAG = $(shell git describe --exclude "r-*" --tags --always)
 NAME = bedrocktool-${TAG}
 SRCS = $(wildcard **/*.go)
 
