@@ -156,8 +156,6 @@ func NewProxy(log *logrus.Logger) *ProxyContext {
 var Client_addr net.Addr
 
 func (p *ProxyContext) Run(ctx context.Context, server_address string) (err error) {
-	c := make(chan struct{})
-
 	if strings.HasSuffix(server_address, ".pcap") {
 		return fmt.Errorf("not supported anymore")
 	}
@@ -165,100 +163,90 @@ func (p *ProxyContext) Run(ctx context.Context, server_address string) (err erro
 		return create_replay_connection(ctx, p.log, server_address, p.ConnectCB, p.PacketCB)
 	}
 
-	go func() {
-		defer func() { c <- struct{}{} }()
-		GetTokenSource() // ask for login before listening
-		var packs []*resource.Pack
-		if G_preload_packs {
-			p.log.Info("Preloading resourcepacks")
-			var serverConn *minecraft.Conn
-			serverConn, err = ConnectServer(ctx, server_address, nil, true, nil)
-			if err != nil {
-				err = fmt.Errorf("failed to connect to %s: %s", server_address, err)
-				return
-			}
-			serverConn.Close()
-			packs = serverConn.ResourcePacks()
-			p.log.Infof("%d packs loaded", len(packs))
-		}
-
-		_status := minecraft.NewStatusProvider("Server")
-		p.Listener, err = minecraft.ListenConfig{
-			StatusProvider: _status,
-			ResourcePacks:  packs,
-			AcceptedProtocols: []minecraft.Protocol{
-				dummyProto{id: 544, ver: "1.19.20"},
-			},
-		}.Listen("raknet", ":19132")
-		if err != nil {
-			return
-		}
-		defer p.Listener.Close()
-
-		p.log.Infof("Listening on %s", p.Listener.Addr())
-
-		var c net.Conn
-		c, err = p.Listener.Accept()
-		if err != nil {
-			p.log.Fatal(err)
-		}
-		p.Client = c.(*minecraft.Conn)
-
-		cd := p.Client.ClientData()
-		p.Server, err = ConnectServer(ctx, server_address, &cd, false, p.PacketFunc)
+	GetTokenSource() // ask for login before listening
+	var packs []*resource.Pack
+	if G_preload_packs {
+		p.log.Info("Preloading resourcepacks")
+		var serverConn *minecraft.Conn
+		serverConn, err = ConnectServer(ctx, server_address, nil, true, nil)
 		if err != nil {
 			err = fmt.Errorf("failed to connect to %s: %s", server_address, err)
 			return
 		}
-		// spawn and start the game
-		if err = spawn_conn(ctx, p.Client, p.Server); err != nil {
-			err = fmt.Errorf("failed to spawn: %s", err)
+		serverConn.Close()
+		packs = serverConn.ResourcePacks()
+		p.log.Infof("%d packs loaded", len(packs))
+	}
+
+	_status := minecraft.NewStatusProvider("Server")
+	p.Listener, err = minecraft.ListenConfig{
+		StatusProvider: _status,
+		ResourcePacks:  packs,
+		AcceptedProtocols: []minecraft.Protocol{
+			dummyProto{id: 544, ver: "1.19.20"},
+		},
+	}.Listen("raknet", ":19132")
+	if err != nil {
+		return
+	}
+	defer p.Listener.Close()
+
+	p.log.Infof("Listening on %s", p.Listener.Addr())
+
+	var c net.Conn
+	c, err = p.Listener.Accept()
+	if err != nil {
+		p.log.Fatal(err)
+	}
+	p.Client = c.(*minecraft.Conn)
+
+	cd := p.Client.ClientData()
+	p.Server, err = ConnectServer(ctx, server_address, &cd, false, p.PacketFunc)
+	if err != nil {
+		err = fmt.Errorf("failed to connect to %s: %s", server_address, err)
+		return
+	}
+	// spawn and start the game
+	if err = spawn_conn(ctx, p.Client, p.Server); err != nil {
+		err = fmt.Errorf("failed to spawn: %s", err)
+		return
+	}
+
+	defer p.Server.Close()
+	defer p.Listener.Disconnect(p.Client, G_disconnect_reason)
+
+	if p.ConnectCB != nil {
+		p.ConnectCB(p)
+	}
+
+	wg := sync.WaitGroup{}
+	cbs := []PacketCallback{
+		p.CommandHandlerPacketCB,
+	}
+	if p.PacketCB != nil {
+		cbs = append(cbs, p.PacketCB)
+	}
+
+	// server to client
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := proxyLoop(ctx, p, false, cbs); err != nil {
+			p.log.Error(err)
 			return
 		}
-
-		defer p.Server.Close()
-		defer p.Listener.Disconnect(p.Client, G_disconnect_reason)
-
-		if p.ConnectCB != nil {
-			p.ConnectCB(p)
-		}
-
-		wg := sync.WaitGroup{}
-		cbs := []PacketCallback{
-			p.CommandHandlerPacketCB,
-		}
-		if p.PacketCB != nil {
-			cbs = append(cbs, p.PacketCB)
-		}
-
-		// server to client
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if err := proxyLoop(ctx, p, false, cbs); err != nil {
-				p.log.Error(err)
-				return
-			}
-		}()
-
-		// client to server
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if err := proxyLoop(ctx, p, true, cbs); err != nil {
-				p.log.Error(err)
-				return
-			}
-		}()
-
-		wg.Wait()
 	}()
 
-	select {
-	case <-ctx.Done():
-		println("Cancelled")
-		return context.Canceled
-	case <-c:
-		return err
-	}
+	// client to server
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := proxyLoop(ctx, p, true, cbs); err != nil {
+			p.log.Error(err)
+			return
+		}
+	}()
+
+	wg.Wait()
+	return err
 }
