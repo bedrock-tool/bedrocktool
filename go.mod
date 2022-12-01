@@ -3,10 +3,10 @@ module github.com/bedrock-tool/bedrocktool
 go 1.19
 
 //replace github.com/sandertv/gophertunnel => ./gophertunnel
-replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.25.0-1
+replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.26.1
 
 //replace github.com/df-mc/dragonfly => ./dragonfly
-replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.8.5-1
+replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.8.10-1
 
 require (
 	github.com/df-mc/dragonfly v0.8.5
@@ -17,7 +17,7 @@ require (
 	github.com/google/subcommands v1.2.0
 	github.com/miekg/dns v1.1.50
 	github.com/sanbornm/go-selfupdate v0.0.0-20210106163404-c9b625feac49
-	github.com/sandertv/gophertunnel v1.24.11
+	github.com/sandertv/gophertunnel v1.26.0
 	golang.design/x/lockfree v0.0.1
 	golang.org/x/exp v0.0.0-20220930202632-ec3f01382ef9
 	golang.org/x/oauth2 v0.0.0-20220909003341-f21342109be1
