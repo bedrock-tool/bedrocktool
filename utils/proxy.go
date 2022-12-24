@@ -192,6 +192,7 @@ func (p *ProxyContext) Run(ctx context.Context, server_address string) (err erro
 	defer p.Listener.Close()
 
 	p.log.Infof("Listening on %s", p.Listener.Addr())
+	p.log.Infof("Open Minecraft and connect to this computers local ip address to continue")
 
 	var c net.Conn
 	c, err = p.Listener.Accept()

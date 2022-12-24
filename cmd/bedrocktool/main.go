@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime/debug"
+	"strings"
 	"syscall"
 
 	"github.com/bedrock-tool/bedrocktool/utils"
@@ -54,7 +55,7 @@ func main() {
 		logrus.Error(err)
 	}
 
-	if newVersion != "" {
+	if newVersion != "" && utils.Version != "" {
 		logrus.Infof("Update Available: %s", newVersion)
 	}
 
@@ -86,7 +87,8 @@ func main() {
 				if cancelled {
 					return
 				}
-				os.Args = append(os.Args, cmd)
+				_cmd := strings.Split(cmd, " ")
+				os.Args = append(os.Args, _cmd...)
 				utils.G_interactive = true
 			}
 		}
