@@ -32,7 +32,7 @@ failed_to_start_dns:
 suggest_bedrockconnect:
   other: "you may have to use Bedwockconnect"
   
-  invalid_server:
+invalid_server:
   other: "Invalid Sewvew Address"
 enter_server:
   other: "Entew Sewvew: "
@@ -108,7 +108,7 @@ saving_world:
   other: "Saving wowld {{.Name}} with {{.Count}} Chunks"
 unknown_gamerule:
   other: "unknown gamerule: {{.Name}}"
-  adding_pack:
+adding_pack:
   other: "Adding Wewesouwcepack {{.Name}}"
 using_customblocks:
   other: "Using Custowm Blocks"
