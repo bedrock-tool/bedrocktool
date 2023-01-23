@@ -47,19 +47,16 @@ func init() {
 	bundle := i18n.NewBundle(defaultTag)
 	bundle.RegisterUnmarshalFunc("yaml", yaml.Unmarshal)
 
-	if defaultTag != language.English {
+	err = load_language(bundle, defaultTag)
+	if err != nil {
+		//logrus.Warnf("Couldnt load Language %s", languageName)
 		err = load_language(bundle, language.English)
 		if err != nil {
 			logrus.Error("failed to load english language")
 		}
 	}
 
-	err = load_language(bundle, defaultTag)
-	if err != nil {
-		logrus.Warnf("Couldnt load Language %s", languageName)
-	}
-
-	lang = i18n.NewLocalizer(bundle, defaultTag.String(), "en")
+	lang = i18n.NewLocalizer(bundle, "en")
 }
 
 func Loc(id string, tmpl Strmap) string {
