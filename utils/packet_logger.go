@@ -5,6 +5,7 @@ import (
 	"net"
 	"reflect"
 
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/fatih/color"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
@@ -67,7 +68,7 @@ func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
 
 	switch pk := pk.(type) {
 	case *packet.Disconnect:
-		logrus.Infof("Disconnect: %s", pk.Message)
+		logrus.Infof(locale.Loc("disconnect", locale.Strmap{"Pk": pk}))
 	}
 
 	dir_S2C := color.GreenString("S") + "->" + color.CyanString("C")

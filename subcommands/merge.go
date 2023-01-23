@@ -7,8 +7,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
 
+	"github.com/df-mc/dragonfly/server/entity"
 	"github.com/df-mc/dragonfly/server/world/mcdb"
 	"github.com/df-mc/goleveldb/leveldb/opt"
 	"github.com/google/subcommands"
@@ -22,7 +24,7 @@ type MergeCMD struct {
 }
 
 func (*MergeCMD) Name() string     { return "merge" }
-func (*MergeCMD) Synopsis() string { return "merge 2 or more worlds" }
+func (*MergeCMD) Synopsis() string { return locale.Loc("merge_synopsis", nil) }
 
 func (c *MergeCMD) SetFlags(f *flag.FlagSet) {
 	f.BoolVar(&c.legacy, "legacy", false, "if the worlds are before 1.18")
@@ -34,7 +36,7 @@ func (c *MergeCMD) Usage() string {
 
 func (c *MergeCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
 	if f.NArg() == 0 {
-		logrus.Error("you need to specify 1 or more worlds")
+		logrus.Error(locale.Loc("need_to_specify_multiple_worlds", nil))
 		return 1
 	}
 	c.worlds = f.Args()
@@ -42,16 +44,16 @@ func (c *MergeCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 
 	prov_out, err := mcdb.New(logrus.StandardLogger(), out_name, opt.DefaultCompression)
 	if err != nil {
-		logrus.Errorf("failed to open output %s", err)
+		logrus.Errorf(locale.Loc("failed_to_open_output", locale.Strmap{"Err": err}))
 		return 1
 	}
 
 	for i, world_name := range c.worlds {
 		first := i == 0
-		logrus.Infof("Adding %s", world_name)
+		logrus.Infof(locale.Loc("adding_world", locale.Strmap{"World": world_name}))
 		s, err := os.Stat(world_name)
 		if errors.Is(err, os.ErrNotExist) {
-			logrus.Fatalf("%s not found", world_name)
+			logrus.Fatalf(locale.Loc("not_found", locale.Strmap{"Name": world_name}), world_name)
 		}
 		if !s.IsDir() { // if its a zip temporarily unpack it to read it
 			f, _ := os.Open(world_name)
@@ -114,7 +116,7 @@ func (c *MergeCMD) merge_worlds(prov_out *mcdb.Provider, folder string, first bo
 			}
 
 			// entities
-			entities, err := prov_in.LoadEntities(i.P, i.D)
+			entities, err := prov_in.LoadEntities(i.P, i.D, entity.DefaultRegistry)
 			if err != nil {
 				return err
 			}

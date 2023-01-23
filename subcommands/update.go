@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/sirupsen/logrus"
 
@@ -13,7 +14,7 @@ import (
 type UpdateCMD struct{}
 
 func (*UpdateCMD) Name() string     { return "update" }
-func (*UpdateCMD) Synopsis() string { return "self updates to latest version" }
+func (*UpdateCMD) Synopsis() string { return locale.Loc("update_synopsis", nil) }
 
 func (c *UpdateCMD) SetFlags(f *flag.FlagSet) {}
 
@@ -28,17 +29,17 @@ func (c *UpdateCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface
 		return 1
 	}
 	if newVersion == "" {
-		logrus.Info("No Updates available.")
+		logrus.Info(locale.Loc("no_update", nil))
 		return 0
 	}
-	logrus.Infof("Updating to %s", newVersion)
+	logrus.Infof(locale.Loc("updating", locale.Strmap{"Version": newVersion}))
 
 	if err := utils.Updater.Update(); err != nil {
 		logrus.Error(err)
 		return 1
 	}
 
-	logrus.Infof("Updated!")
+	logrus.Infof(locale.Loc("updated", nil))
 	return 0
 }
 

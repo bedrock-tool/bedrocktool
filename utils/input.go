@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/sirupsen/logrus"
 )
 
@@ -34,7 +35,7 @@ func User_input(ctx context.Context, q string) (string, bool) {
 func server_url_to_name(server string) string {
 	host, _, err := net.SplitHostPort(server)
 	if err != nil {
-		logrus.Fatalf("Invalid server: %s", err)
+		logrus.Fatalf(locale.Loc("invalid_server", locale.Strmap{"Err": err.Error()}))
 	}
 	return host
 }
@@ -42,7 +43,7 @@ func server_url_to_name(server string) string {
 func ServerInput(ctx context.Context, server string) (address, name string, err error) {
 	if server == "" { // no arg provided, interactive input
 		var cancelled bool
-		server, cancelled = User_input(ctx, "Enter Server: ")
+		server, cancelled = User_input(ctx, locale.Loc("enter_server", nil))
 		if cancelled {
 			return "", "", context.Canceled
 		}

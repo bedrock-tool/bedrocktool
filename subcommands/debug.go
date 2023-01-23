@@ -5,6 +5,7 @@ import (
 	"flag"
 	"strings"
 
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
 
 	"github.com/google/subcommands"
@@ -17,15 +18,15 @@ type DebugProxyCMD struct {
 }
 
 func (*DebugProxyCMD) Name() string     { return "debug-proxy" }
-func (*DebugProxyCMD) Synopsis() string { return "verbose debug packets" }
+func (*DebugProxyCMD) Synopsis() string { return locale.Loc("debug_proxy_synopsis", nil) }
 
 func (c *DebugProxyCMD) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&c.Address, "address", "", "remote server address")
-	f.StringVar(&c.filter, "filter", "", "packets to not show")
+	f.StringVar(&c.Address, "address", "", locale.Loc("remote_address", nil))
+	f.StringVar(&c.filter, "filter", "", locale.Loc("packet_filter", nil))
 }
 
 func (c *DebugProxyCMD) Usage() string {
-	return c.Name() + ": " + c.Synopsis() + "\n" + utils.SERVER_ADDRESS_HELP
+	return c.Name() + ": " + c.Synopsis() + "\n" + locale.Loc("server_address_help", nil)
 }
 
 func (c *DebugProxyCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
@@ -52,7 +53,7 @@ func (c *DebugProxyCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...inter
 		}
 	}
 
-	proxy := utils.NewProxy(logrus.StandardLogger())
+	proxy := utils.NewProxy()
 	if err := proxy.Run(ctx, address); err != nil {
 		logrus.Error(err)
 		return 1

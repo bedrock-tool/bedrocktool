@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/nbtconv"
 
@@ -121,18 +122,18 @@ type WorldCMD struct {
 }
 
 func (*WorldCMD) Name() string     { return "worlds" }
-func (*WorldCMD) Synopsis() string { return "download a world from a server" }
+func (*WorldCMD) Synopsis() string { return locale.Loc("world_synopsis", nil) }
 
 func (p *WorldCMD) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&p.Address, "address", "", "remote server address")
-	f.BoolVar(&p.packs, "packs", false, "save resourcepacks to the worlds")
-	f.BoolVar(&p.enableVoid, "void", true, "if false, saves with default flat generator")
-	f.BoolVar(&p.saveImage, "image", false, "saves an png of the map at the end")
-	f.BoolVar(&p.experimentInventory, "inv", false, "enable experimental block inventory saving")
+	f.StringVar(&p.Address, "address", "", locale.Loc("remote_address", nil))
+	f.BoolVar(&p.packs, "packs", false, locale.Loc("save_packs_with_world", nil))
+	f.BoolVar(&p.enableVoid, "void", true, locale.Loc("enable_void", nil))
+	f.BoolVar(&p.saveImage, "image", false, locale.Loc("save_image", nil))
+	f.BoolVar(&p.experimentInventory, "inv", false, locale.Loc("test_block_inv", nil))
 }
 
 func (c *WorldCMD) Usage() string {
-	return c.Name() + ": " + c.Synopsis() + "\n" + utils.SERVER_ADDRESS_HELP
+	return c.Name() + ": " + c.Synopsis() + "\n" + locale.Loc("server_address_help", nil)
 }
 
 func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
@@ -144,7 +145,7 @@ func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 
 	server_address, hostname, err := utils.ServerInput(ctx, c.Address)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		logrus.Error(err)
 		return 1
 	}
 
@@ -156,7 +157,7 @@ func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 	w.experimentInventory = c.experimentInventory
 	w.ctx = ctx
 
-	proxy := utils.NewProxy(logrus.StandardLogger())
+	proxy := utils.NewProxy()
 	proxy.ConnectCB = w.OnConnect
 	proxy.PacketCB = func(pk packet.Packet, proxy *utils.ProxyContext, toServer bool) (packet.Packet, error) {
 		var forward bool
@@ -173,7 +174,7 @@ func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 
 	err = proxy.Run(ctx, server_address)
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		logrus.Error(err)
 	}
 	w.SaveAndReset()
 	return 0
@@ -181,13 +182,19 @@ func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 
 func (w *WorldState) setnameCommand(cmdline []string) bool {
 	w.WorldName = strings.Join(cmdline, " ")
-	w.proxy.SendMessage(fmt.Sprintf("worldName is now: %s", w.WorldName))
+	w.proxy.SendMessage(locale.Loc("worldname_set", locale.Strmap{"Name": w.WorldName}))
 	return true
 }
 
 func (w *WorldState) toggleVoid(cmdline []string) bool {
 	w.voidgen = !w.voidgen
-	w.proxy.SendMessage(fmt.Sprintf("using void generator: %t", w.voidgen))
+	var s string
+	if w.voidgen {
+		s = locale.Loc("void_generator_true", nil)
+	} else {
+		s = locale.Loc("void_generator_false", nil)
+	}
+	w.proxy.SendMessage(s)
 	return true
 }
 
@@ -244,7 +251,7 @@ func (w *WorldState) ProcessSubChunk(pk *packet.SubChunk) {
 		)
 		ch := w.chunks[pos]
 		if ch == nil {
-			logrus.Errorf("the server didnt send the chunk before the subchunk!")
+			logrus.Error(locale.Loc("subchunk_before_chunk", nil))
 			continue
 		}
 		blockNBT, err := ch.ApplySubChunkEntry(uint8(abs_y), &sub)
@@ -268,7 +275,7 @@ func (w *WorldState) ProcessSubChunk(pk *packet.SubChunk) {
 func (w *WorldState) ProcessAnimate(pk *packet.Animate) {
 	if pk.ActionType == packet.AnimateActionSwingArm {
 		w.ui.ChangeZoom()
-		w.proxy.SendPopup(fmt.Sprintf("Zoom: %d", w.ui.zoomLevel))
+		w.proxy.SendPopup(locale.Loc("zoom_level", locale.Strmap{"Level": w.ui.zoomLevel}))
 	}
 }
 
@@ -276,7 +283,7 @@ func (w *WorldState) ProcessChangeDimension(pk *packet.ChangeDimension) {
 	if len(w.chunks) > 0 {
 		w.SaveAndReset()
 	} else {
-		logrus.Info("Skipping save because the world didnt contain any chunks.")
+		logrus.Info(locale.Loc("not_saving_empty", nil))
 		w.Reset()
 	}
 	dim_id := pk.Dimension
@@ -308,7 +315,7 @@ func (w *WorldState) Reset() {
 
 // writes the world to a folder, resets all the chunks
 func (w *WorldState) SaveAndReset() {
-	logrus.Infof("Saving world %s  %d chunks", w.WorldName, len(w.chunks))
+	logrus.Infof(locale.Loc("saving_world", locale.Strmap{"Name": w.WorldName, "Count": len(w.chunks)}))
 
 	// open world
 	folder := path.Join("worlds", fmt.Sprintf("%s/%s", w.ServerName, w.WorldName))
@@ -415,7 +422,7 @@ func (w *WorldState) SaveAndReset() {
 			ld.ShowBorderEffect = gr.Value.(bool)
 		// todo
 		default:
-			logrus.Warnf("unknown gamerule: %s\n", gr.Name)
+			logrus.Warnf(locale.Loc("unknown_gamerule", locale.Strmap{"Name": gr.Name}))
 		}
 	}
 
@@ -432,7 +439,7 @@ func (w *WorldState) SaveAndReset() {
 	w.worldCounter += 1
 
 	for k, p := range w.packs {
-		logrus.Infof("Adding resource pack: %s\n", k)
+		logrus.Infof(locale.Loc("adding_pack", locale.Strmap{"Name": k}))
 		pack_folder := path.Join(folder, "resource_packs", k)
 		os.MkdirAll(pack_folder, 0o755)
 		data := make([]byte, p.Len())
@@ -452,7 +459,7 @@ func (w *WorldState) SaveAndReset() {
 	if err := utils.ZipFolder(filename, folder); err != nil {
 		fmt.Println(err)
 	}
-	logrus.Infof("Saved: %s\n", filename)
+	logrus.Infof("Saved: %s", filename)
 	os.RemoveAll(folder)
 	w.Reset()
 }
@@ -462,7 +469,7 @@ func (w *WorldState) OnConnect(proxy *utils.ProxyContext) {
 	gd := w.proxy.Server.GameData()
 
 	if len(gd.CustomBlocks) > 0 {
-		logrus.Info("Using Custom Blocks")
+		logrus.Info(locale.Loc("using_customblocks", nil))
 		/*
 			for _, be := range gd.CustomBlocks {
 				b := block.ServerCustomBlock(be)
@@ -486,18 +493,18 @@ func (w *WorldState) OnConnect(proxy *utils.ProxyContext) {
 			w.ispre118 = ver < 18
 		}
 		if err != nil || len(gv) <= 1 {
-			logrus.Info("couldnt determine game version, assuming > 1.18")
+			logrus.Info(locale.Loc("guessing_version", nil))
 		}
 
 		dim_id := gd.Dimension
 		if w.ispre118 {
-			logrus.Info("using legacy (< 1.18)")
+			logrus.Info(locale.Loc("using_under_118", nil))
 			dim_id += 10
 		}
 		w.Dim = dimension_ids[uint8(dim_id)]
 	}
 
-	w.proxy.SendMessage("use /setname <worldname>\nto set the world name")
+	w.proxy.SendMessage(locale.Loc("use_setname", nil))
 
 	w.ui.Start()
 	go func() { // send map item
@@ -521,7 +528,7 @@ func (w *WorldState) OnConnect(proxy *utils.ProxyContext) {
 		Exec: w.setnameCommand,
 		Cmd: protocol.Command{
 			Name:        "setname",
-			Description: "set user defined name for this world",
+			Description: locale.Loc("setname_desc", nil),
 			Overloads: []protocol.CommandOverload{
 				{
 					Parameters: []protocol.CommandParameter{
@@ -540,7 +547,7 @@ func (w *WorldState) OnConnect(proxy *utils.ProxyContext) {
 		Exec: w.toggleVoid,
 		Cmd: protocol.Command{
 			Name:        "void",
-			Description: "toggle if void generator should be used",
+			Description: locale.Loc("void_desc", nil),
 		},
 	})
 }
@@ -596,7 +603,8 @@ func (w *WorldState) ProcessPacketServer(pk packet.Packet) (packet.Packet, bool)
 		w.ProcessChangeDimension(pk)
 	case *packet.LevelChunk:
 		w.ProcessLevelChunk(pk)
-		w.proxy.SendPopup(fmt.Sprintf("%d chunks loaded\nname: %s", len(w.chunks), w.WorldName))
+
+		w.proxy.SendPopup(locale.Locm("popup_chunk_count", locale.Strmap{"Count": len(w.chunks), "Name": w.WorldName}, len(w.chunks)))
 	case *packet.SubChunk:
 		w.ProcessSubChunk(pk)
 	case *packet.ContainerOpen:
@@ -614,7 +622,6 @@ func (w *WorldState) ProcessPacketServer(pk packet.Packet) (packet.Packet, bool)
 	case *packet.InventoryContent:
 		if w.experimentInventory {
 			// save content
-			fmt.Printf("WindowID: %d\n", pk.WindowID)
 			existing, ok := w.openItemContainers[byte(pk.WindowID)]
 			if !ok {
 				if pk.WindowID == 0x0 { // inventory
@@ -637,7 +644,7 @@ func (w *WorldState) ProcessPacketServer(pk packet.Packet) (packet.Packet, bool)
 				// find container info
 				existing, ok := w.openItemContainers[byte(pk.WindowID)]
 				if !ok {
-					logrus.Warn("Closed window that wasnt open")
+					logrus.Warn(locale.Loc("warn_window_closed_not_open", nil))
 					break
 				}
 
@@ -664,7 +671,7 @@ func (w *WorldState) ProcessPacketServer(pk packet.Packet) (packet.Packet, bool)
 					}
 				}
 
-				w.proxy.SendMessage("Saved Block Inventory")
+				w.proxy.SendMessage(locale.Loc("saved_block_inv", nil))
 
 				// remove it again
 				delete(w.openItemContainers, byte(pk.WindowID))

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
@@ -38,8 +39,6 @@ type ProxyContext struct {
 	Client   *minecraft.Conn
 	Listener *minecraft.Listener
 	commands map[string]IngameCommand
-
-	log *logrus.Logger
 
 	// called for every packet
 	PacketFunc PacketFunc
@@ -143,12 +142,8 @@ func proxyLoop(ctx context.Context, proxy *ProxyContext, toServer bool, packetCB
 	}
 }
 
-func NewProxy(log *logrus.Logger) *ProxyContext {
-	if log == nil {
-		log = logrus.StandardLogger()
-	}
+func NewProxy() *ProxyContext {
 	return &ProxyContext{
-		log:      log,
 		commands: make(map[string]IngameCommand),
 	}
 }
@@ -157,25 +152,25 @@ var Client_addr net.Addr
 
 func (p *ProxyContext) Run(ctx context.Context, server_address string) (err error) {
 	if strings.HasSuffix(server_address, ".pcap") {
-		return fmt.Errorf("not supported anymore")
+		return fmt.Errorf(locale.Loc("not_supported_anymore", nil))
 	}
 	if strings.HasSuffix(server_address, ".pcap2") {
-		return create_replay_connection(ctx, p.log, server_address, p.ConnectCB, p.PacketCB)
+		return create_replay_connection(ctx, server_address, p.ConnectCB, p.PacketCB)
 	}
 
 	GetTokenSource() // ask for login before listening
 	var packs []*resource.Pack
 	if G_preload_packs {
-		p.log.Info("Preloading resourcepacks")
+		logrus.Info(locale.Loc("preloading_packs", nil))
 		var serverConn *minecraft.Conn
 		serverConn, err = ConnectServer(ctx, server_address, nil, true, nil)
 		if err != nil {
-			err = fmt.Errorf("failed to connect to %s: %s", server_address, err)
+			err = fmt.Errorf(locale.Loc("failed_to_connect", locale.Strmap{"Address": server_address, "Err": err}))
 			return
 		}
 		serverConn.Close()
 		packs = serverConn.ResourcePacks()
-		p.log.Infof("%d packs loaded", len(packs))
+		logrus.Infof(locale.Locm("pack_count_loaded", locale.Strmap{"Count": len(packs)}, len(packs)))
 	}
 
 	_status := minecraft.NewStatusProvider("Server")
@@ -191,25 +186,25 @@ func (p *ProxyContext) Run(ctx context.Context, server_address string) (err erro
 	}
 	defer p.Listener.Close()
 
-	p.log.Infof("Listening on %s", p.Listener.Addr())
-	p.log.Infof("Open Minecraft and connect to this computers local ip address to continue")
+	logrus.Infof(locale.Loc("listening_on", locale.Strmap{"Address": p.Listener.Addr()}))
+	logrus.Infof(locale.Loc("help_connect", nil))
 
 	var c net.Conn
 	c, err = p.Listener.Accept()
 	if err != nil {
-		p.log.Fatal(err)
+		logrus.Fatal(err)
 	}
 	p.Client = c.(*minecraft.Conn)
 
 	cd := p.Client.ClientData()
 	p.Server, err = ConnectServer(ctx, server_address, &cd, false, p.PacketFunc)
 	if err != nil {
-		err = fmt.Errorf("failed to connect to %s: %s", server_address, err)
+		err = fmt.Errorf(locale.Loc("failed_to_connect", locale.Strmap{"Address": server_address, "Err": err}))
 		return
 	}
 	// spawn and start the game
 	if err = spawn_conn(ctx, p.Client, p.Server); err != nil {
-		err = fmt.Errorf("failed to spawn: %s", err)
+		err = fmt.Errorf(locale.Loc("failed_to_spawn", locale.Strmap{"Err": err}))
 		return
 	}
 
@@ -233,7 +228,7 @@ func (p *ProxyContext) Run(ctx context.Context, server_address string) (err erro
 	go func() {
 		defer wg.Done()
 		if err := proxyLoop(ctx, p, false, cbs); err != nil {
-			p.log.Error(err)
+			logrus.Error(err)
 			return
 		}
 	}()
@@ -243,7 +238,7 @@ func (p *ProxyContext) Run(ctx context.Context, server_address string) (err erro
 	go func() {
 		defer wg.Done()
 		if err := proxyLoop(ctx, p, true, cbs); err != nil {
-			p.log.Error(err)
+			logrus.Error(err)
 			return
 		}
 	}()

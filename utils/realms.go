@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/google/subcommands"
 	"github.com/sandertv/gophertunnel/minecraft/realms"
 	"github.com/sirupsen/logrus"
@@ -35,7 +36,7 @@ func get_realm(ctx context.Context, api *realms.Client, realm_name, id string) (
 type RealmListCMD struct{}
 
 func (*RealmListCMD) Name() string     { return "list-realms" }
-func (*RealmListCMD) Synopsis() string { return "prints all realms you have access to" }
+func (*RealmListCMD) Synopsis() string { return locale.Loc("list_realms_synopsis", nil) }
 
 func (c *RealmListCMD) SetFlags(f *flag.FlagSet) {}
 func (c *RealmListCMD) Usage() string {
@@ -50,7 +51,7 @@ func (c *RealmListCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interf
 		return 1
 	}
 	for _, realm := range realms {
-		fmt.Printf("Name: %s\tid: %d\n", realm.Name, realm.ID)
+		fmt.Println(locale.Loc("realm_list_line", locale.Strmap{"Name": realm.Name, "Id": realm.ID}))
 	}
 	return 0
 }

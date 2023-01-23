@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"image"
@@ -13,6 +14,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
 
 	"github.com/flytam/filenamify"
@@ -43,7 +45,7 @@ type SkinMeta struct {
 func (skin *Skin) WriteGeometry(output_path string) error {
 	f, err := os.Create(output_path)
 	if err != nil {
-		return fmt.Errorf("failed to write Geometry %s: %s", output_path, err)
+		return errors.New(locale.Loc("failed_write", locale.Strmap{"Part": "Geometry", "Path": output_path, "Err": err}))
 	}
 	defer f.Close()
 	io.Copy(f, bytes.NewReader(skin.SkinGeometry))
@@ -54,14 +56,14 @@ func (skin *Skin) WriteGeometry(output_path string) error {
 func (skin *Skin) WriteCape(output_path string) error {
 	f, err := os.Create(output_path)
 	if err != nil {
-		return fmt.Errorf("failed to write Cape %s: %s", output_path, err)
+		return errors.New(locale.Loc("failed_write", locale.Strmap{"Part": "Cape", "Path": output_path, "Err": err}))
 	}
 	defer f.Close()
 	cape_tex := image.NewRGBA(image.Rect(0, 0, int(skin.CapeImageWidth), int(skin.CapeImageHeight)))
 	cape_tex.Pix = skin.CapeData
 
 	if err := png.Encode(f, cape_tex); err != nil {
-		return fmt.Errorf("error writing skin: %s", err)
+		return fmt.Errorf(locale.Loc("failed_write", locale.Strmap{"Part": "Cape", "Err": err}))
 	}
 	return nil
 }
@@ -76,14 +78,14 @@ func (skin *Skin) WriteAnimations(output_path string) error {
 func (skin *Skin) WriteTexture(output_path string) error {
 	f, err := os.Create(output_path)
 	if err != nil {
-		return fmt.Errorf("error writing Texture: %s", err)
+		return errors.New(locale.Loc("failed_write", locale.Strmap{"Part": "Meta", "Path": output_path, "Err": err}))
 	}
 	defer f.Close()
 	skin_tex := image.NewRGBA(image.Rect(0, 0, int(skin.SkinImageWidth), int(skin.SkinImageHeight)))
 	skin_tex.Pix = skin.SkinData
 
 	if err := png.Encode(f, skin_tex); err != nil {
-		return fmt.Errorf("error writing Texture: %s", err)
+		return errors.New(locale.Loc("failed_write", locale.Strmap{"Part": "Texture", "Path": output_path, "Err": err}))
 	}
 	return nil
 }
@@ -91,13 +93,13 @@ func (skin *Skin) WriteTexture(output_path string) error {
 func (skin *Skin) WriteTint(output_path string) error {
 	f, err := os.Create(output_path)
 	if err != nil {
-		return fmt.Errorf("failed to write Tint %s: %s", output_path, err)
+		return errors.New(locale.Loc("failed_write", locale.Strmap{"Part": "Tint", "Path": output_path, "Err": err}))
 	}
 	defer f.Close()
 
 	err = json.NewEncoder(f).Encode(skin.PieceTintColours)
 	if err != nil {
-		return fmt.Errorf("failed to write Tint %s: %s", output_path, err)
+		return errors.New(locale.Loc("failed_write", locale.Strmap{"Part": "Tint", "Path": output_path, "Err": err}))
 	}
 	return nil
 }
@@ -105,7 +107,7 @@ func (skin *Skin) WriteTint(output_path string) error {
 func (skin *Skin) WriteMeta(output_path string) error {
 	f, err := os.Create(output_path)
 	if err != nil {
-		return fmt.Errorf("failed to write Tint %s: %s", output_path, err)
+		return errors.New(locale.Loc("failed_write", locale.Strmap{"Part": "Meta", "Path": output_path, "Err": err}))
 	}
 	defer f.Close()
 	d, err := json.MarshalIndent(SkinMeta{
@@ -169,10 +171,10 @@ func (skin *Skin) Write(output_path, name string) error {
 // puts the skin at output_path if the filter matches it
 // internally converts the struct so it can use the extra methods
 func write_skin(output_path, name string, skin *protocol.Skin) {
-	logrus.Infof("Writing skin for %s\n", name)
+	logrus.Infof("Writing skin for %s", name)
 	_skin := &Skin{*skin}
 	if err := _skin.Write(output_path, name); err != nil {
-		fmt.Fprintf(os.Stderr, "Error writing skin: %s\n", err)
+		logrus.Errorf("Error writing skin: %s", err)
 	}
 }
 
@@ -256,27 +258,27 @@ type SkinCMD struct {
 }
 
 func (*SkinCMD) Name() string     { return "skins" }
-func (*SkinCMD) Synopsis() string { return "download all skins from players on a server" }
+func (*SkinCMD) Synopsis() string { return locale.Loc("skins_synopsis", nil) }
 
 func (c *SkinCMD) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&c.server_address, "address", "", "remote server address")
-	f.StringVar(&c.filter, "filter", "", "player name filter prefix")
+	f.StringVar(&c.server_address, "address", "", locale.Loc("remote_address", nil))
+	f.StringVar(&c.filter, "filter", "", locale.Loc("name_prefix", nil))
 }
 
 func (c *SkinCMD) Usage() string {
-	return c.Name() + ": " + c.Synopsis() + "\n"
+	return c.Name() + ": " + c.Synopsis() + "\n" + locale.Loc("server_address_help", nil)
 }
 
 func (c *SkinCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
 	address, hostname, err := utils.ServerInput(ctx, c.server_address)
 	if err != nil {
-		fmt.Fprint(os.Stderr, err)
+		logrus.Error(err)
 		return 1
 	}
 
 	serverConn, err := utils.ConnectServer(ctx, address, nil, false, nil)
 	if err != nil {
-		fmt.Fprint(os.Stderr, err)
+		logrus.Error(err)
 		return 1
 	}
 	defer serverConn.Close()
@@ -284,12 +286,12 @@ func (c *SkinCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}
 	out_path := fmt.Sprintf("skins/%s", hostname)
 
 	if err := serverConn.DoSpawnContext(ctx); err != nil {
-		fmt.Fprint(os.Stderr, err)
+		logrus.Error(err)
 		return 1
 	}
 
-	logrus.Info("Connected")
-	logrus.Info("Press ctrl+c to exit")
+	logrus.Info(locale.Loc("connected", nil))
+	logrus.Info(locale.Loc("ctrl_c_to_exit", nil))
 
 	os.MkdirAll(out_path, 0o755)
 

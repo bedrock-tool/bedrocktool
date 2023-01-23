@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
 
 	"github.com/google/subcommands"
@@ -20,7 +21,7 @@ type ChatLogCMD struct {
 }
 
 func (*ChatLogCMD) Name() string     { return "chat-log" }
-func (*ChatLogCMD) Synopsis() string { return "logs chat to a file" }
+func (*ChatLogCMD) Synopsis() string { return locale.Loc("chat_log_synopsis", nil) }
 
 func (c *ChatLogCMD) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.Address, "address", "", "remote server address")
@@ -28,7 +29,7 @@ func (c *ChatLogCMD) SetFlags(f *flag.FlagSet) {
 }
 
 func (c *ChatLogCMD) Usage() string {
-	return c.Name() + ": " + c.Synopsis() + "\n" + utils.SERVER_ADDRESS_HELP
+	return c.Name() + ": " + c.Synopsis() + "\n" + locale.Loc("server_address_help", nil)
 }
 
 func (c *ChatLogCMD) Execute(ctx context.Context, flags *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
@@ -45,7 +46,7 @@ func (c *ChatLogCMD) Execute(ctx context.Context, flags *flag.FlagSet, _ ...inte
 	}
 	defer f.Close()
 
-	proxy := utils.NewProxy(logrus.StandardLogger())
+	proxy := utils.NewProxy()
 	proxy.PacketCB = func(pk packet.Packet, proxy *utils.ProxyContext, toServer bool) (packet.Packet, error) {
 		if text, ok := pk.(*packet.Text); ok {
 			logLine := text.Message

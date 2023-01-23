@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
 
 	"github.com/google/subcommands"
@@ -43,14 +44,14 @@ type CaptureCMD struct {
 }
 
 func (*CaptureCMD) Name() string     { return "capture" }
-func (*CaptureCMD) Synopsis() string { return "capture packets in a pcap file" }
+func (*CaptureCMD) Synopsis() string { return locale.Loc("capture_synopsis", nil) }
 
 func (p *CaptureCMD) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&p.server_address, "address", "", "remote server address")
 }
 
 func (c *CaptureCMD) Usage() string {
-	return c.Name() + ": " + c.Synopsis() + "\n" + utils.SERVER_ADDRESS_HELP
+	return c.Name() + ": " + c.Synopsis() + "\n" + locale.Loc("server_address_help", nil)
 }
 
 func (c *CaptureCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
@@ -67,7 +68,7 @@ func (c *CaptureCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interfac
 	}
 	defer fio.Close()
 
-	proxy := utils.NewProxy(logrus.StandardLogger())
+	proxy := utils.NewProxy()
 	proxy.PacketFunc = func(header packet.Header, payload []byte, src, dst net.Addr) {
 		from_client := src.String() == proxy.Client.LocalAddr().String()
 

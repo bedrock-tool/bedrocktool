@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/miekg/dns"
 	"github.com/sirupsen/logrus"
 )
@@ -88,12 +89,12 @@ func InitDNS() {
 
 	server := &dns.Server{Addr: ":53", Net: "udp"}
 	go func() {
-		logrus.Infof("Starting dns at %s:53\n", GetLocalIP())
+		logrus.Infof(locale.Loc("starting_dns", locale.Strmap{"Ip": GetLocalIP()}))
 		err := server.ListenAndServe()
 		defer server.Shutdown()
 		if err != nil {
-			logrus.Warnf("Failed to start dns server: %s\n ", err.Error())
-			logrus.Info("you may have to use bedrockconnect")
+			logrus.Warnf(locale.Loc("failed_to_start_dns", locale.Strmap{"Err": err.Error()}))
+			logrus.Info(locale.Loc("suggest_bedrockconnect", nil))
 		}
 	}()
 }

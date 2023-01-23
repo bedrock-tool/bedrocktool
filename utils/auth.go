@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/sandertv/gophertunnel/minecraft/auth"
 	"github.com/sandertv/gophertunnel/minecraft/realms"
 	"github.com/sirupsen/logrus"
@@ -25,7 +26,7 @@ func GetTokenSource() oauth2.TokenSource {
 		panic(err)
 	}
 	if !token.Valid() {
-		logrus.Info("Refreshed token")
+		logrus.Info(locale.Loc("refreshed_token", nil))
 		write_token(new_token)
 	}
 

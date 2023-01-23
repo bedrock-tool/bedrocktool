@@ -11,6 +11,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
 
 	_ "github.com/bedrock-tool/bedrocktool/subcommands"
@@ -24,19 +25,16 @@ import (
 func main() {
 	defer func() {
 		if err := recover(); err != nil {
-			logrus.Errorf("Fatal Error occurred.")
+			logrus.Errorf(locale.Loc("fatal_error", nil))
 			println("")
 			println("--COPY FROM HERE--")
 			logrus.Infof("Version: %s", utils.Version)
 			logrus.Infof("Cmdline: %s", os.Args)
 			logrus.Errorf("Error: %s", err)
-			fmt.Println("stacktrace from panic: \n" + string(debug.Stack()))
+			println("stacktrace from panic: \n" + string(debug.Stack()))
 			println("--END COPY HERE--")
 			println("")
-			println("if you want to report this error, please open an issue at")
-			println("https://github.com/bedrock-tool/bedrocktool/issues")
-			println("And attach the error info, describe what you did to get this error.")
-			println("Thanks!\n")
+			println(locale.Loc("report_issue", nil))
 			if utils.G_interactive {
 				input := bufio.NewScanner(os.Stdin)
 				input.Scan()
@@ -47,7 +45,7 @@ func main() {
 
 	logrus.SetLevel(logrus.DebugLevel)
 	if utils.Version != "" {
-		logrus.Infof("bedrocktool version: %s", utils.Version)
+		logrus.Infof(locale.Loc("bedrocktool_version", locale.Strmap{"Version": utils.Version}))
 	}
 
 	newVersion, err := utils.Updater.UpdateAvailable()
@@ -56,14 +54,14 @@ func main() {
 	}
 
 	if newVersion != "" && utils.Version != "" {
-		logrus.Infof("Update Available: %s", newVersion)
+		logrus.Infof(locale.Loc("update_available", locale.Strmap{"Version": newVersion}))
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	flag.BoolVar(&utils.G_debug, "debug", false, "debug mode")
-	flag.BoolVar(&utils.G_preload_packs, "preload", false, "preload resourcepacks for proxy")
-	enable_dns := flag.Bool("dns", false, "enable dns server for consoles")
+	flag.BoolVar(&utils.G_debug, "debug", false, locale.Loc("debug_mode", nil))
+	flag.BoolVar(&utils.G_preload_packs, "preload", false, locale.Loc("preload_packs", nil))
+	enable_dns := flag.Bool("dns", false, locale.Loc("enable_dns", nil))
 
 	subcommands.Register(subcommands.HelpCommand(), "")
 	subcommands.ImportantFlag("debug")
@@ -77,13 +75,13 @@ func main() {
 			case <-ctx.Done():
 				return
 			default:
-				fmt.Println("Available commands:")
+				fmt.Println(locale.Loc("available_commands", nil))
 				for name, desc := range utils.ValidCMDs {
 					fmt.Printf("\t%s\t%s\n", name, desc)
 				}
-				fmt.Printf("Use '%s <command>' to run a command\n", os.Args[0])
+				fmt.Println(locale.Loc("use_to_run_command", nil))
 
-				cmd, cancelled := utils.User_input(ctx, "Input Command: ")
+				cmd, cancelled := utils.User_input(ctx, locale.Loc("input_command", nil))
 				if cancelled {
 					return
 				}
@@ -112,7 +110,7 @@ func main() {
 	subcommands.Execute(ctx)
 
 	if utils.G_interactive {
-		logrus.Info("Press Enter to exit.")
+		logrus.Info(locale.Loc("enter_to_exit", nil))
 		input := bufio.NewScanner(os.Stdin)
 		input.Scan()
 	}
@@ -126,7 +124,7 @@ func (*TransCMD) Name() string     { return "trans" }
 func (*TransCMD) Synopsis() string { return "" }
 
 func (c *TransCMD) SetFlags(f *flag.FlagSet) {
-	f.BoolVar(&c.auth, "auth", false, "if it should login to xbox")
+	f.BoolVar(&c.auth, "auth", false, locale.Loc("should_login_xbox", nil))
 }
 
 func (c *TransCMD) Usage() string {

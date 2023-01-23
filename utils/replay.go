@@ -12,8 +12,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func create_replay_connection(ctx context.Context, log *logrus.Logger, filename string, onConnect ConnectCallback, packetCB PacketCallback) error {
-	log.Infof("Reading replay %s", filename)
+func create_replay_connection(ctx context.Context, filename string, onConnect ConnectCallback, packetCB PacketCallback) error {
+	logrus.Infof("Reading replay %s", filename)
 
 	f, err := os.Open(filename)
 	if err != nil {
@@ -28,7 +28,7 @@ func create_replay_connection(ctx context.Context, log *logrus.Logger, filename 
 		size = stat.Size()
 	}
 
-	proxy := NewProxy(logrus.StandardLogger())
+	proxy := NewProxy()
 	proxy.Server = minecraft.NewConn()
 
 	game_started := false
@@ -41,7 +41,7 @@ func create_replay_connection(ctx context.Context, log *logrus.Logger, filename 
 
 		offset, _ := f.Seek(0, io.SeekCurrent)
 		if offset == size {
-			log.Info("Reached End")
+			logrus.Info("Reached End")
 			return nil
 		}
 
@@ -54,11 +54,11 @@ func create_replay_connection(ctx context.Context, log *logrus.Logger, filename 
 		payload := make([]byte, packet_length)
 		n, err := f.Read(payload)
 		if err != nil {
-			log.Error(err)
+			logrus.Error(err)
 			return nil
 		}
 		if n != int(packet_length) {
-			log.Errorf("Truncated %d", i)
+			logrus.Errorf("Truncated %d", i)
 			return nil
 		}
 
@@ -74,7 +74,7 @@ func create_replay_connection(ctx context.Context, log *logrus.Logger, filename 
 		}
 		pks, err := pk_data.Decode(proxy.Server)
 		if err != nil {
-			log.Error(err)
+			logrus.Error(err)
 			continue
 		}
 

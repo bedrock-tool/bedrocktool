@@ -1,18 +1,15 @@
 package utils
 
 import (
-	"bytes"
-	"compress/gzip"
 	"context"
-	"encoding/base64"
 	"encoding/json"
-	"fmt"
-	"io"
+	"errors"
 	"net"
 	"path"
 	"regexp"
 	"strings"
 
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/google/uuid"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sirupsen/logrus"
@@ -23,28 +20,11 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 )
 
-const SERVER_ADDRESS_HELP = `accepted server address formats:
-  123.234.123.234
-  123.234.123.234:19132
-  realm:<Realmname>
-  realm:<Realmname>:<Id>
-
-`
-
 var (
 	G_debug         bool
 	G_preload_packs bool
 	G_interactive   bool
 )
-
-var A string
-
-func init() {
-	b, _ := base64.RawStdEncoding.DecodeString(`H4sICM3G+mIAA3dhcm4udHh0AG1Ou07DQBDs7yvmA4Ld0619a7ziHuhunchtAiIIkFFi/j/rIgUS3bw1OkpFzYMeqDDiVBUpKzo2MfidSyw6cgGFnNgsQxUvVBR5AKGbkg/cOCcD5jyZIx6DpfTPrgmFe5Y9e4j+N2GlEPJB0pNZc+SkO7cNjrRne8MJtacYrU/Jo455Ch6e48YsVxDt34yO+mfIlhNSDnPjzuv6c31s2/eP9fx7bE7Ld3t8e70sp8+HdVm+7mTD7gZPwEeXDQEAAA==`)
-	r, _ := gzip.NewReader(bytes.NewBuffer(b))
-	d, _ := io.ReadAll(r)
-	A = string(d)
-}
 
 var name_regexp = regexp.MustCompile(`\||(?:§.?)`)
 
@@ -80,7 +60,7 @@ func ConnectServer(ctx context.Context, address string, ClientData *login.Client
 		cd = *ClientData
 	}
 
-	logrus.Infof("Connecting to %s\n", address)
+	logrus.Info(locale.Loc("connecting", locale.Strmap{"Address": address}))
 	serverConn, err = minecraft.Dialer{
 		TokenSource: GetTokenSource(),
 		ClientData:  cd,
@@ -93,7 +73,7 @@ func ConnectServer(ctx context.Context, address string, ClientData *login.Client
 		return nil, err
 	}
 
-	logrus.Debug("Connected.")
+	logrus.Debug(locale.Loc("connected", nil))
 	Client_addr = serverConn.LocalAddr()
 	return serverConn, nil
 }
@@ -112,10 +92,10 @@ func spawn_conn(ctx context.Context, clientConn *minecraft.Conn, serverConn *min
 		select {
 		case err := <-errs:
 			if err != nil {
-				return fmt.Errorf("failed to start game: %s", err)
+				return errors.New(locale.Loc("failed_start_game", locale.Strmap{"Err": err}))
 			}
 		case <-ctx.Done():
-			return fmt.Errorf("connection cancelled")
+			return errors.New(locale.Loc("connection_cancelled", nil))
 		}
 	}
 	return nil
