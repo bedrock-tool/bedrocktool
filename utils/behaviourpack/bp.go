@@ -1,11 +1,11 @@
 package behaviourpack
 
 import (
-	"archive/zip"
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
-	"fmt"
-	"io"
+	"os"
+	"path"
 	"strings"
 
 	"github.com/google/uuid"
@@ -15,7 +15,7 @@ import (
 )
 
 type BehaviourPack struct {
-	manifest *resource.Manifest
+	Manifest *resource.Manifest
 	blocks   []blockBehaviour
 }
 
@@ -42,13 +42,14 @@ func check(err error) {
 }
 
 func rand_seeded_uuid(str string) string {
-	id, _ := uuid.NewRandomFromReader(bytes.NewBufferString(str))
+	h := sha256.Sum256([]byte(str))
+	id, _ := uuid.NewRandomFromReader(bytes.NewBuffer(h[:]))
 	return id.String()
 }
 
 func New(name string) *BehaviourPack {
 	return &BehaviourPack{
-		manifest: &resource.Manifest{
+		Manifest: &resource.Manifest{
 			FormatVersion: 2,
 			Header: resource.Header{
 				Name:               "pack.name",
@@ -85,21 +86,26 @@ func (bp *BehaviourPack) AddBlock(block protocol.BlockEntry) {
 	bp.blocks = append(bp.blocks, entry)
 }
 
-func (bp *BehaviourPack) Save(w io.Writer) {
-	z := zip.NewWriter(w)
-	defer z.Close()
+func (bp *BehaviourPack) Save(fpath string) error {
 	{ // write manifest
-		w, err := z.Create("manifest.json")
-		check(err)
-		check(json.NewEncoder(w).Encode(bp.manifest))
+		w, err := os.Create(path.Join(fpath, "manifest.json"))
+		if err != nil {
+			return err
+		}
+		check(json.NewEncoder(w).Encode(bp.Manifest))
 	}
 	{ // blocks
+		block_dir := path.Join(fpath, "blocks")
+		os.Mkdir(block_dir, 0o755)
 		for _, be := range bp.blocks {
 			ns := strings.Split(be.MinecraftBlock.Description.Identifier, ":")
 			name := ns[len(ns)-1]
-			w, err := z.Create(fmt.Sprintf("blocks/%s.json", name))
-			check(err)
+			w, err := os.Create(path.Join(block_dir, name+".json"))
+			if err != nil {
+				return err
+			}
 			check(json.NewEncoder(w).Encode(be))
 		}
 	}
+	return nil
 }

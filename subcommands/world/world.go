@@ -451,13 +451,10 @@ func (w *WorldState) SaveAndReset() {
 	}
 
 	if w.bp != nil {
-		f, err := os.Create(path.Join(folder, "bp.mcpack"))
-		if err != nil {
-			logrus.Error(err)
-		} else {
-			w.bp.Save(f)
-			f.Close()
-		}
+		name := w.ServerName + "_blocks"
+		pack_folder := path.Join(folder, "behaviour_packs", name)
+		os.MkdirAll(pack_folder, 0o755)
+		w.bp.Save(pack_folder)
 	}
 
 	if w.saveImage {
