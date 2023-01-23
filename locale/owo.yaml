@@ -1,0 +1,187 @@
+bedrocktool_version:
+  other: "Bewdwocktoo Vewsion {{.Version}}"
+available_commands:
+  other: "Avaiwabwu Commands:"
+use_to_run_command:
+  other: "Use 'bewdwocktoo <command>' to wun a command"
+input_command:
+  other: "Input Command: "
+fatal_error:
+  other: "Fatal Ewwow occuwwed."
+report_issue:
+  other: |
+    if you want to weport this ewwow, pwease open an issue at
+    https://github.com/bedwock-tool/bewdwocktoo/issues
+    And attach the ewwow info, describe what you did to get this ewwow.
+    Thanks!
+enter_to_exit:
+  other: "Press Entew to exit."
+should_login_xbox:
+  other: "if it should login to xbox"
+enable_dns:
+  other: "enable dns sewvew for consoles"
+preload_packs:
+  other: "pwewoad wewesouwcepacks for pwoxy"
+debug_mode:
+  other: "debug mode"
+
+starting_dns:
+  other: "Stawting dns at {{.Ip}}:53"
+failed_to_start_dns:
+  other: "Failed to stawt dns sewvew: {{.Err}}"
+suggest_bedrockconnect:
+  other: "you may have to use Bedwockconnect"
+  
+invalid_server:
+  other: "Invalid Sewvew Address"
+enter_server:
+  other: "Entew Sewvew: "
+disconnect:
+  other: "Discownect {{.Pk}}"
+preloading_packs:
+  other: "Pwewoading Wewesouwcepacks"
+failed_to_connect:
+  other: "failed to connect to {{.Address}}: {{.Err}}"
+listening_on:
+  other: "Listening on {{.Address}}"
+connecting:
+  other: "Connecting to {{.Address}}"
+connected:
+  other: "Connected to sewvew."
+connection_cancelled:
+  other: "connection cancelled"
+failed_start_game:
+  other: "failed to stawt game: {{.Err}}"
+help_connect:
+  other: "Open Minecwaft and connect to this computews local ip address to continue"
+failed_to_spawn:
+  other: "Failed to Spawn"
+not_supported_anymore:
+  other: "not supported anymore"
+remote_address:
+  other: "wemote sewvew address"
+ctrl_c_to_exit:
+  other: "Press ctwl+c to exit"
+server_address_help:
+  other: |
+   accepted sewvew address formats:
+    123.234.123.234
+    123.234.123.234:19132
+    wealm:<Wewalmname>
+    wealm:<Wewalmname>:<Id>
+
+realm_list_line:
+  other: "Name: {{.Name}}\tid: {{.Id}}"
+
+failed_to_open_output:
+  other: "Failed to open output"
+adding_world:
+  other: "Adding {{.World}}"
+not_found:
+  other: "{{.World}} Not Found"
+need_to_specify_multiple_worlds:
+  other: "you need to specify mowe than 1 world to merge"
+
+update_available:
+  other: "Update avaiwabwu: {{.Version}}  use the update command to install it."
+no_update:
+  other: "No Updates avaiwabwu."
+updating:
+  other: "Updating to {{.Version}}"
+updated:
+  other: "Updated!"
+
+worldname_set:
+  other: "wowldName is now {{.Name}}"
+void_generator_true:
+  other: "Using Void Genewowator"
+void_generator_false:
+  other: "Not using Void Genewowator"
+subchunk_before_chunk:
+  other: "The sewvew didnt send the chunk befowe the subchunk!"
+zoom_level:
+  other: "Zoom: {{.Level}}"
+not_saving_empty:
+  other: "Skipping save because the wowld didnt contain any chunks."
+saving_world:
+  one: "Saving wowld {{.Name}} with {{.Count}} Chunk"
+  other: "Saving wowld {{.Name}} with {{.Count}} Chunks"
+unknown_gamerule:
+  other: "unknown gamerule: {{.Name}}"
+adding_pack:
+  other: "Adding Wewesouwcepack {{.Name}}"
+using_customblocks:
+  other: "Using Custowm Blocks"
+guessing_version:
+  other: "couldnt detewmine game version, assuming > 1.18"
+use_setname:
+  other: "use /setname <wowldname>\nto set the wowld name"
+using_under_118:
+  other: "using wegacy (< 1.18)"
+setname_desc:
+  other: "set usew defined name for this wowld"
+void_desc:
+  other: "toggwe if void genewowator should be used"
+popup_chunk_count:
+  one: "{{.Count}} Chunk loaded\nName: {{.Name}}"
+  other: "{{.Count}} Chunks loaded\nName: {{.Name}}"
+warn_window_closed_not_open:
+  other: "Closed window that wasnt open"
+saved_block_inv:
+  other: "Saved Bwock Inventory"
+save_packs_with_world:
+  other: "save wewesouwcepacks to the wowlds"
+enable_void:
+  other: "save with void genewowator"
+save_image:
+  other: "saves an png of the map at the end"
+test_block_inv:
+  other: "enable experimental bwock inventory saving"
+
+only_with_geometry:
+  other: "only save skins with geometry"
+name_prefix:
+  other: "only save playews stawting with this"
+failed_write:
+  other: "failed to write {{.Part}} {{.Path}}: {{.Err}}"
+packet_filter:
+  other: "packets to not show"
+
+save_encrypted:
+  other: "save encrypted wewesouwcepacks"
+only_keys:
+  other: "only dump keys, dont decrypt the pack"
+decrypting_packs:
+  other: "Decrypting Wewesouwce Packs"
+no_resourcepacks:
+  other: "No Wewesouwcepack sent"
+writing_keys:
+  other: "Writing keys to {{.Path}}"
+warn_key_exists:
+  other: "key {{.Id}} exists already"
+compare_key:
+  other: "uuid: {{.Id}}, key in db: {{.Prev}} != new key {{.Now}}"
+decrypting:
+  other: "Decrypting..."
+
+
+list_realms_synopsis:
+  other: "pwints all wealms you have access to"
+capture_synopsis:
+  other: "capture packets in a pcap file"
+chat_log_synopsis:
+  other: "logs chat to a file"
+debug_proxy_synopsis:
+  other: "vewbose debug packets"
+merge_synopsis:
+  other: "mewge 2 or mowe wowlds"
+update_synopsis:
+  other: "self updates to latest version"
+skins_proxy_synopsis:
+  other: "download skins from playews on a sewvew with pwoxy"
+skins_synopsis:
+  other: "download skins from playews on a sewvew"
+world_synopsis:
+  other: "download a wowld from a sewvew"
+pack_synopsis:
+  other: "download wewesouwce packs from a sewvew"
