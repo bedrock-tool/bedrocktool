@@ -147,6 +147,24 @@ failed_write:
 packet_filter:
   other: "packets to not show"
 
+save_encrypted:
+  other: "save encrypted resourcepacks"
+only_keys:
+  other: "only dump keys, dont decrypt the pack"
+decrypting_packs:
+  other: "Decrypting Resource Packs"
+no_resourcepacks:
+  other: "No Resourcepack sent"
+writing_keys:
+  other: "Writing keys to {{.Path}}"
+warn_key_exists:
+  other: "key {{.Id}} exists already"
+compare_key:
+  other: "uuid: {{.Id}}, key in db: {{.Prev}} != new key {{.Now}}"
+decrypting:
+  other: "Decrypting..."
+
+
 list_realms_synopsis:
   other: "prints all realms you have access to"
 capture_synopsis:
@@ -165,3 +183,5 @@ skins_synopsis:
   other: "download skins from players on a server"
 world_synopsis:
   other: "download a world from a server"
+pack_synopsis:
+  other: "download resource packs from a server"
