@@ -16,6 +16,7 @@ import (
 
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/behaviourpack"
 	"github.com/bedrock-tool/bedrocktool/utils/nbtconv"
 
 	"github.com/df-mc/dragonfly/server/block"
@@ -64,6 +65,7 @@ type WorldState struct {
 	ServerName   string
 	worldCounter int
 	packs        map[string]*resource.Pack
+	bp           *behaviourpack.BehaviourPack
 
 	withPacks           bool
 	saveImage           bool
@@ -175,8 +177,9 @@ func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 	err = proxy.Run(ctx, server_address)
 	if err != nil {
 		logrus.Error(err)
+	} else {
+		w.SaveAndReset()
 	}
-	w.SaveAndReset()
 	return 0
 }
 
@@ -447,6 +450,16 @@ func (w *WorldState) SaveAndReset() {
 		utils.UnpackZip(bytes.NewReader(data), int64(len(data)), pack_folder)
 	}
 
+	if w.bp != nil {
+		f, err := os.Create(path.Join(folder, "bp.mcpack"))
+		if err != nil {
+			logrus.Error(err)
+		} else {
+			w.bp.Save(f)
+			f.Close()
+		}
+	}
+
 	if w.saveImage {
 		f, _ := os.Create(folder + ".png")
 		png.Encode(f, w.ui.ToImage())
@@ -470,12 +483,13 @@ func (w *WorldState) OnConnect(proxy *utils.ProxyContext) {
 
 	if len(gd.CustomBlocks) > 0 {
 		logrus.Info(locale.Loc("using_customblocks", nil))
-		/*
-			for _, be := range gd.CustomBlocks {
-				b := block.ServerCustomBlock(be)
-				world.RegisterBlock(b)
-			}
-		*/
+
+		w.bp = behaviourpack.New(w.ServerName + " Custom Blocks")
+		for _, be := range gd.CustomBlocks {
+			w.bp.AddBlock(be)
+		}
+		// telling the chunk code what custom blocks there are so it can generate offsets
+		world.InsertCustomBlocks(gd.CustomBlocks)
 	}
 
 	if w.withPacks {

@@ -61,6 +61,7 @@ func main() {
 
 	flag.BoolVar(&utils.G_debug, "debug", false, locale.Loc("debug_mode", nil))
 	flag.BoolVar(&utils.G_preload_packs, "preload", false, locale.Loc("preload_packs", nil))
+	flag.String("lang", "", "lang")
 	enable_dns := flag.Bool("dns", false, locale.Loc("enable_dns", nil))
 
 	subcommands.Register(subcommands.HelpCommand(), "")
