@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/df-mc/dragonfly/server/world"
 	"github.com/google/uuid"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
@@ -21,65 +22,9 @@ type BehaviourPack struct {
 	blocks   []blockBehaviour
 }
 
-type description struct {
-	Identifier             string `json:"identifier"`
-	IsExperimental         bool   `json:"is_experimental"`
-	RegisterToCreativeMenu bool   `json:"register_to_creative_menu"`
-}
-
-type menu_category struct {
-	Category string `json:"category"`
-	Group    string `json:"group"`
-}
-
-func menu_category_from_map(in map[string]any) menu_category {
-	return menu_category{
-		Category: in["category"].(string),
-		Group:    in["group"].(string),
-	}
-}
-
-type permutation struct {
-	Components map[string]any `json:"components"`
-	Condition  string         `json:"condition"`
-}
-
-func permutations_from_list(in []map[string]any) (out []permutation) {
-	for _, v := range in {
-		out = append(out, permutation{
-			Components: v["components"].(map[string]any),
-			Condition:  v["condition"].(string),
-		})
-	}
-	return
-}
-
-type property struct {
-	Enum []any  `json:"enum"`
-	Name string `json:"name"`
-}
-
-func properties_from_list(in []map[string]any) (out []property) {
-	for _, v := range in {
-		out = append(out, property{
-			Enum: v["enum"].([]any),
-			Name: v["name"].(string),
-		})
-	}
-	return
-}
-
-type minecraftBlock struct {
-	Description  description    `json:"description"`
-	Components   map[string]any `json:"components,omitempty"`
-	MenuCategory menu_category  `json:"menu_category,omitempty"`
-	Permutations []permutation  `json:"permutations,omitempty"`
-	Properties   []property     `json:"properties,omitempty"`
-}
-
 type blockBehaviour struct {
-	FormatVersion  string         `json:"format_version"`
-	MinecraftBlock minecraftBlock `json:"minecraft:block"`
+	FormatVersion  string               `json:"format_version"`
+	MinecraftBlock world.MinecraftBlock `json:"minecraft:block"`
 }
 
 func check(err error) {
@@ -127,56 +72,8 @@ func (bp *BehaviourPack) AddDependency(id string, ver [3]int) {
 
 func (bp *BehaviourPack) AddBlock(block protocol.BlockEntry) {
 	entry := blockBehaviour{
-		FormatVersion: "1.16.0",
-		MinecraftBlock: minecraftBlock{
-			Description: description{
-				Identifier:             block.Name,
-				IsExperimental:         true,
-				RegisterToCreativeMenu: true,
-			},
-		},
-	}
-
-	v2 := false
-
-	if perms, ok := block.Properties["permutations"].([]map[string]any); ok {
-		entry.MinecraftBlock.Permutations = permutations_from_list(perms)
-		v2 = true
-	}
-
-	if comps, ok := block.Properties["components"].(map[string]any); ok {
-		delete(comps, "minecraft:creative_category")
-
-		for k, v := range comps {
-			if v, ok := v.(map[string]any); ok {
-				// fix {"value": 0.1} -> 0.1
-				if v, ok := v["value"]; ok {
-					comps[k] = v
-				}
-				// fix {"lightLevel": 15} -> 15
-				if v, ok := v["lightLevel"]; ok {
-					comps[k] = v
-				}
-				// fix missing * instance
-				if k == "minecraft:material_instances" {
-					comps[k] = v["materials"].(map[string]any)
-				}
-			}
-		}
-		entry.MinecraftBlock.Components = comps
-		v2 = true
-	}
-
-	if menu, ok := block.Properties["menu_category"].(map[string]any); ok {
-		entry.MinecraftBlock.MenuCategory = menu_category_from_map(menu)
-		v2 = true
-	}
-	if props, ok := block.Properties["properties"].([]map[string]any); ok {
-		entry.MinecraftBlock.Properties = properties_from_list(props)
-		v2 = true
-	}
-	if !v2 {
-		entry.MinecraftBlock.Components = block.Properties
+		FormatVersion:  "1.16.0",
+		MinecraftBlock: world.ParseBlock(block),
 	}
 
 	bp.blocks = append(bp.blocks, entry)

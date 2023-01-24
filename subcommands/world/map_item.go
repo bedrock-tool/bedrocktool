@@ -25,10 +25,10 @@ var MAP_ITEM_PACKET packet.InventoryContent = packet.InventoryContent{
 	WindowID: 119,
 	Content: []protocol.ItemInstance{
 		{
-			StackNetworkID: 1,
+			StackNetworkID: 1, // random if auth inv
 			Stack: protocol.ItemStack{
 				ItemType: protocol.ItemType{
-					NetworkID:     420,
+					NetworkID:     420, // overwritten in onconnect
 					MetadataValue: 0,
 				},
 				BlockRuntimeID: 0,
@@ -102,7 +102,7 @@ func (m *MapUI) Start() {
 						Width:       128,
 						Height:      128,
 						Pixels:      utils.Img2rgba(m.img),
-						UpdateFlags: 2,
+						UpdateFlags: packet.MapUpdateFlagTexture,
 					}); err != nil {
 						logrus.Error(err)
 						return

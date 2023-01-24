@@ -9,6 +9,7 @@ import (
 	"image"
 	"image/draw"
 	"image/png"
+	"math/rand"
 	"os"
 	"path"
 	"strconv"
@@ -59,7 +60,6 @@ type WorldState struct {
 	chunks             map[protocol.ChunkPos]*chunk.Chunk
 	blockNBT           map[protocol.SubChunkPos][]map[string]any
 	openItemContainers map[byte]*itemContainer
-	airRid             uint32
 
 	Dim          world.Dimension
 	WorldName    string
@@ -87,7 +87,6 @@ func NewWorldState() *WorldState {
 		Dim:                nil,
 		WorldName:          "world",
 		PlayerPos:          TPlayerPos{},
-		airRid:             6692,
 	}
 	w.ui = NewMapUI(w)
 	return w
@@ -209,7 +208,7 @@ func (w *WorldState) ProcessLevelChunk(pk *packet.LevelChunk) {
 		return
 	}
 
-	ch, blockNBTs, err := chunk.NetworkDecode(w.airRid, pk.RawPayload, int(pk.SubChunkCount), w.Dim.Range(), w.ispre118)
+	ch, blockNBTs, err := chunk.NetworkDecode(world.AirRID(), pk.RawPayload, int(pk.SubChunkCount), w.Dim.Range(), w.ispre118)
 	if err != nil {
 		logrus.Error(err)
 		return
@@ -320,6 +319,10 @@ func (w *WorldState) Reset() {
 
 // writes the world to a folder, resets all the chunks
 func (w *WorldState) SaveAndReset() {
+	if len(w.chunks) == 0 {
+		w.Reset()
+		return
+	}
 	logrus.Infof(locale.Loc("saving_world", locale.Strmap{"Name": w.WorldName, "Count": len(w.chunks)}))
 
 	// open world
@@ -492,6 +495,13 @@ func (w *WorldState) SaveAndReset() {
 			PackId:  w.bp.Manifest.Header.UUID,
 			Version: w.bp.Manifest.Header.Version,
 		}})
+
+		if ld.Experiments == nil {
+			ld.Experiments = map[string]any{}
+		}
+		ld.Experiments["data_driven_items"] = true
+		ld.Experiments["experiments_ever_used"] = true
+		ld.Experiments["saved_with_toggled_experiments"] = true
 	}
 
 	if w.saveImage {
@@ -514,6 +524,14 @@ func (w *WorldState) SaveAndReset() {
 func (w *WorldState) OnConnect(proxy *utils.ProxyContext) {
 	w.proxy = proxy
 	gd := w.proxy.Server.GameData()
+
+	world.InsertCustomItems(gd.Items)
+
+	map_item_id, _ := world.ItemRidByName("minecraft:filled_map")
+	MAP_ITEM_PACKET.Content[0].Stack.ItemType.NetworkID = map_item_id
+	if gd.ServerAuthoritativeInventory {
+		MAP_ITEM_PACKET.Content[0].StackNetworkID = rand.Int31n(32)
+	}
 
 	if len(gd.CustomBlocks) > 0 {
 		logrus.Info(locale.Loc("using_customblocks", nil))
@@ -561,11 +579,12 @@ func (w *WorldState) OnConnect(proxy *utils.ProxyContext) {
 		case <-w.ctx.Done():
 			return
 		default:
-			for {
-				time.Sleep(1 * time.Second)
+			t := time.NewTicker(1 * time.Second)
+			for range t.C {
 				if w.proxy.Client != nil {
 					err := w.proxy.Client.WritePacket(&MAP_ITEM_PACKET)
 					if err != nil {
+						logrus.Error(err)
 						return
 					}
 				}
@@ -613,6 +632,44 @@ func (w *WorldState) ProcessPacketClient(pk packet.Packet) (packet.Packet, bool)
 			w.ui.SchedRedraw()
 			forward = false
 		}
+	case *packet.ItemStackRequest:
+		var requests []protocol.ItemStackRequest
+		for _, isr := range pk.Requests {
+			for _, sra := range isr.Actions {
+				if sra, ok := sra.(*protocol.TakeStackRequestAction); ok {
+					if sra.Source.StackNetworkID == MAP_ITEM_PACKET.Content[0].StackNetworkID {
+						continue
+					}
+				}
+				if sra, ok := sra.(*protocol.DropStackRequestAction); ok {
+					if sra.Source.StackNetworkID == MAP_ITEM_PACKET.Content[0].StackNetworkID {
+						continue
+					}
+				}
+				if sra, ok := sra.(*protocol.DestroyStackRequestAction); ok {
+					if sra.Source.StackNetworkID == MAP_ITEM_PACKET.Content[0].StackNetworkID {
+						continue
+					}
+				}
+				if sra, ok := sra.(*protocol.PlaceInContainerStackRequestAction); ok {
+					if sra.Source.StackNetworkID == MAP_ITEM_PACKET.Content[0].StackNetworkID {
+						continue
+					}
+				}
+				if sra, ok := sra.(*protocol.TakeOutContainerStackRequestAction); ok {
+					if sra.Source.StackNetworkID == MAP_ITEM_PACKET.Content[0].StackNetworkID {
+						continue
+					}
+				}
+				if sra, ok := sra.(*protocol.DestroyStackRequestAction); ok {
+					if sra.Source.StackNetworkID == MAP_ITEM_PACKET.Content[0].StackNetworkID {
+						continue
+					}
+				}
+			}
+			requests = append(requests, isr)
+		}
+		pk.Requests = requests
 	case *packet.MobEquipment:
 		if pk.NewItem.Stack.NBTData["map_uuid"] == int64(VIEW_MAP_ID) {
 			forward = false
