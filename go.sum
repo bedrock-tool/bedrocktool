@@ -72,6 +72,8 @@ github.com/olebeck/dragonfly v0.9.1-2 h1:Rry/efQl4ORUakJNTnHCY0vB6AUmZuUpy+PsLSb
 github.com/olebeck/dragonfly v0.9.1-2/go.mod h1:ZjzPME6I1nc73voUgr2s5lpkoTxnWuR54V6c1KbULX0=
 github.com/olebeck/dragonfly v0.9.1-3 h1:ULE04Wx6MzBMuMmjj+xb9VtdYnCRoI6EafOWqcYz1hI=
 github.com/olebeck/dragonfly v0.9.1-3/go.mod h1:ZjzPME6I1nc73voUgr2s5lpkoTxnWuR54V6c1KbULX0=
+github.com/olebeck/dragonfly v0.9.1-4 h1:eHGO1wBiG21cfDFMx3p+oaVV49JxzT1cMwdZOTSupPE=
+github.com/olebeck/dragonfly v0.9.1-4/go.mod h1:ZjzPME6I1nc73voUgr2s5lpkoTxnWuR54V6c1KbULX0=
 github.com/olebeck/gophertunnel v1.26.2 h1:AbiZcmeR5LenSJ5NX/2BPxLC3ddlvgWjrjouPmOB6BA=
 github.com/olebeck/gophertunnel v1.26.2/go.mod h1:dYFetA6r62huhc1EgR9p8VFAFtKOuGgVE/iXf5CzZ4o=
 github.com/onsi/ginkgo v1.6.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=
