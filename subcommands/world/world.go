@@ -3,6 +3,7 @@ package world
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"image"
@@ -452,9 +453,27 @@ func (w *WorldState) SaveAndReset() {
 
 	if w.bp != nil {
 		name := w.ServerName + "_blocks"
-		pack_folder := path.Join(folder, "behaviour_packs", name)
+		pack_folder := path.Join(folder, "behavior_packs", name)
 		os.MkdirAll(pack_folder, 0o755)
 		w.bp.Save(pack_folder)
+		{ // save file saying to load the behavior pack
+			f, err := os.Create(path.Join(folder, "world_behavior_packs.json"))
+			if err != nil {
+				logrus.Error(err)
+			} else {
+				defer f.Close()
+				type dep struct {
+					PackId  string `json:"pack_id"`
+					Version [3]int `json:"version"`
+				}
+				if err := json.NewEncoder(f).Encode([]dep{{
+					PackId:  w.bp.Manifest.Header.UUID,
+					Version: w.bp.Manifest.Header.Version,
+				}}); err != nil {
+					logrus.Error(err)
+				}
+			}
+		}
 	}
 
 	if w.saveImage {
@@ -469,7 +488,7 @@ func (w *WorldState) SaveAndReset() {
 	if err := utils.ZipFolder(filename, folder); err != nil {
 		fmt.Println(err)
 	}
-	logrus.Infof("Saved: %s", filename)
+	logrus.Info(locale.Loc("saved", locale.Strmap{"Name": filename}))
 	os.RemoveAll(folder)
 	w.Reset()
 }
@@ -485,6 +504,7 @@ func (w *WorldState) OnConnect(proxy *utils.ProxyContext) {
 		for _, be := range gd.CustomBlocks {
 			w.bp.AddBlock(be)
 		}
+
 		// telling the chunk code what custom blocks there are so it can generate offsets
 		world.InsertCustomBlocks(gd.CustomBlocks)
 	}

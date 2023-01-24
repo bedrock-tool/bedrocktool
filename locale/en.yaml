@@ -137,6 +137,8 @@ save_image:
   other: "saves an png of the map at the end"
 test_block_inv:
   other: "enable experimental block inventory saving"
+saved:
+  other: "Saved: {{.Name}}"
 
 only_with_geometry:
   other: "only save skins with geometry"

@@ -1,0 +1,188 @@
+bedrocktool_version:
+  other: "Bedrocktool Version {{.Version}}"
+available_commands:
+  other: "Verfügbare Befehle:"
+use_to_run_command:
+  other: "Verwenden Sie 'bedrocktool <Befehl>', um einen Befehl auszuführen"
+input_command:
+  other: "Eingabeaufforderung: "
+fatal_error:
+  other: "Schwerer Fehler aufgetreten."
+report_issue:
+  other: |
+    Wenn Sie diesen Fehler melden möchten, öffnen Sie bitte ein Problem unter
+    https://github.com/bedrock-tool/bedrocktool/issues
+    Und fügen Sie die Fehlerinformationen hinzu, beschreiben Sie, was Sie getan haben, um diesen Fehler zu erhalten.
+    Vielen Dank!
+enter_to_exit:
+  other: "Drücken Sie die Eingabetaste, um das Programm zu beenden."
+should_login_xbox:
+  other: "ob es sich bei Xbox anmelden soll"
+enable_dns:
+  other: "DNS-Server für Konsolen aktivieren"
+preload_packs:
+  other: "Vorladen von Ressourcenpacks für den Proxy"
+debug_mode:
+  other: "Debug-Modus"
+
+starting_dns:
+  other: "Starten des DNS auf {{.Ip}}:53"
+failed_to_start_dns:
+  other: "Fehler beim Starten des DNS-Servers: {{.Err}}"
+suggest_bedrockconnect:
+  other: "Sie müssen möglicherweise Bedrockconnect verwenden"
+
+invalid_server:
+  other: "Ungültige Serveradresse"
+enter_server:
+  other: "Server eingeben: "
+disconnect:
+  other: "Verbindung trennen {{.Pk}}"
+preloading_packs:
+  other: "Ressourcenpacks werden vorgeladen"
+failed_to_connect:
+  other: "Verbindung zu {{.Address}} fehlgeschlagen: {{.Err}}"
+listening_on:
+  other: "Hört auf {{.Address}}"
+connecting:
+  other: "Verbindung wird hergestellt mit {{.Address}}"
+connected:
+  other: "Verbunden mit dem Server."
+connection_cancelled:
+  other: "Verbindung abgebrochen"
+failed_start_game:
+  other: "Das Spiel konnte nicht gestartet werden: {{.Err}}"
+help_connect:
+  other: "Starten Sie Minecraft und verbinden Sie sich mit der lokalen IP-Adresse dieses Computers, um fortzufahren"
+failed_to_spawn:
+  other: "Spawn fehlgeschlagen"
+not_supported_anymore:
+  other: "wird nicht mehr unterstützt"
+remote_address:
+  other: "entfernte Serveradresse"
+ctrl_c_to_exit:
+  other: "Drücken Sie Strg+C, um das Programm zu beenden"
+server_address_help:
+  other: |
+    akzeptierte Serveradressformate:
+      123.234.123.234
+      123.234.123.234:19132
+      realm:<Realmname>
+      realm:<Realmname>:<Id>
+
+realm_list_line:
+  other: "Name: {{.Name}}\tid: {{.Id}}"
+
+failed_to_open_output:
+  other: "Fehler beim Öffnen der Ausgabe"
+adding_world:
+  other: "{{.World}} wird hinzugefügt"
+not_found:
+  other: "{{.World}} nicht gefunden"
+need_to_specify_multiple_worlds:
+  other: "Sie müssen mehr als 1 Welt angeben, um diese zu vereinen"
+
+update_available:
+  other: "Update verfügbar: {{.Version}} Verwenden Sie den Befehl 'update', um es zu installieren."
+no_update:
+  other: "Kein Update verfügbar."
+updating:
+  other: "Aktualisiere auf {{.Version}}"
+updated:
+  other: "Aktualisiert!"
+
+worldname_set:
+  other: "worldName ist jetzt {{.Name}}"
+void_generator_true:
+  other: "Verwende Void Generator"
+void_generator_false:
+  other: "Verwende keinen Void Generator"
+subchunk_before_chunk:
+  other: "Der Server hat den Chunk vor dem Subchunk nicht gesendet!"
+zoom_level:
+  other: "Zoom: {{.Level}}"
+not_saving_empty:
+  other: "Speichern wird übersprungen, da die Welt keine Chunks enthält."
+saving_world:
+  one: "Speichere Welt {{.Name}} mit {{.Count}} Chunk"
+  other: "Speichere Welt {{.Name}} mit {{.Count}} Chunks"
+unknown_gamerule:
+  other: "unbekannte Gamerule: {{.Name}}"
+adding_pack:
+  other: "Füge Resourcepack {{.Name}} hinzu"
+using_customblocks:
+  other: "Verwende Custom Blocks"
+guessing_version:
+  other: "konnte die Spieleversion nicht bestimmen, gehe davon aus, dass es > 1.18 ist"
+use_setname:
+  other: "verwende /setname <worldname>\num den Weltnamen zu setzen"
+using_under_118:
+  other: "verwende legacy (< 1.18)"
+setname_desc:
+  other: "setze benutzerdefinierten Namen für diese Welt"
+void_desc:
+  other: "schalte ein/aus ob der Void Generator verwendet werden soll"
+popup_chunk_count:
+  one: "{{.Count}} Chunk geladen\nName: {{.Name}}"
+  other: "{{.Count}} Chunks geladen\nName: {{.Name}}"
+warn_window_closed_not_open:
+  other: "Schloss Fenster, das nicht geöffnet war"
+saved_block_inv:
+  other: "Blockinventar gespeichert"
+save_packs_with_world:
+  other: "speichere Resourcepacks mit der Welt"
+enable_void:
+  other: "speichere mit Void Generator"
+save_image:
+  other: "speichert am Ende ein PNG der Karte"
+test_block_inv:
+  other: "aktiviere experimentelles Speichern des Blockinventars"
+saved:
+  other: "Gespeichert: {{.Name}}"
+
+only_with_geometry:
+  other: "speichere nur Skins mit Geometrie"
+name_prefix:
+  other: "speichere nur Spieler, die mit diesem beginnen"
+failed_write:
+  other: "Fehler beim Schreiben von {{.Part}} {{.Path}}: {{.Err}}"
+packet_filter:
+  other: "zu ignorierende Pakete"
+
+save_encrypted:
+  other: "speichere verschlüsselte Resourcepacks"
+only_keys:
+  other: "speichere nur Schlüssel, entschlüssel das Pack nicht"
+decrypting_packs:
+  other: "Entschlüsselung der Resource Packs"
+no_resourcepacks:
+  other: "Kein Resourcepack gesendet"
+writing_keys:
+  other: "Schreibe Schlüssel nach {{.Path}}"
+warn_key_exists:
+  other: "Schlüssel {{.Id}} existiert bereits"
+compare_key:
+  other: "uuid: {{.Id}}, Schlüssel in der DB: {{.Prev}} != neuer Schlüssel {{.Now}}"
+decrypting:
+  other: "Entschlüsselung..."
+
+list_realms_synopsis:
+  other: "gibt alle Realm aus, auf die Sie Zugriff haben"
+capture_synopsis:
+  other: "protokolliert Pakete in eine pcap-Datei"
+chat_log_synopsis:
+  other: "protokolliert Chat in eine Datei"
+debug_proxy_synopsis:
+  other: "detaillierte Debug-Pakete"
+merge_synopsis:
+  other: "führt 2 oder mehr Welten zusammen"
+update_synopsis:
+  other: "aktualisiert sich selbst auf die neueste Version"
+skins_proxy_synopsis:
+  other: "lädt Skins von Spielern auf einem Server über einen Proxy herunter"
+skins_synopsis:
+  other: "lädt Skins von Spielern auf einem Server herunter"
+world_synopsis:
+  other: "lädt eine Welt von einem Server herunter"
+pack_synopsis:
+  other: "lädt Resourcepacks von einem Server herunter"

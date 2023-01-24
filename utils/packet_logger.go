@@ -13,7 +13,7 @@ import (
 	"golang.org/x/exp/slices"
 )
 
-var Pool = packet.NewPool()
+var pool = packet.NewPool()
 
 var MutedPackets = []string{
 	"packet.UpdateBlock",
@@ -47,7 +47,7 @@ var ExtraVerbose []string
 
 func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
 	var pk packet.Packet
-	if pkFunc, ok := Pool[header.PacketID]; ok {
+	if pkFunc, ok := pool[header.PacketID]; ok {
 		pk = pkFunc()
 	} else {
 		pk = &packet.Unknown{PacketID: header.PacketID}
