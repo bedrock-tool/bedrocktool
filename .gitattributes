@@ -1,1 +1,1 @@
-utils/resourcepack-ace.go.ignore filter=git-crypt diff=git-crypt
+utils/resourcepack-ace.go filter=git-crypt diff=git-crypt

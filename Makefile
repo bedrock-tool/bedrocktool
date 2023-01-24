@@ -8,12 +8,12 @@ GC = go build -ldflags "-s -w -X github.com/bedrock-tool/bedrocktool/utils.Versi
 
 # check if packs are supported
 HAVE_PACKS = false
-ifeq ($(shell head -c 7 ./utils/resourcepack-ace.go.ignore),package)
+ifeq ($(shell head -c 7 ./utils/resourcepack-ace.go),package)
 HAVE_PACKS = true
 endif
 
 $(info pack support: ${HAVE_PACKS})
-ifeq ($(HAVE_PACKS),true)
+ifneq ($(HAVE_PACKS),true)
 GC += -overlay overlay.json
 endif
 
@@ -45,7 +45,6 @@ $(DISTS): dist builds $(SRCS)
 	$(info building: $@)
 	GOOS=$(OS) GOARCH=$(ARCH) $(GC) -o $(BUILD) ./cmd/bedrocktool
 	cp $(BUILD) $@
-
 
 UPDATES=$(BUILDS)
 $(UPDATES): OS = $(word 1,$(subst _, ,$@))

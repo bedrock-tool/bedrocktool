@@ -161,6 +161,7 @@ func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 	w.ctx = ctx
 
 	proxy := utils.NewProxy()
+	proxy.AlwaysGetPacks = true
 	proxy.ConnectCB = w.OnConnect
 	proxy.PacketCB = func(pk packet.Packet, proxy *utils.ProxyContext, toServer bool) (packet.Packet, error) {
 		var forward bool
@@ -442,38 +443,55 @@ func (w *WorldState) SaveAndReset() {
 	provider.Close()
 	w.worldCounter += 1
 
-	for k, p := range w.packs {
-		logrus.Infof(locale.Loc("adding_pack", locale.Strmap{"Name": k}))
-		pack_folder := path.Join(folder, "resource_packs", k)
-		os.MkdirAll(pack_folder, 0o755)
-		data := make([]byte, p.Len())
-		p.ReadAt(data, 0)
-		utils.UnpackZip(bytes.NewReader(data), int64(len(data)), pack_folder)
+	type dep struct {
+		PackId  string `json:"pack_id"`
+		Version [3]int `json:"version"`
+	}
+	add_packs_json := func(name string, deps []dep) {
+		f, err := os.Create(path.Join(folder, name))
+		if err != nil {
+			logrus.Error(err)
+			return
+		}
+		defer f.Close()
+		if err := json.NewEncoder(f).Encode(deps); err != nil {
+			logrus.Error(err)
+			return
+		}
+	}
+
+	{
+		var rdeps []dep
+		for k, p := range w.packs {
+			logrus.Infof(locale.Loc("adding_pack", locale.Strmap{"Name": k}))
+			pack_folder := path.Join(folder, "resource_packs", k)
+			os.MkdirAll(pack_folder, 0o755)
+			data := make([]byte, p.Len())
+			p.ReadAt(data, 0)
+			utils.UnpackZip(bytes.NewReader(data), int64(len(data)), pack_folder)
+			rdeps = append(rdeps, dep{
+				PackId:  p.Manifest().Header.Name,
+				Version: p.Manifest().Header.Version,
+			})
+		}
+		add_packs_json("world_resource_packs.json", rdeps)
 	}
 
 	if w.bp != nil {
 		name := w.ServerName + "_blocks"
 		pack_folder := path.Join(folder, "behavior_packs", name)
 		os.MkdirAll(pack_folder, 0o755)
-		w.bp.Save(pack_folder)
-		{ // save file saying to load the behavior pack
-			f, err := os.Create(path.Join(folder, "world_behavior_packs.json"))
-			if err != nil {
-				logrus.Error(err)
-			} else {
-				defer f.Close()
-				type dep struct {
-					PackId  string `json:"pack_id"`
-					Version [3]int `json:"version"`
-				}
-				if err := json.NewEncoder(f).Encode([]dep{{
-					PackId:  w.bp.Manifest.Header.UUID,
-					Version: w.bp.Manifest.Header.Version,
-				}}); err != nil {
-					logrus.Error(err)
-				}
-			}
+
+		for _, p := range w.proxy.Server.ResourcePacks() {
+			p := utils.PackFromBase(p)
+			w.bp.CheckAddLink(p)
 		}
+
+		w.bp.Save(pack_folder)
+		add_packs_json("world_behavior_packs.json", []dep{{
+			PackId:  w.bp.Manifest.Header.UUID,
+			Version: w.bp.Manifest.Header.Version,
+		}})
 	}
 
 	if w.saveImage {

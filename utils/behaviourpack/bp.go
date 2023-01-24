@@ -1,6 +1,7 @@
 package behaviourpack
 
 import (
+	"archive/zip"
 	"bytes"
 	"crypto/sha256"
 	"encoding/json"
@@ -8,6 +9,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/google/uuid"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
@@ -157,11 +159,7 @@ func (bp *BehaviourPack) AddBlock(block protocol.BlockEntry) {
 				}
 				// fix missing * instance
 				if k == "minecraft:material_instances" {
-					if mats, ok := v["materials"].(map[string]any); ok {
-						if _, has_star := mats["*"]; !has_star {
-							mats["*"] = mats["east"]
-						}
-					}
+					comps[k] = v["materials"].(map[string]any)
 				}
 			}
 		}
@@ -182,6 +180,19 @@ func (bp *BehaviourPack) AddBlock(block protocol.BlockEntry) {
 	}
 
 	bp.blocks = append(bp.blocks, entry)
+}
+
+func (bp *BehaviourPack) CheckAddLink(pack utils.Pack) {
+	z, err := zip.NewReader(pack, int64(pack.Len()))
+	if err != nil {
+		logrus.Error(err)
+	}
+	_, err = z.Open("blocks.json")
+	if err != nil {
+		return
+	}
+	h := pack.Manifest().Header
+	bp.AddDependency(h.UUID, h.Version)
 }
 
 func (bp *BehaviourPack) Save(fpath string) error {

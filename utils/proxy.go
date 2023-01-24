@@ -35,10 +35,11 @@ func (p dummyProto) ConvertFromLatest(pk packet.Packet, _ *minecraft.Conn) []pac
 }
 
 type ProxyContext struct {
-	Server   *minecraft.Conn
-	Client   *minecraft.Conn
-	Listener *minecraft.Listener
-	commands map[string]IngameCommand
+	Server         *minecraft.Conn
+	Client         *minecraft.Conn
+	Listener       *minecraft.Listener
+	commands       map[string]IngameCommand
+	AlwaysGetPacks bool
 
 	// called for every packet
 	PacketFunc PacketFunc
@@ -197,7 +198,7 @@ func (p *ProxyContext) Run(ctx context.Context, server_address string) (err erro
 	p.Client = c.(*minecraft.Conn)
 
 	cd := p.Client.ClientData()
-	p.Server, err = ConnectServer(ctx, server_address, &cd, false, p.PacketFunc)
+	p.Server, err = ConnectServer(ctx, server_address, &cd, p.AlwaysGetPacks, p.PacketFunc)
 	if err != nil {
 		err = fmt.Errorf(locale.Loc("failed_to_connect", locale.Strmap{"Address": server_address, "Err": err}))
 		return

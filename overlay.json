@@ -1,5 +1,5 @@
 {
     "Replace": {
-        "utils/resourcepack.go": "utils/resourcepack-ace.go.ignore"
+        "utils/resourcepack-ace.go": "utils/dummy"
     }
 }
