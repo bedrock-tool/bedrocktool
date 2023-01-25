@@ -489,7 +489,7 @@ func (w *WorldState) SaveAndReset() {
 	}
 
 	if w.bp != nil {
-		name := w.ServerName + "_blocks"
+		name := strings.ReplaceAll(w.ServerName, "/", "-") + "_blocks"
 		pack_folder := path.Join(folder, "behavior_packs", name)
 		os.MkdirAll(pack_folder, 0o755)
 
