@@ -35,7 +35,7 @@ suggest_bedrockconnect:
 invalid_server:
   other: "Ungültige Serveradresse"
 enter_server:
-  other: "Server eingeben: "
+  other: "Serveradresse eingeben: "
 disconnect:
   other: "Verbindung trennen {{.Pk}}"
 preloading_packs:
@@ -109,9 +109,9 @@ saving_world:
 unknown_gamerule:
   other: "unbekannte Gamerule: {{.Name}}"
 adding_pack:
-  other: "Füge Resourcepack {{.Name}} hinzu"
+  other: "Füge Ressourcenpaket {{.Name}} hinzu"
 using_customblocks:
-  other: "Verwende Custom Blocks"
+  other: "Verwende Benutzerdefinierte Blöcke"
 guessing_version:
   other: "konnte die Spieleversion nicht bestimmen, gehe davon aus, dass es > 1.18 ist"
 use_setname:
@@ -150,13 +150,13 @@ packet_filter:
   other: "zu ignorierende Pakete"
 
 save_encrypted:
-  other: "speichere verschlüsselte Resourcepacks"
+  other: "speichere verschlüsselte Ressourcenpakete"
 only_keys:
-  other: "speichere nur Schlüssel, entschlüssel das Pack nicht"
+  other: "speichere nur Schlüssel, entschlüssel das Ressourcenpaket nicht"
 decrypting_packs:
-  other: "Entschlüsselung der Resource Packs"
+  other: "Entschlüsselung der Ressourcenpakete"
 no_resourcepacks:
-  other: "Kein Resourcepack gesendet"
+  other: "Kein Ressourcenpaket gesendet"
 writing_keys:
   other: "Schreibe Schlüssel nach {{.Path}}"
 warn_key_exists:
@@ -171,7 +171,7 @@ list_realms_synopsis:
 capture_synopsis:
   other: "protokolliert Pakete in eine pcap-Datei"
 chat_log_synopsis:
-  other: "protokolliert Chat in eine Datei"
+  other: "protokolliert den Chat in eine Datei"
 debug_proxy_synopsis:
   other: "detaillierte Debug-Pakete"
 merge_synopsis:
@@ -185,4 +185,4 @@ skins_synopsis:
 world_synopsis:
   other: "lädt eine Welt von einem Server herunter"
 pack_synopsis:
-  other: "lädt Resourcepacks von einem Server herunter"
+  other: "lädt Ressourcenpakete von einem Server herunter"
