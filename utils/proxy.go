@@ -190,6 +190,11 @@ func (p *ProxyContext) Run(ctx context.Context, server_address string) (err erro
 	logrus.Infof(locale.Loc("listening_on", locale.Strmap{"Address": p.Listener.Addr()}))
 	logrus.Infof(locale.Loc("help_connect", nil))
 
+	go func() {
+		<-ctx.Done()
+		p.Listener.Close()
+	}()
+
 	var c net.Conn
 	c, err = p.Listener.Accept()
 	if err != nil {

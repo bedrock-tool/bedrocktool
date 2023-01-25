@@ -63,7 +63,7 @@ func dmp_struct(level int, in any, w_type bool) (s string) {
 		s += "\t"
 	}
 
-	struct_entry := func(ii reflect.Value) {
+	if ii.Kind() == reflect.Struct {
 		s += "{\n"
 		for i := 0; i < ii.NumField(); i++ {
 			field := ii.Type().Field(i)
@@ -75,10 +75,6 @@ func dmp_struct(level int, in any, w_type bool) (s string) {
 			}
 		}
 		s += t_base + "}\n"
-	}
-
-	if ii.Kind() == reflect.Struct {
-		struct_entry(ii)
 	} else if ii.Kind() == reflect.Slice {
 		var t reflect.Type
 		if ii.Len() > 0 {

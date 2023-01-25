@@ -450,6 +450,15 @@ func (w *WorldState) SaveAndReset() {
 		ld.Generator = 2
 	}
 
+	if w.bp != nil {
+		if ld.Experiments == nil {
+			ld.Experiments = map[string]any{}
+		}
+		ld.Experiments["data_driven_items"] = 1
+		ld.Experiments["experiments_ever_used"] = 1
+		ld.Experiments["saved_with_toggled_experiments"] = 1
+	}
+
 	provider.SaveSettings(s)
 	provider.Close()
 	w.worldCounter += 1
@@ -503,13 +512,6 @@ func (w *WorldState) SaveAndReset() {
 			PackId:  w.bp.Manifest.Header.UUID,
 			Version: w.bp.Manifest.Header.Version,
 		}})
-
-		if ld.Experiments == nil {
-			ld.Experiments = map[string]any{}
-		}
-		ld.Experiments["data_driven_items"] = true
-		ld.Experiments["experiments_ever_used"] = true
-		ld.Experiments["saved_with_toggled_experiments"] = true
 	}
 
 	if w.saveImage {
