@@ -2,8 +2,13 @@ package utils
 
 import (
 	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
 	"net"
 	"reflect"
+	"strings"
+	"sync"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/fatih/color"
@@ -44,6 +49,66 @@ var MutedPackets = []string{
 }
 
 var ExtraVerbose []string
+var F_Log io.Writer
+var dmp_lock sync.Mutex
+
+func dmp_struct(level int, in any, w_type bool) (s string) {
+	t_base := strings.Repeat("\t", level)
+
+	ii := reflect.Indirect(reflect.ValueOf(in))
+	if w_type {
+		type_name := reflect.TypeOf(in).String()
+		s += type_name + " "
+	} else {
+		s += "\t"
+	}
+
+	struct_entry := func(ii reflect.Value) {
+		s += "{\n"
+		for i := 0; i < ii.NumField(); i++ {
+			field := ii.Type().Field(i)
+			if field.IsExported() {
+				d := dmp_struct(level+1, ii.Field(i).Interface(), true)
+				s += t_base + fmt.Sprintf("\t%s = %s\n", field.Name, d)
+			} else {
+				s += t_base + "\t" + field.Name + " (unexported)"
+			}
+		}
+		s += t_base + "}\n"
+	}
+
+	if ii.Kind() == reflect.Struct {
+		struct_entry(ii)
+	} else if ii.Kind() == reflect.Slice {
+		var t reflect.Type
+		if ii.Len() > 0 {
+			e := ii.Index(0)
+			t = reflect.TypeOf(e.Interface())
+		}
+		if ii.Len() > 1000 {
+			s += " [<slice too long>]"
+		} else if ii.Len() == 0 || t.Kind() == reflect.Struct {
+			s += "\t[\n"
+			for i := 0; i < ii.Len(); i++ {
+				s += t_base
+				s += dmp_struct(level+1, ii.Index(i).Interface(), false)
+			}
+			s += t_base + "]\n"
+		} else {
+			s += fmt.Sprintf("%#v", ii.Interface())
+		}
+	} else if ii.Kind() == reflect.Map {
+		j, err := json.MarshalIndent(ii.Interface(), t_base, "\t")
+		if err != nil {
+			s += err.Error()
+		}
+		s += string(j)
+	} else {
+		s += fmt.Sprintf(" %#v", ii.Interface())
+	}
+
+	return s
+}
 
 func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
 	var pk packet.Packet
@@ -55,11 +120,18 @@ func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
 
 	defer func() {
 		if recoveredErr := recover(); recoveredErr != nil {
-			logrus.Errorf("%T: %w", pk, recoveredErr.(error))
+			logrus.Errorf("%T: %w", pk, recoveredErr)
 		}
 	}()
 
 	pk.Unmarshal(protocol.NewReader(bytes.NewBuffer(payload), 0))
+
+	if F_Log != nil {
+		dmp_lock.Lock()
+		defer dmp_lock.Unlock()
+		F_Log.Write([]byte(dmp_struct(0, pk, true)))
+		F_Log.Write([]byte("\n\n"))
+	}
 
 	pk_name := reflect.TypeOf(pk).String()[1:]
 	if slices.Contains(MutedPackets, pk_name) {

@@ -175,6 +175,14 @@ func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 		return pk, nil
 	}
 
+	super_verbose_log := false
+	if super_verbose_log {
+		utils.F_Log, err = os.Create("packets.log")
+		if err != nil {
+			logrus.Error(err)
+		}
+	}
+
 	err = proxy.Run(ctx, server_address)
 	if err != nil {
 		logrus.Error(err)

@@ -1,13 +1,15 @@
 package utils
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"io"
+	"net"
 	"os"
-	"reflect"
 
 	"github.com/sandertv/gophertunnel/minecraft"
+	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sirupsen/logrus"
 )
@@ -79,7 +81,11 @@ func create_replay_connection(ctx context.Context, filename string, onConnect Co
 		}
 
 		for _, pk := range pks {
-			logrus.Printf("%s", reflect.TypeOf(pk).String()[1:])
+			f := bytes.NewBuffer(nil)
+			b := protocol.NewWriter(f, 0)
+			pk.Marshal(b)
+
+			PacketLogger(packet.Header{PacketID: pk.ID()}, f.Bytes(), &net.UDPAddr{}, &net.UDPAddr{})
 
 			if game_started {
 				if packetCB != nil {

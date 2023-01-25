@@ -61,7 +61,9 @@ func (c *CaptureCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interfac
 		return 1
 	}
 
-	fio, err := os.Create(hostname + "-" + time.Now().Format("2006-01-02_15-04-05") + ".pcap2")
+	os.Mkdir("captures", 0o775)
+
+	fio, err := os.Create("captures/" + hostname + "-" + time.Now().Format("2006-01-02_15-04-05") + ".pcap2")
 	if err != nil {
 		logrus.Fatal(err)
 		return 1
