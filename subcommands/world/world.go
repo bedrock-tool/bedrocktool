@@ -216,7 +216,7 @@ func (w *WorldState) ProcessLevelChunk(pk *packet.LevelChunk) {
 		return
 	}
 
-	ch, blockNBTs, err := chunk.NetworkDecode(world.AirRID(), pk.RawPayload, int(pk.SubChunkCount), w.Dim.Range(), w.ispre118)
+	ch, blockNBTs, err := chunk.NetworkDecode(world.AirRID(), pk.RawPayload, int(pk.SubChunkCount), w.Dim.Range(), w.ispre118, w.bp != nil)
 	if err != nil {
 		logrus.Error(err)
 		return
@@ -454,9 +454,9 @@ func (w *WorldState) SaveAndReset() {
 		if ld.Experiments == nil {
 			ld.Experiments = map[string]any{}
 		}
-		ld.Experiments["data_driven_items"] = 1
-		ld.Experiments["experiments_ever_used"] = 1
-		ld.Experiments["saved_with_toggled_experiments"] = 1
+		ld.Experiments["data_driven_items"] = true
+		ld.Experiments["experiments_ever_used"] = true
+		ld.Experiments["saved_with_toggled_experiments"] = true
 	}
 
 	provider.SaveSettings(s)
