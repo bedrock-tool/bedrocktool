@@ -21,9 +21,9 @@ import (
 )
 
 var (
-	G_debug         bool
-	G_preload_packs bool
-	G_interactive   bool
+	G_debug         bool // log packet names to console
+	G_preload_packs bool // connect to server to get packs before proxy
+	G_interactive   bool // interactive cli input
 )
 
 var name_regexp = regexp.MustCompile(`\||(?:§.?)`)

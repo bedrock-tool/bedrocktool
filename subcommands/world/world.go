@@ -175,14 +175,6 @@ func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 		return pk, nil
 	}
 
-	super_verbose_log := false
-	if super_verbose_log {
-		utils.F_Log, err = os.Create("packets.log")
-		if err != nil {
-			logrus.Error(err)
-		}
-	}
-
 	err = proxy.Run(ctx, server_address)
 	if err != nil {
 		logrus.Error(err)
@@ -540,7 +532,7 @@ func (w *WorldState) OnConnect(proxy *utils.ProxyContext) {
 	map_item_id, _ := world.ItemRidByName("minecraft:filled_map")
 	MAP_ITEM_PACKET.Content[0].Stack.ItemType.NetworkID = map_item_id
 	if gd.ServerAuthoritativeInventory {
-		MAP_ITEM_PACKET.Content[0].StackNetworkID = rand.Int31n(32)
+		MAP_ITEM_PACKET.Content[0].StackNetworkID = 0xffff + rand.Int31n(0xfff)
 	}
 
 	if len(gd.CustomBlocks) > 0 {

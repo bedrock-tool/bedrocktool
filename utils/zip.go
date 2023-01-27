@@ -9,18 +9,20 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 )
 
 func UnpackZip(r io.ReaderAt, size int64, unpack_folder string) {
 	zr, _ := zip.NewReader(r, size)
 	for _, src_file := range zr.File {
-		out_path := path.Join(unpack_folder, src_file.Name)
+		src_name := strings.ReplaceAll(src_file.Name, "\\", "/")
+		out_path := path.Join(unpack_folder, src_name)
 		if src_file.Mode().IsDir() {
 			os.Mkdir(out_path, 0o755)
 		} else {
 			os.MkdirAll(path.Dir(out_path), 0o755)
 			fr, _ := src_file.Open()
-			f, _ := os.Create(path.Join(unpack_folder, src_file.Name))
+			f, _ := os.Create(path.Join(unpack_folder, src_name))
 			io.Copy(f, fr)
 		}
 	}

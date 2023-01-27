@@ -20,3 +20,5 @@ keys.db
 /dist/
 /public/
 /builds/
+
+packets.log.enc

@@ -14,6 +14,12 @@ report_issue:
     https://github.com/bedwock-tool/bewdwocktoo/issues
     And attach the ewwow info, describe what you did to get this ewwow.
     Thanks!
+used_extra_debug_report:
+  other: |
+    NOTE: you have used extra-debug which creates a packets.log and a packets.log.enc file
+    please if you want to submit an issue only upload the packets.log.enc file.
+    packets.log and packets.log.enc may include account info (never login info) so it is safer to upload the encrypted file.
+    that file can be read by the developer and not by people looking at the public issues page.
 enter_to_exit:
   other: "Press Entew to exit."
 should_login_xbox:

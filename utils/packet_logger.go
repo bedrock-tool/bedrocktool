@@ -49,7 +49,7 @@ var MutedPackets = []string{
 }
 
 var ExtraVerbose []string
-var F_Log io.Writer
+var F_Log io.WriteCloser
 var dmp_lock sync.Mutex
 
 func dmp_struct(level int, in any, w_type bool) (s string) {

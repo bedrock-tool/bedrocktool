@@ -13,6 +13,7 @@ import (
 
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/crypt"
 
 	_ "github.com/bedrock-tool/bedrocktool/subcommands"
 	_ "github.com/bedrock-tool/bedrocktool/subcommands/skins"
@@ -23,6 +24,7 @@ import (
 )
 
 func main() {
+	var extra_debug bool
 	defer func() {
 		if err := recover(); err != nil {
 			logrus.Errorf(locale.Loc("fatal_error", nil))
@@ -35,6 +37,9 @@ func main() {
 			println("--END COPY HERE--")
 			println("")
 			println(locale.Loc("report_issue", nil))
+			if extra_debug {
+				println(locale.Loc("used_extra_debug_report", nil))
+			}
 			if utils.G_interactive {
 				input := bufio.NewScanner(os.Stdin)
 				input.Scan()
@@ -61,6 +66,7 @@ func main() {
 
 	flag.BoolVar(&utils.G_debug, "debug", false, locale.Loc("debug_mode", nil))
 	flag.BoolVar(&utils.G_preload_packs, "preload", false, locale.Loc("preload_packs", nil))
+	flag.BoolVar(&extra_debug, "extra-debug", false, locale.Loc("extra_debug", nil))
 	flag.String("lang", "", "lang")
 	enable_dns := flag.Bool("dns", false, locale.Loc("enable_dns", nil))
 
@@ -99,6 +105,13 @@ func main() {
 		utils.InitDNS()
 	}
 
+	if extra_debug {
+		utils.F_Log, err = os.Create("packets.log")
+		if err != nil {
+			logrus.Error(err)
+		}
+	}
+
 	// exit cleanup
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
@@ -109,6 +122,21 @@ func main() {
 	}()
 
 	subcommands.Execute(ctx)
+
+	// encrypt packet log
+	if extra_debug {
+		data, err := os.ReadFile("packets.log")
+		if err != nil {
+			logrus.Warn(err)
+		} else {
+			enc, err := crypt.Enc("packets.log", data)
+			if err != nil {
+				logrus.Warn(err)
+			} else {
+				os.WriteFile("packets.log.enc", enc, 0o755)
+			}
+		}
+	}
 
 	if utils.G_interactive {
 		logrus.Info(locale.Loc("enter_to_exit", nil))

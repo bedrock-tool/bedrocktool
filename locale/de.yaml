@@ -14,6 +14,12 @@ report_issue:
     https://github.com/bedrock-tool/bedrocktool/issues
     Und fügen Sie die Fehlerinformationen hinzu, beschreiben Sie, was Sie getan haben, um diesen Fehler zu erhalten.
     Vielen Dank!
+used_extra_debug_report:
+  other: |
+    HINWEIS: Sie haben extra-debug verwendet, welches eine packets.log und eine packets.log.enc Datei erstellt.
+    Bitte laden Sie nur die packets.log.enc Datei hoch, wenn Sie ein Problem melden möchten.
+    packets.log und packets.log.enc können Account-Informationen enthalten (nie Login-Informationen), daher ist es sicherer, die verschlüsselte Datei hochzuladen.
+    Diese Datei kann von dem Entwickler gelesen werden, aber nicht von Personen, die die öffentlichen Problemseiten ansehen.
 enter_to_exit:
   other: "Drücken Sie die Eingabetaste, um das Programm zu beenden."
 should_login_xbox:
