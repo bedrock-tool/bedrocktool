@@ -16,9 +16,9 @@ report_issue:
     Vielen Dank!
 used_extra_debug_report:
   other: |
-    HINWEIS: Sie haben extra-debug verwendet, welches eine packets.log und eine packets.log.enc Datei erstellt.
-    Bitte laden Sie nur die packets.log.enc Datei hoch, wenn Sie ein Problem melden möchten.
-    packets.log und packets.log.enc können Account-Informationen enthalten (nie Login-Informationen), daher ist es sicherer, die verschlüsselte Datei hochzuladen.
+    HINWEIS: Sie haben extra-debug verwendet, welches eine packets.log und eine packets.log.gpg Datei erstellt.
+    Bitte laden Sie nur die packets.log.gpg Datei hoch, wenn Sie ein Problem melden möchten.
+    packets.log und packets.log.gpg können Account-Informationen enthalten (nie Login-Informationen), daher ist es sicherer, die verschlüsselte Datei hochzuladen.
     Diese Datei kann von dem Entwickler gelesen werden, aber nicht von Personen, die die öffentlichen Problemseiten ansehen.
 enter_to_exit:
   other: "Drücken Sie die Eingabetaste, um das Programm zu beenden."
@@ -30,6 +30,8 @@ preload_packs:
   other: "Vorladen von Ressourcenpacks für den Proxy"
 debug_mode:
   other: "Debug-Modus"
+refreshed_token:
+  other: Token wurde aktualisiert
 
 starting_dns:
   other: "Starten des DNS auf {{.Ip}}:53"

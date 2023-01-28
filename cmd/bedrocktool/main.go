@@ -5,6 +5,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"runtime/debug"
@@ -106,7 +107,34 @@ func main() {
 	}
 
 	if extra_debug {
-		utils.F_Log, err = os.Create("packets.log")
+		utils.G_debug = true
+
+		var log_plain, log_crypt_enc io.WriteCloser = nil, nil
+
+		// open plain text log
+		log_plain, err = os.Create("packets.log")
+		if err != nil {
+			logrus.Error(err)
+		} else {
+			defer log_plain.Close()
+		}
+
+		// open gpg log
+		log_crypt, err := os.Create("packets.log.gpg")
+		if err != nil {
+			logrus.Error(err)
+		} else {
+			defer log_crypt.Close()
+			// encrypter for the log
+			log_crypt_enc, err = crypt.Encer("packets.log", log_crypt)
+			if err != nil {
+				logrus.Error(err)
+			} else {
+				defer log_crypt_enc.Close()
+			}
+		}
+
+		utils.F_Log = io.MultiWriter(log_plain, log_crypt_enc)
 		if err != nil {
 			logrus.Error(err)
 		}
@@ -122,21 +150,6 @@ func main() {
 	}()
 
 	subcommands.Execute(ctx)
-
-	// encrypt packet log
-	if extra_debug {
-		data, err := os.ReadFile("packets.log")
-		if err != nil {
-			logrus.Warn(err)
-		} else {
-			enc, err := crypt.Enc("packets.log", data)
-			if err != nil {
-				logrus.Warn(err)
-			} else {
-				os.WriteFile("packets.log.enc", enc, 0o755)
-			}
-		}
-	}
 
 	if utils.G_interactive {
 		logrus.Info(locale.Loc("enter_to_exit", nil))

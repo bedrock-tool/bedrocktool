@@ -16,9 +16,9 @@ report_issue:
     Thanks!
 used_extra_debug_report:
   other: |
-    NOTE: you have used extra-debug which creates a packets.log and a packets.log.enc file
-    please if you want to submit an issue only upload the packets.log.enc file.
-    packets.log and packets.log.enc may include account info (never login info) so it is safer to upload the encrypted file.
+    NOTE: you have used extra-debug which creates a packets.log and a packets.log.gpg file
+    please if you want to submit an issue only upload the packets.log.gpg file.
+    packets.log and packets.log.gpg may include account info (never login info) so it is safer to upload the encrypted file.
     that file can be read by the developer and not by people looking at the public issues page.
 enter_to_exit:
   other: "Press Enter to exit."
@@ -30,6 +30,8 @@ preload_packs:
   other: "preload resourcepacks for proxy"
 debug_mode:
   other: "debug mode"
+refreshed_token:
+  other: refreshed token
 
 starting_dns:
   other: "Starting dns at {{.Ip}}:53"

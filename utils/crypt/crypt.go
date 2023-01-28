@@ -3,6 +3,7 @@ package crypt
 import (
 	"bytes"
 	_ "embed"
+	"io"
 	"time"
 
 	"golang.org/x/crypto/openpgp"
@@ -38,4 +39,11 @@ func Enc(name string, data []byte) ([]byte, error) {
 	}
 	wc.Close()
 	return w.Bytes(), nil
+}
+
+func Encer(name string, w io.Writer) (io.WriteCloser, error) {
+	wc, err := openpgp.Encrypt(w, []*openpgp.Entity{recip}, nil, &openpgp.FileHints{
+		IsBinary: true, FileName: name, ModTime: time.Now(),
+	}, nil)
+	return wc, err
 }

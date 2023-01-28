@@ -301,7 +301,12 @@ func (c *SkinCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}
 			return 1
 		}
 		process_packet_skins(nil, out_path, pk, c.filter, false)
+		if ctx.Err() != nil {
+			serverConn.Close()
+			break
+		}
 	}
+	return 0
 }
 
 func init() {

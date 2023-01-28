@@ -21,4 +21,4 @@ keys.db
 /public/
 /builds/
 
-packets.log.enc
+packets.log.gpg
