@@ -9,7 +9,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var override_dns = map[string]bool{
+var overrideDNS = map[string]bool{
 	"geo.hivebedrock.network.": true,
 }
 
@@ -24,15 +24,15 @@ func (d *DNSServer) answerQuery(remote net.Addr, req *dns.Msg) (reply *dns.Msg) 
 		case dns.TypeA:
 			logrus.Infof("Query for %s", q.Name)
 
-			if override_dns[q.Name] {
+			if overrideDNS[q.Name] {
 				host, _, _ := net.SplitHostPort(remote.String())
-				remote_ip := net.ParseIP(host)
+				remoteIP := net.ParseIP(host)
 
 				addrs, _ := net.InterfaceAddrs()
 				var ip string
 				for _, addr := range addrs {
 					if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-						if ipnet.Contains(remote_ip) {
+						if ipnet.Contains(remoteIP) {
 							ip = ipnet.IP.String()
 						}
 					}

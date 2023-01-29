@@ -1,3 +1,4 @@
+// Package utils ...
 package utils
 
 import (
@@ -24,14 +25,14 @@ import (
 )
 
 var (
-	G_debug         bool // log packet names to console
-	G_preload_packs bool // connect to server to get packs before proxy
-	G_interactive   bool // interactive cli input
+	GDebug        bool // log packet names to console
+	GPreloadPacks bool // connect to server to get packs before proxy
+	GInteractive  bool // interactive cli input
 )
 
-var name_regexp = regexp.MustCompile(`\||(?:§.?)`)
+var nameRegexp = regexp.MustCompile(`\||(?:§.?)`)
 
-// cleans name so it can be used as a filename
+// CleanupName cleans name so it can be used as a filename
 func CleanupName(name string) string {
 	name = strings.Split(name, "\n")[0]
 	var _tmp struct {
@@ -41,23 +42,14 @@ func CleanupName(name string) string {
 	if err == nil {
 		name = _tmp.K
 	}
-	name = string(name_regexp.ReplaceAll([]byte(name), []byte("")))
+	name = string(nameRegexp.ReplaceAll([]byte(name), []byte("")))
 	name = strings.TrimSpace(name)
 	return name
 }
 
 // connections
 
-func connectServer(ctx context.Context, address string, ClientData *login.ClientData, want_packs bool, packetFunc PacketFunc) (serverConn *minecraft.Conn, err error) {
-	packet_func := func(header packet.Header, payload []byte, src, dst net.Addr) {
-		if G_debug {
-			PacketLogger(header, payload, src, dst)
-		}
-		if packetFunc != nil {
-			packetFunc(header, payload, src, dst)
-		}
-	}
-
+func connectServer(ctx context.Context, address string, ClientData *login.ClientData, wantPacks bool, packetFunc PacketFunc) (serverConn *minecraft.Conn, err error) {
 	cd := login.ClientData{}
 	if ClientData != nil {
 		cd = *ClientData
@@ -67,9 +59,16 @@ func connectServer(ctx context.Context, address string, ClientData *login.Client
 	serverConn, err = minecraft.Dialer{
 		TokenSource: GetTokenSource(),
 		ClientData:  cd,
-		PacketFunc:  packet_func,
+		PacketFunc: func(header packet.Header, payload []byte, src, dst net.Addr) {
+			if GDebug {
+				PacketLogger(header, payload, src, dst)
+			}
+			if packetFunc != nil {
+				packetFunc(header, payload, src, dst)
+			}
+		},
 		DownloadResourcePack: func(id uuid.UUID, version string) bool {
-			return want_packs
+			return wantPacks
 		},
 	}.DialContext(ctx, "raknet", address)
 	if err != nil {
@@ -77,11 +76,11 @@ func connectServer(ctx context.Context, address string, ClientData *login.Client
 	}
 
 	logrus.Debug(locale.Loc("connected", nil))
-	Client_addr = serverConn.LocalAddr()
+	ClientAddr = serverConn.LocalAddr()
 	return serverConn, nil
 }
 
-func spawn_conn(ctx context.Context, clientConn *minecraft.Conn, serverConn *minecraft.Conn) error {
+func spawnConn(ctx context.Context, clientConn *minecraft.Conn, serverConn *minecraft.Conn) error {
 	wg := sync.WaitGroup{}
 	errs := make(chan error, 2)
 	if clientConn != nil {
@@ -113,7 +112,7 @@ func spawn_conn(ctx context.Context, clientConn *minecraft.Conn, serverConn *min
 }
 
 // get longest line length
-func max_len(lines []string) int {
+func maxLen(lines []string) int {
 	o := 0
 	for _, line := range lines {
 		if o < len(line) {
@@ -123,10 +122,10 @@ func max_len(lines []string) int {
 	return o
 }
 
-// make text centered
+// MarginLines makes text centered
 func MarginLines(lines []string) string {
 	ret := ""
-	max := max_len(lines)
+	max := maxLen(lines)
 	for _, line := range lines {
 		if len(line) != max {
 			ret += strings.Repeat(" ", max/2-len(line)/4)
@@ -155,9 +154,8 @@ func Clamp(a, b int) int {
 	return a
 }
 
-func Rand_seeded_uuid(str string) string {
+func RandSeededUUID(str string) string {
 	h := sha256.Sum256([]byte(str))
 	id, _ := uuid.NewRandomFromReader(bytes.NewBuffer(h[:]))
 	return id.String()
 }
-

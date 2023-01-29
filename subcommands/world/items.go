@@ -77,8 +77,8 @@ func (w *WorldState) processItemPacketsServer(pk packet.Packet) packet.Packet {
 				// put into subchunk
 				nbts := w.blockNBT[cp]
 				for i, v := range nbts {
-					nbt_pos := protocol.BlockPos{v["x"].(int32), v["y"].(int32), v["z"].(int32)}
-					if nbt_pos == pos {
+					NBTPos := protocol.BlockPos{v["x"].(int32), v["y"].(int32), v["z"].(int32)}
+					if NBTPos == pos {
 						w.blockNBT[cp][i]["Items"] = nbtconv.InvToNBT(inv)
 					}
 				}
@@ -102,32 +102,32 @@ func (w *WorldState) processItemPacketsClient(pk packet.Packet, forward *bool) p
 		for _, isr := range pk.Requests {
 			for _, sra := range isr.Actions {
 				if sra, ok := sra.(*protocol.TakeStackRequestAction); ok {
-					if sra.Source.StackNetworkID == MAP_ITEM_PACKET.Content[0].StackNetworkID {
+					if sra.Source.StackNetworkID == MapItemPacket.Content[0].StackNetworkID {
 						continue
 					}
 				}
 				if sra, ok := sra.(*protocol.DropStackRequestAction); ok {
-					if sra.Source.StackNetworkID == MAP_ITEM_PACKET.Content[0].StackNetworkID {
+					if sra.Source.StackNetworkID == MapItemPacket.Content[0].StackNetworkID {
 						continue
 					}
 				}
 				if sra, ok := sra.(*protocol.DestroyStackRequestAction); ok {
-					if sra.Source.StackNetworkID == MAP_ITEM_PACKET.Content[0].StackNetworkID {
+					if sra.Source.StackNetworkID == MapItemPacket.Content[0].StackNetworkID {
 						continue
 					}
 				}
 				if sra, ok := sra.(*protocol.PlaceInContainerStackRequestAction); ok {
-					if sra.Source.StackNetworkID == MAP_ITEM_PACKET.Content[0].StackNetworkID {
+					if sra.Source.StackNetworkID == MapItemPacket.Content[0].StackNetworkID {
 						continue
 					}
 				}
 				if sra, ok := sra.(*protocol.TakeOutContainerStackRequestAction); ok {
-					if sra.Source.StackNetworkID == MAP_ITEM_PACKET.Content[0].StackNetworkID {
+					if sra.Source.StackNetworkID == MapItemPacket.Content[0].StackNetworkID {
 						continue
 					}
 				}
 				if sra, ok := sra.(*protocol.DestroyStackRequestAction); ok {
-					if sra.Source.StackNetworkID == MAP_ITEM_PACKET.Content[0].StackNetworkID {
+					if sra.Source.StackNetworkID == MapItemPacket.Content[0].StackNetworkID {
 						continue
 					}
 				}
@@ -136,7 +136,7 @@ func (w *WorldState) processItemPacketsClient(pk packet.Packet, forward *bool) p
 		}
 		pk.Requests = requests
 	case *packet.MobEquipment:
-		if pk.NewItem.Stack.NBTData["map_uuid"] == int64(VIEW_MAP_ID) {
+		if pk.NewItem.Stack.NBTData["map_uuid"] == int64(ViewMapID) {
 			*forward = false
 		}
 	}

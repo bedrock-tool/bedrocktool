@@ -17,7 +17,7 @@ var PrivateIPNetworks = []net.IPNet{
 	},
 }
 
-// check if ip is private
+// IPPrivate checks if ip is private
 func IPPrivate(ip net.IP) bool {
 	for _, ipNet := range PrivateIPNetworks {
 		if ipNet.Contains(ip) {

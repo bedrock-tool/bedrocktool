@@ -17,7 +17,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var G_disconnect_reason = "Connection lost"
+var DisconnectReason = "Connection lost"
 
 type dummyProto struct {
 	id  int32
@@ -137,7 +137,7 @@ func (p *ProxyContext) proxyLoop(ctx context.Context, toServer bool, packetCBs [
 		if pk != nil && c2 != nil {
 			if err := c2.WritePacket(pk); err != nil {
 				if disconnect, ok := errors.Unwrap(err).(minecraft.DisconnectError); ok {
-					G_disconnect_reason = disconnect.Error()
+					DisconnectReason = disconnect.Error()
 				}
 				return err
 			}
@@ -152,14 +152,14 @@ func NewProxy() *ProxyContext {
 	}
 }
 
-var Client_addr net.Addr
+var ClientAddr net.Addr
 
-func (p *ProxyContext) Run(ctx context.Context, server_address string) (err error) {
-	if strings.HasSuffix(server_address, ".pcap") {
+func (p *ProxyContext) Run(ctx context.Context, serverAddress string) (err error) {
+	if strings.HasSuffix(serverAddress, ".pcap") {
 		return fmt.Errorf(locale.Loc("not_supported_anymore", nil))
 	}
-	if strings.HasSuffix(server_address, ".pcap2") {
-		return create_replay_connection(ctx, server_address, p.ConnectCB, p.PacketCB)
+	if strings.HasSuffix(serverAddress, ".pcap2") {
+		return createReplayConnection(ctx, serverAddress, p.ConnectCB, p.PacketCB)
 	}
 
 	GetTokenSource() // ask for login before listening
@@ -167,12 +167,12 @@ func (p *ProxyContext) Run(ctx context.Context, server_address string) (err erro
 	var cdp *login.ClientData = nil
 	if p.WithClient {
 		var packs []*resource.Pack
-		if G_preload_packs {
+		if GPreloadPacks {
 			logrus.Info(locale.Loc("preloading_packs", nil))
 			var serverConn *minecraft.Conn
-			serverConn, err = connectServer(ctx, server_address, nil, true, nil)
+			serverConn, err = connectServer(ctx, serverAddress, nil, true, nil)
 			if err != nil {
-				err = fmt.Errorf(locale.Loc("failed_to_connect", locale.Strmap{"Address": server_address, "Err": err}))
+				err = fmt.Errorf(locale.Loc("failed_to_connect", locale.Strmap{"Address": serverAddress, "Err": err}))
 				return
 			}
 			serverConn.Close()
@@ -210,20 +210,20 @@ func (p *ProxyContext) Run(ctx context.Context, server_address string) (err erro
 		cd := p.Client.ClientData()
 		cdp = &cd
 	}
-	p.Server, err = connectServer(ctx, server_address, cdp, p.AlwaysGetPacks, p.PacketFunc)
+	p.Server, err = connectServer(ctx, serverAddress, cdp, p.AlwaysGetPacks, p.PacketFunc)
 	if err != nil {
-		err = fmt.Errorf(locale.Loc("failed_to_connect", locale.Strmap{"Address": server_address, "Err": err}))
+		err = fmt.Errorf(locale.Loc("failed_to_connect", locale.Strmap{"Address": serverAddress, "Err": err}))
 		return
 	}
 	// spawn and start the game
-	if err = spawn_conn(ctx, p.Client, p.Server); err != nil {
+	if err = spawnConn(ctx, p.Client, p.Server); err != nil {
 		err = fmt.Errorf(locale.Loc("failed_to_spawn", locale.Strmap{"Err": err}))
 		return
 	}
 
 	defer p.Server.Close()
 	if p.Listener != nil {
-		defer p.Listener.Disconnect(p.Client, G_disconnect_reason)
+		defer p.Listener.Disconnect(p.Client, DisconnectReason)
 	}
 
 	if p.ConnectCB != nil {

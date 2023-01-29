@@ -25,7 +25,7 @@ import (
 )
 
 func main() {
-	var extra_debug bool
+	var extraDebug bool
 	defer func() {
 		if err := recover(); err != nil {
 			logrus.Errorf(locale.Loc("fatal_error", nil))
@@ -38,10 +38,10 @@ func main() {
 			println("--END COPY HERE--")
 			println("")
 			println(locale.Loc("report_issue", nil))
-			if extra_debug {
+			if extraDebug {
 				println(locale.Loc("used_extra_debug_report", nil))
 			}
-			if utils.G_interactive {
+			if utils.GInteractive {
 				input := bufio.NewScanner(os.Stdin)
 				input.Scan()
 			}
@@ -65,11 +65,11 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	flag.BoolVar(&utils.G_debug, "debug", false, locale.Loc("debug_mode", nil))
-	flag.BoolVar(&utils.G_preload_packs, "preload", false, locale.Loc("preload_packs", nil))
-	flag.BoolVar(&extra_debug, "extra-debug", false, locale.Loc("extra_debug", nil))
+	flag.BoolVar(&utils.GDebug, "debug", false, locale.Loc("debug_mode", nil))
+	flag.BoolVar(&utils.GPreloadPacks, "preload", false, locale.Loc("preload_packs", nil))
+	flag.BoolVar(&extraDebug, "extra-debug", false, locale.Loc("extra_debug", nil))
 	flag.String("lang", "", "lang")
-	enable_dns := flag.Bool("dns", false, locale.Loc("enable_dns", nil))
+	enableDNS := flag.Bool("dns", false, locale.Loc("enable_dns", nil))
 
 	subcommands.Register(subcommands.HelpCommand(), "")
 	subcommands.ImportantFlag("debug")
@@ -89,52 +89,52 @@ func main() {
 				}
 				fmt.Println(locale.Loc("use_to_run_command", nil))
 
-				cmd, cancelled := utils.User_input(ctx, locale.Loc("input_command", nil))
+				cmd, cancelled := utils.UserInput(ctx, locale.Loc("input_command", nil))
 				if cancelled {
 					return
 				}
 				_cmd := strings.Split(cmd, " ")
 				os.Args = append(os.Args, _cmd...)
-				utils.G_interactive = true
+				utils.GInteractive = true
 			}
 		}
 	}
 
 	flag.Parse()
 
-	if *enable_dns {
+	if *enableDNS {
 		utils.InitDNS()
 	}
 
-	if extra_debug {
-		utils.G_debug = true
+	if extraDebug {
+		utils.GDebug = true
 
-		var log_plain, log_crypt_enc io.WriteCloser = nil, nil
+		var logPlain, logCryptEnc io.WriteCloser = nil, nil
 
 		// open plain text log
-		log_plain, err = os.Create("packets.log")
+		logPlain, err = os.Create("packets.log")
 		if err != nil {
 			logrus.Error(err)
 		} else {
-			defer log_plain.Close()
+			defer logPlain.Close()
 		}
 
 		// open gpg log
-		log_crypt, err := os.Create("packets.log.gpg")
+		logCrypt, err := os.Create("packets.log.gpg")
 		if err != nil {
 			logrus.Error(err)
 		} else {
-			defer log_crypt.Close()
+			defer logCrypt.Close()
 			// encrypter for the log
-			log_crypt_enc, err = crypt.Encer("packets.log", log_crypt)
+			logCryptEnc, err = crypt.Encer("packets.log", logCrypt)
 			if err != nil {
 				logrus.Error(err)
 			} else {
-				defer log_crypt_enc.Close()
+				defer logCryptEnc.Close()
 			}
 		}
 
-		utils.F_Log = io.MultiWriter(log_plain, log_crypt_enc)
+		utils.FLog = io.MultiWriter(logPlain, logCryptEnc)
 		if err != nil {
 			logrus.Error(err)
 		}
@@ -151,7 +151,7 @@ func main() {
 
 	subcommands.Execute(ctx)
 
-	if utils.G_interactive {
+	if utils.GInteractive {
 		logrus.Info(locale.Loc("enter_to_exit", nil))
 		input := bufio.NewScanner(os.Stdin)
 		input.Scan()
@@ -175,17 +175,17 @@ func (c *TransCMD) Usage() string {
 
 func (c *TransCMD) Execute(_ context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
 	const (
-		BLACK_FG = "\033[30m"
-		BOLD     = "\033[1m"
-		BLUE     = "\033[46m"
-		PINK     = "\033[45m"
-		WHITE    = "\033[47m"
-		RESET    = "\033[0m"
+		BlackFg = "\033[30m"
+		Bold     = "\033[1m"
+		Blue     = "\033[46m"
+		Pink     = "\033[45m"
+		White    = "\033[47m"
+		Reset    = "\033[0m"
 	)
 	if c.auth {
 		utils.GetTokenSource()
 	}
-	fmt.Println(BLACK_FG + BOLD + BLUE + " Trans " + PINK + " Rights " + WHITE + " Are " + PINK + " Human " + BLUE + " Rights " + RESET)
+	fmt.Println(BlackFg + Bold + Blue + " Trans " + Pink + " Rights " + White + " Are " + Pink + " Human " + Blue + " Rights " + Reset)
 	return 0
 }
 

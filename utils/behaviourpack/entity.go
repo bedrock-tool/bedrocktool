@@ -13,7 +13,7 @@ type minecraftClientEntity struct {
 	Description     clientEntityDescription `json:"description"`
 	ComponentGroups map[string]any          `json:"component_groups"`
 	Components      map[string]any          `json:"components"`
-	Events          map[string]any          `json:"events"`
+	Events          map[string]any          `json:"events,omitempty"`
 }
 
 type entityBehaviour struct {

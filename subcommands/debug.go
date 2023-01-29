@@ -36,7 +36,7 @@ func (c *DebugProxyCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...inter
 		return 1
 	}
 
-	utils.G_debug = true
+	utils.GDebug = true
 
 	filters := strings.Split(c.filter, ",")
 	if len(filters) > 0 {

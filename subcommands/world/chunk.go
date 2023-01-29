@@ -16,11 +16,11 @@ func (w *WorldState) processChangeDimension(pk *packet.ChangeDimension) {
 		logrus.Info(locale.Loc("not_saving_empty", nil))
 		w.Reset()
 	}
-	dim_id := pk.Dimension
+	dimensionID := pk.Dimension
 	if w.ispre118 {
-		dim_id += 10
+		dimensionID += 10
 	}
-	w.Dim = dimension_ids[uint8(dim_id)]
+	w.Dim = dimensionIDMap[uint8(dimensionID)]
 }
 
 func (w *WorldState) processLevelChunk(pk *packet.LevelChunk) {
@@ -58,40 +58,40 @@ func (w *WorldState) processLevelChunk(pk *packet.LevelChunk) {
 			Position: protocol.SubChunkPos{
 				pk.Position.X(), 0, pk.Position.Z(),
 			},
-			Offsets: Offset_table[:max],
+			Offsets: offsetTable[:max],
 		})
 	}
 }
 
 func (w *WorldState) processSubChunk(pk *packet.SubChunk) {
-	pos_to_redraw := make(map[protocol.ChunkPos]bool)
+	posToRedraw := make(map[protocol.ChunkPos]bool)
 
 	for _, sub := range pk.SubChunkEntries {
 		var (
-			abs_x  = pk.Position[0] + int32(sub.Offset[0])
-			abs_y  = pk.Position[1] + int32(sub.Offset[1])
-			abs_z  = pk.Position[2] + int32(sub.Offset[2])
-			subpos = protocol.SubChunkPos{abs_x, abs_y, abs_z}
-			pos    = protocol.ChunkPos{abs_x, abs_z}
+			absX   = pk.Position[0] + int32(sub.Offset[0])
+			absY   = pk.Position[1] + int32(sub.Offset[1])
+			absZ   = pk.Position[2] + int32(sub.Offset[2])
+			subPos = protocol.SubChunkPos{absX, absY, absZ}
+			pos    = protocol.ChunkPos{absX, absZ}
 		)
-		ch := w.chunks[pos]
-		if ch == nil {
+		ch, ok := w.chunks[pos]
+		if !ok {
 			logrus.Error(locale.Loc("subchunk_before_chunk", nil))
 			continue
 		}
-		blockNBT, err := ch.ApplySubChunkEntry(uint8(abs_y), &sub)
+		blockNBT, err := ch.ApplySubChunkEntry(uint8(absY), &sub)
 		if err != nil {
 			logrus.Error(err)
 		}
 		if blockNBT != nil {
-			w.blockNBT[subpos] = blockNBT
+			w.blockNBT[subPos] = blockNBT
 		}
 
-		pos_to_redraw[pos] = true
+		posToRedraw[pos] = true
 	}
 
 	// redraw the chunks
-	for pos := range pos_to_redraw {
+	for pos := range posToRedraw {
 		w.ui.SetChunk(pos, w.chunks[pos])
 	}
 	w.ui.SchedRedraw()

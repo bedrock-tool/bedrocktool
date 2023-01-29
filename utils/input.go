@@ -13,7 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func User_input(ctx context.Context, q string) (string, bool) {
+func UserInput(ctx context.Context, q string) (string, bool) {
 	c := make(chan string)
 	go func() {
 		fmt.Print(q)
@@ -32,7 +32,7 @@ func User_input(ctx context.Context, q string) (string, bool) {
 	}
 }
 
-func server_url_to_name(server string) string {
+func serverURLToName(server string) string {
 	host, _, err := net.SplitHostPort(server)
 	if err != nil {
 		logrus.Fatalf(locale.Loc("invalid_server", locale.Strmap{"Err": err.Error()}))
@@ -43,19 +43,19 @@ func server_url_to_name(server string) string {
 func ServerInput(ctx context.Context, server string) (address, name string, err error) {
 	if server == "" { // no arg provided, interactive input
 		var cancelled bool
-		server, cancelled = User_input(ctx, locale.Loc("enter_server", nil))
+		server, cancelled = UserInput(ctx, locale.Loc("enter_server", nil))
 		if cancelled {
 			return "", "", context.Canceled
 		}
 	}
 
 	if strings.HasPrefix(server, "realm:") { // for realms use api to get ip address
-		realm_info := strings.Split(server, ":")
+		realmInfo := strings.Split(server, ":")
 		id := ""
-		if len(realm_info) == 3 {
-			id = realm_info[2]
+		if len(realmInfo) == 3 {
+			id = realmInfo[2]
 		}
-		name, address, err = get_realm(ctx, realm_info[1], id)
+		name, address, err = getRealm(ctx, realmInfo[1], id)
 		if err != nil {
 			return "", "", err
 		}
@@ -71,7 +71,7 @@ func ServerInput(ctx context.Context, server string) (address, name string, err 
 		if len(strings.Split(address, ":")) == 1 {
 			address += ":19132"
 		}
-		name = server_url_to_name(address)
+		name = serverURLToName(address)
 	}
 
 	return address, name, nil

@@ -50,18 +50,18 @@ func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.R
 
 func chunkGetColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) color.RGBA {
 	p := cube.Pos{int(x), int(y), int(z)}
-	have_up := false
+	haveUp := false
 	p.Side(cube.FaceUp).Neighbours(func(neighbour cube.Pos) {
 		if neighbour.X() < 0 || neighbour.X() >= 16 || neighbour.Z() < 0 || neighbour.Z() >= 16 || neighbour.Y() > c.Range().Max() {
 			return
 		}
-		if !have_up {
-			block_rid := c.Block(uint8(neighbour[0]), int16(neighbour[1]), uint8(neighbour[2]), 0)
-			if block_rid > 0 {
-				b, found := world.BlockByRuntimeID(block_rid)
+		if !haveUp {
+			blockRid := c.Block(uint8(neighbour[0]), int16(neighbour[1]), uint8(neighbour[2]), 0)
+			if blockRid > 0 {
+				b, found := world.BlockByRuntimeID(blockRid)
 				if found {
 					if _, ok := b.(block.Air); !ok {
-						have_up = true
+						haveUp = true
 					}
 				}
 			}
@@ -70,7 +70,7 @@ func chunkGetColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) color.RGBA {
 
 	col := blockColorAt(c, x, y, z)
 
-	if have_up {
+	if haveUp {
 		if col.R > 10 {
 			col.R -= 10
 		}

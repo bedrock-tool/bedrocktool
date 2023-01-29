@@ -28,14 +28,14 @@ func New(name string) *BehaviourPack {
 			Header: resource.Header{
 				Name:               "pack.name",
 				Description:        "pack.description",
-				UUID:               utils.Rand_seeded_uuid(name + "_datapack"),
+				UUID:               utils.RandSeededUUID(name + "_datapack"),
 				Version:            [3]int{1, 0, 0},
 				MinimumGameVersion: [3]int{1, 19, 50},
 			},
 			Modules: []resource.Module{
 				{
 					Type:    "data",
-					UUID:    utils.Rand_seeded_uuid(name + "_data_module"),
+					UUID:    utils.RandSeededUUID(name + "_data_module"),
 					Version: [3]int{1, 0, 0},
 				},
 			},

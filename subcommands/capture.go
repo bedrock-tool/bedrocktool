@@ -23,31 +23,34 @@ func init() {
 	utils.RegisterCommand(&CaptureCMD{})
 }
 
-var dump_lock sync.Mutex
+var dumpLock sync.Mutex
 
-func dump_packet(f io.WriteCloser, toServer bool, payload []byte) {
-	dump_lock.Lock()
-	defer dump_lock.Unlock()
+func dumpPacket(f io.WriteCloser, toServer bool, payload []byte) {
+	dumpLock.Lock()
+	defer dumpLock.Unlock()
 	f.Write([]byte{0xAA, 0xAA, 0xAA, 0xAA})
-	packet_size := uint32(len(payload))
-	binary.Write(f, binary.LittleEndian, packet_size)
+	packetSize := uint32(len(payload))
+	binary.Write(f, binary.LittleEndian, packetSize)
 	binary.Write(f, binary.LittleEndian, toServer)
-	_, err := f.Write(payload)
+	n, err := f.Write(payload)
 	if err != nil {
 		logrus.Error(err)
+	}
+	if n < int(packetSize) {
+		f.Write(make([]byte, int(packetSize)-n))
 	}
 	f.Write([]byte{0xBB, 0xBB, 0xBB, 0xBB})
 }
 
 type CaptureCMD struct {
-	server_address string
+	serverAddress string
 }
 
 func (*CaptureCMD) Name() string     { return "capture" }
 func (*CaptureCMD) Synopsis() string { return locale.Loc("capture_synopsis", nil) }
 
-func (p *CaptureCMD) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&p.server_address, "address", "", "remote server address")
+func (c *CaptureCMD) SetFlags(f *flag.FlagSet) {
+	f.StringVar(&c.serverAddress, "address", "", "remote server address")
 }
 
 func (c *CaptureCMD) Usage() string {
@@ -55,7 +58,7 @@ func (c *CaptureCMD) Usage() string {
 }
 
 func (c *CaptureCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	address, hostname, err := utils.ServerInput(ctx, c.server_address)
+	address, hostname, err := utils.ServerInput(ctx, c.serverAddress)
 	if err != nil {
 		logrus.Fatal(err)
 		return 1
@@ -72,12 +75,12 @@ func (c *CaptureCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interfac
 
 	proxy := utils.NewProxy()
 	proxy.PacketFunc = func(header packet.Header, payload []byte, src, dst net.Addr) {
-		from_client := dst.String() == proxy.Server.RemoteAddr().String()
+		IsfromClient := dst.String() == proxy.Server.RemoteAddr().String()
 
 		buf := bytes.NewBuffer(nil)
 		header.Write(buf)
 		buf.Write(payload)
-		dump_packet(fio, from_client, buf.Bytes())
+		dumpPacket(fio, IsfromClient, buf.Bytes())
 	}
 
 	err = proxy.Run(ctx, address)

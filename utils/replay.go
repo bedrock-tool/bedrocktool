@@ -14,7 +14,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func create_replay_connection(ctx context.Context, filename string, onConnect ConnectCallback, packetCB PacketCallback) error {
+func createReplayConnection(ctx context.Context, filename string, onConnect ConnectCallback, packetCB PacketCallback) error {
 	logrus.Infof("Reading replay %s", filename)
 
 	f, err := os.Open(filename)
@@ -33,12 +33,12 @@ func create_replay_connection(ctx context.Context, filename string, onConnect Co
 	proxy := NewProxy()
 	proxy.Server = minecraft.NewConn()
 
-	game_started := false
+	gameStarted := false
 	i := 0
 	for {
 		i += 1
 		var magic uint32 = 0
-		var packet_length uint32 = 0
+		var packetLength uint32 = 0
 		var toServer bool = false
 
 		offset, _ := f.Seek(0, io.SeekCurrent)
@@ -51,15 +51,15 @@ func create_replay_connection(ctx context.Context, filename string, onConnect Co
 		if magic != 0xAAAAAAAA {
 			logrus.Fatal("Wrong Magic")
 		}
-		binary.Read(f, binary.LittleEndian, &packet_length)
+		binary.Read(f, binary.LittleEndian, &packetLength)
 		binary.Read(f, binary.LittleEndian, &toServer)
-		payload := make([]byte, packet_length)
+		payload := make([]byte, packetLength)
 		n, err := f.Read(payload)
 		if err != nil {
 			logrus.Error(err)
 			return nil
 		}
-		if n != int(packet_length) {
+		if n != int(packetLength) {
 			logrus.Errorf("Truncated %d", i)
 			return nil
 		}
@@ -70,11 +70,11 @@ func create_replay_connection(ctx context.Context, filename string, onConnect Co
 			logrus.Fatal("Wrong Magic2")
 		}
 
-		pk_data, err := minecraft.ParseData(payload, proxy.Server)
+		pkData, err := minecraft.ParseData(payload, proxy.Server)
 		if err != nil {
 			return err
 		}
-		pks, err := pk_data.Decode(proxy.Server)
+		pks, err := pkData.Decode(proxy.Server)
 		if err != nil {
 			logrus.Error(err)
 			continue
@@ -85,11 +85,11 @@ func create_replay_connection(ctx context.Context, filename string, onConnect Co
 			b := protocol.NewWriter(f, 0)
 			pk.Marshal(b)
 
-			if G_debug {
-			    PacketLogger(packet.Header{PacketID: pk.ID()}, f.Bytes(), &net.UDPAddr{}, &net.UDPAddr{})
+			if GDebug {
+				PacketLogger(packet.Header{PacketID: pk.ID()}, f.Bytes(), &net.UDPAddr{}, &net.UDPAddr{})
 			}
 
-			if game_started {
+			if gameStarted {
 				if packetCB != nil {
 					packetCB(pk, proxy, toServer)
 				}
@@ -125,7 +125,7 @@ func create_replay_connection(ctx context.Context, filename string, onConnect Co
 						ChatRestrictionLevel:         pk.ChatRestrictionLevel,
 						DisablePlayerInteractions:    pk.DisablePlayerInteractions,
 					})
-					game_started = true
+					gameStarted = true
 					if onConnect != nil {
 						onConnect(proxy)
 					}

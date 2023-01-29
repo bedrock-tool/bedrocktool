@@ -48,17 +48,19 @@ var MutedPackets = []string{
 	"packet.PlaySound",
 }
 
-var ExtraVerbose []string
-var F_Log io.Writer
-var dmp_lock sync.Mutex
+var (
+	ExtraVerbose []string
+	FLog        io.Writer
+	dmpLock     sync.Mutex
+)
 
-func dmp_struct(level int, in any, w_type bool) (s string) {
-	t_base := strings.Repeat("\t", level)
+func dmpStruct(level int, in any, wType bool) (s string) {
+	tBase := strings.Repeat("\t", level)
 
 	ii := reflect.Indirect(reflect.ValueOf(in))
-	if w_type {
-		type_name := reflect.TypeOf(in).String()
-		s += type_name + " "
+	if wType {
+		typeName := reflect.TypeOf(in).String()
+		s += typeName + " "
 	} else {
 		s += "\t"
 	}
@@ -68,13 +70,13 @@ func dmp_struct(level int, in any, w_type bool) (s string) {
 		for i := 0; i < ii.NumField(); i++ {
 			field := ii.Type().Field(i)
 			if field.IsExported() {
-				d := dmp_struct(level+1, ii.Field(i).Interface(), true)
-				s += t_base + fmt.Sprintf("\t%s = %s\n", field.Name, d)
+				d := dmpStruct(level+1, ii.Field(i).Interface(), true)
+				s += tBase + fmt.Sprintf("\t%s = %s\n", field.Name, d)
 			} else {
-				s += t_base + "\t" + field.Name + " (unexported)"
+				s += tBase + "\t" + field.Name + " (unexported)"
 			}
 		}
-		s += t_base + "}\n"
+		s += tBase + "}\n"
 	} else if ii.Kind() == reflect.Slice {
 		var t reflect.Type
 		if ii.Len() > 0 {
@@ -86,15 +88,15 @@ func dmp_struct(level int, in any, w_type bool) (s string) {
 		} else if ii.Len() == 0 || t.Kind() == reflect.Struct {
 			s += "\t[\n"
 			for i := 0; i < ii.Len(); i++ {
-				s += t_base
-				s += dmp_struct(level+1, ii.Index(i).Interface(), false)
+				s += tBase
+				s += dmpStruct(level+1, ii.Index(i).Interface(), false)
 			}
-			s += t_base + "]\n"
+			s += tBase + "]\n"
 		} else {
 			s += fmt.Sprintf("%#v", ii.Interface())
 		}
 	} else if ii.Kind() == reflect.Map {
-		j, err := json.MarshalIndent(ii.Interface(), t_base, "\t")
+		j, err := json.MarshalIndent(ii.Interface(), tBase, "\t")
 		if err != nil {
 			s += err.Error()
 		}
@@ -122,15 +124,15 @@ func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
 
 	pk.Unmarshal(protocol.NewReader(bytes.NewBuffer(payload), 0))
 
-	if F_Log != nil {
-		dmp_lock.Lock()
-		defer dmp_lock.Unlock()
-		F_Log.Write([]byte(dmp_struct(0, pk, true)))
-		F_Log.Write([]byte("\n\n"))
+	if FLog != nil {
+		dmpLock.Lock()
+		defer dmpLock.Unlock()
+		FLog.Write([]byte(dmpStruct(0, pk, true)))
+		FLog.Write([]byte("\n\n"))
 	}
 
-	pk_name := reflect.TypeOf(pk).String()[1:]
-	if slices.Contains(MutedPackets, pk_name) {
+	pkName := reflect.TypeOf(pk).String()[1:]
+	if slices.Contains(MutedPackets, pkName) {
 		return
 	}
 
@@ -139,24 +141,24 @@ func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
 		logrus.Infof(locale.Loc("disconnect", locale.Strmap{"Pk": pk}))
 	}
 
-	dir_S2C := color.GreenString("S") + "->" + color.CyanString("C")
-	dir_C2S := color.CyanString("C") + "->" + color.GreenString("S")
-	var dir string = dir_S2C
+	dirS2C := color.GreenString("S") + "->" + color.CyanString("C")
+	dirC2S := color.CyanString("C") + "->" + color.GreenString("S")
+	var dir string = dirS2C
 
-	if Client_addr != nil {
-		if src == Client_addr {
-			dir = dir_C2S
+	if ClientAddr != nil {
+		if src == ClientAddr {
+			dir = dirC2S
 		}
 	} else {
-		src_addr, _, _ := net.SplitHostPort(src.String())
-		if IPPrivate(net.ParseIP(src_addr)) {
-			dir = dir_C2S
+		srcAddr, _, _ := net.SplitHostPort(src.String())
+		if IPPrivate(net.ParseIP(srcAddr)) {
+			dir = dirS2C
 		}
 	}
 
-	logrus.Debugf("%s 0x%02x, %s", dir, pk.ID(), pk_name)
+	logrus.Debugf("%s 0x%02x, %s", dir, pk.ID(), pkName)
 
-	if slices.Contains(ExtraVerbose, pk_name) {
+	if slices.Contains(ExtraVerbose, pkName) {
 		logrus.Debugf("%+v", pk)
 	}
 }

@@ -11,13 +11,13 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func get_realm(ctx context.Context, realm_name, id string) (name string, address string, err error) {
-	realms, err := GetRealmsApi().Realms(ctx)
+func getRealm(ctx context.Context, realmName, id string) (name string, address string, err error) {
+	realms, err := GetRealmsAPI().Realms(ctx)
 	if err != nil {
 		return "", "", err
 	}
 	for _, realm := range realms {
-		if strings.HasPrefix(realm.Name, realm_name) {
+		if strings.HasPrefix(realm.Name, realmName) {
 			if id != "" && id != fmt.Sprint(id) {
 				continue
 			}
@@ -43,7 +43,7 @@ func (c *RealmListCMD) Usage() string {
 }
 
 func (c *RealmListCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	realms, err := GetRealmsApi().Realms(ctx)
+	realms, err := GetRealmsAPI().Realms(ctx)
 	if err != nil {
 		logrus.Error(err)
 		return 1

@@ -12,17 +12,17 @@ import (
 	"strings"
 )
 
-func UnpackZip(r io.ReaderAt, size int64, unpack_folder string) {
+func UnpackZip(r io.ReaderAt, size int64, unpackFolder string) {
 	zr, _ := zip.NewReader(r, size)
-	for _, src_file := range zr.File {
-		src_name := strings.ReplaceAll(src_file.Name, "\\", "/")
-		out_path := path.Join(unpack_folder, src_name)
-		if src_file.Mode().IsDir() {
-			os.Mkdir(out_path, 0o755)
+	for _, srcFile := range zr.File {
+		srcName := strings.ReplaceAll(srcFile.Name, "\\", "/")
+		outPath := path.Join(unpackFolder, srcName)
+		if srcFile.Mode().IsDir() {
+			os.Mkdir(outPath, 0o755)
 		} else {
-			os.MkdirAll(path.Dir(out_path), 0o755)
-			fr, _ := src_file.Open()
-			f, _ := os.Create(path.Join(unpack_folder, src_name))
+			os.MkdirAll(path.Dir(outPath), 0o755)
+			fr, _ := srcFile.Open()
+			f, _ := os.Create(path.Join(unpackFolder, srcName))
 			io.Copy(f, fr)
 		}
 	}

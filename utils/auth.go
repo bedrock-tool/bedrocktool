@@ -11,49 +11,49 @@ import (
 	"golang.org/x/oauth2"
 )
 
-const TOKEN_FILE = "token.json"
+const TokenFile = "token.json"
 
-var G_token_src oauth2.TokenSource
+var gTokenSrc oauth2.TokenSource
 
 func GetTokenSource() oauth2.TokenSource {
-	if G_token_src != nil {
-		return G_token_src
+	if gTokenSrc != nil {
+		return gTokenSrc
 	}
-	token := get_token()
-	G_token_src = auth.RefreshTokenSource(&token)
-	new_token, err := G_token_src.Token()
+	token := getToken()
+	gTokenSrc = auth.RefreshTokenSource(&token)
+	newToken, err := gTokenSrc.Token()
 	if err != nil {
 		panic(err)
 	}
 	if !token.Valid() {
 		logrus.Info(locale.Loc("refreshed_token", nil))
-		write_token(new_token)
+		writeToken(newToken)
 	}
 
-	return G_token_src
+	return gTokenSrc
 }
 
-var G_realms_api *realms.Client
+var gRealmsAPI *realms.Client
 
-func GetRealmsApi() *realms.Client {
-	if G_realms_api == nil {
-		G_realms_api = realms.NewClient(GetTokenSource())
+func GetRealmsAPI() *realms.Client {
+	if gRealmsAPI == nil {
+		gRealmsAPI = realms.NewClient(GetTokenSource())
 	}
-	return G_realms_api
+	return gRealmsAPI
 }
 
-func write_token(token *oauth2.Token) {
+func writeToken(token *oauth2.Token) {
 	buf, err := json.Marshal(token)
 	if err != nil {
 		panic(err)
 	}
-	os.WriteFile(TOKEN_FILE, buf, 0o755)
+	os.WriteFile(TokenFile, buf, 0o755)
 }
 
-func get_token() oauth2.Token {
+func getToken() oauth2.Token {
 	var token oauth2.Token
-	if _, err := os.Stat(TOKEN_FILE); err == nil {
-		f, err := os.Open(TOKEN_FILE)
+	if _, err := os.Stat(TokenFile); err == nil {
+		f, err := os.Open(TokenFile)
 		if err != nil {
 			panic(err)
 		}
@@ -66,7 +66,7 @@ func get_token() oauth2.Token {
 		if err != nil {
 			panic(err)
 		}
-		write_token(_token)
+		writeToken(_token)
 		token = *_token
 	}
 	return token

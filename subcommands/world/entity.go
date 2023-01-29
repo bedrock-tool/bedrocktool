@@ -5,12 +5,13 @@ import (
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/go-gl/mathgl/mgl32"
+	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 )
 
 type entityState struct {
-	RuntimeId  uint64
-	UniqueId   int64
+	RuntimeID  uint64
+	UniqueID   int64
 	EntityType string
 
 	Position         mgl32.Vec3
@@ -18,12 +19,7 @@ type entityState struct {
 	HeadYaw, BodyYaw float32
 	Velocity         mgl32.Vec3
 
-	Metadata map[uint32]any
-}
-
-type serverEntity struct {
-	world.Entity
-	EntityType serverEntityType
+	Metadata protocol.EntityMetadata
 }
 
 type serverEntityType struct {
@@ -36,16 +32,21 @@ func (t serverEntityType) EncodeEntity() string {
 	return t.Encoded
 }
 
+func (t serverEntityType) BBox(e world.Entity) cube.BBox {
+	return cube.Box(-0.5, 0, -0.5, 0.5, 1, 0.5)
+}
+
 func (t serverEntityType) DecodeNBT(m map[string]any) world.Entity {
 	return nil // not implemented, and never should
 }
 
-func (t serverEntityType) EncodeNBT(e *serverEntity) map[string]any {
+func (t serverEntityType) EncodeNBT(e world.Entity) map[string]any {
 	return t.NBT
 }
 
-func (t serverEntityType) BBox(e world.Entity) cube.BBox {
-	return cube.Box(0, 0, 0, 1, 1, 1)
+type serverEntity struct {
+	world.Entity
+	EntityType serverEntityType
 }
 
 func (e serverEntity) Type() world.EntityType {
@@ -56,8 +57,8 @@ func (w *WorldState) processAddActor(pk *packet.AddActor) {
 	e, ok := w.entities[pk.EntityRuntimeID]
 	if !ok {
 		e = &entityState{
-			RuntimeId:  pk.EntityRuntimeID,
-			UniqueId:   pk.EntityUniqueID,
+			RuntimeID:  pk.EntityRuntimeID,
+			UniqueID:   pk.EntityUniqueID,
 			EntityType: pk.EntityType,
 			Metadata:   make(map[uint32]any),
 		}
@@ -79,6 +80,47 @@ func (w *WorldState) processAddActor(pk *packet.AddActor) {
 	for k, v := range pk.EntityMetadata {
 		e.Metadata[k] = v
 	}
+}
+
+func entityMetadataToNBT(metadata protocol.EntityMetadata, nbt map[string]any) {
+	if variant, ok := metadata[protocol.EntityDataKeyVariant].(int32); ok {
+		block, ok := world.BlockByRuntimeID(uint32(variant))
+		if ok {
+			nbt["name"], _ = block.EncodeBlock()
+		}
+	}
+	if name, ok := metadata[protocol.EntityDataKeyName].(string); ok {
+		nbt["CustomName"] = name
+	}
+	if ShowNameTag, ok := metadata[protocol.EntityDataKeyAlwaysShowNameTag].(uint8); ok {
+		if ShowNameTag != 0 {
+			nbt["CustomNameVisible"] = true
+		} else {
+			nbt["CustomNameVisible"] = false
+		}
+	}
+	if scale, ok := metadata[protocol.EntityDataKeyScale].(float32); ok {
+		nbt["Scale"] = scale
+	}
+}
+
+func vec3float32(x mgl32.Vec3) []float32 {
+	return []float32{float32(x[0]), float32(x[1]), float32(x[2])}
+}
+
+func (s *entityState) ToServerEntity() serverEntity {
+	e := serverEntity{
+		EntityType: serverEntityType{
+			Encoded: s.EntityType,
+			NBT: map[string]any{
+				"Pos":      vec3float32(s.Position),
+				"Rotation": []float32{s.Yaw, s.Pitch},
+				"Motion":   vec3float32(s.Velocity),
+			},
+		},
+	}
+	entityMetadataToNBT(s.Metadata, e.EntityType.NBT)
+	return e
 }
 
 func (w *WorldState) ProcessEntityPackets(pk packet.Packet) packet.Packet {

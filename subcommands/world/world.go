@@ -1,3 +1,4 @@
+// Package world Bedrock World Downloader
 package world
 
 import (
@@ -40,29 +41,28 @@ type TPlayerPos struct {
 // the state used for drawing and saving
 
 type WorldState struct {
-	ctx                context.Context
-	ispre118           bool
-	voidgen            bool
+	ctx   context.Context
+	proxy *utils.ProxyContext
+	ui    *MapUI
+	bp    *behaviourpack.BehaviourPack
+
+	// save state
 	chunks             map[protocol.ChunkPos]*chunk.Chunk
 	blockNBT           map[protocol.SubChunkPos][]map[string]any
 	openItemContainers map[byte]*itemContainer
 	entities           map[uint64]*entityState
+	Dim                world.Dimension
+	PlayerPos          TPlayerPos
+	worldCounter       int
+	WorldName          string
+	ServerName         string
+	ispre118           bool
 
-	Dim          world.Dimension
-	WorldName    string
-	ServerName   string
-	worldCounter int
-	bp           *behaviourpack.BehaviourPack
-
+	// settings
+	voidgen             bool
 	withPacks           bool
 	saveImage           bool
 	experimentInventory bool
-
-	PlayerPos TPlayerPos
-	proxy     *utils.ProxyContext
-
-	// ui
-	ui *MapUI
 }
 
 func NewWorldState() *WorldState {
@@ -79,7 +79,7 @@ func NewWorldState() *WorldState {
 	return w
 }
 
-var dimension_ids = map[uint8]world.Dimension{
+var dimensionIDMap = map[uint8]world.Dimension{
 	0: world.Overworld,
 	1: world.Nether,
 	2: world.End,
@@ -90,16 +90,16 @@ var dimension_ids = map[uint8]world.Dimension{
 }
 
 var (
-	black_16x16  = image.NewRGBA(image.Rect(0, 0, 16, 16))
-	Offset_table [24]protocol.SubChunkOffset
+	black16x16  = image.NewRGBA(image.Rect(0, 0, 16, 16))
+	offsetTable [24]protocol.SubChunkOffset
 )
 
 func init() {
-	for i := range Offset_table {
-		Offset_table[i] = protocol.SubChunkOffset{0, int8(i), 0}
+	for i := range offsetTable {
+		offsetTable[i] = protocol.SubChunkOffset{0, int8(i), 0}
 	}
-	for i := 3; i < len(black_16x16.Pix); i += 4 {
-		black_16x16.Pix[i] = 255
+	for i := 3; i < len(black16x16.Pix); i += 4 {
+		black16x16.Pix[i] = 255
 	}
 	utils.RegisterCommand(&WorldCMD{})
 }
@@ -115,12 +115,12 @@ type WorldCMD struct {
 func (*WorldCMD) Name() string     { return "worlds" }
 func (*WorldCMD) Synopsis() string { return locale.Loc("world_synopsis", nil) }
 
-func (p *WorldCMD) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&p.Address, "address", "", locale.Loc("remote_address", nil))
-	f.BoolVar(&p.packs, "packs", false, locale.Loc("save_packs_with_world", nil))
-	f.BoolVar(&p.enableVoid, "void", true, locale.Loc("enable_void", nil))
-	f.BoolVar(&p.saveImage, "image", false, locale.Loc("save_image", nil))
-	f.BoolVar(&p.experimentInventory, "inv", false, locale.Loc("test_block_inv", nil))
+func (c *WorldCMD) SetFlags(f *flag.FlagSet) {
+	f.StringVar(&c.Address, "address", "", locale.Loc("remote_address", nil))
+	f.BoolVar(&c.packs, "packs", false, locale.Loc("save_packs_with_world", nil))
+	f.BoolVar(&c.enableVoid, "void", true, locale.Loc("enable_void", nil))
+	f.BoolVar(&c.saveImage, "image", false, locale.Loc("save_image", nil))
+	f.BoolVar(&c.experimentInventory, "inv", false, locale.Loc("test_block_inv", nil))
 }
 
 func (c *WorldCMD) Usage() string {
@@ -128,7 +128,7 @@ func (c *WorldCMD) Usage() string {
 }
 
 func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	server_address, hostname, err := utils.ServerInput(ctx, c.Address)
+	serverAddress, hostname, err := utils.ServerInput(ctx, c.Address)
 	if err != nil {
 		logrus.Error(err)
 		return 1
@@ -147,7 +147,7 @@ func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 	proxy.AlwaysGetPacks = true
 	proxy.ConnectCB = w.OnConnect
 	proxy.PacketCB = func(pk packet.Packet, proxy *utils.ProxyContext, toServer bool) (packet.Packet, error) {
-		var forward bool = true
+		forward := true
 
 		if toServer {
 			// from client
@@ -166,7 +166,7 @@ func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 		return pk, nil
 	}
 
-	err = proxy.Run(ctx, server_address)
+	err = proxy.Run(ctx, serverAddress)
 	if err != nil {
 		logrus.Error(err)
 	} else {
@@ -202,7 +202,7 @@ func (w *WorldState) Reset() {
 	w.ui.Reset()
 }
 
-// writes the world to a folder, resets all the chunks
+// SaveAndReset writes the world to a folder, resets all the chunks
 func (w *WorldState) SaveAndReset() {
 	if len(w.chunks) == 0 {
 		w.Reset()
@@ -241,12 +241,7 @@ func (w *WorldState) SaveAndReset() {
 	chunkEntities := make(map[world.ChunkPos][]world.Entity)
 	for _, es := range w.entities {
 		cp := world.ChunkPos{int32(es.Position.X()) >> 4, int32(es.Position.Z()) >> 4}
-
-		chunkEntities[cp] = append(chunkEntities[cp], serverEntity{
-			EntityType: serverEntityType{
-				Encoded: es.EntityType,
-			},
-		})
+		chunkEntities[cp] = append(chunkEntities[cp], es.ToServerEntity())
 	}
 
 	for cp, v := range chunkEntities {
@@ -359,10 +354,10 @@ func (w *WorldState) SaveAndReset() {
 	w.worldCounter += 1
 
 	type dep struct {
-		PackId  string `json:"pack_id"`
+		PackID  string `json:"pack_id"`
 		Version [3]int `json:"version"`
 	}
-	add_packs_json := func(name string, deps []dep) {
+	addPacksJSON := func(name string, deps []dep) {
 		f, err := os.Create(path.Join(folder, name))
 		if err != nil {
 			logrus.Error(err)
@@ -378,17 +373,17 @@ func (w *WorldState) SaveAndReset() {
 	// save behaviourpack
 	if w.bp.HasContent() {
 		name := strings.ReplaceAll(w.ServerName, "/", "-") + "_blocks"
-		pack_folder := path.Join(folder, "behavior_packs", name)
-		os.MkdirAll(pack_folder, 0o755)
+		packFolder := path.Join(folder, "behavior_packs", name)
+		os.MkdirAll(packFolder, 0o755)
 
 		for _, p := range w.proxy.Server.ResourcePacks() {
 			p := utils.PackFromBase(p)
 			w.bp.CheckAddLink(p)
 		}
 
-		w.bp.Save(pack_folder)
-		add_packs_json("world_behavior_packs.json", []dep{{
-			PackId:  w.bp.Manifest.Header.UUID,
+		w.bp.Save(packFolder)
+		addPacksJSON("world_behavior_packs.json", []dep{{
+			PackID:  w.bp.Manifest.Header.UUID,
 			Version: w.bp.Manifest.Header.Version,
 		}})
 
@@ -405,18 +400,18 @@ func (w *WorldState) SaveAndReset() {
 			var rdeps []dep
 			for k, p := range packs {
 				logrus.Infof(locale.Loc("adding_pack", locale.Strmap{"Name": k}))
-				pack_folder := path.Join(folder, "resource_packs", p.Name())
-				os.MkdirAll(pack_folder, 0o755)
+				packFolder := path.Join(folder, "resource_packs", p.Name())
+				os.MkdirAll(packFolder, 0o755)
 				data := make([]byte, p.Len())
 				p.ReadAt(data, 0)
-				utils.UnpackZip(bytes.NewReader(data), int64(len(data)), pack_folder)
+				utils.UnpackZip(bytes.NewReader(data), int64(len(data)), packFolder)
 
 				rdeps = append(rdeps, dep{
-					PackId:  p.Manifest().Header.Name,
+					PackID:  p.Manifest().Header.Name,
 					Version: p.Manifest().Header.Version,
 				})
 			}
-			add_packs_json("world_resource_packs.json", rdeps)
+			addPacksJSON("world_resource_packs.json", rdeps)
 		}
 	}
 
@@ -446,10 +441,10 @@ func (w *WorldState) OnConnect(proxy *utils.ProxyContext) {
 		w.bp.AddItem(ie)
 	}
 
-	map_item_id, _ := world.ItemRidByName("minecraft:filled_map")
-	MAP_ITEM_PACKET.Content[0].Stack.ItemType.NetworkID = map_item_id
+	mapItemID, _ := world.ItemRidByName("minecraft:filled_map")
+	MapItemPacket.Content[0].Stack.ItemType.NetworkID = mapItemID
 	if gd.ServerAuthoritativeInventory {
-		MAP_ITEM_PACKET.Content[0].StackNetworkID = 0xffff + rand.Int31n(0xfff)
+		MapItemPacket.Content[0].StackNetworkID = 0xffff + rand.Int31n(0xfff)
 	}
 
 	if len(gd.CustomBlocks) > 0 {
@@ -473,12 +468,12 @@ func (w *WorldState) OnConnect(proxy *utils.ProxyContext) {
 			logrus.Info(locale.Loc("guessing_version", nil))
 		}
 
-		dim_id := gd.Dimension
+		dimensionID := gd.Dimension
 		if w.ispre118 {
 			logrus.Info(locale.Loc("using_under_118", nil))
-			dim_id += 10
+			dimensionID += 10
 		}
-		w.Dim = dimension_ids[uint8(dim_id)]
+		w.Dim = dimensionIDMap[uint8(dimensionID)]
 	}
 
 	w.proxy.SendMessage(locale.Loc("use_setname", nil))

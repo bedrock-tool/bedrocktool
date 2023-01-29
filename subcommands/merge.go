@@ -40,87 +40,87 @@ func (c *MergeCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 		return 1
 	}
 	c.worlds = f.Args()
-	out_name := c.worlds[0] + "-merged"
+	outName := c.worlds[0] + "-merged"
 
-	prov_out, err := mcdb.New(logrus.StandardLogger(), out_name, opt.DefaultCompression)
+	provOut, err := mcdb.New(logrus.StandardLogger(), outName, opt.DefaultCompression)
 	if err != nil {
 		logrus.Errorf(locale.Loc("failed_to_open_output", locale.Strmap{"Err": err}))
 		return 1
 	}
 
-	for i, world_name := range c.worlds {
+	for i, worldName := range c.worlds {
 		first := i == 0
-		logrus.Infof(locale.Loc("adding_world", locale.Strmap{"World": world_name}))
-		s, err := os.Stat(world_name)
+		logrus.Infof(locale.Loc("adding_world", locale.Strmap{"World": worldName}))
+		s, err := os.Stat(worldName)
 		if errors.Is(err, os.ErrNotExist) {
-			logrus.Fatalf(locale.Loc("not_found", locale.Strmap{"Name": world_name}), world_name)
+			logrus.Fatalf(locale.Loc("not_found", locale.Strmap{"Name": worldName}), worldName)
 		}
 		if !s.IsDir() { // if its a zip temporarily unpack it to read it
-			f, _ := os.Open(world_name)
-			world_name += "_unpack"
-			utils.UnpackZip(f, s.Size(), world_name)
+			f, _ := os.Open(worldName)
+			worldName += "_unpack"
+			utils.UnpackZip(f, s.Size(), worldName)
 		}
 		// merge it into the state
-		err = c.merge_worlds(prov_out, world_name, first)
+		err = c.mergeWorlds(provOut, worldName, first)
 		if err != nil {
-			logrus.Errorf("%s %s", world_name, err)
+			logrus.Errorf("%s %s", worldName, err)
 			return 1
 		}
 		if !s.IsDir() { // remove temp folder again
-			os.RemoveAll(world_name)
+			os.RemoveAll(worldName)
 		}
 	}
 
-	if err = prov_out.Close(); err != nil {
+	if err = provOut.Close(); err != nil {
 		logrus.Error(err)
 		return 1
 	}
 	time.Sleep(1 * time.Second)
 
-	if err := utils.ZipFolder(out_name+".mcworld", out_name); err != nil {
+	if err := utils.ZipFolder(outName+".mcworld", outName); err != nil {
 		logrus.Infof("zipping: %s", err)
 		return 1
 	}
 
-	os.RemoveAll(out_name)
+	os.RemoveAll(outName)
 	return 0
 }
 
-func (c *MergeCMD) merge_worlds(prov_out *mcdb.Provider, folder string, first bool) error {
-	prov_in, err := mcdb.New(logrus.StandardLogger(), folder, opt.DefaultCompression)
+func (c *MergeCMD) mergeWorlds(provOut *mcdb.Provider, folder string, first bool) error {
+	provIn, err := mcdb.New(logrus.StandardLogger(), folder, opt.DefaultCompression)
 	if err != nil {
 		return err
 	}
 	count := 0
-	existing := prov_out.Chunks(c.legacy)
-	new := prov_in.Chunks(c.legacy)
+	existing := provOut.Chunks(c.legacy)
+	new := provIn.Chunks(c.legacy)
 	for i := range new {
 		if _, ok := existing[i]; !ok {
 			d := i.D
 			// chunks
-			ch, _, err := prov_in.LoadChunk(i.P, d)
+			ch, _, err := provIn.LoadChunk(i.P, d)
 			if err != nil {
 				return err
 			}
-			if err := prov_out.SaveChunk(i.P, ch, i.D); err != nil {
+			if err := provOut.SaveChunk(i.P, ch, i.D); err != nil {
 				return err
 			}
 
 			// blockNBT
-			n, err := prov_in.LoadBlockNBT(i.P, i.D)
+			n, err := provIn.LoadBlockNBT(i.P, i.D)
 			if err != nil {
 				return err
 			}
-			if err := prov_out.SaveBlockNBT(i.P, n, i.D); err != nil {
+			if err := provOut.SaveBlockNBT(i.P, n, i.D); err != nil {
 				return err
 			}
 
 			// entities
-			entities, err := prov_in.LoadEntities(i.P, i.D, entity.DefaultRegistry)
+			entities, err := provIn.LoadEntities(i.P, i.D, entity.DefaultRegistry)
 			if err != nil {
 				return err
 			}
-			if err := prov_out.SaveEntities(i.P, entities, i.D); err != nil {
+			if err := provOut.SaveEntities(i.P, entities, i.D); err != nil {
 				return err
 			}
 			count += 1
@@ -129,9 +129,9 @@ func (c *MergeCMD) merge_worlds(prov_out *mcdb.Provider, folder string, first bo
 
 	if first {
 		logrus.Debug("Applying Settings and level.dat")
-		prov_out.SaveSettings(prov_in.Settings())
-		out_ld := prov_out.LevelDat()
-		copier.Copy(out_ld, prov_in.LevelDat())
+		provOut.SaveSettings(provIn.Settings())
+		outLd := provOut.LevelDat()
+		copier.Copy(outLd, provIn.LevelDat())
 	}
 	logrus.Infof("Added: %d", count)
 	return nil

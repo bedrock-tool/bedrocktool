@@ -18,10 +18,10 @@ import (
 	"golang.org/x/image/bmp"
 )
 
-const VIEW_MAP_ID = 0x424242
+const ViewMapID = 0x424242
 
-// packet to tell the client that it has a map with id 0x424242 in the offhand
-var MAP_ITEM_PACKET packet.InventoryContent = packet.InventoryContent{
+// MapItemPacket tells the client that it has a map with id 0x424242 in the offhand
+var MapItemPacket packet.InventoryContent = packet.InventoryContent{
 	WindowID: 119,
 	Content: []protocol.ItemInstance{
 		{
@@ -34,14 +34,14 @@ var MAP_ITEM_PACKET packet.InventoryContent = packet.InventoryContent{
 				BlockRuntimeID: 0,
 				Count:          1,
 				NBTData: map[string]interface{}{
-					"map_uuid": int64(VIEW_MAP_ID),
+					"map_uuid": int64(ViewMapID),
 				},
 			},
 		},
 	},
 }
 
-func (m *MapUI) get_bounds() (min, max protocol.ChunkPos) {
+func (m *MapUI) getBounds() (min, max protocol.ChunkPos) {
 	// get the chunk coord bounds
 	for _ch := range m.renderedChunks {
 		if _ch.X() < min.X() {
@@ -98,7 +98,7 @@ func (m *MapUI) Start() {
 
 				if m.w.proxy.Client != nil {
 					if err := m.w.proxy.Client.WritePacket(&packet.ClientBoundMapItemData{
-						MapID:       VIEW_MAP_ID,
+						MapID:       ViewMapID,
 						Width:       128,
 						Height:      128,
 						Pixels:      utils.Img2rgba(m.img),
@@ -118,7 +118,7 @@ func (m *MapUI) Start() {
 				return
 			}
 			if m.w.proxy.Client != nil {
-				err := m.w.proxy.Client.WritePacket(&MAP_ITEM_PACKET)
+				err := m.w.proxy.Client.WritePacket(&MapItemPacket)
 				if err != nil {
 					logrus.Error(err)
 					return
@@ -154,7 +154,7 @@ func (m *MapUI) SchedRedraw() {
 	m.needRedraw = true
 }
 
-// draw chunk images to the map image
+// Redraw draws chunk images to the map image
 func (m *MapUI) Redraw() {
 	for {
 		r, ok := m.renderQueue.Dequeue().(*RenderElem)
@@ -164,7 +164,7 @@ func (m *MapUI) Redraw() {
 		if r.ch != nil {
 			m.renderedChunks[r.pos] = Chunk2Img(r.ch)
 		} else {
-			m.renderedChunks[r.pos] = black_16x16
+			m.renderedChunks[r.pos] = black16x16
 		}
 	}
 
@@ -174,30 +174,30 @@ func (m *MapUI) Redraw() {
 	}
 
 	// total_width := 32 * math.Ceil(float64(chunks_x)/32)
-	chunks_per_line := float64(128 / m.zoomLevel)
-	px_per_block := 128 / chunks_per_line / 16 // how many pixels per block
-	sz_chunk := int(math.Floor(px_per_block * 16))
+	chunksPerLine := float64(128 / m.zoomLevel)
+	pxPerBlock := 128 / chunksPerLine / 16 // how many pixels per block
+	pxSizeChunk := int(math.Floor(pxPerBlock * 16))
 
 	for i := 0; i < len(m.img.Pix); i++ { // clear canvas
 		m.img.Pix[i] = 0
 	}
 
 	for _ch := range m.renderedChunks {
-		relative_middle_x := float64(_ch.X()*16 - middle.X())
-		relative_middle_z := float64(_ch.Z()*16 - middle.Z())
-		px_pos := image.Point{ // bottom left corner of the chunk on the map
-			X: int(math.Floor(relative_middle_x*px_per_block)) + 64,
-			Y: int(math.Floor(relative_middle_z*px_per_block)) + 64,
+		relativeMiddleX := float64(_ch.X()*16 - middle.X())
+		relativeMiddleZ := float64(_ch.Z()*16 - middle.Z())
+		px := image.Point{ // bottom left corner of the chunk on the map
+			X: int(math.Floor(relativeMiddleX*pxPerBlock)) + 64,
+			Y: int(math.Floor(relativeMiddleZ*pxPerBlock)) + 64,
 		}
 
-		if !m.img.Rect.Intersect(image.Rect(px_pos.X, px_pos.Y, px_pos.X+sz_chunk, px_pos.Y+sz_chunk)).Empty() {
-			utils.Draw_img_scaled_pos(m.img, m.renderedChunks[_ch], px_pos, sz_chunk)
+		if !m.img.Rect.Intersect(image.Rect(px.X, px.Y, px.X+pxSizeChunk, px.Y+pxSizeChunk)).Empty() {
+			utils.DrawImgScaledPos(m.img, m.renderedChunks[_ch], px, pxSizeChunk)
 		}
 	}
 
-	draw_full := false
+	drawFull := false
 
-	if draw_full {
+	if drawFull {
 		img2 := m.ToImage()
 		buf := bytes.NewBuffer(nil)
 		bmp.Encode(buf, img2)
@@ -207,25 +207,25 @@ func (m *MapUI) Redraw() {
 
 func (m *MapUI) ToImage() *image.RGBA {
 	// get the chunk coord bounds
-	min, max := m.get_bounds()
-	chunks_x := int(max[0] - min[0] + 1) // how many chunk lengths is x coordinate
-	chunks_y := int(max[1] - min[1] + 1)
+	min, max := m.getBounds()
+	chunksX := int(max[0] - min[0] + 1) // how many chunk lengths is x coordinate
+	chunksY := int(max[1] - min[1] + 1)
 
-	img2 := image.NewRGBA(image.Rect(0, 0, chunks_x*16, chunks_y*16))
+	img2 := image.NewRGBA(image.Rect(0, 0, chunksX*16, chunksY*16))
 
-	middle_block_x := chunks_x / 2 * 16
-	middle_block_y := chunks_y / 2 * 16
+	middleBlockX := chunksX / 2 * 16
+	middleBlockY := chunksY / 2 * 16
 
 	for pos := range m.renderedChunks {
-		px_pos := image.Point{
-			X: int(pos.X()*16) - middle_block_x + img2.Rect.Dx(),
-			Y: int(pos.Z()*16) - middle_block_y + img2.Rect.Dy(),
+		px := image.Point{
+			X: int(pos.X()*16) - middleBlockX + img2.Rect.Dx(),
+			Y: int(pos.Z()*16) - middleBlockY + img2.Rect.Dy(),
 		}
 		draw.Draw(img2, image.Rect(
-			px_pos.X,
-			px_pos.Y,
-			px_pos.X+16,
-			px_pos.Y+16,
+			px.X,
+			px.Y,
+			px.X+16,
+			px.Y+16,
 		), m.renderedChunks[pos], image.Point{}, draw.Src)
 	}
 	return img2
@@ -243,7 +243,7 @@ func (w *WorldState) processMapPacketsClient(pk packet.Packet, forward *bool) pa
 	case *packet.PlayerAuthInput:
 		w.SetPlayerPos(pk.Position, pk.Pitch, pk.Yaw, pk.HeadYaw)
 	case *packet.MapInfoRequest:
-		if pk.MapID == VIEW_MAP_ID {
+		if pk.MapID == ViewMapID {
 			w.ui.SchedRedraw()
 			*forward = false
 		}
