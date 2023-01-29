@@ -11,6 +11,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
+	"github.com/sandertv/gophertunnel/minecraft/protocol/login"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 	"github.com/sirupsen/logrus"
@@ -40,6 +41,7 @@ type ProxyContext struct {
 	Listener       *minecraft.Listener
 	commands       map[string]IngameCommand
 	AlwaysGetPacks bool
+	WithClient     bool
 
 	// called for every packet
 	PacketFunc PacketFunc
@@ -105,14 +107,14 @@ func (p *ProxyContext) CommandHandlerPacketCB(pk packet.Packet, proxy *ProxyCont
 	return pk, nil
 }
 
-func proxyLoop(ctx context.Context, proxy *ProxyContext, toServer bool, packetCBs []PacketCallback) error {
+func (p *ProxyContext) proxyLoop(ctx context.Context, toServer bool, packetCBs []PacketCallback) error {
 	var c1, c2 *minecraft.Conn
 	if toServer {
-		c1 = proxy.Client
-		c2 = proxy.Server
+		c1 = p.Client
+		c2 = p.Server
 	} else {
-		c1 = proxy.Server
-		c2 = proxy.Client
+		c1 = p.Server
+		c2 = p.Client
 	}
 
 	for {
@@ -126,13 +128,13 @@ func proxyLoop(ctx context.Context, proxy *ProxyContext, toServer bool, packetCB
 		}
 
 		for _, packetCB := range packetCBs {
-			pk, err = packetCB(pk, proxy, toServer)
+			pk, err = packetCB(pk, p, toServer)
 			if err != nil {
 				return err
 			}
 		}
 
-		if pk != nil {
+		if pk != nil && c2 != nil {
 			if err := c2.WritePacket(pk); err != nil {
 				if disconnect, ok := errors.Unwrap(err).(minecraft.DisconnectError); ok {
 					G_disconnect_reason = disconnect.Error()
@@ -145,7 +147,8 @@ func proxyLoop(ctx context.Context, proxy *ProxyContext, toServer bool, packetCB
 
 func NewProxy() *ProxyContext {
 	return &ProxyContext{
-		commands: make(map[string]IngameCommand),
+		commands:   make(map[string]IngameCommand),
+		WithClient: true,
 	}
 }
 
@@ -160,50 +163,54 @@ func (p *ProxyContext) Run(ctx context.Context, server_address string) (err erro
 	}
 
 	GetTokenSource() // ask for login before listening
-	var packs []*resource.Pack
-	if G_preload_packs {
-		logrus.Info(locale.Loc("preloading_packs", nil))
-		var serverConn *minecraft.Conn
-		serverConn, err = ConnectServer(ctx, server_address, nil, true, nil)
+
+	var cdp *login.ClientData = nil
+	if p.WithClient {
+		var packs []*resource.Pack
+		if G_preload_packs {
+			logrus.Info(locale.Loc("preloading_packs", nil))
+			var serverConn *minecraft.Conn
+			serverConn, err = connectServer(ctx, server_address, nil, true, nil)
+			if err != nil {
+				err = fmt.Errorf(locale.Loc("failed_to_connect", locale.Strmap{"Address": server_address, "Err": err}))
+				return
+			}
+			serverConn.Close()
+			packs = serverConn.ResourcePacks()
+			logrus.Infof(locale.Locm("pack_count_loaded", locale.Strmap{"Count": len(packs)}, len(packs)))
+		}
+
+		_status := minecraft.NewStatusProvider("Server")
+		p.Listener, err = minecraft.ListenConfig{
+			StatusProvider: _status,
+			ResourcePacks:  packs,
+			AcceptedProtocols: []minecraft.Protocol{
+				dummyProto{id: 544, ver: "1.19.20"},
+			},
+		}.Listen("raknet", ":19132")
 		if err != nil {
-			err = fmt.Errorf(locale.Loc("failed_to_connect", locale.Strmap{"Address": server_address, "Err": err}))
 			return
 		}
-		serverConn.Close()
-		packs = serverConn.ResourcePacks()
-		logrus.Infof(locale.Locm("pack_count_loaded", locale.Strmap{"Count": len(packs)}, len(packs)))
+		defer p.Listener.Close()
+
+		logrus.Infof(locale.Loc("listening_on", locale.Strmap{"Address": p.Listener.Addr()}))
+		logrus.Infof(locale.Loc("help_connect", nil))
+
+		go func() {
+			<-ctx.Done()
+			p.Listener.Close()
+		}()
+
+		var c net.Conn
+		c, err = p.Listener.Accept()
+		if err != nil {
+			logrus.Fatal(err)
+		}
+		p.Client = c.(*minecraft.Conn)
+		cd := p.Client.ClientData()
+		cdp = &cd
 	}
-
-	_status := minecraft.NewStatusProvider("Server")
-	p.Listener, err = minecraft.ListenConfig{
-		StatusProvider: _status,
-		ResourcePacks:  packs,
-		AcceptedProtocols: []minecraft.Protocol{
-			dummyProto{id: 544, ver: "1.19.20"},
-		},
-	}.Listen("raknet", ":19132")
-	if err != nil {
-		return
-	}
-	defer p.Listener.Close()
-
-	logrus.Infof(locale.Loc("listening_on", locale.Strmap{"Address": p.Listener.Addr()}))
-	logrus.Infof(locale.Loc("help_connect", nil))
-
-	go func() {
-		<-ctx.Done()
-		p.Listener.Close()
-	}()
-
-	var c net.Conn
-	c, err = p.Listener.Accept()
-	if err != nil {
-		logrus.Fatal(err)
-	}
-	p.Client = c.(*minecraft.Conn)
-
-	cd := p.Client.ClientData()
-	p.Server, err = ConnectServer(ctx, server_address, &cd, p.AlwaysGetPacks, p.PacketFunc)
+	p.Server, err = connectServer(ctx, server_address, cdp, p.AlwaysGetPacks, p.PacketFunc)
 	if err != nil {
 		err = fmt.Errorf(locale.Loc("failed_to_connect", locale.Strmap{"Address": server_address, "Err": err}))
 		return
@@ -215,7 +222,9 @@ func (p *ProxyContext) Run(ctx context.Context, server_address string) (err erro
 	}
 
 	defer p.Server.Close()
-	defer p.Listener.Disconnect(p.Client, G_disconnect_reason)
+	if p.Listener != nil {
+		defer p.Listener.Disconnect(p.Client, G_disconnect_reason)
+	}
 
 	if p.ConnectCB != nil {
 		p.ConnectCB(p)
@@ -233,21 +242,23 @@ func (p *ProxyContext) Run(ctx context.Context, server_address string) (err erro
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := proxyLoop(ctx, p, false, cbs); err != nil {
+		if err := p.proxyLoop(ctx, false, cbs); err != nil {
 			logrus.Error(err)
 			return
 		}
 	}()
 
 	// client to server
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		if err := proxyLoop(ctx, p, true, cbs); err != nil {
-			logrus.Error(err)
-			return
-		}
-	}()
+	if p.Client != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := p.proxyLoop(ctx, true, cbs); err != nil {
+				logrus.Error(err)
+				return
+			}
+		}()
+	}
 
 	wg.Wait()
 	return err

@@ -32,6 +32,8 @@ debug_mode:
   other: "Debug-Modus"
 refreshed_token:
   other: Token wurde aktualisiert
+done:
+  other: Fertig
 
 starting_dns:
   other: "Starten des DNS auf {{.Ip}}:53"

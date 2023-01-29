@@ -8,6 +8,7 @@ import (
 	"path"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/google/uuid"
@@ -45,7 +46,7 @@ func CleanupName(name string) string {
 
 // connections
 
-func ConnectServer(ctx context.Context, address string, ClientData *login.ClientData, want_packs bool, packetFunc PacketFunc) (serverConn *minecraft.Conn, err error) {
+func connectServer(ctx context.Context, address string, ClientData *login.ClientData, want_packs bool, packetFunc PacketFunc) (serverConn *minecraft.Conn, err error) {
 	packet_func := func(header packet.Header, payload []byte, src, dst net.Addr) {
 		if G_debug {
 			PacketLogger(header, payload, src, dst)
@@ -79,15 +80,22 @@ func ConnectServer(ctx context.Context, address string, ClientData *login.Client
 }
 
 func spawn_conn(ctx context.Context, clientConn *minecraft.Conn, serverConn *minecraft.Conn) error {
+	wg := sync.WaitGroup{}
 	errs := make(chan error, 2)
+	if clientConn != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			errs <- clientConn.StartGame(serverConn.GameData())
+		}()
+	}
+	wg.Add(1)
 	go func() {
-		errs <- clientConn.StartGame(serverConn.GameData())
-	}()
-	go func() {
+		defer wg.Done()
 		errs <- serverConn.DoSpawn()
 	}()
 
-	// wait for both to finish
+	wg.Wait()
 	for i := 0; i < 2; i++ {
 		select {
 		case err := <-errs:
@@ -96,6 +104,7 @@ func spawn_conn(ctx context.Context, clientConn *minecraft.Conn, serverConn *min
 			}
 		case <-ctx.Done():
 			return errors.New(locale.Loc("connection_cancelled", nil))
+		default:
 		}
 	}
 	return nil

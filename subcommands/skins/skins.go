@@ -276,36 +276,29 @@ func (c *SkinCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}
 		return 1
 	}
 
-	serverConn, err := utils.ConnectServer(ctx, address, nil, false, nil)
-	if err != nil {
-		logrus.Error(err)
-		return 1
-	}
-	defer serverConn.Close()
-
 	out_path := fmt.Sprintf("skins/%s", hostname)
 
-	if err := serverConn.DoSpawnContext(ctx); err != nil {
+	p := utils.NewProxy()
+	p.WithClient = false
+	p.ConnectCB = func(proxy *utils.ProxyContext) {
+		logrus.Info(locale.Loc("connected", nil))
+		logrus.Info(locale.Loc("ctrl_c_to_exit", nil))
+
+		os.MkdirAll(out_path, 0o755)
+	}
+
+	p.PacketCB = func(pk packet.Packet, proxy *utils.ProxyContext, toServer bool) (packet.Packet, error) {
+		if !toServer {
+			process_packet_skins(nil, out_path, pk, c.filter, false)
+		}
+		return pk, nil
+	}
+
+	err = p.Run(ctx, address)
+	if err != nil {
 		logrus.Error(err)
-		return 1
 	}
 
-	logrus.Info(locale.Loc("connected", nil))
-	logrus.Info(locale.Loc("ctrl_c_to_exit", nil))
-
-	os.MkdirAll(out_path, 0o755)
-
-	for {
-		pk, err := serverConn.ReadPacket()
-		if err != nil {
-			return 1
-		}
-		process_packet_skins(nil, out_path, pk, c.filter, false)
-		if ctx.Err() != nil {
-			serverConn.Close()
-			break
-		}
-	}
 	return 0
 }
 

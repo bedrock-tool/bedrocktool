@@ -158,6 +158,7 @@ func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 	w.saveImage = c.saveImage
 	w.experimentInventory = c.experimentInventory
 	w.ctx = ctx
+	w.bp = behaviourpack.New(w.ServerName)
 
 	proxy := utils.NewProxy()
 	proxy.AlwaysGetPacks = true
@@ -442,7 +443,7 @@ func (w *WorldState) SaveAndReset() {
 		ld.Generator = 2
 	}
 
-	if w.bp != nil {
+	if w.bp.HasContent() {
 		if ld.Experiments == nil {
 			ld.Experiments = map[string]any{}
 		}
@@ -489,7 +490,7 @@ func (w *WorldState) SaveAndReset() {
 		add_packs_json("world_resource_packs.json", rdeps)
 	}
 
-	if w.bp != nil {
+	if w.bp.HasContent() {
 		name := strings.ReplaceAll(w.ServerName, "/", "-") + "_blocks"
 		pack_folder := path.Join(folder, "behavior_packs", name)
 		os.MkdirAll(pack_folder, 0o755)
@@ -519,7 +520,7 @@ func (w *WorldState) SaveAndReset() {
 		fmt.Println(err)
 	}
 	logrus.Info(locale.Loc("saved", locale.Strmap{"Name": filename}))
-	os.RemoveAll(folder)
+	// os.RemoveAll(folder)
 	w.Reset()
 }
 
@@ -529,6 +530,12 @@ func (w *WorldState) OnConnect(proxy *utils.ProxyContext) {
 
 	world.InsertCustomItems(gd.Items)
 
+	for _, ie := range gd.Items {
+		if ie.ComponentBased {
+			w.bp.AddItem(ie)
+		}
+	}
+
 	map_item_id, _ := world.ItemRidByName("minecraft:filled_map")
 	MAP_ITEM_PACKET.Content[0].Stack.ItemType.NetworkID = map_item_id
 	if gd.ServerAuthoritativeInventory {
@@ -537,12 +544,9 @@ func (w *WorldState) OnConnect(proxy *utils.ProxyContext) {
 
 	if len(gd.CustomBlocks) > 0 {
 		logrus.Info(locale.Loc("using_customblocks", nil))
-
-		w.bp = behaviourpack.New(w.ServerName + " Custom Blocks")
 		for _, be := range gd.CustomBlocks {
 			w.bp.AddBlock(be)
 		}
-
 		// telling the chunk code what custom blocks there are so it can generate offsets
 		world.InsertCustomBlocks(gd.CustomBlocks)
 	}
@@ -785,6 +789,8 @@ func (w *WorldState) ProcessPacketServer(pk packet.Packet) (packet.Packet, bool)
 				delete(w.openItemContainers, byte(pk.WindowID))
 			}
 		}
+	case *packet.ItemComponent:
+		w.bp.ApplyComponentEntries(pk.Items)
 	}
 	return pk, true
 }

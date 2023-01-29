@@ -30,6 +30,10 @@ preload_packs:
   other: "pwewoad wewesouwcepacks for pwoxy"
 debug_mode:
   other: "debug mode"
+refreshed_token:
+  other: "refweshed token"
+done:
+  other: done
 
 starting_dns:
   other: "Stawting dns at {{.Ip}}:53"

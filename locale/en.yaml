@@ -31,7 +31,9 @@ preload_packs:
 debug_mode:
   other: "debug mode"
 refreshed_token:
-  other: refreshed token
+  other: "refreshed token"
+done:
+  other: "done"
 
 starting_dns:
   other: "Starting dns at {{.Ip}}:53"
