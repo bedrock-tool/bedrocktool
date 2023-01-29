@@ -75,7 +75,7 @@ func (c *CaptureCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interfac
 
 	proxy := utils.NewProxy()
 	proxy.PacketFunc = func(header packet.Header, payload []byte, src, dst net.Addr) {
-		IsfromClient := dst.String() == proxy.Server.RemoteAddr().String()
+		IsfromClient := src.String() == proxy.Client.LocalAddr().String()
 
 		buf := bytes.NewBuffer(nil)
 		header.Write(buf)

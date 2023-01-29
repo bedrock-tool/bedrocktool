@@ -29,6 +29,11 @@ func (w *WorldState) processLevelChunk(pk *packet.LevelChunk) {
 		return
 	}
 
+	// ignore empty chunks THANKS WEIRD SERVER SOFTWARE DEVS
+	if len(pk.RawPayload) == 0 {
+		logrus.Info(locale.Loc("empty_chunk", nil))
+		return
+	}
 	ch, blockNBTs, err := chunk.NetworkDecode(world.AirRID(), pk.RawPayload, int(pk.SubChunkCount), w.Dim.Range(), w.ispre118, w.bp != nil)
 	if err != nil {
 		logrus.Error(err)

@@ -149,6 +149,9 @@ test_block_inv:
   other: "enable experimental bwock inventory saving"
 saved:
   other: "Saved: {{.Name}}"
+empty_chunk:
+  other: "Empty Chunk."
+
 
 only_with_geometry:
   other: "only save skins with geometry"

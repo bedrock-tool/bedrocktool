@@ -149,6 +149,8 @@ test_block_inv:
   other: "aktiviere experimentelles Speichern des Blockinventars"
 saved:
   other: "Gespeichert: {{.Name}}"
+empty_chunk:
+  other: "Leerer Chunk."
 
 only_with_geometry:
   other: "speichere nur Skins mit Geometrie"

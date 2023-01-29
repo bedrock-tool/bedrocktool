@@ -6,7 +6,7 @@ go 1.19
 replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.26.2
 
 //replace github.com/df-mc/dragonfly => ./dragonfly
-replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.9.1-8
+replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.9.1-9
 
 require (
 	github.com/cloudfoundry-attic/jibber_jabber v0.0.0-20151120183258-bcc4c8345a21
@@ -24,6 +24,7 @@ require (
 	github.com/sandertv/gophertunnel v1.26.1
 	github.com/sirupsen/logrus v1.9.0
 	golang.design/x/lockfree v0.0.1
+	golang.org/x/crypto v0.5.0
 	golang.org/x/exp v0.0.0-20230125214544-b3c2aaf6208d
 	golang.org/x/image v0.3.0
 	golang.org/x/oauth2 v0.4.0
@@ -44,7 +45,6 @@ require (
 	github.com/muhammadmuzzammil1998/jsonc v1.0.0 // indirect
 	github.com/sandertv/go-raknet v1.12.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
-	golang.org/x/crypto v0.5.0 // indirect
 	golang.org/x/mod v0.7.0 // indirect
 	golang.org/x/net v0.5.0 // indirect
 	golang.org/x/sys v0.4.0 // indirect
