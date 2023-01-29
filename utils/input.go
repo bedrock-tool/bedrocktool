@@ -55,7 +55,7 @@ func ServerInput(ctx context.Context, server string) (address, name string, err 
 		if len(realm_info) == 3 {
 			id = realm_info[2]
 		}
-		name, address, err = get_realm(context.Background(), GetRealmsApi(), realm_info[1], id)
+		name, address, err = get_realm(ctx, realm_info[1], id)
 		if err != nil {
 			return "", "", err
 		}

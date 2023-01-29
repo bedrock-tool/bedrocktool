@@ -8,12 +8,11 @@ import (
 
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/google/subcommands"
-	"github.com/sandertv/gophertunnel/minecraft/realms"
 	"github.com/sirupsen/logrus"
 )
 
-func get_realm(ctx context.Context, api *realms.Client, realm_name, id string) (name string, address string, err error) {
-	realms, err := api.Realms(ctx)
+func get_realm(ctx context.Context, realm_name, id string) (name string, address string, err error) {
+	realms, err := GetRealmsApi().Realms(ctx)
 	if err != nil {
 		return "", "", err
 	}
@@ -44,8 +43,7 @@ func (c *RealmListCMD) Usage() string {
 }
 
 func (c *RealmListCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	api := realms.NewClient(GetTokenSource())
-	realms, err := api.Realms(ctx)
+	realms, err := GetRealmsApi().Realms(ctx)
 	if err != nil {
 		logrus.Error(err)
 		return 1

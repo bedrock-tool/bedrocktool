@@ -111,6 +111,21 @@ func (m *MapUI) Start() {
 			}
 		}
 	}()
+	go func() { // send map item
+		t := time.NewTicker(1 * time.Second)
+		for range t.C {
+			if m.w.ctx.Err() != nil {
+				return
+			}
+			if m.w.proxy.Client != nil {
+				err := m.w.proxy.Client.WritePacket(&MAP_ITEM_PACKET)
+				if err != nil {
+					logrus.Error(err)
+					return
+				}
+			}
+		}
+	}()
 }
 
 func (m *MapUI) Stop() {
@@ -137,21 +152,6 @@ func (m *MapUI) ChangeZoom() {
 // SchedRedraw tells the map to redraw the next time its sent
 func (m *MapUI) SchedRedraw() {
 	m.needRedraw = true
-}
-
-// draw_img_scaled_pos draws src onto dst at bottom_left, scaled to size
-func draw_img_scaled_pos(dst *image.RGBA, src *image.RGBA, bottom_left image.Point, size_scaled int) {
-	sbx := src.Bounds().Dx()
-	ratio := int(float64(sbx) / float64(size_scaled))
-
-	for x_out := bottom_left.X; x_out < bottom_left.X+size_scaled; x_out++ {
-		for y_out := bottom_left.Y; y_out < bottom_left.Y+size_scaled; y_out++ {
-			x_in := (x_out - bottom_left.X) * ratio
-			y_in := (y_out - bottom_left.Y) * ratio
-			c := src.At(x_in, y_in)
-			dst.Set(x_out, y_out, c)
-		}
-	}
 }
 
 // draw chunk images to the map image
@@ -191,7 +191,7 @@ func (m *MapUI) Redraw() {
 		}
 
 		if !m.img.Rect.Intersect(image.Rect(px_pos.X, px_pos.Y, px_pos.X+sz_chunk, px_pos.Y+sz_chunk)).Empty() {
-			draw_img_scaled_pos(m.img, m.renderedChunks[_ch], px_pos, sz_chunk)
+			utils.Draw_img_scaled_pos(m.img, m.renderedChunks[_ch], px_pos, sz_chunk)
 		}
 	}
 
@@ -234,4 +234,21 @@ func (m *MapUI) ToImage() *image.RGBA {
 func (m *MapUI) SetChunk(pos protocol.ChunkPos, ch *chunk.Chunk) {
 	m.renderQueue.Enqueue(&RenderElem{pos, ch})
 	m.SchedRedraw()
+}
+
+func (w *WorldState) processMapPacketsClient(pk packet.Packet, forward *bool) packet.Packet {
+	switch pk := pk.(type) {
+	case *packet.MovePlayer:
+		w.SetPlayerPos(pk.Position, pk.Pitch, pk.Yaw, pk.HeadYaw)
+	case *packet.PlayerAuthInput:
+		w.SetPlayerPos(pk.Position, pk.Pitch, pk.Yaw, pk.HeadYaw)
+	case *packet.MapInfoRequest:
+		if pk.MapID == VIEW_MAP_ID {
+			w.ui.SchedRedraw()
+			*forward = false
+		}
+	case *packet.Animate:
+		w.ProcessAnimate(pk)
+	}
+	return pk
 }

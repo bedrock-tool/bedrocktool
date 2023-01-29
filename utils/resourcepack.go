@@ -13,6 +13,7 @@ type Pack interface {
 	ReadAll() ([]byte, error)
 	Decrypt() ([]byte, error)
 	Encrypted() bool
+	CanDecrypt() bool
 	UUID() string
 	Name() string
 	Version() string
@@ -42,6 +43,10 @@ func (p *Packb) ReadAll() ([]byte, error) {
 	return buf, nil
 }
 
+func (p *Packb) CanDecrypt() bool {
+	return false
+}
+
 func (p *Packb) Decrypt() ([]byte, error) {
 	return nil, errors.New("no_decrypt")
 }
@@ -59,7 +64,7 @@ func GetPacks(server *minecraft.Conn) (packs map[string]*resource.Pack, err erro
 	packs = make(map[string]*resource.Pack)
 	for _, pack := range server.ResourcePacks() {
 		pack := PackFromBase(pack)
-		if pack.Encrypted() {
+		if pack.Encrypted() && pack.CanDecrypt() {
 			data, err := pack.Decrypt()
 			if err != nil {
 				return nil, err

@@ -1,7 +1,9 @@
 package utils
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"net"
@@ -152,3 +154,10 @@ func Clamp(a, b int) int {
 	}
 	return a
 }
+
+func Rand_seeded_uuid(str string) string {
+	h := sha256.Sum256([]byte(str))
+	id, _ := uuid.NewRandomFromReader(bytes.NewBuffer(h[:]))
+	return id.String()
+}
+

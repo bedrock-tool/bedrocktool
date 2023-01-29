@@ -34,3 +34,18 @@ func BlendColors(c1, c2 color.RGBA) (ret color.RGBA) {
 	ret.A = blendAlphaValue(c1.A, c2.A)
 	return ret
 }
+
+// Draw_img_scaled_pos draws src onto dst at bottom_left, scaled to size
+func Draw_img_scaled_pos(dst *image.RGBA, src *image.RGBA, bottom_left image.Point, size_scaled int) {
+	sbx := src.Bounds().Dx()
+	ratio := int(float64(sbx) / float64(size_scaled))
+
+	for x_out := bottom_left.X; x_out < bottom_left.X+size_scaled; x_out++ {
+		for y_out := bottom_left.Y; y_out < bottom_left.Y+size_scaled; y_out++ {
+			x_in := (x_out - bottom_left.X) * ratio
+			y_in := (y_out - bottom_left.Y) * ratio
+			c := src.At(x_in, y_in)
+			dst.Set(x_out, y_out, c)
+		}
+	}
+}

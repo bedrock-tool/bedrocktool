@@ -7,24 +7,18 @@ import (
 	"flag"
 	"fmt"
 	"image"
-	"image/draw"
 	"image/png"
 	"math/rand"
 	"os"
 	"path"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/behaviourpack"
-	"github.com/bedrock-tool/bedrocktool/utils/nbtconv"
 
-	"github.com/df-mc/dragonfly/server/block"
 	"github.com/df-mc/dragonfly/server/block/cube"
-	"github.com/df-mc/dragonfly/server/item"
-	"github.com/df-mc/dragonfly/server/item/inventory"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/df-mc/dragonfly/server/world/chunk"
 	"github.com/df-mc/dragonfly/server/world/mcdb"
@@ -33,10 +27,7 @@ import (
 	"github.com/google/subcommands"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
-	"github.com/sandertv/gophertunnel/minecraft/resource"
 	"github.com/sirupsen/logrus"
-	//_ "github.com/df-mc/dragonfly/server/block" // to load blocks
-	//_ "net/http/pprof"
 )
 
 type TPlayerPos struct {
@@ -44,11 +35,6 @@ type TPlayerPos struct {
 	Pitch    float32
 	Yaw      float32
 	HeadYaw  float32
-}
-
-type itemContainer struct {
-	OpenPacket *packet.ContainerOpen
-	Content    *packet.InventoryContent
 }
 
 // the state used for drawing and saving
@@ -60,12 +46,12 @@ type WorldState struct {
 	chunks             map[protocol.ChunkPos]*chunk.Chunk
 	blockNBT           map[protocol.SubChunkPos][]map[string]any
 	openItemContainers map[byte]*itemContainer
+	entities           map[uint64]*entityState
 
 	Dim          world.Dimension
 	WorldName    string
 	ServerName   string
 	worldCounter int
-	packs        map[string]*resource.Pack
 	bp           *behaviourpack.BehaviourPack
 
 	withPacks           bool
@@ -84,6 +70,7 @@ func NewWorldState() *WorldState {
 		chunks:             make(map[protocol.ChunkPos]*chunk.Chunk),
 		blockNBT:           make(map[protocol.SubChunkPos][]map[string]any),
 		openItemContainers: make(map[byte]*itemContainer),
+		entities:           make(map[uint64]*entityState),
 		Dim:                nil,
 		WorldName:          "world",
 		PlayerPos:          TPlayerPos{},
@@ -111,7 +98,9 @@ func init() {
 	for i := range Offset_table {
 		Offset_table[i] = protocol.SubChunkOffset{0, int8(i), 0}
 	}
-	draw.Draw(black_16x16, image.Rect(0, 0, 16, 16), image.Black, image.Point{}, draw.Src)
+	for i := 3; i < len(black_16x16.Pix); i += 4 {
+		black_16x16.Pix[i] = 255
+	}
 	utils.RegisterCommand(&WorldCMD{})
 }
 
@@ -139,12 +128,6 @@ func (c *WorldCMD) Usage() string {
 }
 
 func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	/*
-		go func() {
-			http.ListenAndServe(":8000", nil)
-		}()
-	*/
-
 	server_address, hostname, err := utils.ServerInput(ctx, c.Address)
 	if err != nil {
 		logrus.Error(err)
@@ -164,12 +147,19 @@ func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 	proxy.AlwaysGetPacks = true
 	proxy.ConnectCB = w.OnConnect
 	proxy.PacketCB = func(pk packet.Packet, proxy *utils.ProxyContext, toServer bool) (packet.Packet, error) {
-		var forward bool
+		var forward bool = true
+
 		if toServer {
-			pk, forward = w.ProcessPacketClient(pk)
+			// from client
+			pk = w.processItemPacketsClient(pk, &forward)
+			pk = w.processMapPacketsClient(pk, &forward)
 		} else {
-			pk, forward = w.ProcessPacketServer(pk)
+			// from server
+			pk = w.processItemPacketsServer(pk)
+			pk = w.ProcessChunkPackets(pk)
+			pk = w.ProcessEntityPackets(pk)
 		}
+
 		if !forward {
 			return nil, nil
 		}
@@ -185,117 +175,11 @@ func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 	return 0
 }
 
-func (w *WorldState) setnameCommand(cmdline []string) bool {
-	w.WorldName = strings.Join(cmdline, " ")
-	w.proxy.SendMessage(locale.Loc("worldname_set", locale.Strmap{"Name": w.WorldName}))
-	return true
-}
-
-func (w *WorldState) toggleVoid(cmdline []string) bool {
-	w.voidgen = !w.voidgen
-	var s string
-	if w.voidgen {
-		s = locale.Loc("void_generator_true", nil)
-	} else {
-		s = locale.Loc("void_generator_false", nil)
-	}
-	w.proxy.SendMessage(s)
-	return true
-}
-
-func (w *WorldState) ProcessLevelChunk(pk *packet.LevelChunk) {
-	_, exists := w.chunks[pk.Position]
-	if exists {
-		return
-	}
-
-	ch, blockNBTs, err := chunk.NetworkDecode(world.AirRID(), pk.RawPayload, int(pk.SubChunkCount), w.Dim.Range(), w.ispre118, w.bp != nil)
-	if err != nil {
-		logrus.Error(err)
-		return
-	}
-	if blockNBTs != nil {
-		w.blockNBT[protocol.SubChunkPos{
-			pk.Position.X(), 0, pk.Position.Z(),
-		}] = blockNBTs
-	}
-
-	w.chunks[pk.Position] = ch
-
-	if pk.SubChunkRequestMode == protocol.SubChunkRequestModeLegacy {
-		w.ui.SetChunk(pk.Position, ch)
-	} else {
-		w.ui.SetChunk(pk.Position, nil)
-		// request all the subchunks
-
-		max := w.Dim.Range().Height() / 16
-		if pk.SubChunkRequestMode == protocol.SubChunkRequestModeLimited {
-			max = int(pk.HighestSubChunk)
-		}
-
-		w.proxy.Server.WritePacket(&packet.SubChunkRequest{
-			Dimension: int32(w.Dim.EncodeDimension()),
-			Position: protocol.SubChunkPos{
-				pk.Position.X(), 0, pk.Position.Z(),
-			},
-			Offsets: Offset_table[:max],
-		})
-	}
-}
-
-func (w *WorldState) ProcessSubChunk(pk *packet.SubChunk) {
-	pos_to_redraw := make(map[protocol.ChunkPos]bool)
-
-	for _, sub := range pk.SubChunkEntries {
-		var (
-			abs_x  = pk.Position[0] + int32(sub.Offset[0])
-			abs_y  = pk.Position[1] + int32(sub.Offset[1])
-			abs_z  = pk.Position[2] + int32(sub.Offset[2])
-			subpos = protocol.SubChunkPos{abs_x, abs_y, abs_z}
-			pos    = protocol.ChunkPos{abs_x, abs_z}
-		)
-		ch := w.chunks[pos]
-		if ch == nil {
-			logrus.Error(locale.Loc("subchunk_before_chunk", nil))
-			continue
-		}
-		blockNBT, err := ch.ApplySubChunkEntry(uint8(abs_y), &sub)
-		if err != nil {
-			logrus.Error(err)
-		}
-		if blockNBT != nil {
-			w.blockNBT[subpos] = blockNBT
-		}
-
-		pos_to_redraw[pos] = true
-	}
-
-	// redraw the chunks
-	for pos := range pos_to_redraw {
-		w.ui.SetChunk(pos, w.chunks[pos])
-	}
-	w.ui.SchedRedraw()
-}
-
 func (w *WorldState) ProcessAnimate(pk *packet.Animate) {
 	if pk.ActionType == packet.AnimateActionSwingArm {
 		w.ui.ChangeZoom()
 		w.proxy.SendPopup(locale.Loc("zoom_level", locale.Strmap{"Level": w.ui.zoomLevel}))
 	}
-}
-
-func (w *WorldState) ProcessChangeDimension(pk *packet.ChangeDimension) {
-	if len(w.chunks) > 0 {
-		w.SaveAndReset()
-	} else {
-		logrus.Info(locale.Loc("not_saving_empty", nil))
-		w.Reset()
-	}
-	dim_id := pk.Dimension
-	if w.ispre118 {
-		dim_id += 10
-	}
-	w.Dim = dimension_ids[uint8(dim_id)]
 }
 
 func (w *WorldState) SetPlayerPos(Position mgl32.Vec3, Pitch, Yaw, HeadYaw float32) {
@@ -342,13 +226,31 @@ func (w *WorldState) SaveAndReset() {
 	}
 
 	// save block nbt data
-	blockNBT := make(map[protocol.ChunkPos][]map[string]any)
+	blockNBT := make(map[world.ChunkPos][]map[string]any)
 	for scp, v := range w.blockNBT { // 3d to 2d
-		cp := protocol.ChunkPos{scp.X(), scp.Z()}
+		cp := world.ChunkPos{scp.X(), scp.Z()}
 		blockNBT[cp] = append(blockNBT[cp], v...)
 	}
 	for cp, v := range blockNBT {
-		err = provider.SaveBlockNBT((world.ChunkPos)(cp), v, w.Dim)
+		err = provider.SaveBlockNBT(cp, v, w.Dim)
+		if err != nil {
+			logrus.Error(err)
+		}
+	}
+
+	chunkEntities := make(map[world.ChunkPos][]world.Entity)
+	for _, es := range w.entities {
+		cp := world.ChunkPos{int32(es.Position.X()) >> 4, int32(es.Position.Z()) >> 4}
+
+		chunkEntities[cp] = append(chunkEntities[cp], serverEntity{
+			EntityType: serverEntityType{
+				Encoded: es.EntityType,
+			},
+		})
+	}
+
+	for cp, v := range chunkEntities {
+		err = provider.SaveEntities(cp, v, w.Dim)
 		if err != nil {
 			logrus.Error(err)
 		}
@@ -473,23 +375,7 @@ func (w *WorldState) SaveAndReset() {
 		}
 	}
 
-	{
-		var rdeps []dep
-		for k, p := range w.packs {
-			logrus.Infof(locale.Loc("adding_pack", locale.Strmap{"Name": k}))
-			pack_folder := path.Join(folder, "resource_packs", k)
-			os.MkdirAll(pack_folder, 0o755)
-			data := make([]byte, p.Len())
-			p.ReadAt(data, 0)
-			utils.UnpackZip(bytes.NewReader(data), int64(len(data)), pack_folder)
-			rdeps = append(rdeps, dep{
-				PackId:  p.Manifest().Header.Name,
-				Version: p.Manifest().Header.Version,
-			})
-		}
-		add_packs_json("world_resource_packs.json", rdeps)
-	}
-
+	// save behaviourpack
 	if w.bp.HasContent() {
 		name := strings.ReplaceAll(w.ServerName, "/", "-") + "_blocks"
 		pack_folder := path.Join(folder, "behavior_packs", name)
@@ -505,6 +391,33 @@ func (w *WorldState) SaveAndReset() {
 			PackId:  w.bp.Manifest.Header.UUID,
 			Version: w.bp.Manifest.Header.Version,
 		}})
+
+		// force resource packs for worlds with custom blocks
+		w.withPacks = true
+	}
+
+	// add resource packs
+	if w.withPacks {
+		packs, err := utils.GetPacks(w.proxy.Server)
+		if err != nil {
+			logrus.Error(err)
+		} else {
+			var rdeps []dep
+			for k, p := range packs {
+				logrus.Infof(locale.Loc("adding_pack", locale.Strmap{"Name": k}))
+				pack_folder := path.Join(folder, "resource_packs", p.Name())
+				os.MkdirAll(pack_folder, 0o755)
+				data := make([]byte, p.Len())
+				p.ReadAt(data, 0)
+				utils.UnpackZip(bytes.NewReader(data), int64(len(data)), pack_folder)
+
+				rdeps = append(rdeps, dep{
+					PackId:  p.Manifest().Header.Name,
+					Version: p.Manifest().Header.Version,
+				})
+			}
+			add_packs_json("world_resource_packs.json", rdeps)
+		}
 	}
 
 	if w.saveImage {
@@ -515,7 +428,6 @@ func (w *WorldState) SaveAndReset() {
 
 	// zip it
 	filename := folder + ".mcworld"
-
 	if err := utils.ZipFolder(filename, folder); err != nil {
 		fmt.Println(err)
 	}
@@ -531,9 +443,7 @@ func (w *WorldState) OnConnect(proxy *utils.ProxyContext) {
 	world.InsertCustomItems(gd.Items)
 
 	for _, ie := range gd.Items {
-		if ie.ComponentBased {
-			w.bp.AddItem(ie)
-		}
+		w.bp.AddItem(ie)
 	}
 
 	map_item_id, _ := world.ItemRidByName("minecraft:filled_map")
@@ -549,12 +459,6 @@ func (w *WorldState) OnConnect(proxy *utils.ProxyContext) {
 		}
 		// telling the chunk code what custom blocks there are so it can generate offsets
 		world.InsertCustomBlocks(gd.CustomBlocks)
-	}
-
-	if w.withPacks {
-		go func() {
-			w.packs, _ = utils.GetPacks(w.proxy.Server)
-		}()
 	}
 
 	{ // check game version
@@ -580,26 +484,13 @@ func (w *WorldState) OnConnect(proxy *utils.ProxyContext) {
 	w.proxy.SendMessage(locale.Loc("use_setname", nil))
 
 	w.ui.Start()
-	go func() { // send map item
-		select {
-		case <-w.ctx.Done():
-			return
-		default:
-			t := time.NewTicker(1 * time.Second)
-			for range t.C {
-				if w.proxy.Client != nil {
-					err := w.proxy.Client.WritePacket(&MAP_ITEM_PACKET)
-					if err != nil {
-						logrus.Error(err)
-						return
-					}
-				}
-			}
-		}
-	}()
 
 	proxy.AddCommand(utils.IngameCommand{
-		Exec: w.setnameCommand,
+		Exec: func(cmdline []string) bool {
+			w.WorldName = strings.Join(cmdline, " ")
+			w.proxy.SendMessage(locale.Loc("worldname_set", locale.Strmap{"Name": w.WorldName}))
+			return true
+		},
 		Cmd: protocol.Command{
 			Name:        "setname",
 			Description: locale.Loc("setname_desc", nil),
@@ -618,179 +509,20 @@ func (w *WorldState) OnConnect(proxy *utils.ProxyContext) {
 	})
 
 	proxy.AddCommand(utils.IngameCommand{
-		Exec: w.toggleVoid,
+		Exec: func(cmdline []string) bool {
+			w.voidgen = !w.voidgen
+			var s string
+			if w.voidgen {
+				s = locale.Loc("void_generator_true", nil)
+			} else {
+				s = locale.Loc("void_generator_false", nil)
+			}
+			w.proxy.SendMessage(s)
+			return true
+		},
 		Cmd: protocol.Command{
 			Name:        "void",
 			Description: locale.Loc("void_desc", nil),
 		},
 	})
-}
-
-func (w *WorldState) ProcessPacketClient(pk packet.Packet) (packet.Packet, bool) {
-	forward := true
-	switch pk := pk.(type) {
-	case *packet.MovePlayer:
-		w.SetPlayerPos(pk.Position, pk.Pitch, pk.Yaw, pk.HeadYaw)
-	case *packet.PlayerAuthInput:
-		w.SetPlayerPos(pk.Position, pk.Pitch, pk.Yaw, pk.HeadYaw)
-	case *packet.MapInfoRequest:
-		if pk.MapID == VIEW_MAP_ID {
-			w.ui.SchedRedraw()
-			forward = false
-		}
-	case *packet.ItemStackRequest:
-		var requests []protocol.ItemStackRequest
-		for _, isr := range pk.Requests {
-			for _, sra := range isr.Actions {
-				if sra, ok := sra.(*protocol.TakeStackRequestAction); ok {
-					if sra.Source.StackNetworkID == MAP_ITEM_PACKET.Content[0].StackNetworkID {
-						continue
-					}
-				}
-				if sra, ok := sra.(*protocol.DropStackRequestAction); ok {
-					if sra.Source.StackNetworkID == MAP_ITEM_PACKET.Content[0].StackNetworkID {
-						continue
-					}
-				}
-				if sra, ok := sra.(*protocol.DestroyStackRequestAction); ok {
-					if sra.Source.StackNetworkID == MAP_ITEM_PACKET.Content[0].StackNetworkID {
-						continue
-					}
-				}
-				if sra, ok := sra.(*protocol.PlaceInContainerStackRequestAction); ok {
-					if sra.Source.StackNetworkID == MAP_ITEM_PACKET.Content[0].StackNetworkID {
-						continue
-					}
-				}
-				if sra, ok := sra.(*protocol.TakeOutContainerStackRequestAction); ok {
-					if sra.Source.StackNetworkID == MAP_ITEM_PACKET.Content[0].StackNetworkID {
-						continue
-					}
-				}
-				if sra, ok := sra.(*protocol.DestroyStackRequestAction); ok {
-					if sra.Source.StackNetworkID == MAP_ITEM_PACKET.Content[0].StackNetworkID {
-						continue
-					}
-				}
-			}
-			requests = append(requests, isr)
-		}
-		pk.Requests = requests
-	case *packet.MobEquipment:
-		if pk.NewItem.Stack.NBTData["map_uuid"] == int64(VIEW_MAP_ID) {
-			forward = false
-		}
-	case *packet.Animate:
-		w.ProcessAnimate(pk)
-	}
-	return pk, forward
-}
-
-// stackToItem converts a network ItemStack representation back to an item.Stack.
-func stackToItem(it protocol.ItemStack) item.Stack {
-	t, ok := world.ItemByRuntimeID(it.NetworkID, int16(it.MetadataValue))
-	if !ok {
-		t = block.Air{}
-	}
-	if it.BlockRuntimeID > 0 {
-		// It shouldn't matter if it (for whatever reason) wasn't able to get the block runtime ID,
-		// since on the next line, we assert that the block is an item. If it didn't succeed, it'll
-		// return air anyway.
-		b, _ := world.BlockByRuntimeID(uint32(it.BlockRuntimeID))
-		if t, ok = b.(world.Item); !ok {
-			t = block.Air{}
-		}
-	}
-	//noinspection SpellCheckingInspection
-	if nbter, ok := t.(world.NBTer); ok && len(it.NBTData) != 0 {
-		t = nbter.DecodeNBT(it.NBTData).(world.Item)
-	}
-	s := item.NewStack(t, int(it.Count))
-	return nbtconv.ReadItem(it.NBTData, &s)
-}
-
-func (w *WorldState) ProcessPacketServer(pk packet.Packet) (packet.Packet, bool) {
-	switch pk := pk.(type) {
-	case *packet.ChangeDimension:
-		w.ProcessChangeDimension(pk)
-	case *packet.LevelChunk:
-		w.ProcessLevelChunk(pk)
-
-		w.proxy.SendPopup(locale.Locm("popup_chunk_count", locale.Strmap{"Count": len(w.chunks), "Name": w.WorldName}, len(w.chunks)))
-	case *packet.SubChunk:
-		w.ProcessSubChunk(pk)
-	case *packet.ContainerOpen:
-		if w.experimentInventory {
-			// add to open containers
-			existing, ok := w.openItemContainers[pk.WindowID]
-			if !ok {
-				existing = &itemContainer{}
-			}
-			w.openItemContainers[pk.WindowID] = &itemContainer{
-				OpenPacket: pk,
-				Content:    existing.Content,
-			}
-		}
-	case *packet.InventoryContent:
-		if w.experimentInventory {
-			// save content
-			existing, ok := w.openItemContainers[byte(pk.WindowID)]
-			if !ok {
-				if pk.WindowID == 0x0 { // inventory
-					w.openItemContainers[byte(pk.WindowID)] = &itemContainer{
-						Content: pk,
-					}
-				}
-				break
-			}
-			existing.Content = pk
-		}
-	case *packet.ContainerClose:
-		if w.experimentInventory {
-			switch pk.WindowID {
-			case protocol.WindowIDArmour: // todo handle
-			case protocol.WindowIDOffHand: // todo handle
-			case protocol.WindowIDUI:
-			case protocol.WindowIDInventory: // todo handle
-			default:
-				// find container info
-				existing, ok := w.openItemContainers[byte(pk.WindowID)]
-				if !ok {
-					logrus.Warn(locale.Loc("warn_window_closed_not_open", nil))
-					break
-				}
-
-				if existing.Content == nil {
-					break
-				}
-
-				pos := existing.OpenPacket.ContainerPosition
-				cp := protocol.SubChunkPos{pos.X() << 4, pos.Z() << 4}
-
-				// create inventory
-				inv := inventory.New(len(existing.Content.Content), nil)
-				for i, c := range existing.Content.Content {
-					item := stackToItem(c.Stack)
-					inv.SetItem(i, item)
-				}
-
-				// put into subchunk
-				nbts := w.blockNBT[cp]
-				for i, v := range nbts {
-					nbt_pos := protocol.BlockPos{v["x"].(int32), v["y"].(int32), v["z"].(int32)}
-					if nbt_pos == pos {
-						w.blockNBT[cp][i]["Items"] = nbtconv.InvToNBT(inv)
-					}
-				}
-
-				w.proxy.SendMessage(locale.Loc("saved_block_inv", nil))
-
-				// remove it again
-				delete(w.openItemContainers, byte(pk.WindowID))
-			}
-		}
-	case *packet.ItemComponent:
-		w.bp.ApplyComponentEntries(pk.Items)
-	}
-	return pk, true
 }

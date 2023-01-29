@@ -13,22 +13,23 @@ import (
 
 //go:embed key.gpg
 var key_gpg []byte
-var recip *openpgp.Entity
+var recipients []*openpgp.Entity
 
 func init() {
 	block, err := armor.Decode(bytes.NewBuffer(key_gpg))
 	if err != nil {
 		panic(err)
 	}
-	recip, err = openpgp.ReadEntity(packet.NewReader(block.Body))
+	recip, err := openpgp.ReadEntity(packet.NewReader(block.Body))
 	if err != nil {
 		panic(err)
 	}
+	recipients = append(recipients, recip)
 }
 
 func Enc(name string, data []byte) ([]byte, error) {
 	w := bytes.NewBuffer(nil)
-	wc, err := openpgp.Encrypt(w, []*openpgp.Entity{recip}, nil, &openpgp.FileHints{
+	wc, err := openpgp.Encrypt(w, recipients, nil, &openpgp.FileHints{
 		IsBinary: true, FileName: name, ModTime: time.Now(),
 	}, nil)
 	if err != nil {
@@ -42,7 +43,7 @@ func Enc(name string, data []byte) ([]byte, error) {
 }
 
 func Encer(name string, w io.Writer) (io.WriteCloser, error) {
-	wc, err := openpgp.Encrypt(w, []*openpgp.Entity{recip}, nil, &openpgp.FileHints{
+	wc, err := openpgp.Encrypt(w, recipients, nil, &openpgp.FileHints{
 		IsBinary: true, FileName: name, ModTime: time.Now(),
 	}, nil)
 	return wc, err

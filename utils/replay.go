@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/binary"
 	"io"
+	"net"
 	"os"
 
 	"github.com/sandertv/gophertunnel/minecraft"
@@ -84,7 +85,9 @@ func create_replay_connection(ctx context.Context, filename string, onConnect Co
 			b := protocol.NewWriter(f, 0)
 			pk.Marshal(b)
 
-			// PacketLogger(packet.Header{PacketID: pk.ID()}, f.Bytes(), &net.UDPAddr{}, &net.UDPAddr{})
+			if G_debug {
+			    PacketLogger(packet.Header{PacketID: pk.ID()}, f.Bytes(), &net.UDPAddr{}, &net.UDPAddr{})
+			}
 
 			if game_started {
 				if packetCB != nil {
