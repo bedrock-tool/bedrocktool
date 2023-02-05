@@ -411,7 +411,9 @@ func (w *WorldState) SaveAndReset() {
 					Version: p.Manifest().Header.Version,
 				})
 			}
-			addPacksJSON("world_resource_packs.json", rdeps)
+			if len(rdeps) > 0 {
+				addPacksJSON("world_resource_packs.json", rdeps)
+			}
 		}
 	}
 

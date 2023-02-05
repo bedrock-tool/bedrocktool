@@ -34,7 +34,8 @@ var MapItemPacket packet.InventoryContent = packet.InventoryContent{
 				BlockRuntimeID: 0,
 				Count:          1,
 				NBTData: map[string]interface{}{
-					"map_uuid": int64(ViewMapID),
+					"map_name_index": int64(1),
+					"map_uuid":       int64(ViewMapID),
 				},
 			},
 		},
@@ -89,6 +90,20 @@ func NewMapUI(w *WorldState) *MapUI {
 }
 
 func (m *MapUI) Start() {
+	// init map
+	if err := m.w.proxy.Client.WritePacket(&packet.ClientBoundMapItemData{
+		MapID:          ViewMapID,
+		Scale:          4,
+		MapsIncludedIn: []int64{ViewMapID},
+		Width:          0,
+		Height:         0,
+		Pixels:         nil,
+		UpdateFlags:    packet.MapUpdateFlagInitialisation,
+	}); err != nil {
+		logrus.Error(err)
+		return
+	}
+
 	m.ticker = time.NewTicker(33 * time.Millisecond)
 	go func() {
 		for range m.ticker.C {
@@ -99,6 +114,7 @@ func (m *MapUI) Start() {
 				if m.w.proxy.Client != nil {
 					if err := m.w.proxy.Client.WritePacket(&packet.ClientBoundMapItemData{
 						MapID:       ViewMapID,
+						Scale:       4,
 						Width:       128,
 						Height:      128,
 						Pixels:      utils.Img2rgba(m.img),
