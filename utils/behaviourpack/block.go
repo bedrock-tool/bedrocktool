@@ -11,6 +11,10 @@ type blockBehaviour struct {
 }
 
 func (bp *BehaviourPack) AddBlock(block protocol.BlockEntry) {
+	ns, _ := ns_name_split(block.Name)
+	if ns == "minecraft" {
+		return
+	}
 	entry := blockBehaviour{
 		FormatVersion:  bp.formatVersion,
 		MinecraftBlock: world.ParseBlock(block),
