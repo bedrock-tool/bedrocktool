@@ -111,7 +111,7 @@ func (s *skinsSession) ProcessPacket(pk packet.Packet) {
 func (s *skinsSession) Save(fpath string) error {
 	logrus.Infof("Saving %d players", len(s.playerSkinPacks))
 	for id, sp := range s.playerSkinPacks {
-		err := sp.Save(path.Join(fpath, s.playerNames[id]))
+		err := sp.Save(path.Join(fpath, s.playerNames[id]), s.ServerName)
 		if err != nil {
 			logrus.Warn(err)
 		}

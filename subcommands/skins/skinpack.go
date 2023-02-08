@@ -72,7 +72,11 @@ func (s *SkinPack) Save(fpath, serverName string) error {
 			}
 		}
 
-		entry := skinEntry{LocalizationName: skinName, Texture: skinName, Type: "free"}
+		entry := skinEntry{
+			LocalizationName: skinName,
+			Texture:          skinName + ".png",
+			Type:             "free",
+		}
 		if s2.skin.ArmSize == "wide" {
 			entry.Geometry = "minecraft.geometry.steve"
 		} else {
