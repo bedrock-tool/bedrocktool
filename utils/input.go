@@ -32,7 +32,7 @@ func UserInput(ctx context.Context, q string) (string, bool) {
 	}
 }
 
-func serverURLToName(server string) string {
+func serverGetHostname(server string) string {
 	host, _, err := net.SplitHostPort(server)
 	if err != nil {
 		logrus.Fatalf(locale.Loc("invalid_server", locale.Strmap{"Err": err.Error()}))
@@ -40,8 +40,25 @@ func serverURLToName(server string) string {
 	return host
 }
 
-func ServerInput(ctx context.Context, server string) (address, name string, err error) {
-	if server == "" { // no arg provided, interactive input
+var (
+	realmRegex = regexp.MustCompile("realm:(?P<Name>.*)(?::(?P<ID>.*))?")
+	pcapRegex  = regexp.MustCompile(`(?P<Filename>(?P<Name>.*)\.pcap2)(?:\?(?P<Args>.*))?`)
+)
+
+func regexGetParams(r *regexp.Regexp, s string) (params map[string]string) {
+	match := r.FindStringSubmatch(s)
+	params = make(map[string]string)
+	for i, name := range r.SubexpNames() {
+		if i > 0 && i <= len(match) {
+			params[name] = match[i]
+		}
+	}
+	return params
+}
+
+func ServerInput(ctx context.Context, server string) (string, string, error) {
+	// no arg provided, interactive input
+	if server == "" {
 		var cancelled bool
 		server, cancelled = UserInput(ctx, locale.Loc("enter_server", nil))
 		if cancelled {
@@ -49,30 +66,31 @@ func ServerInput(ctx context.Context, server string) (address, name string, err 
 		}
 	}
 
-	if strings.HasPrefix(server, "realm:") { // for realms use api to get ip address
-		realmInfo := strings.Split(server, ":")
-		id := ""
-		if len(realmInfo) == 3 {
-			id = realmInfo[2]
-		}
-		name, address, err = getRealm(ctx, realmInfo[1], id)
+	// realm
+	if realmRegex.MatchString(server) {
+		p := regexGetParams(realmRegex, server)
+		name, address, err := getRealm(ctx, p["Name"], p["ID"])
 		if err != nil {
 			return "", "", err
 		}
-		name = CleanupName(name)
-	} else if strings.HasSuffix(server, ".pcap") || strings.HasSuffix(server, ".pcap2") {
-		s := strings.Split(server, ".")
-		name = strings.Join(s[:len(s)-1], ".")
-		address = server
-	} else {
-		// if an actual server address if given
-		// add port if necessary
-		address = server
-		if len(strings.Split(address, ":")) == 1 {
-			address += ":19132"
-		}
-		name = serverURLToName(address)
+		return address, CleanupName(name), nil
 	}
 
-	return address, name, nil
+	// old pcap format
+	if match, _ := regexp.MatchString(`.*\.pcap$`, server); match {
+		return "", "", fmt.Errorf(locale.Loc("not_supported_anymore", nil))
+	}
+
+	// new pcap format
+
+	if pcapRegex.MatchString(server) {
+		p := regexGetParams(pcapRegex, server)
+		return "PCAP!" + p["Filename"], p["Name"], nil
+	}
+
+	// normal server dns or ip
+	if len(strings.Split(server, ":")) == 1 {
+		server += ":19132"
+	}
+	return server, serverGetHostname(server), nil
 }

@@ -71,8 +71,16 @@ func (bp *BehaviourPack) CheckAddLink(pack utils.Pack) {
 	bp.AddDependency(h.UUID, h.Version)
 }
 
+func (bp *BehaviourPack) HasBlocks() bool {
+	return len(bp.blocks) > 0
+}
+
+func (bp *BehaviourPack) HasItems() bool {
+	return len(bp.items) > 0
+}
+
 func (bp *BehaviourPack) HasContent() bool {
-	return len(bp.blocks) > 0 || len(bp.items) > 0
+	return bp.HasBlocks() || bp.HasItems()
 }
 
 func ns_name_split(identifier string) (ns, name string) {

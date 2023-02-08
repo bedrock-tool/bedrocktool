@@ -47,7 +47,7 @@ func (c *ChatLogCMD) Execute(ctx context.Context, flags *flag.FlagSet, _ ...inte
 	defer f.Close()
 
 	proxy := utils.NewProxy()
-	proxy.PacketCB = func(pk packet.Packet, proxy *utils.ProxyContext, toServer bool) (packet.Packet, error) {
+	proxy.PacketCB = func(pk packet.Packet, proxy *utils.ProxyContext, toServer bool, _ time.Time) (packet.Packet, error) {
 		if text, ok := pk.(*packet.Text); ok {
 			logLine := text.Message
 			if c.verbose {

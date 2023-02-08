@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
@@ -43,7 +44,7 @@ func (c *SkinProxyCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interf
 	os.MkdirAll(out_path, 0o755)
 
 	proxy := utils.NewProxy()
-	proxy.PacketCB = func(pk packet.Packet, proxy *utils.ProxyContext, toServer bool) (packet.Packet, error) {
+	proxy.PacketCB = func(pk packet.Packet, proxy *utils.ProxyContext, toServer bool, _ time.Time) (packet.Packet, error) {
 		if !toServer {
 			process_packet_skins(proxy.Client, out_path, pk, c.filter, c.only_with_geometry)
 		}

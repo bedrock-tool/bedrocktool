@@ -34,7 +34,7 @@ func (w *WorldState) processLevelChunk(pk *packet.LevelChunk) {
 		logrus.Info(locale.Loc("empty_chunk", nil))
 		return
 	}
-	ch, blockNBTs, err := chunk.NetworkDecode(world.AirRID(), pk.RawPayload, int(pk.SubChunkCount), w.Dim.Range(), w.ispre118, w.bp != nil)
+	ch, blockNBTs, err := chunk.NetworkDecode(world.AirRID(), pk.RawPayload, int(pk.SubChunkCount), w.Dim.Range(), w.ispre118, w.bp.HasBlocks())
 	if err != nil {
 		logrus.Error(err)
 		return

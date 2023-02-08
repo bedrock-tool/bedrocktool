@@ -7,6 +7,7 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/sandertv/gophertunnel/minecraft"
@@ -53,7 +54,7 @@ type ProxyContext struct {
 
 type (
 	PacketFunc      func(header packet.Header, payload []byte, src, dst net.Addr)
-	PacketCallback  func(pk packet.Packet, proxy *ProxyContext, toServer bool) (packet.Packet, error)
+	PacketCallback  func(pk packet.Packet, proxy *ProxyContext, toServer bool, timeReceived time.Time) (packet.Packet, error)
 	ConnectCallback func(proxy *ProxyContext)
 )
 
@@ -84,7 +85,7 @@ func (p *ProxyContext) AddCommand(cmd IngameCommand) {
 	p.commands[cmd.Cmd.Name] = cmd
 }
 
-func (p *ProxyContext) CommandHandlerPacketCB(pk packet.Packet, proxy *ProxyContext, toServer bool) (packet.Packet, error) {
+func (p *ProxyContext) CommandHandlerPacketCB(pk packet.Packet, proxy *ProxyContext, toServer bool, _ time.Time) (packet.Packet, error) {
 	switch _pk := pk.(type) {
 	case *packet.CommandRequest:
 		cmd := strings.Split(_pk.CommandLine, " ")
@@ -128,7 +129,7 @@ func (p *ProxyContext) proxyLoop(ctx context.Context, toServer bool, packetCBs [
 		}
 
 		for _, packetCB := range packetCBs {
-			pk, err = packetCB(pk, p, toServer)
+			pk, err = packetCB(pk, p, toServer, time.Now())
 			if err != nil {
 				return err
 			}
@@ -155,11 +156,8 @@ func NewProxy() *ProxyContext {
 var ClientAddr net.Addr
 
 func (p *ProxyContext) Run(ctx context.Context, serverAddress string) (err error) {
-	if strings.HasSuffix(serverAddress, ".pcap") {
-		return fmt.Errorf(locale.Loc("not_supported_anymore", nil))
-	}
-	if strings.HasSuffix(serverAddress, ".pcap2") {
-		return createReplayConnection(ctx, serverAddress, p.ConnectCB, p.PacketCB)
+	if strings.HasPrefix(serverAddress, "PCAP!") {
+		return createReplayConnection(ctx, serverAddress[5:], p.ConnectCB, p.PacketCB)
 	}
 
 	GetTokenSource() // ask for login before listening

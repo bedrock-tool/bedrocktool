@@ -44,8 +44,7 @@ func DrawImgScaledPos(dst *image.RGBA, src *image.RGBA, bottomLeft image.Point, 
 		for yOut := bottomLeft.Y; yOut < bottomLeft.Y+sizeScaled; yOut++ {
 			xIn := (xOut - bottomLeft.X) * ratio
 			yIn := (yOut - bottomLeft.Y) * ratio
-			c := src.At(xIn, yIn)
-			dst.Set(xOut, yOut, c)
+			dst.Set(xOut, yOut, src.At(xIn, yIn))
 		}
 	}
 }

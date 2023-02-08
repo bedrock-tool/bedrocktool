@@ -176,11 +176,11 @@ func (c *TransCMD) Usage() string {
 func (c *TransCMD) Execute(_ context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
 	const (
 		BlackFg = "\033[30m"
-		Bold     = "\033[1m"
-		Blue     = "\033[46m"
-		Pink     = "\033[45m"
-		White    = "\033[47m"
-		Reset    = "\033[0m"
+		Bold    = "\033[1m"
+		Blue    = "\033[46m"
+		Pink    = "\033[45m"
+		White   = "\033[47m"
+		Reset   = "\033[0m"
 	)
 	if c.auth {
 		utils.GetTokenSource()

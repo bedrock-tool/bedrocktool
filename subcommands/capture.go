@@ -32,6 +32,7 @@ func dumpPacket(f io.WriteCloser, toServer bool, payload []byte) {
 	packetSize := uint32(len(payload))
 	binary.Write(f, binary.LittleEndian, packetSize)
 	binary.Write(f, binary.LittleEndian, toServer)
+	binary.Write(f, binary.LittleEndian, time.Now().UnixMilli())
 	n, err := f.Write(payload)
 	if err != nil {
 		logrus.Error(err)
@@ -72,6 +73,7 @@ func (c *CaptureCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interfac
 		return 1
 	}
 	defer fio.Close()
+	utils.WriteReplayHeader(fio)
 
 	proxy := utils.NewProxy()
 	proxy.PacketFunc = func(header packet.Header, payload []byte, src, dst net.Addr) {

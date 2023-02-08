@@ -91,17 +91,19 @@ func NewMapUI(w *WorldState) *MapUI {
 
 func (m *MapUI) Start() {
 	// init map
-	if err := m.w.proxy.Client.WritePacket(&packet.ClientBoundMapItemData{
-		MapID:          ViewMapID,
-		Scale:          4,
-		MapsIncludedIn: []int64{ViewMapID},
-		Width:          0,
-		Height:         0,
-		Pixels:         nil,
-		UpdateFlags:    packet.MapUpdateFlagInitialisation,
-	}); err != nil {
-		logrus.Error(err)
-		return
+	if m.w.proxy.Client != nil {
+		if err := m.w.proxy.Client.WritePacket(&packet.ClientBoundMapItemData{
+			MapID:          ViewMapID,
+			Scale:          4,
+			MapsIncludedIn: []int64{ViewMapID},
+			Width:          0,
+			Height:         0,
+			Pixels:         nil,
+			UpdateFlags:    packet.MapUpdateFlagInitialisation,
+		}); err != nil {
+			logrus.Error(err)
+			return
+		}
 	}
 
 	m.ticker = time.NewTicker(33 * time.Millisecond)
