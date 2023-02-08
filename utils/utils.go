@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net"
+	"os"
 	"path"
 	"regexp"
 	"strings"
@@ -22,6 +23,7 @@ import (
 
 	"github.com/sandertv/gophertunnel/minecraft/protocol/login"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
+	"github.com/sandertv/gophertunnel/minecraft/resource"
 )
 
 var (
@@ -158,4 +160,17 @@ func RandSeededUUID(str string) string {
 	h := sha256.Sum256([]byte(str))
 	id, _ := uuid.NewRandomFromReader(bytes.NewBuffer(h[:]))
 	return id.String()
+}
+
+func WriteManifest(manifest *resource.Manifest, fpath string) error {
+	w, err := os.Create(path.Join(fpath, "manifest.json"))
+	if err != nil {
+		return err
+	}
+	e := json.NewEncoder(w)
+	e.SetIndent("", "\t")
+	if err = e.Encode(manifest); err != nil {
+		return err
+	}
+	return nil
 }

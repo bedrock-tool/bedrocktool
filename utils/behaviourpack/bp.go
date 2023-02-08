@@ -89,16 +89,8 @@ func ns_name_split(identifier string) (ns, name string) {
 }
 
 func (bp *BehaviourPack) Save(fpath string) error {
-	{ // write manifest
-		w, err := os.Create(path.Join(fpath, "manifest.json"))
-		if err != nil {
-			return err
-		}
-		e := json.NewEncoder(w)
-		e.SetIndent("", "\t")
-		if err = e.Encode(bp.Manifest); err != nil {
-			return err
-		}
+	if err := utils.WriteManifest(bp.Manifest, fpath); err != nil {
+		return err
 	}
 
 	_add_thing := func(base, identifier string, thing any) error {

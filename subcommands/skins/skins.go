@@ -1,15 +1,9 @@
 package skins
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
-	"image"
-	"image/png"
-	"io"
 	"os"
 	"path"
 	"strings"
@@ -18,17 +12,12 @@ import (
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
 
-	"github.com/flytam/filenamify"
 	"github.com/google/subcommands"
-	"github.com/sandertv/gophertunnel/minecraft"
+	"github.com/google/uuid"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sirupsen/logrus"
 )
-
-type Skin struct {
-	protocol.Skin
-}
 
 type SkinMeta struct {
 	SkinID        string
@@ -42,227 +31,104 @@ type SkinMeta struct {
 	PersonaPieces []protocol.PersonaPiece
 }
 
-// WriteGeometry writes the geometry json for the skin to output_path
-func (skin *Skin) WriteGeometry(output_path string) error {
-	f, err := os.Create(output_path)
-	if err != nil {
-		return errors.New(locale.Loc("failed_write", locale.Strmap{"Part": "Geometry", "Path": output_path, "Err": err}))
-	}
-	defer f.Close()
-	io.Copy(f, bytes.NewReader(skin.SkinGeometry))
-	return nil
+type skinsSession struct {
+	PlayerNameFilter  string
+	OnlyIfHasGeometry bool
+	ServerName        string
+	Proxy             *utils.ProxyContext
+
+	playerSkinPacks map[uuid.UUID]*SkinPack
+	playerNames     map[uuid.UUID]string
 }
 
-// WriteCape writes the cape as a png at output_path
-func (skin *Skin) WriteCape(output_path string) error {
-	f, err := os.Create(output_path)
-	if err != nil {
-		return errors.New(locale.Loc("failed_write", locale.Strmap{"Part": "Cape", "Path": output_path, "Err": err}))
-	}
-	defer f.Close()
-	cape_tex := image.NewRGBA(image.Rect(0, 0, int(skin.CapeImageWidth), int(skin.CapeImageHeight)))
-	cape_tex.Pix = skin.CapeData
+func NewSkinsSession(proxy *utils.ProxyContext, serverName string) *skinsSession {
+	return &skinsSession{
+		ServerName: serverName,
+		Proxy:      proxy,
 
-	if err := png.Encode(f, cape_tex); err != nil {
-		return fmt.Errorf(locale.Loc("failed_write", locale.Strmap{"Part": "Cape", "Err": err}))
+		playerSkinPacks: make(map[uuid.UUID]*SkinPack),
+		playerNames:     make(map[uuid.UUID]string),
 	}
-	return nil
 }
 
-// WriteAnimations writes skin animations to the folder
-func (skin *Skin) WriteAnimations(output_path string) error {
-	logrus.Warnf("%s has animations (unimplemented)", output_path)
-	return nil
-}
-
-// WriteTexture writes the main texture for this skin to a file
-func (skin *Skin) WriteTexture(output_path string) error {
-	f, err := os.Create(output_path)
-	if err != nil {
-		return errors.New(locale.Loc("failed_write", locale.Strmap{"Part": "Meta", "Path": output_path, "Err": err}))
+func (s *skinsSession) AddPlayerSkin(playerID uuid.UUID, playerName string, skin *Skin) {
+	p, ok := s.playerSkinPacks[playerID]
+	if !ok {
+		creating := fmt.Sprintf("Creating Skinpack for %s", playerName)
+		s.Proxy.SendPopup(creating)
+		logrus.Info(creating)
+		p = NewSkinPack(playerName)
+		s.playerSkinPacks[playerID] = p
 	}
-	defer f.Close()
-	skin_tex := image.NewRGBA(image.Rect(0, 0, int(skin.SkinImageWidth), int(skin.SkinImageHeight)))
-	skin_tex.Pix = skin.SkinData
-
-	if err := png.Encode(f, skin_tex); err != nil {
-		return errors.New(locale.Loc("failed_write", locale.Strmap{"Part": "Texture", "Path": output_path, "Err": err}))
-	}
-	return nil
-}
-
-func (skin *Skin) WriteTint(output_path string) error {
-	f, err := os.Create(output_path)
-	if err != nil {
-		return errors.New(locale.Loc("failed_write", locale.Strmap{"Part": "Tint", "Path": output_path, "Err": err}))
-	}
-	defer f.Close()
-
-	err = json.NewEncoder(f).Encode(skin.PieceTintColours)
-	if err != nil {
-		return errors.New(locale.Loc("failed_write", locale.Strmap{"Part": "Tint", "Path": output_path, "Err": err}))
-	}
-	return nil
-}
-
-func (skin *Skin) WriteMeta(output_path string) error {
-	f, err := os.Create(output_path)
-	if err != nil {
-		return errors.New(locale.Loc("failed_write", locale.Strmap{"Part": "Meta", "Path": output_path, "Err": err}))
-	}
-	defer f.Close()
-	d, err := json.MarshalIndent(SkinMeta{
-		skin.SkinID,
-		skin.PlayFabID,
-		skin.PremiumSkin,
-		skin.PersonaSkin,
-		skin.CapeID,
-		skin.SkinColour,
-		skin.ArmSize,
-		skin.Trusted,
-		skin.PersonaPieces,
-	}, "", "    ")
-	if err != nil {
-		return err
-	}
-	f.Write(d)
-	return nil
-}
-
-func (skin *Skin) Complex() bool {
-	have_geometry, have_cape, have_animations, have_tint := len(skin.SkinGeometry) > 0, len(skin.CapeData) > 0, len(skin.Animations) > 0, len(skin.PieceTintColours) > 0
-	return have_geometry || have_cape || have_animations || have_tint
-}
-
-// Write writes all data for this skin to a folder
-func (skin *Skin) Write(output_path, name string) error {
-	name, _ = filenamify.FilenamifyV2(name)
-	skin_dir := path.Join(output_path, name)
-
-	have_geometry, have_cape, have_animations, have_tint := len(skin.SkinGeometry) > 0, len(skin.CapeData) > 0, len(skin.Animations) > 0, len(skin.PieceTintColours) > 0
-	os.MkdirAll(skin_dir, 0o755)
-	if have_geometry {
-		if err := skin.WriteGeometry(path.Join(skin_dir, "geometry.json")); err != nil {
-			return err
+	if p.AddSkin(skin) {
+		if ok {
+			added := fmt.Sprintf("Added a skin to %s", playerName)
+			s.Proxy.SendPopup(added)
+			logrus.Info(added)
 		}
 	}
-	if have_cape {
-		if err := skin.WriteCape(path.Join(skin_dir, "cape.png")); err != nil {
-			return err
-		}
-	}
-	if have_animations {
-		if err := skin.WriteAnimations(skin_dir); err != nil {
-			return err
-		}
-	}
-	if have_tint {
-		if err := skin.WriteTint(path.Join(skin_dir, "tint.json")); err != nil {
-			return err
-		}
-	}
-
-	if err := skin.WriteMeta(path.Join(skin_dir, "metadata.json")); err != nil {
-		return err
-	}
-
-	return skin.WriteTexture(skin_dir + "/skin.png")
 }
 
-// puts the skin at output_path if the filter matches it
-// internally converts the struct so it can use the extra methods
-func write_skin(output_path, name string, skin *protocol.Skin) {
-	logrus.Infof("Writing skin for %s", name)
-	_skin := &Skin{*skin}
-	if err := _skin.Write(output_path, name); err != nil {
-		logrus.Errorf("Error writing skin: %s", err)
-	}
-}
-
-var (
-	skin_players       = make(map[string]string)
-	skin_player_counts = make(map[string]int)
-)
-
-func popup_skin_saved(conn *minecraft.Conn, name string) {
-	if conn != nil {
-		(&utils.ProxyContext{Client: conn}).SendPopup(fmt.Sprintf("%s Skin was Saved", name))
-	}
-}
-
-func skin_meta_get_skinid(path string) string {
-	cont, err := os.ReadFile(fmt.Sprintf("%s/metadata.json", path))
-	if err != nil {
-		return ""
-	}
-	var meta SkinMeta
-	if err := json.Unmarshal(cont, &meta); err != nil {
-		return ""
-	}
-	return meta.SkinID
-}
-
-func save_player_skin(conn *minecraft.Conn, out_path, player_name string, skin *protocol.Skin) {
-	count := skin_player_counts[player_name]
-	if count > 0 {
-		meta_id := skin_meta_get_skinid(fmt.Sprintf("%s/%s_%d", out_path, player_name, count-1))
-		if meta_id == skin.SkinID {
-			return // skin same as before
-		}
-	}
-
-	skin_player_counts[player_name]++
-	count++
-	write_skin(out_path, fmt.Sprintf("%s_%d", player_name, count), skin)
-	popup_skin_saved(conn, player_name)
-}
-
-func process_packet_skins(conn *minecraft.Conn, out_path string, pk packet.Packet, filter string, only_if_geom bool) {
-	switch _pk := pk.(type) {
+func (s *skinsSession) ProcessPacket(pk packet.Packet) {
+	switch pk := pk.(type) {
 	case *packet.PlayerSkin:
-		player_name := skin_players[_pk.UUID.String()]
-		if player_name == "" {
-			player_name = _pk.UUID.String()
+		playerName := s.playerNames[pk.UUID]
+		if playerName == "" {
+			playerName = pk.UUID.String()
 		}
-		if !strings.HasPrefix(player_name, filter) {
-			return
-		}
-		if only_if_geom && len(_pk.Skin.SkinGeometry) == 0 {
+		if !strings.HasPrefix(playerName, s.PlayerNameFilter) {
 			return
 		}
 
-		save_player_skin(conn, out_path, player_name, &_pk.Skin)
-	case *packet.PlayerList:
-		if _pk.ActionType == 1 { // remove
+		skin := Skin{&pk.Skin}
+		if s.OnlyIfHasGeometry && !skin.HaveGeometry() {
 			return
 		}
-		for _, player := range _pk.Entries {
-			player_name := utils.CleanupName(player.Username)
-			if player_name == "" {
-				player_name = player.UUID.String()
+		s.AddPlayerSkin(pk.UUID, playerName, &skin)
+	case *packet.PlayerList:
+		if pk.ActionType == 1 { // remove
+			return
+		}
+		for _, player := range pk.Entries {
+			playerName := utils.CleanupName(player.Username)
+			if playerName == "" {
+				playerName = player.UUID.String()
 			}
-			if !strings.HasPrefix(player_name, filter) {
+			if !strings.HasPrefix(playerName, s.PlayerNameFilter) {
 				return
 			}
-			if only_if_geom && len(player.Skin.SkinGeometry) == 0 {
+			s.playerNames[player.UUID] = playerName
+
+			skin := Skin{&player.Skin}
+			if s.OnlyIfHasGeometry && !skin.HaveGeometry() {
 				return
 			}
-			skin_players[player.UUID.String()] = player_name
-			save_player_skin(conn, out_path, player_name, &player.Skin)
+			s.AddPlayerSkin(player.UUID, playerName, &skin)
 		}
 	}
+}
+
+func (s *skinsSession) Save(fpath string) error {
+	logrus.Infof("Saving %d players", len(s.playerSkinPacks))
+	for id, sp := range s.playerSkinPacks {
+		err := sp.Save(path.Join(fpath, s.playerNames[id]))
+		if err != nil {
+			logrus.Warn(err)
+		}
+	}
+	return nil
 }
 
 type SkinCMD struct {
-	server_address string
-	filter         string
+	serverAddress string
+	filter        string
 }
 
 func (*SkinCMD) Name() string     { return "skins" }
 func (*SkinCMD) Synopsis() string { return locale.Loc("skins_synopsis", nil) }
 
 func (c *SkinCMD) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&c.server_address, "address", "", locale.Loc("remote_address", nil))
+	f.StringVar(&c.serverAddress, "address", "", locale.Loc("remote_address", nil))
 	f.StringVar(&c.filter, "filter", "", locale.Loc("name_prefix", nil))
 }
 
@@ -271,35 +137,35 @@ func (c *SkinCMD) Usage() string {
 }
 
 func (c *SkinCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	address, hostname, err := utils.ServerInput(ctx, c.server_address)
+	address, hostname, err := utils.ServerInput(ctx, c.serverAddress)
 	if err != nil {
 		logrus.Error(err)
 		return 1
 	}
 
-	out_path := fmt.Sprintf("skins/%s", hostname)
-
-	p := utils.NewProxy()
-	p.WithClient = false
-	p.ConnectCB = func(proxy *utils.ProxyContext) {
-		logrus.Info(locale.Loc("connected", nil))
+	proxy := utils.NewProxy()
+	proxy.WithClient = false
+	proxy.ConnectCB = func(proxy *utils.ProxyContext) {
 		logrus.Info(locale.Loc("ctrl_c_to_exit", nil))
-
-		os.MkdirAll(out_path, 0o755)
 	}
 
-	p.PacketCB = func(pk packet.Packet, proxy *utils.ProxyContext, toServer bool, _ time.Time) (packet.Packet, error) {
+	s := NewSkinsSession(proxy, hostname)
+
+	proxy.PacketCB = func(pk packet.Packet, _ *utils.ProxyContext, toServer bool, _ time.Time) (packet.Packet, error) {
 		if !toServer {
-			process_packet_skins(nil, out_path, pk, c.filter, false)
+			s.ProcessPacket(pk)
 		}
 		return pk, nil
 	}
 
-	err = p.Run(ctx, address)
+	err = proxy.Run(ctx, address)
 	if err != nil {
 		logrus.Error(err)
 	}
 
+	outPathBase := fmt.Sprintf("skins/%s", hostname)
+	os.MkdirAll(outPathBase, 0o755)
+	s.Save(outPathBase)
 	return 0
 }
 

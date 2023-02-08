@@ -40,21 +40,27 @@ func (c *SkinProxyCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interf
 		logrus.Error(err)
 		return 1
 	}
-	out_path := fmt.Sprintf("skins/%s", hostname)
-	os.MkdirAll(out_path, 0o755)
 
 	proxy := utils.NewProxy()
+
+	s := NewSkinsSession(proxy, hostname)
+	s.OnlyIfHasGeometry = c.only_with_geometry
+	s.PlayerNameFilter = c.filter
+
 	proxy.PacketCB = func(pk packet.Packet, proxy *utils.ProxyContext, toServer bool, _ time.Time) (packet.Packet, error) {
 		if !toServer {
-			process_packet_skins(proxy.Client, out_path, pk, c.filter, c.only_with_geometry)
+			s.ProcessPacket(pk)
 		}
 		return pk, nil
 	}
 
 	if err := proxy.Run(ctx, address); err != nil {
 		logrus.Error(err)
-		return 1
 	}
+
+	outPathBase := fmt.Sprintf("skins/%s", hostname)
+	os.MkdirAll(outPathBase, 0o755)
+	s.Save(outPathBase)
 	return 0
 }
 
