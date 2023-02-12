@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"golang.design/x/lockfree"
 
@@ -252,6 +253,13 @@ func (m *MapUI) ToImage() *image.RGBA {
 func (m *MapUI) SetChunk(pos protocol.ChunkPos, ch *chunk.Chunk) {
 	m.renderQueue.Enqueue(&RenderElem{pos, ch})
 	m.SchedRedraw()
+}
+
+func (w *WorldState) ProcessAnimate(pk *packet.Animate) {
+	if pk.ActionType == packet.AnimateActionSwingArm {
+		w.ui.ChangeZoom()
+		w.proxy.SendPopup(locale.Loc("zoom_level", locale.Strmap{"Level": w.ui.zoomLevel}))
+	}
 }
 
 func (w *WorldState) processMapPacketsClient(pk packet.Packet, forward *bool) packet.Packet {

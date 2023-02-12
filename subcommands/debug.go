@@ -13,8 +13,9 @@ import (
 )
 
 type DebugProxyCMD struct {
-	Address string
-	filter  string
+	Address            string
+	filter             string
+	pathCustomUserData string
 }
 
 func (*DebugProxyCMD) Name() string     { return "debug-proxy" }
@@ -23,6 +24,7 @@ func (*DebugProxyCMD) Synopsis() string { return locale.Loc("debug_proxy_synopsi
 func (c *DebugProxyCMD) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.Address, "address", "", locale.Loc("remote_address", nil))
 	f.StringVar(&c.filter, "filter", "", locale.Loc("packet_filter", nil))
+	f.StringVar(&c.pathCustomUserData, "userdata", "", locale.Loc("custom_user_data", nil))
 }
 
 func (c *DebugProxyCMD) Usage() string {
@@ -53,7 +55,11 @@ func (c *DebugProxyCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...inter
 		}
 	}
 
-	proxy := utils.NewProxy()
+	proxy, err := utils.NewProxy(c.pathCustomUserData)
+	if err != nil {
+		logrus.Error(err)
+		return 1
+	}
 	if err := proxy.Run(ctx, address); err != nil {
 		logrus.Error(err)
 		return 1

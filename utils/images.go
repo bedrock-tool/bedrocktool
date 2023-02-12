@@ -3,6 +3,8 @@ package utils
 import (
 	"image"
 	"image/color"
+	"image/png"
+	"os"
 	"reflect"
 	"unsafe"
 )
@@ -12,6 +14,18 @@ func Img2rgba(img *image.RGBA) []color.RGBA {
 	header.Len /= 4
 	header.Cap /= 4
 	return *(*[]color.RGBA)(unsafe.Pointer(&header))
+}
+
+func loadPng(path string) (*image.RGBA, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	img, err := png.Decode(f)
+	if err != nil {
+		return nil, err
+	}
+	return (*image.RGBA)(img.(*image.NRGBA)), err
 }
 
 // LERP is a linear interpolation function

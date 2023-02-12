@@ -143,7 +143,7 @@ func (c *SkinCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}
 		return 1
 	}
 
-	proxy := utils.NewProxy()
+	proxy, _ := utils.NewProxy("")
 	proxy.WithClient = false
 	proxy.ConnectCB = func(proxy *utils.ProxyContext) {
 		logrus.Info(locale.Loc("ctrl_c_to_exit", nil))

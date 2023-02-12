@@ -44,7 +44,8 @@ func dumpPacket(f io.WriteCloser, toServer bool, payload []byte) {
 }
 
 type CaptureCMD struct {
-	serverAddress string
+	serverAddress      string
+	pathCustomUserData string
 }
 
 func (*CaptureCMD) Name() string     { return "capture" }
@@ -52,6 +53,7 @@ func (*CaptureCMD) Synopsis() string { return locale.Loc("capture_synopsis", nil
 
 func (c *CaptureCMD) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.serverAddress, "address", "", "remote server address")
+	f.StringVar(&c.pathCustomUserData, "userdata", "", locale.Loc("custom_user_data", nil))
 }
 
 func (c *CaptureCMD) Usage() string {
@@ -66,7 +68,6 @@ func (c *CaptureCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interfac
 	}
 
 	os.Mkdir("captures", 0o775)
-
 	fio, err := os.Create("captures/" + hostname + "-" + time.Now().Format("2006-01-02_15-04-05") + ".pcap2")
 	if err != nil {
 		logrus.Fatal(err)
@@ -75,7 +76,10 @@ func (c *CaptureCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interfac
 	defer fio.Close()
 	utils.WriteReplayHeader(fio)
 
-	proxy := utils.NewProxy()
+	proxy, err := utils.NewProxy(c.pathCustomUserData)
+	if err != nil {
+		logrus.Fatal(err)
+	}
 	proxy.PacketFunc = func(header packet.Header, payload []byte, src, dst net.Addr) {
 		IsfromClient := src.String() == proxy.Client.LocalAddr().String()
 

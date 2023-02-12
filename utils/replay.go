@@ -63,7 +63,7 @@ func createReplayConnection(ctx context.Context, filename string, onConnect Conn
 		f.Seek(-4, io.SeekCurrent)
 	}
 
-	proxy := NewProxy()
+	proxy, _ := NewProxy("")
 	proxy.Server = minecraft.NewConn()
 
 	gameStarted := false

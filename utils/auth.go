@@ -2,6 +2,7 @@ package utils
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
@@ -33,10 +34,15 @@ func GetTokenSource() oauth2.TokenSource {
 	return gTokenSrc
 }
 
+var RealmsEnv string
+
 var gRealmsAPI *realms.Client
 
 func GetRealmsAPI() *realms.Client {
 	if gRealmsAPI == nil {
+		if RealmsEnv != "" {
+			realms.RealmsAPIBase = fmt.Sprintf("https://pocket-%s.realms.minecraft.net/", RealmsEnv)
+		}
 		gRealmsAPI = realms.NewClient(GetTokenSource())
 	}
 	return gRealmsAPI

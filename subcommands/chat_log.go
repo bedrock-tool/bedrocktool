@@ -16,8 +16,9 @@ import (
 )
 
 type ChatLogCMD struct {
-	Address string
-	verbose bool
+	Address            string
+	verbose            bool
+	pathCustomUserData string
 }
 
 func (*ChatLogCMD) Name() string     { return "chat-log" }
@@ -26,6 +27,7 @@ func (*ChatLogCMD) Synopsis() string { return locale.Loc("chat_log_synopsis", ni
 func (c *ChatLogCMD) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.Address, "address", "", "remote server address")
 	f.BoolVar(&c.verbose, "v", false, "verbose")
+	f.StringVar(&c.pathCustomUserData, "userdata", "", locale.Loc("custom_user_data", nil))
 }
 
 func (c *ChatLogCMD) Usage() string {
@@ -46,7 +48,10 @@ func (c *ChatLogCMD) Execute(ctx context.Context, flags *flag.FlagSet, _ ...inte
 	}
 	defer f.Close()
 
-	proxy := utils.NewProxy()
+	proxy, err := utils.NewProxy(c.pathCustomUserData)
+	if err != nil {
+		logrus.Fatal(err)
+	}
 	proxy.PacketCB = func(pk packet.Packet, proxy *utils.ProxyContext, toServer bool, _ time.Time) (packet.Packet, error) {
 		if text, ok := pk.(*packet.Text); ok {
 			logLine := text.Message

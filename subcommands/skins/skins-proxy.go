@@ -19,6 +19,7 @@ type SkinProxyCMD struct {
 	server_address     string
 	filter             string
 	only_with_geometry bool
+	pathCustomUserData string
 }
 
 func (*SkinProxyCMD) Name() string     { return "skins-proxy" }
@@ -28,6 +29,7 @@ func (c *SkinProxyCMD) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.server_address, "address", "", locale.Loc("remote_address", nil))
 	f.StringVar(&c.filter, "filter", "", locale.Loc("name_prefix", nil))
 	f.BoolVar(&c.only_with_geometry, "only-geom", false, locale.Loc("only_with_geometry", nil))
+	f.StringVar(&c.pathCustomUserData, "userdata", "", locale.Loc("custom_user_data", nil))
 }
 
 func (c *SkinProxyCMD) Usage() string {
@@ -41,7 +43,11 @@ func (c *SkinProxyCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interf
 		return 1
 	}
 
-	proxy := utils.NewProxy()
+	proxy, err := utils.NewProxy(c.pathCustomUserData)
+	if err != nil {
+		logrus.Error(err)
+		return 1
+	}
 
 	s := NewSkinsSession(proxy, hostname)
 	s.OnlyIfHasGeometry = c.only_with_geometry

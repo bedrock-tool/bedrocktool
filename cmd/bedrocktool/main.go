@@ -15,6 +15,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/crypt"
+	"gopkg.in/square/go-jose.v2/json"
 
 	_ "github.com/bedrock-tool/bedrocktool/subcommands"
 	_ "github.com/bedrock-tool/bedrocktool/subcommands/skins"
@@ -65,6 +66,7 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
+	flag.StringVar(&utils.RealmsEnv, "", "", "realms env")
 	flag.BoolVar(&utils.GDebug, "debug", false, locale.Loc("debug_mode", nil))
 	flag.BoolVar(&utils.GPreloadPacks, "preload", false, locale.Loc("preload_packs", nil))
 	flag.BoolVar(&extraDebug, "extra-debug", false, locale.Loc("extra_debug", nil))
@@ -189,6 +191,38 @@ func (c *TransCMD) Execute(_ context.Context, f *flag.FlagSet, _ ...interface{})
 	return 0
 }
 
+type CreateCustomDataCMD struct {
+	path string
+}
+
+func (*CreateCustomDataCMD) Name() string     { return "create-customdata" }
+func (*CreateCustomDataCMD) Synopsis() string { return "" }
+
+func (c *CreateCustomDataCMD) SetFlags(f *flag.FlagSet) {
+	f.StringVar(&c.path, "path", "customdata.json", "where to save")
+}
+
+func (c *CreateCustomDataCMD) Usage() string {
+	return c.Name() + ": " + c.Synopsis() + "\n"
+}
+
+func (c *CreateCustomDataCMD) Execute(_ context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
+	var data utils.CustomClientData
+	fio, err := os.Create(c.path)
+	if err == nil {
+		defer fio.Close()
+		var bdata []byte
+		bdata, err = json.MarshalIndent(&data, "", "\t")
+		fio.Write(bdata)
+	}
+	if err != nil {
+		logrus.Error(err)
+		return 1
+	}
+	return 0
+}
+
 func init() {
 	utils.RegisterCommand(&TransCMD{})
+	utils.RegisterCommand(&CreateCustomDataCMD{})
 }

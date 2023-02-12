@@ -2,9 +2,12 @@ package utils
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -20,29 +23,24 @@ import (
 
 var DisconnectReason = "Connection lost"
 
-type dummyProto struct {
-	id  int32
-	ver string
-}
-
-func (p dummyProto) ID() int32            { return p.id }
-func (p dummyProto) Ver() string          { return p.ver }
-func (p dummyProto) Packets() packet.Pool { return packet.NewPool() }
-func (p dummyProto) ConvertToLatest(pk packet.Packet, _ *minecraft.Conn) []packet.Packet {
-	return []packet.Packet{pk}
-}
-
-func (p dummyProto) ConvertFromLatest(pk packet.Packet, _ *minecraft.Conn) []packet.Packet {
-	return []packet.Packet{pk}
-}
+type (
+	PacketFunc      func(header packet.Header, payload []byte, src, dst net.Addr)
+	PacketCallback  func(pk packet.Packet, proxy *ProxyContext, toServer bool, timeReceived time.Time) (packet.Packet, error)
+	ConnectCallback func(proxy *ProxyContext)
+	IngameCommand   struct {
+		Exec func(cmdline []string) bool
+		Cmd  protocol.Command
+	}
+)
 
 type ProxyContext struct {
-	Server         *minecraft.Conn
-	Client         *minecraft.Conn
-	Listener       *minecraft.Listener
-	commands       map[string]IngameCommand
-	AlwaysGetPacks bool
-	WithClient     bool
+	Server           *minecraft.Conn
+	Client           *minecraft.Conn
+	Listener         *minecraft.Listener
+	commands         map[string]IngameCommand
+	AlwaysGetPacks   bool
+	WithClient       bool
+	CustomClientData *login.ClientData
 
 	// called for every packet
 	PacketFunc PacketFunc
@@ -52,11 +50,88 @@ type ProxyContext struct {
 	PacketCB PacketCallback
 }
 
-type (
-	PacketFunc      func(header packet.Header, payload []byte, src, dst net.Addr)
-	PacketCallback  func(pk packet.Packet, proxy *ProxyContext, toServer bool, timeReceived time.Time) (packet.Packet, error)
-	ConnectCallback func(proxy *ProxyContext)
-)
+func NewProxy(pathCustomData string) (*ProxyContext, error) {
+	p := &ProxyContext{
+		commands:   make(map[string]IngameCommand),
+		WithClient: true,
+	}
+	if pathCustomData != "" {
+		if err := p.LoadCustomUserData(pathCustomData); err != nil {
+			return nil, err
+		}
+	}
+	return p, nil
+}
+
+func (p *ProxyContext) AddCommand(cmd IngameCommand) {
+	p.commands[cmd.Cmd.Name] = cmd
+}
+
+type CustomClientData struct {
+	// skin things
+	CapeFilename         string
+	SkinFilename         string
+	SkinGeometryFilename string
+	PlayFabID            string
+	PersonaSkin          bool
+	PremiumSkin          bool
+	TrustedSkin          bool
+	ArmSize              string
+
+	// misc
+	IsEditorMode bool
+	LanguageCode string
+}
+
+func (p *ProxyContext) LoadCustomUserData(path string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	var customData CustomClientData
+	err = json.NewDecoder(f).Decode(&customData)
+	if err != nil {
+		return err
+	}
+
+	p.CustomClientData = &login.ClientData{
+		PlayFabID:   customData.PlayFabID,
+		PersonaSkin: customData.PersonaSkin,
+		PremiumSkin: customData.PremiumSkin,
+		TrustedSkin: customData.TrustedSkin,
+		ArmSize:     customData.ArmSize,
+	}
+
+	if customData.SkinFilename != "" {
+		img, err := loadPng(customData.SkinFilename)
+		if err != nil {
+			return err
+		}
+		p.CustomClientData.SkinData = base64.RawStdEncoding.EncodeToString(img.Pix)
+		p.CustomClientData.SkinImageWidth = img.Rect.Dx()
+		p.CustomClientData.SkinImageHeight = img.Rect.Dy()
+	}
+
+	if customData.CapeFilename != "" {
+		img, err := loadPng(customData.CapeFilename)
+		if err != nil {
+			return err
+		}
+		p.CustomClientData.CapeData = base64.RawStdEncoding.EncodeToString(img.Pix)
+		p.CustomClientData.CapeImageWidth = img.Rect.Dx()
+		p.CustomClientData.CapeImageHeight = img.Rect.Dy()
+	}
+
+	if customData.SkinGeometryFilename != "" {
+		data, err := os.ReadFile(customData.SkinGeometryFilename)
+		if err != nil {
+			return err
+		}
+		p.CustomClientData.SkinGeometry = base64.RawStdEncoding.EncodeToString(data)
+	}
+
+	return nil
+}
 
 func (p *ProxyContext) SendMessage(text string) {
 	if p.Client != nil {
@@ -74,15 +149,6 @@ func (p *ProxyContext) SendPopup(text string) {
 			Message:  text,
 		})
 	}
-}
-
-type IngameCommand struct {
-	Exec func(cmdline []string) bool
-	Cmd  protocol.Command
-}
-
-func (p *ProxyContext) AddCommand(cmd IngameCommand) {
-	p.commands[cmd.Cmd.Name] = cmd
 }
 
 func (p *ProxyContext) CommandHandlerPacketCB(pk packet.Packet, proxy *ProxyContext, toServer bool, _ time.Time) (packet.Packet, error) {
@@ -146,13 +212,6 @@ func (p *ProxyContext) proxyLoop(ctx context.Context, toServer bool, packetCBs [
 	}
 }
 
-func NewProxy() *ProxyContext {
-	return &ProxyContext{
-		commands:   make(map[string]IngameCommand),
-		WithClient: true,
-	}
-}
-
 var ClientAddr net.Addr
 
 func (p *ProxyContext) Run(ctx context.Context, serverAddress string) (err error) {
@@ -182,9 +241,6 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress string) (err error
 		p.Listener, err = minecraft.ListenConfig{
 			StatusProvider: _status,
 			ResourcePacks:  packs,
-			AcceptedProtocols: []minecraft.Protocol{
-				dummyProto{id: 544, ver: "1.19.20"},
-			},
 		}.Listen("raknet", ":19132")
 		if err != nil {
 			return
@@ -208,6 +264,11 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress string) (err error
 		cd := p.Client.ClientData()
 		cdp = &cd
 	}
+
+	if p.CustomClientData != nil {
+		cdp = p.CustomClientData
+	}
+
 	p.Server, err = connectServer(ctx, serverAddress, cdp, p.AlwaysGetPacks, p.PacketFunc)
 	if err != nil {
 		err = fmt.Errorf(locale.Loc("failed_to_connect", locale.Strmap{"Address": serverAddress, "Err": err}))
@@ -229,9 +290,9 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress string) (err error
 	}
 
 	wg := sync.WaitGroup{}
-	cbs := []PacketCallback{
-		p.CommandHandlerPacketCB,
-	}
+
+	var cbs []PacketCallback
+	cbs = append(cbs, p.CommandHandlerPacketCB)
 	if p.PacketCB != nil {
 		cbs = append(cbs, p.PacketCB)
 	}

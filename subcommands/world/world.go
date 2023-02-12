@@ -60,14 +60,20 @@ type WorldState struct {
 	ispre118           bool
 
 	// settings
-	voidgen             bool
+	voidGen             bool
 	withPacks           bool
 	saveImage           bool
 	experimentInventory bool
 }
 
-func NewWorldState() *WorldState {
+func NewWorldState(ctx context.Context, proxy *utils.ProxyContext, ServerName string) *WorldState {
 	w := &WorldState{
+		ctx:        ctx,
+		proxy:      proxy,
+		ui:         nil,
+		bp:         behaviourpack.New(ServerName),
+		ServerName: ServerName,
+
 		chunks:             make(map[protocol.ChunkPos]*chunk.Chunk),
 		blockNBT:           make(map[protocol.SubChunkPos][]map[string]any),
 		openItemContainers: make(map[byte]*itemContainer),
@@ -111,6 +117,7 @@ type WorldCMD struct {
 	enableVoid          bool
 	saveImage           bool
 	experimentInventory bool
+	pathCustomUserData  string
 }
 
 func (*WorldCMD) Name() string     { return "worlds" }
@@ -122,6 +129,7 @@ func (c *WorldCMD) SetFlags(f *flag.FlagSet) {
 	f.BoolVar(&c.enableVoid, "void", true, locale.Loc("enable_void", nil))
 	f.BoolVar(&c.saveImage, "image", false, locale.Loc("save_image", nil))
 	f.BoolVar(&c.experimentInventory, "inv", false, locale.Loc("test_block_inv", nil))
+	f.StringVar(&c.pathCustomUserData, "userdata", "", locale.Loc("custom_user_data", nil))
 }
 
 func (c *WorldCMD) Usage() string {
@@ -135,16 +143,18 @@ func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 		return 1
 	}
 
-	w := NewWorldState()
-	w.voidgen = c.enableVoid
-	w.ServerName = hostname
+	proxy, err := utils.NewProxy(c.pathCustomUserData)
+	if err != nil {
+		logrus.Error(err)
+		return 1
+	}
+
+	w := NewWorldState(ctx, proxy, hostname)
+	w.voidGen = c.enableVoid
 	w.withPacks = c.packs
 	w.saveImage = c.saveImage
 	w.experimentInventory = c.experimentInventory
-	w.ctx = ctx
-	w.bp = behaviourpack.New(w.ServerName)
 
-	proxy := utils.NewProxy()
 	proxy.AlwaysGetPacks = true
 	proxy.ConnectCB = w.OnConnect
 	proxy.PacketCB = func(pk packet.Packet, proxy *utils.ProxyContext, toServer bool, _ time.Time) (packet.Packet, error) {
@@ -167,20 +177,13 @@ func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 		return pk, nil
 	}
 
-	err = proxy.Run(ctx, serverAddress)
+	err = w.proxy.Run(ctx, serverAddress)
 	if err != nil {
 		logrus.Error(err)
 	} else {
 		w.SaveAndReset()
 	}
 	return 0
-}
-
-func (w *WorldState) ProcessAnimate(pk *packet.Animate) {
-	if pk.ActionType == packet.AnimateActionSwingArm {
-		w.ui.ChangeZoom()
-		w.proxy.SendPopup(locale.Loc("zoom_level", locale.Strmap{"Level": w.ui.zoomLevel}))
-	}
 }
 
 func (w *WorldState) SetPlayerPos(Position mgl32.Vec3, Pitch, Yaw, HeadYaw float32) {
@@ -336,7 +339,7 @@ func (w *WorldState) SaveAndReset() {
 	ld.RandomSeed = int64(gd.WorldSeed)
 
 	// void world
-	if w.voidgen {
+	if w.voidGen {
 		ld.FlatWorldLayers = `{"biome_id":1,"block_layers":[{"block_data":0,"block_id":0,"count":1},{"block_data":0,"block_id":0,"count":2},{"block_data":0,"block_id":0,"count":1}],"encoding_version":3,"structure_options":null}`
 		ld.Generator = 2
 	}
@@ -508,9 +511,9 @@ func (w *WorldState) OnConnect(proxy *utils.ProxyContext) {
 
 	proxy.AddCommand(utils.IngameCommand{
 		Exec: func(cmdline []string) bool {
-			w.voidgen = !w.voidgen
+			w.voidGen = !w.voidGen
 			var s string
-			if w.voidgen {
+			if w.voidGen {
 				s = locale.Loc("void_generator_true", nil)
 			} else {
 				s = locale.Loc("void_generator_false", nil)
