@@ -3,7 +3,7 @@ module github.com/bedrock-tool/bedrocktool
 go 1.19
 
 //replace github.com/sandertv/gophertunnel => ./gophertunnel
-replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.27.2-2
+replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.27.2-3
 
 //replace github.com/df-mc/dragonfly => ./dragonfly
 replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.9.2-1

@@ -66,7 +66,7 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	flag.StringVar(&utils.RealmsEnv, "", "", "realms env")
+	flag.StringVar(&utils.RealmsEnv, "realms-env", "", "realms env")
 	flag.BoolVar(&utils.GDebug, "debug", false, locale.Loc("debug_mode", nil))
 	flag.BoolVar(&utils.GPreloadPacks, "preload", false, locale.Loc("preload_packs", nil))
 	flag.BoolVar(&extraDebug, "extra-debug", false, locale.Loc("extra_debug", nil))
