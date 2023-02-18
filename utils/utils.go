@@ -69,7 +69,7 @@ func connectServer(ctx context.Context, address string, ClientData *login.Client
 				packetFunc(header, payload, src, dst)
 			}
 		},
-		DownloadResourcePack: func(id uuid.UUID, version string) bool {
+		DownloadResourcePack: func(id uuid.UUID, version string, current int, total int) bool {
 			return wantPacks
 		},
 	}.DialContext(ctx, "raknet", address)
