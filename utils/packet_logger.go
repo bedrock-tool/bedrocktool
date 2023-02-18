@@ -50,8 +50,8 @@ var MutedPackets = []string{
 
 var (
 	ExtraVerbose []string
-	FLog        io.Writer
-	dmpLock     sync.Mutex
+	FLog         io.Writer
+	dmpLock      sync.Mutex
 )
 
 func dmpStruct(level int, in any, wType bool) (s string) {

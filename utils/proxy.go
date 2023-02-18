@@ -23,6 +23,22 @@ import (
 
 var DisconnectReason = "Connection lost"
 
+type dummyProto struct {
+	id  int32
+	ver string
+}
+
+func (p dummyProto) ID() int32            { return p.id }
+func (p dummyProto) Ver() string          { return p.ver }
+func (p dummyProto) Packets() packet.Pool { return packet.NewPool() }
+func (p dummyProto) ConvertToLatest(pk packet.Packet, _ *minecraft.Conn) []packet.Packet {
+	return []packet.Packet{pk}
+}
+
+func (p dummyProto) ConvertFromLatest(pk packet.Packet, _ *minecraft.Conn) []packet.Packet {
+	return []packet.Packet{pk}
+}
+
 type (
 	PacketFunc      func(header packet.Header, payload []byte, src, dst net.Addr)
 	PacketCallback  func(pk packet.Packet, proxy *ProxyContext, toServer bool, timeReceived time.Time) (packet.Packet, error)
@@ -241,6 +257,9 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress string) (err error
 		p.Listener, err = minecraft.ListenConfig{
 			StatusProvider: _status,
 			ResourcePacks:  packs,
+			AcceptedProtocols: []minecraft.Protocol{
+				dummyProto{id: 567, ver: "1.19.60"},
+			},
 		}.Listen("raknet", ":19132")
 		if err != nil {
 			return
