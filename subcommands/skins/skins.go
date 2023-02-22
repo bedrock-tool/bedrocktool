@@ -120,8 +120,9 @@ func (s *skinsSession) Save(fpath string) error {
 }
 
 type SkinCMD struct {
-	serverAddress string
-	filter        string
+	serverAddress      string
+	filter             string
+	pathCustomUserData string
 }
 
 func (*SkinCMD) Name() string     { return "skins" }
@@ -130,6 +131,7 @@ func (*SkinCMD) Synopsis() string { return locale.Loc("skins_synopsis", nil) }
 func (c *SkinCMD) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.serverAddress, "address", "", locale.Loc("remote_address", nil))
 	f.StringVar(&c.filter, "filter", "", locale.Loc("name_prefix", nil))
+	f.StringVar(&c.pathCustomUserData, "userdata", "", locale.Loc("custom_user_data", nil))
 }
 
 func (c *SkinCMD) Usage() string {
@@ -143,7 +145,7 @@ func (c *SkinCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}
 		return 1
 	}
 
-	proxy, _ := utils.NewProxy("")
+	proxy, _ := utils.NewProxy(c.pathCustomUserData)
 	proxy.WithClient = false
 	proxy.ConnectCB = func(proxy *utils.ProxyContext) {
 		logrus.Info(locale.Loc("ctrl_c_to_exit", nil))
