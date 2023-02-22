@@ -166,7 +166,7 @@ func createReplayConnection(ctx context.Context, filename string, onConnect Conn
 					})
 					gameStarted = true
 					if onConnect != nil {
-						onConnect(proxy)
+						onConnect(proxy, nil)
 					}
 				}
 			}

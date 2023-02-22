@@ -42,7 +42,7 @@ func (p dummyProto) ConvertFromLatest(pk packet.Packet, _ *minecraft.Conn) []pac
 type (
 	PacketFunc      func(header packet.Header, payload []byte, src, dst net.Addr)
 	PacketCallback  func(pk packet.Packet, proxy *ProxyContext, toServer bool, timeReceived time.Time) (packet.Packet, error)
-	ConnectCallback func(proxy *ProxyContext)
+	ConnectCallback func(proxy *ProxyContext, err error) bool
 	IngameCommand   struct {
 		Exec func(cmdline []string) bool
 		Cmd  protocol.Command
@@ -56,6 +56,7 @@ type ProxyContext struct {
 	commands         map[string]IngameCommand
 	AlwaysGetPacks   bool
 	WithClient       bool
+	IgnoreDisconnect bool
 	CustomClientData *login.ClientData
 
 	// called for every packet
@@ -68,8 +69,9 @@ type ProxyContext struct {
 
 func NewProxy(pathCustomData string) (*ProxyContext, error) {
 	p := &ProxyContext{
-		commands:   make(map[string]IngameCommand),
-		WithClient: true,
+		commands:         make(map[string]IngameCommand),
+		WithClient:       true,
+		IgnoreDisconnect: false,
 	}
 	if pathCustomData != "" {
 		if err := p.LoadCustomUserData(pathCustomData); err != nil {
@@ -262,7 +264,7 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress string) (err error
 			},
 		}.Listen("raknet", ":19132")
 		if err != nil {
-			return
+			return err
 		}
 		defer p.Listener.Close()
 
@@ -288,24 +290,32 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress string) (err error
 		cdp = p.CustomClientData
 	}
 
-	p.Server, err = connectServer(ctx, serverAddress, cdp, p.AlwaysGetPacks, p.PacketFunc)
-	if err != nil {
-		err = fmt.Errorf(locale.Loc("failed_to_connect", locale.Strmap{"Address": serverAddress, "Err": err}))
-		return
-	}
-	// spawn and start the game
-	if err = spawnConn(ctx, p.Client, p.Server); err != nil {
-		err = fmt.Errorf(locale.Loc("failed_to_spawn", locale.Strmap{"Err": err}))
-		return
-	}
-
-	defer p.Server.Close()
 	if p.Listener != nil {
 		defer p.Listener.Disconnect(p.Client, DisconnectReason)
 	}
 
+	p.Server, err = connectServer(ctx, serverAddress, cdp, p.AlwaysGetPacks, p.PacketFunc)
+	if err != nil {
+		if p.ConnectCB != nil {
+			if p.ConnectCB(p, err) {
+				err = nil
+			}
+		}
+		err = fmt.Errorf(locale.Loc("failed_to_connect", locale.Strmap{"Address": serverAddress, "Err": err}))
+		return err
+	}
+	defer p.Server.Close()
+
+	// spawn and start the game
+	if err = spawnConn(ctx, p.Client, p.Server); err != nil {
+		err = fmt.Errorf(locale.Loc("failed_to_spawn", locale.Strmap{"Err": err}))
+		return err
+	}
+
 	if p.ConnectCB != nil {
-		p.ConnectCB(p)
+		if !p.ConnectCB(p, nil) {
+			return errors.New("Cancelled")
+		}
 	}
 
 	wg := sync.WaitGroup{}

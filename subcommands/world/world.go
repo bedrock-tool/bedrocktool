@@ -437,7 +437,10 @@ func (w *WorldState) SaveAndReset() {
 	w.Reset()
 }
 
-func (w *WorldState) OnConnect(proxy *utils.ProxyContext) {
+func (w *WorldState) OnConnect(proxy *utils.ProxyContext, err error) bool {
+	if err != nil {
+		return false
+	}
 	w.proxy = proxy
 	gd := w.proxy.Server.GameData()
 
@@ -526,4 +529,6 @@ func (w *WorldState) OnConnect(proxy *utils.ProxyContext) {
 			Description: locale.Loc("void_desc", nil),
 		},
 	})
+
+	return true
 }

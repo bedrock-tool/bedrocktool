@@ -147,8 +147,12 @@ func (c *SkinCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}
 
 	proxy, _ := utils.NewProxy(c.pathCustomUserData)
 	proxy.WithClient = false
-	proxy.ConnectCB = func(proxy *utils.ProxyContext) {
+	proxy.ConnectCB = func(proxy *utils.ProxyContext, err error) bool {
+		if err != nil {
+			return false
+		}
 		logrus.Info(locale.Loc("ctrl_c_to_exit", nil))
+		return true
 	}
 
 	s := NewSkinsSession(proxy, hostname)
@@ -163,11 +167,11 @@ func (c *SkinCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}
 	err = proxy.Run(ctx, address)
 	if err != nil {
 		logrus.Error(err)
+	} else {
+		outPathBase := fmt.Sprintf("skins/%s", hostname)
+		os.MkdirAll(outPathBase, 0o755)
+		s.Save(outPathBase)
 	}
-
-	outPathBase := fmt.Sprintf("skins/%s", hostname)
-	os.MkdirAll(outPathBase, 0o755)
-	s.Save(outPathBase)
 	return 0
 }
 

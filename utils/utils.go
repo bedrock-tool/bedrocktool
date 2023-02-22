@@ -74,7 +74,7 @@ func connectServer(ctx context.Context, address string, ClientData *login.Client
 		},
 	}.DialContext(ctx, "raknet", address)
 	if err != nil {
-		return nil, err
+		return serverConn, err
 	}
 
 	logrus.Debug(locale.Loc("connected", nil))
