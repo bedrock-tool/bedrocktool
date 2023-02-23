@@ -69,41 +69,39 @@ func (s *skinsSession) AddPlayerSkin(playerID uuid.UUID, playerName string, skin
 	}
 }
 
+func (s *skinsSession) AddSkin(playerName string, playerID uuid.UUID, playerSkin *protocol.Skin) {
+	if playerName == "" {
+		playerName = s.playerNames[playerID]
+		if playerName == "" {
+			playerName = playerID.String()
+		}
+	}
+	if !strings.HasPrefix(playerName, s.PlayerNameFilter) {
+		return
+	}
+	s.playerNames[playerID] = playerName
+
+	skin := Skin{playerSkin}
+	if s.OnlyIfHasGeometry && !skin.HaveGeometry() {
+		return
+	}
+	s.AddPlayerSkin(playerID, playerName, &skin)
+}
+
 func (s *skinsSession) ProcessPacket(pk packet.Packet) {
 	switch pk := pk.(type) {
 	case *packet.PlayerSkin:
-		playerName := s.playerNames[pk.UUID]
-		if playerName == "" {
-			playerName = pk.UUID.String()
-		}
-		if !strings.HasPrefix(playerName, s.PlayerNameFilter) {
-			return
-		}
-
-		skin := Skin{&pk.Skin}
-		if s.OnlyIfHasGeometry && !skin.HaveGeometry() {
-			return
-		}
-		s.AddPlayerSkin(pk.UUID, playerName, &skin)
+		s.AddSkin("", pk.UUID, &pk.Skin)
 	case *packet.PlayerList:
 		if pk.ActionType == 1 { // remove
 			return
 		}
 		for _, player := range pk.Entries {
-			playerName := utils.CleanupName(player.Username)
-			if playerName == "" {
-				playerName = player.UUID.String()
-			}
-			if !strings.HasPrefix(playerName, s.PlayerNameFilter) {
-				return
-			}
-			s.playerNames[player.UUID] = playerName
-
-			skin := Skin{&player.Skin}
-			if s.OnlyIfHasGeometry && !skin.HaveGeometry() {
-				return
-			}
-			s.AddPlayerSkin(player.UUID, playerName, &skin)
+			s.AddSkin(utils.CleanupName(player.Username), player.UUID, &player.Skin)
+		}
+	case *packet.AddPlayer:
+		if _, ok := s.playerNames[pk.UUID]; !ok {
+			s.playerNames[pk.UUID] = utils.CleanupName(pk.Username)
 		}
 	}
 }

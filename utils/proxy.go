@@ -99,6 +99,7 @@ type CustomClientData struct {
 	// misc
 	IsEditorMode bool
 	LanguageCode string
+	DeviceID     string
 }
 
 func (p *ProxyContext) LoadCustomUserData(path string) error {
@@ -147,6 +148,8 @@ func (p *ProxyContext) LoadCustomUserData(path string) error {
 		}
 		p.CustomClientData.SkinGeometry = base64.RawStdEncoding.EncodeToString(data)
 	}
+
+	p.CustomClientData.DeviceID = customData.DeviceID
 
 	return nil
 }
