@@ -33,7 +33,7 @@ type skinEntry struct {
 	Type             string `json:"type"`
 }
 
-func NewSkinPack(name string) *SkinPack {
+func NewSkinPack(name, fpath string) *SkinPack {
 	return &SkinPack{
 		skins: make(map[uuid.UUID]_skinWithIndex),
 		Name:  name,
@@ -100,7 +100,9 @@ func (s *SkinPack) Save(fpath, serverName string) error {
 		if err != nil {
 			return err
 		}
-		if err := json.NewEncoder(f).Encode(geometryJson); err != nil {
+		e := json.NewEncoder(f)
+		e.SetIndent("", "\t")
+		if err := e.Encode(geometryJson); err != nil {
 			return err
 		}
 	}
@@ -110,7 +112,9 @@ func (s *SkinPack) Save(fpath, serverName string) error {
 		if err != nil {
 			return err
 		}
-		if err := json.NewEncoder(f).Encode(skinsJson); err != nil {
+		e := json.NewEncoder(f)
+		e.SetIndent("", "\t")
+		if err := e.Encode(skinsJson); err != nil {
 			return err
 		}
 	}

@@ -49,7 +49,10 @@ func (c *SkinProxyCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interf
 		return 1
 	}
 
-	s := NewSkinsSession(proxy, hostname)
+	outPathBase := fmt.Sprintf("skins/%s", hostname)
+	os.MkdirAll(outPathBase, 0o755)
+
+	s := NewSkinsSession(proxy, hostname, outPathBase)
 	s.OnlyIfHasGeometry = c.only_with_geometry
 	s.PlayerNameFilter = c.filter
 
@@ -64,9 +67,6 @@ func (c *SkinProxyCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interf
 		logrus.Error(err)
 	}
 
-	outPathBase := fmt.Sprintf("skins/%s", hostname)
-	os.MkdirAll(outPathBase, 0o755)
-	s.Save(outPathBase)
 	return 0
 }
 

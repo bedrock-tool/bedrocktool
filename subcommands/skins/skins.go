@@ -36,15 +36,17 @@ type skinsSession struct {
 	OnlyIfHasGeometry bool
 	ServerName        string
 	Proxy             *utils.ProxyContext
+	fpath             string
 
 	playerSkinPacks map[uuid.UUID]*SkinPack
 	playerNames     map[uuid.UUID]string
 }
 
-func NewSkinsSession(proxy *utils.ProxyContext, serverName string) *skinsSession {
+func NewSkinsSession(proxy *utils.ProxyContext, serverName, fpath string) *skinsSession {
 	return &skinsSession{
 		ServerName: serverName,
 		Proxy:      proxy,
+		fpath:      fpath,
 
 		playerSkinPacks: make(map[uuid.UUID]*SkinPack),
 		playerNames:     make(map[uuid.UUID]string),
@@ -57,7 +59,7 @@ func (s *skinsSession) AddPlayerSkin(playerID uuid.UUID, playerName string, skin
 		creating := fmt.Sprintf("Creating Skinpack for %s", playerName)
 		s.Proxy.SendPopup(creating)
 		logrus.Info(creating)
-		p = NewSkinPack(playerName)
+		p = NewSkinPack(playerName, s.fpath)
 		s.playerSkinPacks[playerID] = p
 	}
 	if p.AddSkin(skin) {
@@ -66,6 +68,9 @@ func (s *skinsSession) AddPlayerSkin(playerID uuid.UUID, playerName string, skin
 			s.Proxy.SendPopup(added)
 			logrus.Info(added)
 		}
+	}
+	if err := p.Save(path.Join(s.fpath, playerName), s.ServerName); err != nil {
+		logrus.Error(err)
 	}
 }
 
@@ -90,8 +95,6 @@ func (s *skinsSession) AddSkin(playerName string, playerID uuid.UUID, playerSkin
 
 func (s *skinsSession) ProcessPacket(pk packet.Packet) {
 	switch pk := pk.(type) {
-	case *packet.PlayerSkin:
-		s.AddSkin("", pk.UUID, &pk.Skin)
 	case *packet.PlayerList:
 		if pk.ActionType == 1 { // remove
 			return
@@ -104,17 +107,6 @@ func (s *skinsSession) ProcessPacket(pk packet.Packet) {
 			s.playerNames[pk.UUID] = utils.CleanupName(pk.Username)
 		}
 	}
-}
-
-func (s *skinsSession) Save(fpath string) error {
-	logrus.Infof("Saving %d players", len(s.playerSkinPacks))
-	for id, sp := range s.playerSkinPacks {
-		err := sp.Save(path.Join(fpath, s.playerNames[id]), s.ServerName)
-		if err != nil {
-			logrus.Warn(err)
-		}
-	}
-	return nil
 }
 
 type SkinCMD struct {
@@ -153,7 +145,10 @@ func (c *SkinCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}
 		return true
 	}
 
-	s := NewSkinsSession(proxy, hostname)
+	outPathBase := fmt.Sprintf("skins/%s", hostname)
+	os.MkdirAll(outPathBase, 0o755)
+
+	s := NewSkinsSession(proxy, hostname, outPathBase)
 
 	proxy.PacketCB = func(pk packet.Packet, _ *utils.ProxyContext, toServer bool, _ time.Time) (packet.Packet, error) {
 		if !toServer {
@@ -165,10 +160,6 @@ func (c *SkinCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}
 	err = proxy.Run(ctx, address)
 	if err != nil {
 		logrus.Error(err)
-	} else {
-		outPathBase := fmt.Sprintf("skins/%s", hostname)
-		os.MkdirAll(outPathBase, 0o755)
-		s.Save(outPathBase)
 	}
 	return 0
 }
