@@ -45,19 +45,21 @@ var MapItemPacket packet.InventoryContent = packet.InventoryContent{
 
 func (m *MapUI) getBounds() (min, max protocol.ChunkPos) {
 	// get the chunk coord bounds
+	i := 0
 	for _ch := range m.renderedChunks {
-		if _ch.X() < min.X() {
+		if _ch.X() < min.X() || i == 0 {
 			min[0] = _ch.X()
 		}
-		if _ch.Z() < min.Z() {
+		if _ch.Z() < min.Z() || i == 0 {
 			min[1] = _ch.Z()
 		}
-		if _ch.X() > max.X() {
+		if _ch.X() > max.X() || i == 0 {
 			max[0] = _ch.X()
 		}
-		if _ch.Z() > max.Z() {
+		if _ch.Z() > max.Z() || i == 0 {
 			max[1] = _ch.Z()
 		}
+		i++
 	}
 	return
 }
@@ -232,19 +234,14 @@ func (m *MapUI) ToImage() *image.RGBA {
 
 	img2 := image.NewRGBA(image.Rect(0, 0, chunksX*16, chunksY*16))
 
-	middleBlockX := chunksX / 2 * 16
-	middleBlockY := chunksY / 2 * 16
-
 	for pos := range m.renderedChunks {
-		px := image.Point{
-			X: int(pos.X()*16) - middleBlockX + img2.Rect.Dx(),
-			Y: int(pos.Z()*16) - middleBlockY + img2.Rect.Dy(),
-		}
+		px := image.Pt(
+			int((pos.X()-min.X())*16),
+			int((pos.Z()-min.Z())*16),
+		)
 		draw.Draw(img2, image.Rect(
-			px.X,
-			px.Y,
-			px.X+16,
-			px.Y+16,
+			px.X, px.Y,
+			px.X+16, px.Y+16,
 		), m.renderedChunks[pos], image.Point{}, draw.Src)
 	}
 	return img2

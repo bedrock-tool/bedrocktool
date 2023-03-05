@@ -45,6 +45,17 @@ func (w *WorldState) processLevelChunk(pk *packet.LevelChunk) {
 		}] = blockNBTs
 	}
 
+	// check if chunk is empty
+	empty := true
+	for _, sub := range ch.Sub() {
+		if !sub.Empty() {
+			empty = false
+		}
+	}
+	if empty {
+		return
+	}
+
 	w.chunks[pk.Position] = ch
 
 	if pk.SubChunkRequestMode == protocol.SubChunkRequestModeLegacy {
