@@ -50,6 +50,7 @@ func (w *WorldState) processLevelChunk(pk *packet.LevelChunk) {
 	for _, sub := range ch.Sub() {
 		if !sub.Empty() {
 			empty = false
+			break
 		}
 	}
 	if empty {

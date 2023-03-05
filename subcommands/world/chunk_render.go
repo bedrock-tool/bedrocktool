@@ -20,6 +20,9 @@ func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.R
 	} else {
 		b, found := world.BlockByRuntimeID(rid)
 		if found {
+			if d, ok := b.(block.LightDiffuser); ok && d.LightDiffusionLevel() == 0 && y > int16(c.Range().Min()) {
+				return blockColorAt(c, x, y-1, z)
+			}
 			if _, ok := b.(block.Water); ok {
 				y2 := c.HeightMap().At(x, z)
 				depth := y - y2
