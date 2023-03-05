@@ -16,6 +16,8 @@ import (
 	"strings"
 	"time"
 
+	"fyne.io/fyne/v2/data/binding"
+	"fyne.io/fyne/v2/widget"
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/behaviourpack"
@@ -112,7 +114,7 @@ func init() {
 }
 
 type WorldCMD struct {
-	Address             string
+	serverAddress       string
 	packs               bool
 	enableVoid          bool
 	saveImage           bool
@@ -124,7 +126,7 @@ func (*WorldCMD) Name() string     { return "worlds" }
 func (*WorldCMD) Synopsis() string { return locale.Loc("world_synopsis", nil) }
 
 func (c *WorldCMD) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&c.Address, "address", "", locale.Loc("remote_address", nil))
+	f.StringVar(&c.serverAddress, "address", "", locale.Loc("remote_address", nil))
 	f.BoolVar(&c.packs, "packs", false, locale.Loc("save_packs_with_world", nil))
 	f.BoolVar(&c.enableVoid, "void", true, locale.Loc("enable_void", nil))
 	f.BoolVar(&c.saveImage, "image", false, locale.Loc("save_image", nil))
@@ -132,12 +134,34 @@ func (c *WorldCMD) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.pathCustomUserData, "userdata", "", locale.Loc("custom_user_data", nil))
 }
 
+func (c *WorldCMD) SettingsUI() *widget.Form {
+	return widget.NewForm(
+		widget.NewFormItem(
+			"serverAddress", widget.NewEntryWithData(binding.BindString(&c.serverAddress)),
+		), widget.NewFormItem(
+			"packs", widget.NewCheckWithData("packs", binding.BindBool(&c.packs)),
+		), widget.NewFormItem(
+			"void", widget.NewCheckWithData("void", binding.BindBool(&c.enableVoid)),
+		), widget.NewFormItem(
+			"saveImage", widget.NewCheckWithData("saveImage", binding.BindBool(&c.saveImage)),
+		), widget.NewFormItem(
+			"experimentInventory", widget.NewCheckWithData("experimentInventory", binding.BindBool(&c.experimentInventory)),
+		), widget.NewFormItem(
+			"pathCustomUserData", widget.NewEntryWithData(binding.BindString(&c.pathCustomUserData)),
+		),
+	)
+}
+
+func (c *WorldCMD) MainWindow() error {
+	return nil
+}
+
 func (c *WorldCMD) Usage() string {
 	return c.Name() + ": " + c.Synopsis() + "\n" + locale.Loc("server_address_help", nil)
 }
 
 func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	serverAddress, hostname, err := utils.ServerInput(ctx, c.Address)
+	serverAddress, hostname, err := utils.ServerInput(ctx, c.serverAddress)
 	if err != nil {
 		logrus.Error(err)
 		return 1

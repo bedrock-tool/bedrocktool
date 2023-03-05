@@ -7,6 +7,8 @@ import (
 	"os"
 	"time"
 
+	"fyne.io/fyne/v2/data/binding"
+	"fyne.io/fyne/v2/widget"
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
 
@@ -16,7 +18,7 @@ import (
 )
 
 type ChatLogCMD struct {
-	Address            string
+	serverAddress      string
 	verbose            bool
 	pathCustomUserData string
 }
@@ -25,9 +27,24 @@ func (*ChatLogCMD) Name() string     { return "chat-log" }
 func (*ChatLogCMD) Synopsis() string { return locale.Loc("chat_log_synopsis", nil) }
 
 func (c *ChatLogCMD) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&c.Address, "address", "", "remote server address")
+	f.StringVar(&c.serverAddress, "address", "", "remote server address")
 	f.BoolVar(&c.verbose, "v", false, "verbose")
 	f.StringVar(&c.pathCustomUserData, "userdata", "", locale.Loc("custom_user_data", nil))
+}
+
+func (c *ChatLogCMD) SettingsUI() *widget.Form {
+	return widget.NewForm(
+		widget.NewFormItem(
+			"serverAddress", widget.NewEntryWithData(binding.BindString(&c.serverAddress)),
+		), widget.NewFormItem(
+			"verbose", widget.NewCheckWithData("verbose", binding.BindBool(&c.verbose)),
+		), widget.NewFormItem(
+			"pathCustomUserData", widget.NewEntryWithData(binding.BindString(&c.pathCustomUserData)),
+		),
+	)
+}
+func (c *ChatLogCMD) MainWindow() error {
+	return nil
 }
 
 func (c *ChatLogCMD) Usage() string {
@@ -35,7 +52,7 @@ func (c *ChatLogCMD) Usage() string {
 }
 
 func (c *ChatLogCMD) Execute(ctx context.Context, flags *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	address, hostname, err := utils.ServerInput(ctx, c.Address)
+	address, hostname, err := utils.ServerInput(ctx, c.serverAddress)
 	if err != nil {
 		logrus.Error(err)
 		return 1

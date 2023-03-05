@@ -60,13 +60,17 @@ func (skin *Skin) getGeometry() (*SkinGeometry, string, error) {
 		return nil, "", errors.New("invalid geometry")
 	}
 
+	texture_width, _ := desc["texture_width"].(float64)
+	texture_height, _ := desc["texture_height"].(float64)
+	visible_bounds_width, _ := desc["visible_bounds_width"].(float64)
+	visible_bounds_height, _ := desc["visible_bounds_height"].(float64)
 	visibleOffset, _ := desc["visible_bounds_offset"].([]float64)
 
 	return &SkinGeometry{
-		Texturewidth:        int(desc["texture_width"].(float64)),
-		Textureheight:       int(desc["texture_height"].(float64)),
-		VisibleBoundsWidth:  desc["visible_bounds_width"].(float64),
-		VisibleBoundsHeight: desc["visible_bounds_height"].(float64),
+		Texturewidth:        int(texture_width),
+		Textureheight:       int(texture_height),
+		VisibleBoundsWidth:  visible_bounds_width,
+		VisibleBoundsHeight: visible_bounds_height,
 		VisibleBoundsOffset: visibleOffset,
 		Bones:               geom["bones"].([]any),
 	}, desc["identifier"].(string), nil

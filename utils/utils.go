@@ -26,11 +26,13 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 )
 
-var (
-	GDebug        bool // log packet names to console
-	GPreloadPacks bool // connect to server to get packs before proxy
-	GInteractive  bool // interactive cli input
-)
+var Options struct {
+	Debug         bool
+	Preload       bool
+	IsInteractive bool
+	ExtraDebug    bool
+	EnableDNS     bool
+}
 
 var nameRegexp = regexp.MustCompile(`\||(?:§.?)`)
 
@@ -62,7 +64,7 @@ func connectServer(ctx context.Context, address string, ClientData *login.Client
 		TokenSource: GetTokenSource(),
 		ClientData:  cd,
 		PacketFunc: func(header packet.Header, payload []byte, src, dst net.Addr) {
-			if GDebug {
+			if Options.Debug {
 				PacketLogger(header, payload, src, dst)
 			}
 			if packetFunc != nil {

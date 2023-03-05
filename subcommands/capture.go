@@ -11,6 +11,8 @@ import (
 	"sync"
 	"time"
 
+	"fyne.io/fyne/v2/data/binding"
+	"fyne.io/fyne/v2/widget"
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
 
@@ -54,6 +56,20 @@ func (*CaptureCMD) Synopsis() string { return locale.Loc("capture_synopsis", nil
 func (c *CaptureCMD) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.serverAddress, "address", "", "remote server address")
 	f.StringVar(&c.pathCustomUserData, "userdata", "", locale.Loc("custom_user_data", nil))
+}
+
+func (c *CaptureCMD) SettingsUI() *widget.Form {
+	return widget.NewForm(
+		widget.NewFormItem(
+			"serverAddress", widget.NewEntryWithData(binding.BindString(&c.serverAddress)),
+		), widget.NewFormItem(
+			"pathCustomUserData", widget.NewEntryWithData(binding.BindString(&c.pathCustomUserData)),
+		),
+	)
+}
+
+func (c *CaptureCMD) MainWindow() error {
+	return nil
 }
 
 func (c *CaptureCMD) Usage() string {

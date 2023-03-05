@@ -245,7 +245,7 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress string) (err error
 	var cdp *login.ClientData = nil
 	if p.WithClient {
 		var packs []*resource.Pack
-		if GPreloadPacks {
+		if Options.Preload {
 			logrus.Info(locale.Loc("preloading_packs", nil))
 			var serverConn *minecraft.Conn
 			serverConn, err = connectServer(ctx, serverAddress, nil, true, nil)

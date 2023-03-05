@@ -7,6 +7,8 @@ import (
 	"os"
 	"time"
 
+	"fyne.io/fyne/v2/data/binding"
+	"fyne.io/fyne/v2/widget"
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
 
@@ -16,7 +18,7 @@ import (
 )
 
 type SkinProxyCMD struct {
-	server_address     string
+	serverAddress      string
 	filter             string
 	only_with_geometry bool
 	pathCustomUserData string
@@ -26,10 +28,26 @@ func (*SkinProxyCMD) Name() string     { return "skins-proxy" }
 func (*SkinProxyCMD) Synopsis() string { return locale.Loc("skins_proxy_synopsis", nil) }
 
 func (c *SkinProxyCMD) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&c.server_address, "address", "", locale.Loc("remote_address", nil))
+	f.StringVar(&c.serverAddress, "address", "", locale.Loc("remote_address", nil))
 	f.StringVar(&c.filter, "filter", "", locale.Loc("name_prefix", nil))
 	f.BoolVar(&c.only_with_geometry, "only-geom", false, locale.Loc("only_with_geometry", nil))
 	f.StringVar(&c.pathCustomUserData, "userdata", "", locale.Loc("custom_user_data", nil))
+}
+
+func (c *SkinProxyCMD) SettingsUI() *widget.Form {
+	return widget.NewForm(
+		widget.NewFormItem(
+			"serverAddress", widget.NewEntryWithData(binding.BindString(&c.serverAddress)),
+		), widget.NewFormItem(
+			"filter", widget.NewEntryWithData(binding.BindString(&c.filter)),
+		), widget.NewFormItem(
+			"pathCustomUserData", widget.NewEntryWithData(binding.BindString(&c.pathCustomUserData)),
+		),
+	)
+}
+
+func (c *SkinProxyCMD) MainWindow() error {
+	return nil
 }
 
 func (c *SkinProxyCMD) Usage() string {
@@ -37,7 +55,7 @@ func (c *SkinProxyCMD) Usage() string {
 }
 
 func (c *SkinProxyCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	address, hostname, err := utils.ServerInput(ctx, c.server_address)
+	address, hostname, err := utils.ServerInput(ctx, c.serverAddress)
 	if err != nil {
 		logrus.Error(err)
 		return 1

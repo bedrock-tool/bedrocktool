@@ -124,7 +124,7 @@ func createReplayConnection(ctx context.Context, filename string, onConnect Conn
 			b := protocol.NewWriter(f, 0)
 			pk.Marshal(b)
 
-			if GDebug {
+			if Options.Debug {
 				PacketLogger(packet.Header{PacketID: pk.ID()}, f.Bytes(), &net.UDPAddr{}, &net.UDPAddr{})
 			}
 

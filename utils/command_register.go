@@ -1,10 +1,19 @@
 package utils
 
-import "github.com/google/subcommands"
+import (
+	"fyne.io/fyne/v2/widget"
+	"github.com/google/subcommands"
+)
 
-var ValidCMDs = make(map[string]string, 0)
+var ValidCMDs = make(map[string]Command, 0)
 
-func RegisterCommand(sub subcommands.Command) {
+type Command interface {
+	subcommands.Command
+	SettingsUI() *widget.Form
+	MainWindow() error
+}
+
+func RegisterCommand(sub Command) {
 	subcommands.Register(sub, "")
-	ValidCMDs[sub.Name()] = sub.Synopsis()
+	ValidCMDs[sub.Name()] = sub
 }

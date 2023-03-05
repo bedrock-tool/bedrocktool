@@ -9,9 +9,10 @@ import (
 	"os"
 	"os/signal"
 	"runtime/debug"
-	"strings"
 	"syscall"
 
+	"fyne.io/fyne/v2/widget"
+	"github.com/bedrock-tool/bedrocktool/gui"
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/crypt"
@@ -25,8 +26,23 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+type CLI struct {
+	gui.UI
+}
+
+func (c *CLI) Init() {
+}
+
+func (c *CLI) SetOptions() {
+	flag.Parse()
+}
+
+func (c *CLI) Execute(ctx context.Context) error {
+	subcommands.Execute(ctx)
+	return nil
+}
+
 func main() {
-	var extraDebug bool
 	defer func() {
 		if err := recover(); err != nil {
 			logrus.Errorf(locale.Loc("fatal_error", nil))
@@ -39,10 +55,10 @@ func main() {
 			println("--END COPY HERE--")
 			println("")
 			println(locale.Loc("report_issue", nil))
-			if extraDebug {
+			if utils.Options.ExtraDebug {
 				println(locale.Loc("used_extra_debug_report", nil))
 			}
-			if utils.GInteractive {
+			if utils.Options.IsInteractive {
 				input := bufio.NewScanner(os.Stdin)
 				input.Scan()
 			}
@@ -67,11 +83,11 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	flag.StringVar(&utils.RealmsEnv, "realms-env", "", "realms env")
-	flag.BoolVar(&utils.GDebug, "debug", false, locale.Loc("debug_mode", nil))
-	flag.BoolVar(&utils.GPreloadPacks, "preload", false, locale.Loc("preload_packs", nil))
-	flag.BoolVar(&extraDebug, "extra-debug", false, locale.Loc("extra_debug", nil))
+	flag.BoolVar(&utils.Options.Debug, "debug", false, locale.Loc("debug_mode", nil))
+	flag.BoolVar(&utils.Options.Preload, "preload", false, locale.Loc("preload_packs", nil))
+	flag.BoolVar(&utils.Options.ExtraDebug, "extra-debug", false, locale.Loc("extra_debug", nil))
 	flag.String("lang", "", "lang")
-	enableDNS := flag.Bool("dns", false, locale.Loc("enable_dns", nil))
+	flag.BoolVar(&utils.Options.EnableDNS, "dns", false, locale.Loc("enable_dns", nil))
 
 	subcommands.Register(subcommands.HelpCommand(), "")
 	subcommands.ImportantFlag("debug")
@@ -79,37 +95,24 @@ func main() {
 	subcommands.ImportantFlag("preload")
 	subcommands.HelpCommand()
 
-	{ // interactive input
-		if len(os.Args) < 2 {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				fmt.Println(locale.Loc("available_commands", nil))
-				for name, desc := range utils.ValidCMDs {
-					fmt.Printf("\t%s\t%s\n", name, desc)
-				}
-				fmt.Println(locale.Loc("use_to_run_command", nil))
+	var ui gui.UI
 
-				cmd, cancelled := utils.UserInput(ctx, locale.Loc("input_command", nil))
-				if cancelled {
-					return
-				}
-				_cmd := strings.Split(cmd, " ")
-				os.Args = append(os.Args, _cmd...)
-				utils.GInteractive = true
-			}
-		}
+	if len(os.Args) < 2 {
+		ui = gui.NewGUI()
+		utils.Options.IsInteractive = true
+	} else {
+		ui = &CLI{}
 	}
 
-	flag.Parse()
+	ui.Init()
+	ui.SetOptions()
 
-	if *enableDNS {
+	if utils.Options.EnableDNS {
 		utils.InitDNS()
 	}
 
-	if extraDebug {
-		utils.GDebug = true
+	if utils.Options.ExtraDebug {
+		utils.Options.Debug = true
 
 		var logPlain, logCryptEnc io.WriteCloser = nil, nil
 
@@ -151,9 +154,9 @@ func main() {
 		cancel()
 	}()
 
-	subcommands.Execute(ctx)
+	ui.Execute(ctx)
 
-	if utils.GInteractive {
+	if utils.Options.IsInteractive {
 		logrus.Info(locale.Loc("enter_to_exit", nil))
 		input := bufio.NewScanner(os.Stdin)
 		input.Scan()
@@ -220,6 +223,22 @@ func (c *CreateCustomDataCMD) Execute(_ context.Context, f *flag.FlagSet, _ ...i
 		return 1
 	}
 	return 0
+}
+
+func (c *TransCMD) SettingsUI() *widget.Form {
+	return nil
+}
+
+func (c *TransCMD) MainWindow() error {
+	return nil
+}
+
+func (c *CreateCustomDataCMD) SettingsUI() *widget.Form {
+	return nil
+}
+
+func (c *CreateCustomDataCMD) MainWindow() error {
+	return nil
 }
 
 func init() {

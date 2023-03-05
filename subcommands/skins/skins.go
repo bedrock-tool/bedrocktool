@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"fyne.io/fyne/v2/data/binding"
+	"fyne.io/fyne/v2/widget"
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
 
@@ -122,6 +124,22 @@ func (c *SkinCMD) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.serverAddress, "address", "", locale.Loc("remote_address", nil))
 	f.StringVar(&c.filter, "filter", "", locale.Loc("name_prefix", nil))
 	f.StringVar(&c.pathCustomUserData, "userdata", "", locale.Loc("custom_user_data", nil))
+}
+
+func (c *SkinCMD) SettingsUI() *widget.Form {
+	return widget.NewForm(
+		widget.NewFormItem(
+			"serverAddress", widget.NewEntryWithData(binding.BindString(&c.serverAddress)),
+		), widget.NewFormItem(
+			"filter", widget.NewEntryWithData(binding.BindString(&c.filter)),
+		), widget.NewFormItem(
+			"pathCustomUserData", widget.NewEntryWithData(binding.BindString(&c.pathCustomUserData)),
+		),
+	)
+}
+
+func (c *SkinCMD) MainWindow() error {
+	return nil
 }
 
 func (c *SkinCMD) Usage() string {

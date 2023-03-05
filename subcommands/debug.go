@@ -5,6 +5,8 @@ import (
 	"flag"
 	"strings"
 
+	"fyne.io/fyne/v2/data/binding"
+	"fyne.io/fyne/v2/widget"
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
 
@@ -13,7 +15,7 @@ import (
 )
 
 type DebugProxyCMD struct {
-	Address            string
+	serverAddress      string
 	filter             string
 	pathCustomUserData string
 }
@@ -22,9 +24,25 @@ func (*DebugProxyCMD) Name() string     { return "debug-proxy" }
 func (*DebugProxyCMD) Synopsis() string { return locale.Loc("debug_proxy_synopsis", nil) }
 
 func (c *DebugProxyCMD) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&c.Address, "address", "", locale.Loc("remote_address", nil))
+	f.StringVar(&c.serverAddress, "address", "", locale.Loc("remote_address", nil))
 	f.StringVar(&c.filter, "filter", "", locale.Loc("packet_filter", nil))
 	f.StringVar(&c.pathCustomUserData, "userdata", "", locale.Loc("custom_user_data", nil))
+}
+
+func (c *DebugProxyCMD) SettingsUI() *widget.Form {
+	return widget.NewForm(
+		widget.NewFormItem(
+			"serverAddress", widget.NewEntryWithData(binding.BindString(&c.serverAddress)),
+		), widget.NewFormItem(
+			"filter", widget.NewEntryWithData(binding.BindString(&c.filter)),
+		), widget.NewFormItem(
+			"pathCustomUserData", widget.NewEntryWithData(binding.BindString(&c.pathCustomUserData)),
+		),
+	)
+}
+
+func (c *DebugProxyCMD) MainWindow() error {
+	return nil
 }
 
 func (c *DebugProxyCMD) Usage() string {
@@ -32,13 +50,13 @@ func (c *DebugProxyCMD) Usage() string {
 }
 
 func (c *DebugProxyCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	address, _, err := utils.ServerInput(ctx, c.Address)
+	address, _, err := utils.ServerInput(ctx, c.serverAddress)
 	if err != nil {
 		logrus.Error(err)
 		return 1
 	}
 
-	utils.GDebug = true
+	utils.Options.Debug = true
 
 	filters := strings.Split(c.filter, ",")
 	if len(filters) > 0 {

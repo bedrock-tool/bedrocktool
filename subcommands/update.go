@@ -5,6 +5,7 @@ import (
 	"context"
 	"flag"
 
+	"fyne.io/fyne/v2/widget"
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/sirupsen/logrus"
@@ -18,6 +19,14 @@ func (*UpdateCMD) Name() string     { return "update" }
 func (*UpdateCMD) Synopsis() string { return locale.Loc("update_synopsis", nil) }
 
 func (c *UpdateCMD) SetFlags(f *flag.FlagSet) {}
+
+func (c *UpdateCMD) SettingsUI() *widget.Form {
+	return nil
+}
+
+func (c *UpdateCMD) MainWindow() error {
+	return nil
+}
 
 func (c *UpdateCMD) Usage() string {
 	return c.Name() + ": " + c.Synopsis() + "\n"
