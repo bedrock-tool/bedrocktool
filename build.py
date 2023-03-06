@@ -45,6 +45,7 @@ for (platform_name, archs, ext) in PLATFORMS:
         "-arch", ",".join(archs),
         "-ldflags", LDFLAGS,
         "-name", exe_name,
+        "-env", "GOVCS=off"
     ]
     if platform_name == "windows":
         args.append("-console")
