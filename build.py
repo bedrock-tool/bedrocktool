@@ -59,7 +59,6 @@ for (platform_name, archs, ext) in PLATFORMS:
         print(f"Building {platform_name} gui: {GUI}")
         SUB1 = '-gui' if GUI else ''
         name = f"{NAME}{SUB1}"
-        exe_name = f"{name}{ext}"
 
         env = ["GOVCS=*:off"]
         GOFLAGS = []
@@ -89,7 +88,7 @@ for (platform_name, archs, ext) in PLATFORMS:
             out.check_returncode()
         else:
             for arch in archs:
-                out_path = f"./tmp/{platform_name}-{arch}/{exe_name}"
+                out_path = f"./tmp/{platform_name}-{arch}/{name}{ext}"
                 os.makedirs(os.path.dirname(out_path), exist_ok=True)
                 env.extend([f"GOOS={platform_name}", f"GOARCH={arch}"])
                 env.append("CGO_ENABLED=0")
@@ -110,13 +109,13 @@ for (platform_name, archs, ext) in PLATFORMS:
             exe_out_path = f"./builds/{NAME}-{platform_name}-{arch}-{TAG}{SUB1}{ext}"
 
             if platform_name == "android":
-                apk_path = f"./fyne-cross/dist/android-{arch}/{exe_name}"
+                apk_path = f"./fyne-cross/dist/android-{arch}/{name}{ext}"
                 #shutil.copy(apk_path, exe_out_path) # dont upload builds yet, its not usable lol
             else:
                 if GUI:
-                    exe_path = f"./fyne-cross/bin/{platform_name}-{arch}/{exe_name}"
+                    exe_path = f"./fyne-cross/bin/{platform_name}-{arch}/{name}"
                 else:
-                    exe_path = f"./tmp/{platform_name}-{arch}/{exe_name}"
+                    exe_path = f"./tmp/{platform_name}-{arch}/{name}{ext}"
 
                 with open(exe_path, "rb") as f:
                     exe_data = f.read()
