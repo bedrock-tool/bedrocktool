@@ -1,4 +1,4 @@
-//go:build gui || android
+//go:build gui || android || true
 
 package gui
 
@@ -16,7 +16,7 @@ import (
 )
 
 var settings = map[string]func(utils.Command) *widget.Form{
-	"world": func(cc utils.Command) *widget.Form {
+	"worlds": func(cc utils.Command) *widget.Form {
 		c := cc.(*world.WorldCMD)
 		return widget.NewForm(
 			widget.NewFormItem(
@@ -68,6 +68,18 @@ var settings = map[string]func(utils.Command) *widget.Form{
 				"serverAddress", widget.NewEntryWithData(binding.BindString(&c.ServerAddress)),
 			), widget.NewFormItem(
 				"filter", widget.NewEntryWithData(binding.BindString(&c.Filter)),
+			),
+		)
+	},
+	"packs": func(cc utils.Command) *widget.Form {
+		c := cc.(*subcommands.ResourcePackCMD)
+		return widget.NewForm(
+			widget.NewFormItem(
+				"serverAddress", widget.NewEntryWithData(binding.BindString(&c.ServerAddress)),
+			), widget.NewFormItem(
+				"", widget.NewCheckWithData("saveEncrypted", binding.BindBool(&c.SaveEncrypted)),
+			), widget.NewFormItem(
+				"", widget.NewCheckWithData("only-keys", binding.BindBool(&c.OnlyKeys)),
 			),
 		)
 	},

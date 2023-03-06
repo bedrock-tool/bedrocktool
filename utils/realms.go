@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 
-	"fyne.io/fyne/v2/widget"
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/google/subcommands"
 	"github.com/sirupsen/logrus"
@@ -39,14 +38,6 @@ func (*RealmListCMD) Name() string     { return "list-realms" }
 func (*RealmListCMD) Synopsis() string { return locale.Loc("list_realms_synopsis", nil) }
 
 func (c *RealmListCMD) SetFlags(f *flag.FlagSet) {}
-
-func (c *RealmListCMD) SettingsUI() *widget.Form {
-	return nil
-}
-
-func (c *RealmListCMD) MainWindow() error {
-	return nil
-}
 
 func (c *RealmListCMD) Usage() string {
 	return c.Name() + ": " + c.Synopsis() + "\n"

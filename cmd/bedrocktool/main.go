@@ -232,14 +232,6 @@ func (c *CreateCustomDataCMD) Execute(_ context.Context, f *flag.FlagSet, _ ...i
 	return 0
 }
 
-func (c *TransCMD) MainWindow() error {
-	return nil
-}
-
-func (c *CreateCustomDataCMD) MainWindow() error {
-	return nil
-}
-
 func init() {
 	utils.RegisterCommand(&TransCMD{})
 	utils.RegisterCommand(&CreateCustomDataCMD{})

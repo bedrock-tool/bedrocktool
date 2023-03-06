@@ -4,6 +4,7 @@ package utils
 import (
 	"bytes"
 	"context"
+	"crypto/aes"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
@@ -176,4 +177,21 @@ func WriteManifest(manifest *resource.Manifest, fpath string) error {
 		return err
 	}
 	return nil
+}
+
+func CfbDecrypt(data []byte, key []byte) ([]byte, error) {
+	cipher, err := aes.NewCipher([]byte(key))
+	if err != nil {
+		return nil, err
+	}
+
+	shiftRegister := append(key[:16], data...)
+	iv := make([]byte, 16)
+	off := 0
+	for ; off < len(data); off += 1 {
+		cipher.Encrypt(iv, shiftRegister)
+		data[off] ^= iv[0]
+		shiftRegister = shiftRegister[1:]
+	}
+	return data, nil
 }

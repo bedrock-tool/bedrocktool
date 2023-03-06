@@ -1,5 +1,0 @@
-{
-    "Replace": {
-        "utils/resourcepack-ace.go": "utils/dummy"
-    }
-}

@@ -12,8 +12,8 @@ VER = VER_RE.match(TAG).group(1)
 CI = not not os.getenv("GITLAB_CI")
 
 
-with open("./utils/resourcepack-ace.go", "rb") as f:
-    PACK_SUPPORT = f.read(7) == b"package"
+with open("./subcommands/resourcepack-d/resourcepack-d.go", "rb") as f:
+    PACK_SUPPORT = f.read(100).count(b"package ") > 0
 
 print(f"Pack Support: {PACK_SUPPORT}")
 
@@ -21,7 +21,7 @@ LDFLAGS = f"-s -w -X github.com/bedrock-tool/bedrocktool/utils.Version={TAG}"
 
 PLATFORMS = [
     ("windows", ["386", "amd64"], ".exe"),
-    ("linux", ["386", "amd64", "arm", "arm64"], ""),
+    ("linux", ["386", "amd64", "arm64"], ""),
     #("darwin", ["amd64", "arm64"], ""),
     ("android", ["arm64"], ".apk")
 ]
@@ -60,21 +60,19 @@ for (platform_name, archs, ext) in PLATFORMS:
         SUB1 = '-gui' if GUI else ''
         name = f"{NAME}{SUB1}"
 
+        tags = []
         env = ["GOVCS=*:off"]
-        GOFLAGS = []
         if not PACK_SUPPORT:
-            GOFLAGS.append("-overlay=overlay.json")
+            tags.append("nopacks")
 
         if GUI:
-            if len(GOFLAGS):
-                env.append(f"GOFLAGS={' '.join(GOFLAGS)}")
             args = [
                 "fyne-cross", platform_name,
                 "-app-version", VER,
                 "-arch", ",".join(archs),
                 "-ldflags", LDFLAGS + f" -X github.com/bedrock-tool/bedrocktool/utils.CmdName=bedrocktool-gui",
                 "-name", name,
-                "-tags", "gui",
+                "-tags", ",".join(["gui"] + tags),
                 "-debug"
             ]
             for e in env:
@@ -96,10 +94,10 @@ for (platform_name, archs, ext) in PLATFORMS:
                     "go", "build",
                     "-ldflags", LDFLAGS,
                     "-trimpath",
+                    "-tags", ",".join(tags),
                     "-v",
                     "-o", out_path,
                 ]
-                args.extend(GOFLAGS)
                 args.append("./cmd/bedrocktool")
                 print(args)
                 out = subprocess.run(args)
