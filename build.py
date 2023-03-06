@@ -26,8 +26,12 @@ PLATFORMS = [
 ]
 
 platform_filter = ""
+arch_filter = ""
 if len(sys.argv) > 1:
     platform_filter = sys.argv[1]
+
+if len(sys.argv) > 2:
+    arch_filter = sys.argv[2]
 
 if os.path.exists("./tmp"):
     shutil.rmtree("./tmp")
@@ -43,6 +47,9 @@ os.mkdir("./updates")
 
 for (platform_name, archs, ext) in PLATFORMS:
     if platform_filter and platform_filter != platform_name:
+        continue
+    archs = [a for a in archs if arch_filter == "" or a == arch_filter]
+    if len(archs) == 0:
         continue
     for GUI in [False, True]:
         print(f"Building {platform_name} gui: {GUI}")
