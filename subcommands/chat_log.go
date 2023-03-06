@@ -10,7 +10,6 @@ import (
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
 
-	"github.com/google/subcommands"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sirupsen/logrus"
 )
@@ -22,33 +21,27 @@ type ChatLogCMD struct {
 
 func (*ChatLogCMD) Name() string     { return "chat-log" }
 func (*ChatLogCMD) Synopsis() string { return locale.Loc("chat_log_synopsis", nil) }
-
 func (c *ChatLogCMD) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.ServerAddress, "address", "", "remote server address")
 	f.BoolVar(&c.Verbose, "v", false, "verbose")
 }
 
-func (c *ChatLogCMD) Usage() string {
-	return c.Name() + ": " + c.Synopsis() + "\n" + locale.Loc("server_address_help", nil)
-}
-
-func (c *ChatLogCMD) Execute(ctx context.Context, flags *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
+func (c *ChatLogCMD) Execute(ctx context.Context, ui utils.UI) error {
 	address, hostname, err := utils.ServerInput(ctx, c.ServerAddress)
 	if err != nil {
-		logrus.Error(err)
-		return 1
+		return err
 	}
 
 	filename := fmt.Sprintf("%s_%s_chat.log", hostname, time.Now().Format("2006-01-02_15-04-05_Z07"))
 	f, err := os.Create(filename)
 	if err != nil {
-		logrus.Fatal(err)
+		return err
 	}
 	defer f.Close()
 
 	proxy, err := utils.NewProxy()
 	if err != nil {
-		logrus.Fatal(err)
+		return err
 	}
 	proxy.PacketCB = func(pk packet.Packet, proxy *utils.ProxyContext, toServer bool, _ time.Time) (packet.Packet, error) {
 		if text, ok := pk.(*packet.Text); ok {
@@ -66,12 +59,8 @@ func (c *ChatLogCMD) Execute(ctx context.Context, flags *flag.FlagSet, _ ...inte
 		return pk, nil
 	}
 
-	if err := proxy.Run(ctx, address); err != nil {
-		logrus.Error(err)
-		return 1
-	}
-
-	return 0
+	err = proxy.Run(ctx, address)
+	return err
 }
 
 func init() {

@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bufio"
 	"context"
 	"flag"
 	"fmt"
@@ -9,25 +10,56 @@ import (
 
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/google/subcommands"
+	"github.com/sirupsen/logrus"
 )
 
-type UI interface {
-	Init()
-	SetOptions(context.Context) bool
-	Execute(context.Context) error
+type MessageResponse struct {
+	Ok   bool
+	Data interface{}
 }
 
-type InteractiveCLI struct {
+type UI interface {
+	Init() bool
+	Start(context.Context) error
+	Message(name string, data interface{}) MessageResponse
+	ServerInput(context.Context, string) (string, string, error)
+}
+
+type BaseUI struct {
 	UI
 }
 
-func (c *InteractiveCLI) Init() {
+func (u *BaseUI) Message(name string, data interface{}) MessageResponse {
+	return MessageResponse{
+		Ok:   false,
+		Data: nil,
+	}
 }
 
-func (c *InteractiveCLI) SetOptions(ctx context.Context) bool {
+func (u *BaseUI) ServerInput(ctx context.Context, server string) (string, string, error) {
+	address, name, err := ServerInput(ctx, server)
+	return address, name, err
+}
+
+var currentUI UI
+
+func SetCurrentUI(ui UI) {
+	currentUI = ui
+}
+
+type InteractiveCLI struct {
+	BaseUI
+}
+
+func (c *InteractiveCLI) Init() bool {
+	currentUI = c
+	return true
+}
+
+func (c *InteractiveCLI) Start(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
-		return true
+		return nil
 	default:
 		fmt.Println(locale.Loc("available_commands", nil))
 		for name, cmd := range ValidCMDs {
@@ -37,18 +69,23 @@ func (c *InteractiveCLI) SetOptions(ctx context.Context) bool {
 
 		cmd, cancelled := UserInput(ctx, locale.Loc("input_command", nil))
 		if cancelled {
-			return true
+			return nil
 		}
 		_cmd := strings.Split(cmd, " ")
 		os.Args = append(os.Args, _cmd...)
 	}
-
 	flag.Parse()
-	return false
-}
 
-func (c *InteractiveCLI) Execute(ctx context.Context) error {
+	InitDNS()
+	InitExtraDebug()
+
 	subcommands.Execute(ctx)
+
+	if Options.IsInteractive {
+		logrus.Info(locale.Loc("enter_to_exit", nil))
+		input := bufio.NewScanner(os.Stdin)
+		input.Scan()
+	}
 	return nil
 }
 

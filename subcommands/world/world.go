@@ -1,4 +1,3 @@
-// Package world Bedrock World Downloader
 package world
 
 import (
@@ -26,7 +25,6 @@ import (
 	"github.com/df-mc/dragonfly/server/world/mcdb"
 	"github.com/df-mc/goleveldb/leveldb/opt"
 	"github.com/go-gl/mathgl/mgl32"
-	"github.com/google/subcommands"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sirupsen/logrus"
@@ -44,7 +42,8 @@ type TPlayerPos struct {
 type WorldState struct {
 	ctx   context.Context
 	proxy *utils.ProxyContext
-	ui    *MapUI
+	mapUI *MapUI
+	gui   utils.UI
 	bp    *behaviourpack.BehaviourPack
 
 	// save state
@@ -66,11 +65,12 @@ type WorldState struct {
 	experimentInventory bool
 }
 
-func NewWorldState(ctx context.Context, proxy *utils.ProxyContext, ServerName string) *WorldState {
+func NewWorldState(ctx context.Context, proxy *utils.ProxyContext, ServerName string, ui utils.UI) *WorldState {
 	w := &WorldState{
 		ctx:        ctx,
 		proxy:      proxy,
-		ui:         nil,
+		mapUI:      nil,
+		gui:        ui,
 		bp:         behaviourpack.New(ServerName),
 		ServerName: ServerName,
 
@@ -82,7 +82,7 @@ func NewWorldState(ctx context.Context, proxy *utils.ProxyContext, ServerName st
 		WorldName:          "world",
 		PlayerPos:          TPlayerPos{},
 	}
-	w.ui = NewMapUI(w)
+	w.mapUI = NewMapUI(w)
 	return w
 }
 
@@ -130,24 +130,18 @@ func (c *WorldCMD) SetFlags(f *flag.FlagSet) {
 	f.BoolVar(&c.ExperimentInventory, "inv", false, locale.Loc("test_block_inv", nil))
 }
 
-func (c *WorldCMD) Usage() string {
-	return c.Name() + ": " + c.Synopsis() + "\n" + locale.Loc("server_address_help", nil)
-}
-
-func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	serverAddress, hostname, err := utils.ServerInput(ctx, c.ServerAddress)
+func (c *WorldCMD) Execute(ctx context.Context, ui utils.UI) error {
+	serverAddress, hostname, err := ui.ServerInput(ctx, c.ServerAddress)
 	if err != nil {
-		logrus.Error(err)
-		return 1
+		return err
 	}
 
 	proxy, err := utils.NewProxy()
 	if err != nil {
-		logrus.Error(err)
-		return 1
+		return err
 	}
 
-	w := NewWorldState(ctx, proxy, hostname)
+	w := NewWorldState(ctx, proxy, hostname, ui)
 	w.voidGen = c.EnableVoid
 	w.withPacks = c.Packs
 	w.saveImage = c.SaveImage
@@ -177,11 +171,10 @@ func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{
 
 	err = w.proxy.Run(ctx, serverAddress)
 	if err != nil {
-		logrus.Error(err)
-	} else {
-		w.SaveAndReset()
+		return err
 	}
-	return 0
+	w.SaveAndReset()
+	return nil
 }
 
 func (w *WorldState) SetPlayerPos(Position mgl32.Vec3, Pitch, Yaw, HeadYaw float32) {
@@ -194,14 +187,14 @@ func (w *WorldState) SetPlayerPos(Position mgl32.Vec3, Pitch, Yaw, HeadYaw float
 	}
 
 	if int(last.Position.X()) != int(w.PlayerPos.Position.X()) || int(last.Position.Z()) != int(w.PlayerPos.Position.Z()) {
-		w.ui.SchedRedraw()
+		w.mapUI.SchedRedraw()
 	}
 }
 
 func (w *WorldState) Reset() {
 	w.chunks = make(map[protocol.ChunkPos]*chunk.Chunk)
 	w.WorldName = fmt.Sprintf("world-%d", w.worldCounter)
-	w.ui.Reset()
+	w.mapUI.Reset()
 }
 
 // SaveAndReset writes the world to a folder, resets all the chunks
@@ -421,7 +414,7 @@ func (w *WorldState) SaveAndReset() {
 
 	if w.saveImage {
 		f, _ := os.Create(folder + ".png")
-		png.Encode(f, w.ui.ToImage())
+		png.Encode(f, w.mapUI.ToImage())
 		f.Close()
 	}
 
@@ -485,7 +478,7 @@ func (w *WorldState) OnConnect(proxy *utils.ProxyContext, err error) bool {
 
 	w.proxy.SendMessage(locale.Loc("use_setname", nil))
 
-	w.ui.Start()
+	w.mapUI.Start()
 
 	proxy.AddCommand(utils.IngameCommand{
 		Exec: func(cmdline []string) bool {

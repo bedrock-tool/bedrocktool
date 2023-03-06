@@ -43,7 +43,7 @@ var MapItemPacket packet.InventoryContent = packet.InventoryContent{
 	},
 }
 
-func (m *MapUI) getBounds() (min, max protocol.ChunkPos) {
+func (m *MapUI) GetBounds() (min, max protocol.ChunkPos) {
 	// get the chunk coord bounds
 	i := 0
 	for _ch := range m.renderedChunks {
@@ -75,6 +75,7 @@ type MapUI struct {
 	renderQueue    *lockfree.Queue
 	renderedChunks map[protocol.ChunkPos]*image.RGBA // prerendered chunks
 	needRedraw     bool                              // when the map has updated this is true
+	showOnGui      bool
 
 	ticker *time.Ticker
 	w      *WorldState
@@ -93,6 +94,21 @@ func NewMapUI(w *WorldState) *MapUI {
 }
 
 func (m *MapUI) Start() {
+	r := m.w.gui.Message("init_map", struct {
+		GetTiles  func() map[protocol.ChunkPos]*image.RGBA
+		GetBounds func() (min, max protocol.ChunkPos)
+	}{
+		GetTiles: func() map[protocol.ChunkPos]*image.RGBA {
+			return m.renderedChunks
+		},
+		GetBounds: func() (min, max protocol.ChunkPos) {
+			return m.GetBounds()
+		},
+	})
+	if r.Ok {
+		m.showOnGui = true
+	}
+
 	// init map
 	if m.w.proxy.Client != nil {
 		if err := m.w.proxy.Client.WritePacket(&packet.ClientBoundMapItemData{
@@ -224,11 +240,15 @@ func (m *MapUI) Redraw() {
 		bmp.Encode(buf, img2)
 		os.WriteFile("test.bmp", buf.Bytes(), 0o777)
 	}
+
+	if m.showOnGui {
+		m.w.gui.Message("update_map", nil)
+	}
 }
 
 func (m *MapUI) ToImage() *image.RGBA {
 	// get the chunk coord bounds
-	min, max := m.getBounds()
+	min, max := m.GetBounds()
 	chunksX := int(max[0] - min[0] + 1) // how many chunk lengths is x coordinate
 	chunksY := int(max[1] - min[1] + 1)
 
@@ -254,8 +274,8 @@ func (m *MapUI) SetChunk(pos protocol.ChunkPos, ch *chunk.Chunk) {
 
 func (w *WorldState) ProcessAnimate(pk *packet.Animate) {
 	if pk.ActionType == packet.AnimateActionSwingArm {
-		w.ui.ChangeZoom()
-		w.proxy.SendPopup(locale.Loc("zoom_level", locale.Strmap{"Level": w.ui.zoomLevel}))
+		w.mapUI.ChangeZoom()
+		w.proxy.SendPopup(locale.Loc("zoom_level", locale.Strmap{"Level": w.mapUI.zoomLevel}))
 	}
 }
 
@@ -267,7 +287,7 @@ func (w *WorldState) processMapPacketsClient(pk packet.Packet, forward *bool) pa
 		w.SetPlayerPos(pk.Position, pk.Pitch, pk.Yaw, pk.HeadYaw)
 	case *packet.MapInfoRequest:
 		if pk.MapID == ViewMapID {
-			w.ui.SchedRedraw()
+			w.mapUI.SchedRedraw()
 			*forward = false
 		}
 	case *packet.Animate:

@@ -1,9 +1,10 @@
-//go:build gui || android || true
+//go:build gui || android
 
-package gui
+package ui
 
 import (
 	"context"
+	"sync"
 
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
@@ -12,6 +13,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/subcommands"
 	"github.com/bedrock-tool/bedrocktool/subcommands/skins"
 	"github.com/bedrock-tool/bedrocktool/subcommands/world"
+	"github.com/bedrock-tool/bedrocktool/ui/gui"
 	"github.com/bedrock-tool/bedrocktool/utils"
 )
 
@@ -86,12 +88,16 @@ var settings = map[string]func(utils.Command) *widget.Form{
 }
 
 type GUI struct {
-	utils.UI
+	utils.BaseUI
 
-	selected binding.String
+	commandUI gui.CommandUI
 }
 
-func (g *GUI) SetOptions(ctx context.Context) bool {
+func (g *GUI) Init() bool {
+	return true
+}
+
+func (g *GUI) Start(ctx context.Context) error {
 	a := app.New()
 	w := a.NewWindow("Bedrocktool")
 
@@ -120,11 +126,10 @@ func (g *GUI) SetOptions(ctx context.Context) bool {
 		}
 	}
 
-	g.selected = binding.NewString()
-
+	selected := binding.NewString()
 	forms_box := container.NewVBox()
-
-	var quit = true
+	start_button := widget.NewButton("Start", nil)
+	l := sync.Mutex{}
 
 	w.SetContent(container.NewVBox(
 		widget.NewRichTextFromMarkdown("## Settings"),
@@ -138,44 +143,56 @@ func (g *GUI) SetOptions(ctx context.Context) bool {
 		),
 		widget.NewRichTextFromMarkdown("# Commands"),
 		widget.NewSelect(entries, func(s string) {
-			g.selected.Set(s)
-			quit = false
+			l.Lock()
+			selected.Set(s)
+			forms_box.RemoveAll()
+			forms_box.Add(forms[s])
+			l.Unlock()
 		}),
 		forms_box,
-		widget.NewButton("Start", func() {
-			w.Close()
-		}),
+		start_button,
 	))
 
-	for _, f := range forms {
-		forms_box.Add(f)
-	}
-	g.selected.AddListener(binding.NewDataListener(func() {
-		v, _ := g.selected.Get()
-		for n, f := range forms {
-			if n == v {
-				f.Show()
-			} else {
-				f.Hide()
-			}
+	start_button.OnTapped = func() {
+		sub, _ := selected.Get()
+		cmd := utils.ValidCMDs[sub]
+
+		u := gui.CommandUIs[sub]
+		if u != nil {
+			g.commandUI = u
+			w.SetContent(u.Layout())
 		}
-	}))
+
+		utils.InitDNS()
+		utils.InitExtraDebug()
+
+		go cmd.Execute(ctx, g)
+	}
 
 	w.ShowAndRun()
-	return quit
-}
-
-func (g *GUI) Init() {
-}
-
-func (g *GUI) Execute(ctx context.Context) error {
-	sub, err := g.selected.Get()
-	if err != nil {
-		return err
-	}
-	cmd := utils.ValidCMDs[sub]
-	cmd.Execute(ctx, nil)
 	return nil
+}
+
+func (g *GUI) Message(name string, data interface{}) utils.MessageResponse {
+	h := g.commandUI.Handler()
+	if h != nil {
+		r := h(name, data)
+		if r.Ok {
+			return r
+		}
+	}
+
+	r := utils.MessageResponse{
+		Ok:   false,
+		Data: nil,
+	}
+
+	switch name {
+	case "can_show_images":
+		r.Ok = true
+	}
+
+	return r
 }
 
 func init() {

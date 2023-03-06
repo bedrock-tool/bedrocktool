@@ -7,8 +7,6 @@ import (
 	"strings"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
-	"github.com/google/subcommands"
-	"github.com/sirupsen/logrus"
 )
 
 func getRealm(ctx context.Context, realmName, id string) (name string, address string, err error) {
@@ -34,25 +32,18 @@ func getRealm(ctx context.Context, realmName, id string) (name string, address s
 
 type RealmListCMD struct{}
 
-func (*RealmListCMD) Name() string     { return "list-realms" }
-func (*RealmListCMD) Synopsis() string { return locale.Loc("list_realms_synopsis", nil) }
-
+func (*RealmListCMD) Name() string               { return "list-realms" }
+func (*RealmListCMD) Synopsis() string           { return locale.Loc("list_realms_synopsis", nil) }
 func (c *RealmListCMD) SetFlags(f *flag.FlagSet) {}
-
-func (c *RealmListCMD) Usage() string {
-	return c.Name() + ": " + c.Synopsis() + "\n"
-}
-
-func (c *RealmListCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
+func (c *RealmListCMD) Execute(ctx context.Context, ui UI) error {
 	realms, err := GetRealmsAPI().Realms(ctx)
 	if err != nil {
-		logrus.Error(err)
-		return 1
+		return err
 	}
 	for _, realm := range realms {
 		fmt.Println(locale.Loc("realm_list_line", locale.Strmap{"Name": realm.Name, "Id": realm.ID}))
 	}
-	return 0
+	return nil
 }
 
 func init() {

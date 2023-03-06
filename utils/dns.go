@@ -84,6 +84,9 @@ func (d *DNSServer) handler(w dns.ResponseWriter, req *dns.Msg) {
 }
 
 func InitDNS() {
+	if !Options.EnableDNS {
+		return
+	}
 	d := DNSServer{}
 	dns.HandleFunc(".", d.handler)
 

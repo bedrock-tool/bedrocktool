@@ -14,7 +14,6 @@ import (
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
 
-	"github.com/google/subcommands"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sirupsen/logrus"
 )
@@ -49,27 +48,20 @@ type CaptureCMD struct {
 
 func (*CaptureCMD) Name() string     { return "capture" }
 func (*CaptureCMD) Synopsis() string { return locale.Loc("capture_synopsis", nil) }
-
 func (c *CaptureCMD) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.ServerAddress, "address", "", "remote server address")
 }
 
-func (c *CaptureCMD) Usage() string {
-	return c.Name() + ": " + c.Synopsis() + "\n" + locale.Loc("server_address_help", nil)
-}
-
-func (c *CaptureCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
+func (c *CaptureCMD) Execute(ctx context.Context, ui utils.UI) error {
 	address, hostname, err := utils.ServerInput(ctx, c.ServerAddress)
 	if err != nil {
-		logrus.Fatal(err)
-		return 1
+		return err
 	}
 
 	os.Mkdir("captures", 0o775)
 	fio, err := os.Create("captures/" + hostname + "-" + time.Now().Format("2006-01-02_15-04-05") + ".pcap2")
 	if err != nil {
-		logrus.Fatal(err)
-		return 1
+		return err
 	}
 	defer fio.Close()
 	utils.WriteReplayHeader(fio)
@@ -90,8 +82,7 @@ func (c *CaptureCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interfac
 	err = proxy.Run(ctx, address)
 	time.Sleep(2 * time.Second)
 	if err != nil {
-		logrus.Fatal(err)
-		return 1
+		return err
 	}
-	return 0
+	return nil
 }

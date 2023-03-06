@@ -60,9 +60,9 @@ func (w *WorldState) processLevelChunk(pk *packet.LevelChunk) {
 	w.chunks[pk.Position] = ch
 
 	if pk.SubChunkRequestMode == protocol.SubChunkRequestModeLegacy {
-		w.ui.SetChunk(pk.Position, ch)
+		w.mapUI.SetChunk(pk.Position, ch)
 	} else {
-		w.ui.SetChunk(pk.Position, nil)
+		w.mapUI.SetChunk(pk.Position, nil)
 		// request all the subchunks
 
 		max := w.Dim.Range().Height() / 16
@@ -109,9 +109,9 @@ func (w *WorldState) processSubChunk(pk *packet.SubChunk) {
 
 	// redraw the chunks
 	for pos := range posToRedraw {
-		w.ui.SetChunk(pos, w.chunks[pos])
+		w.mapUI.SetChunk(pos, w.chunks[pos])
 	}
-	w.ui.SchedRedraw()
+	w.mapUI.SchedRedraw()
 }
 
 func (w *WorldState) ProcessChunkPackets(pk packet.Packet) packet.Packet {

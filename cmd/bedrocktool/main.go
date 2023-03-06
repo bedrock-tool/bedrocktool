@@ -5,7 +5,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"os/signal"
 	"runtime/debug"
@@ -13,31 +12,30 @@ import (
 
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
-	"github.com/bedrock-tool/bedrocktool/utils/crypt"
 	"gopkg.in/square/go-jose.v2/json"
 
 	_ "github.com/bedrock-tool/bedrocktool/subcommands"
 	_ "github.com/bedrock-tool/bedrocktool/subcommands/skins"
 	_ "github.com/bedrock-tool/bedrocktool/subcommands/world"
-	_ "github.com/bedrock-tool/bedrocktool/ui/gui"
+	_ "github.com/bedrock-tool/bedrocktool/ui"
 
 	"github.com/google/subcommands"
 	"github.com/sirupsen/logrus"
 )
 
 type CLI struct {
-	utils.UI
+	utils.BaseUI
 }
 
-func (c *CLI) Init() {
+func (c *CLI) Init() bool {
+	utils.SetCurrentUI(c)
+	return true
 }
 
-func (c *CLI) SetOptions(context.Context) bool {
+func (c *CLI) Start(ctx context.Context) error {
 	flag.Parse()
-	return false
-}
-
-func (c *CLI) Execute(ctx context.Context) error {
+	utils.InitDNS()
+	utils.InitExtraDebug()
 	subcommands.Execute(ctx)
 	return nil
 }
@@ -105,53 +103,6 @@ func main() {
 		ui = &CLI{}
 	}
 
-	ui.Init()
-	if ui.SetOptions(ctx) {
-		return
-	}
-
-	if ctx.Err() != nil {
-		return
-	}
-
-	if utils.Options.EnableDNS {
-		utils.InitDNS()
-	}
-
-	if utils.Options.ExtraDebug {
-		utils.Options.Debug = true
-
-		var logPlain, logCryptEnc io.WriteCloser = nil, nil
-
-		// open plain text log
-		logPlain, err = os.Create("packets.log")
-		if err != nil {
-			logrus.Error(err)
-		} else {
-			defer logPlain.Close()
-		}
-
-		// open gpg log
-		logCrypt, err := os.Create("packets.log.gpg")
-		if err != nil {
-			logrus.Error(err)
-		} else {
-			defer logCrypt.Close()
-			// encrypter for the log
-			logCryptEnc, err = crypt.Encer("packets.log", logCrypt)
-			if err != nil {
-				logrus.Error(err)
-			} else {
-				defer logCryptEnc.Close()
-			}
-		}
-
-		utils.FLog = io.MultiWriter(logPlain, logCryptEnc)
-		if err != nil {
-			logrus.Error(err)
-		}
-	}
-
 	// exit cleanup
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
@@ -161,12 +112,13 @@ func main() {
 		cancel()
 	}()
 
-	ui.Execute(ctx)
-
-	if utils.Options.IsInteractive {
-		logrus.Info(locale.Loc("enter_to_exit", nil))
-		input := bufio.NewScanner(os.Stdin)
-		input.Scan()
+	if !ui.Init() {
+		logrus.Error("Failed to init UI!")
+		return
+	}
+	err = ui.Start(ctx)
+	if err != nil {
+		logrus.Error(err)
 	}
 }
 
@@ -176,16 +128,10 @@ type TransCMD struct {
 
 func (*TransCMD) Name() string     { return "trans" }
 func (*TransCMD) Synopsis() string { return "" }
-
 func (c *TransCMD) SetFlags(f *flag.FlagSet) {
 	f.BoolVar(&c.auth, "auth", false, locale.Loc("should_login_xbox", nil))
 }
-
-func (c *TransCMD) Usage() string {
-	return c.Name() + ": " + c.Synopsis() + "\n"
-}
-
-func (c *TransCMD) Execute(_ context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
+func (c *TransCMD) Execute(_ context.Context, ui utils.UI) error {
 	const (
 		BlackFg = "\033[30m"
 		Bold    = "\033[1m"
@@ -198,7 +144,7 @@ func (c *TransCMD) Execute(_ context.Context, f *flag.FlagSet, _ ...interface{})
 		utils.GetTokenSource()
 	}
 	fmt.Println(BlackFg + Bold + Blue + " Trans " + Pink + " Rights " + White + " Are " + Pink + " Human " + Blue + " Rights " + Reset)
-	return 0
+	return nil
 }
 
 type CreateCustomDataCMD struct {
@@ -212,11 +158,7 @@ func (c *CreateCustomDataCMD) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.path, "path", "customdata.json", "where to save")
 }
 
-func (c *CreateCustomDataCMD) Usage() string {
-	return c.Name() + ": " + c.Synopsis() + "\n"
-}
-
-func (c *CreateCustomDataCMD) Execute(_ context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
+func (c *CreateCustomDataCMD) Execute(_ context.Context, ui utils.UI) error {
 	var data utils.CustomClientData
 	fio, err := os.Create(c.path)
 	if err == nil {
@@ -226,10 +168,9 @@ func (c *CreateCustomDataCMD) Execute(_ context.Context, f *flag.FlagSet, _ ...i
 		fio.Write(bdata)
 	}
 	if err != nil {
-		logrus.Error(err)
-		return 1
+		return err
 	}
-	return 0
+	return nil
 }
 
 func init() {

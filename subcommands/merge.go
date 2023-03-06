@@ -1,3 +1,5 @@
+//go:build false
+
 package subcommands
 
 import (

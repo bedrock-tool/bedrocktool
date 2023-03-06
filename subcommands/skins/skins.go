@@ -12,7 +12,6 @@ import (
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
 
-	"github.com/google/subcommands"
 	"github.com/google/uuid"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
@@ -124,15 +123,10 @@ func (c *SkinCMD) SetFlags(f *flag.FlagSet) {
 	f.BoolVar(&c.NoProxy, "no-proxy", false, "use headless version")
 }
 
-func (c *SkinCMD) Usage() string {
-	return c.Name() + ": " + c.Synopsis() + "\n" + locale.Loc("server_address_help", nil)
-}
-
-func (c *SkinCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
+func (c *SkinCMD) Execute(ctx context.Context, ui utils.UI) error {
 	address, hostname, err := utils.ServerInput(ctx, c.ServerAddress)
 	if err != nil {
-		logrus.Error(err)
-		return 1
+		return err
 	}
 
 	proxy, _ := utils.NewProxy()
@@ -158,10 +152,7 @@ func (c *SkinCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}
 	}
 
 	err = proxy.Run(ctx, address)
-	if err != nil {
-		logrus.Error(err)
-	}
-	return 0
+	return err
 }
 
 func init() {

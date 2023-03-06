@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"io"
 	"net"
 	"os"
 	"path"
@@ -16,6 +17,7 @@ import (
 	"sync"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
+	"github.com/bedrock-tool/bedrocktool/utils/crypt"
 	"github.com/google/uuid"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sirupsen/logrus"
@@ -194,4 +196,41 @@ func CfbDecrypt(data []byte, key []byte) ([]byte, error) {
 		shiftRegister = shiftRegister[1:]
 	}
 	return data, nil
+}
+
+func InitExtraDebug() {
+	if !Options.ExtraDebug {
+		return
+	}
+	Options.Debug = true
+
+	var logPlain, logCryptEnc io.WriteCloser = nil, nil
+
+	// open plain text log
+	logPlain, err := os.Create("packets.log")
+	if err != nil {
+		logrus.Error(err)
+	} else {
+		defer logPlain.Close()
+	}
+
+	// open gpg log
+	logCrypt, err := os.Create("packets.log.gpg")
+	if err != nil {
+		logrus.Error(err)
+	} else {
+		defer logCrypt.Close()
+		// encrypter for the log
+		logCryptEnc, err = crypt.Encer("packets.log", logCrypt)
+		if err != nil {
+			logrus.Error(err)
+		} else {
+			defer logCryptEnc.Close()
+		}
+	}
+
+	FLog = io.MultiWriter(logPlain, logCryptEnc)
+	if err != nil {
+		logrus.Error(err)
+	}
 }
