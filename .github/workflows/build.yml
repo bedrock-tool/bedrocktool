@@ -34,6 +34,7 @@ jobs:
         env:
           REPO_KEY: ${{ secrets.REPO_KEY }}
 
+      - run: go install github.com/fyne-io/fyne-cross@latest
       - run: go get ./cmd/bedrocktool
 
       - name: Install SSH Key
