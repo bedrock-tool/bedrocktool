@@ -9,8 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"fyne.io/fyne/v2/data/binding"
-	"fyne.io/fyne/v2/widget"
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
 
@@ -112,34 +110,18 @@ func (s *skinsSession) ProcessPacket(pk packet.Packet) {
 }
 
 type SkinCMD struct {
-	serverAddress      string
-	filter             string
-	pathCustomUserData string
+	ServerAddress string
+	Filter        string
+	NoProxy       bool
 }
 
 func (*SkinCMD) Name() string     { return "skins" }
 func (*SkinCMD) Synopsis() string { return locale.Loc("skins_synopsis", nil) }
 
 func (c *SkinCMD) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&c.serverAddress, "address", "", locale.Loc("remote_address", nil))
-	f.StringVar(&c.filter, "filter", "", locale.Loc("name_prefix", nil))
-	f.StringVar(&c.pathCustomUserData, "userdata", "", locale.Loc("custom_user_data", nil))
-}
-
-func (c *SkinCMD) SettingsUI() *widget.Form {
-	return widget.NewForm(
-		widget.NewFormItem(
-			"serverAddress", widget.NewEntryWithData(binding.BindString(&c.serverAddress)),
-		), widget.NewFormItem(
-			"filter", widget.NewEntryWithData(binding.BindString(&c.filter)),
-		), widget.NewFormItem(
-			"pathCustomUserData", widget.NewEntryWithData(binding.BindString(&c.pathCustomUserData)),
-		),
-	)
-}
-
-func (c *SkinCMD) MainWindow() error {
-	return nil
+	f.StringVar(&c.ServerAddress, "address", "", locale.Loc("remote_address", nil))
+	f.StringVar(&c.Filter, "filter", "", locale.Loc("name_prefix", nil))
+	f.BoolVar(&c.NoProxy, "no-proxy", false, "use headless version")
 }
 
 func (c *SkinCMD) Usage() string {
@@ -147,14 +129,14 @@ func (c *SkinCMD) Usage() string {
 }
 
 func (c *SkinCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	address, hostname, err := utils.ServerInput(ctx, c.serverAddress)
+	address, hostname, err := utils.ServerInput(ctx, c.ServerAddress)
 	if err != nil {
 		logrus.Error(err)
 		return 1
 	}
 
-	proxy, _ := utils.NewProxy(c.pathCustomUserData)
-	proxy.WithClient = false
+	proxy, _ := utils.NewProxy()
+	proxy.WithClient = !c.NoProxy
 	proxy.ConnectCB = func(proxy *utils.ProxyContext, err error) bool {
 		if err != nil {
 			return false

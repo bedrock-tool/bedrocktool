@@ -7,7 +7,6 @@ import (
 	"os"
 	"time"
 
-	"fyne.io/fyne/v2/widget"
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
 
@@ -29,14 +28,6 @@ func (*MergeCMD) Synopsis() string { return locale.Loc("merge_synopsis", nil) }
 
 func (c *MergeCMD) SetFlags(f *flag.FlagSet) {
 	f.BoolVar(&c.legacy, "legacy", false, "if the worlds are before 1.18")
-}
-
-func (c *MergeCMD) SettingsUI() *widget.Form {
-	return nil // TODO
-}
-
-func (c *MergeCMD) MainWindow() error {
-	return nil
 }
 
 func (c *MergeCMD) Usage() string {

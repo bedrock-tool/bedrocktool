@@ -16,8 +16,6 @@ import (
 	"strings"
 	"time"
 
-	"fyne.io/fyne/v2/data/binding"
-	"fyne.io/fyne/v2/widget"
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/behaviourpack"
@@ -114,46 +112,22 @@ func init() {
 }
 
 type WorldCMD struct {
-	serverAddress       string
-	packs               bool
-	enableVoid          bool
-	saveImage           bool
-	experimentInventory bool
-	pathCustomUserData  string
+	ServerAddress       string
+	Packs               bool
+	EnableVoid          bool
+	SaveImage           bool
+	ExperimentInventory bool
 }
 
 func (*WorldCMD) Name() string     { return "worlds" }
 func (*WorldCMD) Synopsis() string { return locale.Loc("world_synopsis", nil) }
 
 func (c *WorldCMD) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&c.serverAddress, "address", "", locale.Loc("remote_address", nil))
-	f.BoolVar(&c.packs, "packs", false, locale.Loc("save_packs_with_world", nil))
-	f.BoolVar(&c.enableVoid, "void", true, locale.Loc("enable_void", nil))
-	f.BoolVar(&c.saveImage, "image", false, locale.Loc("save_image", nil))
-	f.BoolVar(&c.experimentInventory, "inv", false, locale.Loc("test_block_inv", nil))
-	f.StringVar(&c.pathCustomUserData, "userdata", "", locale.Loc("custom_user_data", nil))
-}
-
-func (c *WorldCMD) SettingsUI() *widget.Form {
-	return widget.NewForm(
-		widget.NewFormItem(
-			"serverAddress", widget.NewEntryWithData(binding.BindString(&c.serverAddress)),
-		), widget.NewFormItem(
-			"packs", widget.NewCheckWithData("packs", binding.BindBool(&c.packs)),
-		), widget.NewFormItem(
-			"void", widget.NewCheckWithData("void", binding.BindBool(&c.enableVoid)),
-		), widget.NewFormItem(
-			"saveImage", widget.NewCheckWithData("saveImage", binding.BindBool(&c.saveImage)),
-		), widget.NewFormItem(
-			"experimentInventory", widget.NewCheckWithData("experimentInventory", binding.BindBool(&c.experimentInventory)),
-		), widget.NewFormItem(
-			"pathCustomUserData", widget.NewEntryWithData(binding.BindString(&c.pathCustomUserData)),
-		),
-	)
-}
-
-func (c *WorldCMD) MainWindow() error {
-	return nil
+	f.StringVar(&c.ServerAddress, "address", "", locale.Loc("remote_address", nil))
+	f.BoolVar(&c.Packs, "packs", false, locale.Loc("save_packs_with_world", nil))
+	f.BoolVar(&c.EnableVoid, "void", true, locale.Loc("enable_void", nil))
+	f.BoolVar(&c.SaveImage, "image", false, locale.Loc("save_image", nil))
+	f.BoolVar(&c.ExperimentInventory, "inv", false, locale.Loc("test_block_inv", nil))
 }
 
 func (c *WorldCMD) Usage() string {
@@ -161,23 +135,23 @@ func (c *WorldCMD) Usage() string {
 }
 
 func (c *WorldCMD) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	serverAddress, hostname, err := utils.ServerInput(ctx, c.serverAddress)
+	serverAddress, hostname, err := utils.ServerInput(ctx, c.ServerAddress)
 	if err != nil {
 		logrus.Error(err)
 		return 1
 	}
 
-	proxy, err := utils.NewProxy(c.pathCustomUserData)
+	proxy, err := utils.NewProxy()
 	if err != nil {
 		logrus.Error(err)
 		return 1
 	}
 
 	w := NewWorldState(ctx, proxy, hostname)
-	w.voidGen = c.enableVoid
-	w.withPacks = c.packs
-	w.saveImage = c.saveImage
-	w.experimentInventory = c.experimentInventory
+	w.voidGen = c.EnableVoid
+	w.withPacks = c.Packs
+	w.saveImage = c.SaveImage
+	w.experimentInventory = c.ExperimentInventory
 
 	proxy.AlwaysGetPacks = true
 	proxy.ConnectCB = w.OnConnect

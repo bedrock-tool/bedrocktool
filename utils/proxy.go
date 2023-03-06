@@ -67,14 +67,14 @@ type ProxyContext struct {
 	PacketCB PacketCallback
 }
 
-func NewProxy(pathCustomData string) (*ProxyContext, error) {
+func NewProxy() (*ProxyContext, error) {
 	p := &ProxyContext{
 		commands:         make(map[string]IngameCommand),
 		WithClient:       true,
 		IgnoreDisconnect: false,
 	}
-	if pathCustomData != "" {
-		if err := p.LoadCustomUserData(pathCustomData); err != nil {
+	if Options.PathCustomUserData != "" {
+		if err := p.LoadCustomUserData(Options.PathCustomUserData); err != nil {
 			return nil, err
 		}
 	}

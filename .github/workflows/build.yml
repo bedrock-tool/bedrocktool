@@ -16,7 +16,7 @@ jobs:
 
       - uses: actions/setup-go@v3
         with:
-          go-version: '1.19'
+          go-version: '1.20'
           check-latest: true
           cache: true
 
@@ -33,8 +33,7 @@ jobs:
           rm ../bedrock-repo-key.key
         env:
           REPO_KEY: ${{ secrets.REPO_KEY }}
-      
-      - run: go install github.com/sanbornm/go-selfupdate/cmd/go-selfupdate
+
       - run: go get ./cmd/bedrocktool
 
       - name: Install SSH Key
@@ -46,10 +45,10 @@ jobs:
       - name: build
         id: build
         run: |
-          make -j dists updates
+          python build.py
 
       - name: Deploy with rsync
-        run: rsync -avz ./public/ olebeck@${{ secrets.SSH_HOST }}:/var/www/updates/bedrocktool/
+        run: rsync -avz ./updates/ olebeck@${{ secrets.SSH_HOST }}:/var/www/updates/bedrocktool/
 
       - name: 'Get Previous tag'
         id: previoustag
@@ -59,5 +58,5 @@ jobs:
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
           automatic_release_tag: ${{ steps.previoustag.outputs.tag }}
-          files: dist/*
+          files: ./builds/*
           prerelease: false

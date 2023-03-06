@@ -7,8 +7,69 @@ import (
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/widget"
+	"github.com/bedrock-tool/bedrocktool/subcommands"
+	"github.com/bedrock-tool/bedrocktool/subcommands/skins"
+	"github.com/bedrock-tool/bedrocktool/subcommands/world"
 	"github.com/bedrock-tool/bedrocktool/utils"
 )
+
+var settings = map[string]func(utils.Command) *widget.Form{
+	"world": func(cc utils.Command) *widget.Form {
+		c := cc.(*world.WorldCMD)
+		return widget.NewForm(
+			widget.NewFormItem(
+				"serverAddress", widget.NewEntryWithData(binding.BindString(&c.ServerAddress)),
+			), widget.NewFormItem(
+				"", widget.NewCheckWithData("packs", binding.BindBool(&c.Packs)),
+			), widget.NewFormItem(
+				"", widget.NewCheckWithData("void", binding.BindBool(&c.EnableVoid)),
+			), widget.NewFormItem(
+				"", widget.NewCheckWithData("saveImage", binding.BindBool(&c.SaveImage)),
+			), widget.NewFormItem(
+				"", widget.NewCheckWithData("experimentInventory", binding.BindBool(&c.ExperimentInventory)),
+			),
+		)
+	},
+	"skins": func(cc utils.Command) *widget.Form {
+		c := cc.(*skins.SkinCMD)
+		return widget.NewForm(
+			widget.NewFormItem(
+				"serverAddress", widget.NewEntryWithData(binding.BindString(&c.ServerAddress)),
+			), widget.NewFormItem(
+				"filter", widget.NewEntryWithData(binding.BindString(&c.Filter)),
+			),
+		)
+	},
+	"capture": func(cc utils.Command) *widget.Form {
+		c := cc.(*subcommands.CaptureCMD)
+		return widget.NewForm(
+			widget.NewFormItem(
+				"serverAddress", widget.NewEntryWithData(binding.BindString(&c.ServerAddress)),
+			),
+		)
+	},
+	"chat-log": func(cc utils.Command) *widget.Form {
+		c := cc.(*subcommands.ChatLogCMD)
+		return widget.NewForm(
+			widget.NewFormItem(
+				"serverAddress", widget.NewEntryWithData(binding.BindString(&c.ServerAddress)),
+			),
+			widget.NewFormItem(
+				"", widget.NewCheckWithData("Verbose", binding.BindBool(&c.Verbose)),
+			),
+		)
+	},
+	"debug-proxy": func(cc utils.Command) *widget.Form {
+		c := cc.(*subcommands.DebugProxyCMD)
+		return widget.NewForm(
+			widget.NewFormItem(
+				"serverAddress", widget.NewEntryWithData(binding.BindString(&c.ServerAddress)),
+			), widget.NewFormItem(
+				"filter", widget.NewEntryWithData(binding.BindString(&c.Filter)),
+			),
+		)
+	},
+}
 
 type GUI struct {
 	UI
@@ -20,7 +81,7 @@ func NewGUI() *GUI {
 	return &GUI{}
 }
 
-func (g *GUI) SetOptions() {
+func (g *GUI) SetOptions() bool {
 	a := app.New()
 	w := a.NewWindow("Bedrocktool")
 
@@ -41,8 +102,10 @@ func (g *GUI) SetOptions() {
 	forms := make(map[string]*widget.Form)
 	for k, c := range utils.ValidCMDs {
 		entries = append(entries, k)
-		s := c.SettingsUI()
-		if s != nil {
+
+		f := settings[k]
+		if f != nil {
+			s := f(c)
 			forms[k] = s
 		}
 	}
@@ -51,15 +114,22 @@ func (g *GUI) SetOptions() {
 
 	forms_box := container.NewVBox()
 
+	var quit = true
+
 	w.SetContent(container.NewVBox(
 		widget.NewRichTextFromMarkdown("## Settings"),
 		container.NewHBox(
 			widget.NewCheckWithData("Debug", debug),
 			widget.NewCheckWithData("extra-debug", extra_debug),
 		),
+		container.NewHBox(
+			widget.NewRichTextFromMarkdown("Custom Userdata:"),
+			widget.NewEntryWithData(binding.BindString(&utils.Options.PathCustomUserData)),
+		),
 		widget.NewRichTextFromMarkdown("# Commands"),
 		widget.NewSelect(entries, func(s string) {
 			g.selected.Set(s)
+			quit = false
 		}),
 		forms_box,
 		widget.NewButton("Start", func() {
@@ -82,6 +152,7 @@ func (g *GUI) SetOptions() {
 	}))
 
 	w.ShowAndRun()
+	return quit
 }
 
 func (g *GUI) Init() {
@@ -93,7 +164,6 @@ func (g *GUI) Execute(ctx context.Context) error {
 		return err
 	}
 	cmd := utils.ValidCMDs[sub]
-	go cmd.MainWindow()
 	cmd.Execute(ctx, nil)
 	return nil
 }

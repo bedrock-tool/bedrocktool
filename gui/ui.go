@@ -4,6 +4,6 @@ import "context"
 
 type UI interface {
 	Init()
-	SetOptions()
+	SetOptions() bool
 	Execute(context.Context) error
 }

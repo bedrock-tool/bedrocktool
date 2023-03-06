@@ -33,8 +33,9 @@ type CLI struct {
 func (c *CLI) Init() {
 }
 
-func (c *CLI) SetOptions() {
+func (c *CLI) SetOptions() bool {
 	flag.Parse()
+	return false
 }
 
 func (c *CLI) Execute(ctx context.Context) error {
@@ -86,6 +87,7 @@ func main() {
 	flag.BoolVar(&utils.Options.Debug, "debug", false, locale.Loc("debug_mode", nil))
 	flag.BoolVar(&utils.Options.Preload, "preload", false, locale.Loc("preload_packs", nil))
 	flag.BoolVar(&utils.Options.ExtraDebug, "extra-debug", false, locale.Loc("extra_debug", nil))
+	flag.StringVar(&utils.Options.PathCustomUserData, "userdata", "", locale.Loc("custom_user_data", nil))
 	flag.String("lang", "", "lang")
 	flag.BoolVar(&utils.Options.EnableDNS, "dns", false, locale.Loc("enable_dns", nil))
 
@@ -105,7 +107,13 @@ func main() {
 	}
 
 	ui.Init()
-	ui.SetOptions()
+	if ui.SetOptions() {
+		return
+	}
+
+	if ctx.Err() != nil {
+		return
+	}
 
 	if utils.Options.EnableDNS {
 		utils.InitDNS()

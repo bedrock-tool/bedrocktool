@@ -27,11 +27,12 @@ import (
 )
 
 var Options struct {
-	Debug         bool
-	Preload       bool
-	IsInteractive bool
-	ExtraDebug    bool
-	EnableDNS     bool
+	Debug              bool
+	Preload            bool
+	IsInteractive      bool
+	ExtraDebug         bool
+	EnableDNS          bool
+	PathCustomUserData string
 }
 
 var nameRegexp = regexp.MustCompile(`\||(?:§.?)`)

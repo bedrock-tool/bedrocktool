@@ -18,7 +18,9 @@ keys.db
 /skins/
 /worlds/
 /dist/
-/public/
 /builds/
+/updates/
+/fyne-cross/
 
 packets.log.gpg
+customdata.json
