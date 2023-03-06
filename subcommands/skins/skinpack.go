@@ -52,7 +52,9 @@ func (s *SkinPack) AddSkin(skin *Skin) bool {
 func (s *SkinPack) Save(fpath, serverName string) error {
 	os.MkdirAll(fpath, 0o755)
 
-	var skinsJson []skinEntry
+	var skinsJson struct {
+		Skins []skinEntry `json:"skins"`
+	}
 	geometryJson := map[string]SkinGeometry{}
 
 	for _, s2 := range s.skins { // write skin texture
@@ -92,7 +94,7 @@ func (s *SkinPack) Save(fpath, serverName string) error {
 				entry.Geometry = geometryName
 			}
 		}
-		skinsJson = append(skinsJson, entry)
+		skinsJson.Skins = append(skinsJson.Skins, entry)
 	}
 
 	if len(geometryJson) > 0 { // geometry.json

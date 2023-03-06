@@ -21,6 +21,7 @@ keys.db
 /builds/
 /updates/
 /fyne-cross/
+/tmp/
 
 packets.log.gpg
 customdata.json

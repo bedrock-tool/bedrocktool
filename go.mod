@@ -1,6 +1,6 @@
 module github.com/bedrock-tool/bedrocktool
 
-go 1.19
+go 1.20
 
 //replace github.com/sandertv/gophertunnel => ./gophertunnel
 replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.27.4-1

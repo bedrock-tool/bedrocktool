@@ -19,6 +19,11 @@ jobs:
           go-version: '1.20'
           check-latest: true
           cache: true
+      
+      - name: Setup Golang with cache
+        uses: magnetikonline/action-golang-cache@v3
+        with:
+          go-version-file: go.mod
 
       - uses: awalsh128/cache-apt-pkgs-action@latest
         with:
@@ -45,11 +50,10 @@ jobs:
 
       - name: build
         id: build
-        run: |
-          python build.py
+        run: python build.py
 
       - name: Deploy with rsync
-        run: rsync -avz ./updates/ olebeck@${{ secrets.SSH_HOST }}:/var/www/updates/bedrocktool/
+        run: rsync -avz ./updates/ olebeck@${{ secrets.SSH_HOST }}:/var/www/updates/
 
       - name: 'Get Previous tag'
         id: previoustag

@@ -11,8 +11,6 @@ import (
 	"runtime/debug"
 	"syscall"
 
-	"fyne.io/fyne/v2/widget"
-	"github.com/bedrock-tool/bedrocktool/gui"
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/crypt"
@@ -21,19 +19,20 @@ import (
 	_ "github.com/bedrock-tool/bedrocktool/subcommands"
 	_ "github.com/bedrock-tool/bedrocktool/subcommands/skins"
 	_ "github.com/bedrock-tool/bedrocktool/subcommands/world"
+	_ "github.com/bedrock-tool/bedrocktool/ui/gui"
 
 	"github.com/google/subcommands"
 	"github.com/sirupsen/logrus"
 )
 
 type CLI struct {
-	gui.UI
+	utils.UI
 }
 
 func (c *CLI) Init() {
 }
 
-func (c *CLI) SetOptions() bool {
+func (c *CLI) SetOptions(context.Context) bool {
 	flag.Parse()
 	return false
 }
@@ -97,17 +96,17 @@ func main() {
 	subcommands.ImportantFlag("preload")
 	subcommands.HelpCommand()
 
-	var ui gui.UI
+	var ui utils.UI
 
 	if len(os.Args) < 2 {
-		ui = gui.NewGUI()
+		ui = utils.MakeGui()
 		utils.Options.IsInteractive = true
 	} else {
 		ui = &CLI{}
 	}
 
 	ui.Init()
-	if ui.SetOptions() {
+	if ui.SetOptions(ctx) {
 		return
 	}
 
@@ -233,15 +232,7 @@ func (c *CreateCustomDataCMD) Execute(_ context.Context, f *flag.FlagSet, _ ...i
 	return 0
 }
 
-func (c *TransCMD) SettingsUI() *widget.Form {
-	return nil
-}
-
 func (c *TransCMD) MainWindow() error {
-	return nil
-}
-
-func (c *CreateCustomDataCMD) SettingsUI() *widget.Form {
 	return nil
 }
 

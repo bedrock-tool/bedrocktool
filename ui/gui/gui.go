@@ -1,3 +1,5 @@
+//go:build gui
+
 package gui
 
 import (
@@ -72,16 +74,12 @@ var settings = map[string]func(utils.Command) *widget.Form{
 }
 
 type GUI struct {
-	UI
+	utils.UI
 
 	selected binding.String
 }
 
-func NewGUI() *GUI {
-	return &GUI{}
-}
-
-func (g *GUI) SetOptions() bool {
+func (g *GUI) SetOptions(ctx context.Context) bool {
 	a := app.New()
 	w := a.NewWindow("Bedrocktool")
 
@@ -166,4 +164,10 @@ func (g *GUI) Execute(ctx context.Context) error {
 	cmd := utils.ValidCMDs[sub]
 	cmd.Execute(ctx, nil)
 	return nil
+}
+
+func init() {
+	utils.MakeGui = func() utils.UI {
+		return &GUI{}
+	}
 }
