@@ -1,6 +1,8 @@
 name: ci-build
 on:
   push:
+    branches:
+      - '**'
   workflow_dispatch:
 
 jobs:
@@ -19,13 +21,25 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Install SSH Key
+        if: ${{ env.SSH_PRIVATE_KEY != '' }}
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          known_hosts: ${{ secrets.KNOWN_HOSTS }}
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+
       - uses: awalsh128/cache-apt-pkgs-action@latest
+        if: ${{ env.REPO_KEY != '' }}
         with:
           packages: git-crypt xxd
           version: 1.0
+        env:
+          REPO_KEY: ${{ secrets.REPO_KEY }}
 
       - name: decrypt
-        if: ${{ !env.ACT }}
+        if: ${{ env.REPO_KEY != '' }}
         run: |
           echo ${REPO_KEY} | xxd -r -p > ../bedrock-repo-key.key
           git-crypt unlock ../bedrock-repo-key.key
@@ -36,26 +50,19 @@ jobs:
       - run: go install github.com/fyne-io/fyne-cross@latest
       - run: go get ./cmd/bedrocktool
 
-      - name: Install SSH Key
-        uses: shimataro/ssh-key-action@v2
-        with:
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          known_hosts: ${{ secrets.KNOWN_HOSTS }}
-
       - name: build
         id: build
         run: python build.py
 
       - name: Deploy with rsync
-        run: rsync -avz ./updates/ olebeck@${{ secrets.SSH_HOST }}:/var/www/updates/
-
-      - name: 'Get Previous tag'
-        id: previoustag
-        uses: "WyriHaximus/github-action-get-previous-tag@v1"
+        if: ${{ env.SSH_HOST != '' }}
+        run: rsync -avz ./updates/ olebeck@${SSH_HOST}:/var/www/updates/
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
 
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: ${{ steps.previoustag.outputs.tag }}
+          automatic_release_tag: ${{ steps.build.outputs.release_tag }}
           files: ./builds/*
           prerelease: false

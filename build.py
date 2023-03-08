@@ -1,20 +1,29 @@
-import subprocess, re, sys, os, shutil, json, binascii, hashlib, gzip, stat
+import subprocess, re, sys, os, shutil, json, binascii, hashlib, gzip
 
-VER_RE = re.compile(r"v(\d\.\d+\.\d+)")
+VER_RE = re.compile(r"v(\d\.\d+\.\d+)(?:-(\d+)-(\w))?")
 
 NAME = "bedrocktool"
 APP_ID = "yuv.pink.bedrocktool"
-TAG = subprocess.run(["git", "describe", "--exclude", "r-*", "--tags", "--always"], stdout=subprocess.PIPE).stdout.decode("utf8").split("\n")[0]
-if TAG == "":
-    TAG = "v0.0.0"
-VER = VER_RE.match(TAG).group(1)
+GIT_TAG = subprocess.run(["git", "describe", "--exclude", "r*", "--tags", "--always"], stdout=subprocess.PIPE).stdout.decode("utf8").split("\n")[0]
+if GIT_TAG == "":
+    GIT_TAG = "v0.0.0"
+VER_MATCH = VER_RE.match(GIT_TAG)
+VER = VER_MATCH.group(1)
+PATCH = VER_MATCH.group(2) or "0"
+TAG = f"{VER}-{PATCH}"
 
-CI = not not os.getenv("GITLAB_CI")
+print(f"VER: {VER}")
+print(f"TAG: {TAG}")
+
+GITHUB_OUTPUT = os.getenv("GITHUB_OUTPUT")
+
+if GITHUB_OUTPUT:
+    with open(GITHUB_OUTPUT, "a") as f:
+        f.write(f"release_tag=r{VER}\n")
 
 
 with open("./subcommands/resourcepack-d/resourcepack-d.go", "rb") as f:
     PACK_SUPPORT = f.read(100).count(b"package ") > 0
-
 print(f"Pack Support: {PACK_SUPPORT}")
 
 LDFLAGS = f"-s -w -X github.com/bedrock-tool/bedrocktool/utils.Version={TAG}"
@@ -61,9 +70,10 @@ for (platform_name, archs, ext) in PLATFORMS:
         name = f"{NAME}{SUB1}"
 
         tags = []
+        if PACK_SUPPORT:
+            tags.append("packs")
+
         env = ["GOVCS=*:off"]
-        if not PACK_SUPPORT:
-            tags.append("nopacks")
 
         if GUI:
             args = [

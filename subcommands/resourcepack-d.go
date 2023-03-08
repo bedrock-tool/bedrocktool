@@ -1,4 +1,4 @@
-//go:build !nopacks
+//go:build packs
 
 package subcommands
 
