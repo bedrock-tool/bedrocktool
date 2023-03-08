@@ -40,10 +40,11 @@ func (p dummyProto) ConvertFromLatest(pk packet.Packet, _ *minecraft.Conn) []pac
 }
 
 type (
-	PacketFunc      func(header packet.Header, payload []byte, src, dst net.Addr)
-	PacketCallback  func(pk packet.Packet, proxy *ProxyContext, toServer bool, timeReceived time.Time) (packet.Packet, error)
-	ConnectCallback func(proxy *ProxyContext, err error) bool
-	IngameCommand   struct {
+	PacketFunc            func(header packet.Header, payload []byte, src, dst net.Addr)
+	PacketCallback        func(pk packet.Packet, proxy *ProxyContext, toServer bool, timeReceived time.Time) (packet.Packet, error)
+	ClientConnectCallback func(proxy *ProxyContext, hasClient bool)
+	ConnectCallback       func(proxy *ProxyContext, err error) bool
+	IngameCommand         struct {
 		Exec func(cmdline []string) bool
 		Cmd  protocol.Command
 	}
@@ -61,6 +62,8 @@ type ProxyContext struct {
 
 	// called for every packet
 	PacketFunc PacketFunc
+	// called after game started
+	OnClientConnect ClientConnectCallback
 	// called after game started
 	ConnectCB ConnectCallback
 	// called on every packet after login
@@ -260,41 +263,42 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress string) (err error
 
 		_status := minecraft.NewStatusProvider("Server")
 		p.Listener, err = minecraft.ListenConfig{
-			StatusProvider: _status,
-			ResourcePacks:  packs,
+			StatusProvider:    _status,
+			ResourcePacks:     packs,
 			AcceptedProtocols: []minecraft.Protocol{
-				dummyProto{id: 567, ver: "1.19.60"},
+				//dummyProto{id: 567, ver: "1.19.60"},
 			},
 		}.Listen("raknet", ":19132")
 		if err != nil {
 			return err
 		}
-		defer p.Listener.Close()
+
+		go func() {
+			<-ctx.Done()
+			if p.Client != nil {
+				p.Listener.Disconnect(p.Client, DisconnectReason)
+			}
+			p.Listener.Close()
+		}()
 
 		logrus.Infof(locale.Loc("listening_on", locale.Strmap{"Address": p.Listener.Addr()}))
 		logrus.Infof(locale.Loc("help_connect", nil))
 
-		go func() {
-			<-ctx.Done()
-			p.Listener.Close()
-		}()
-
-		var c net.Conn
-		c, err = p.Listener.Accept()
+		c, err := p.Listener.Accept()
 		if err != nil {
-			logrus.Fatal(err)
+			return err
 		}
 		p.Client = c.(*minecraft.Conn)
 		cd := p.Client.ClientData()
 		cdp = &cd
 	}
 
-	if p.CustomClientData != nil {
-		cdp = p.CustomClientData
+	if p.OnClientConnect != nil {
+		p.OnClientConnect(p, p.WithClient)
 	}
 
-	if p.Listener != nil {
-		defer p.Listener.Disconnect(p.Client, DisconnectReason)
+	if p.CustomClientData != nil {
+		cdp = p.CustomClientData
 	}
 
 	p.Server, err = connectServer(ctx, serverAddress, cdp, p.AlwaysGetPacks, p.PacketFunc)

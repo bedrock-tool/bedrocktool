@@ -1,4 +1,4 @@
-//go:build gui || android
+//go:builad gui || android
 
 package ui
 
@@ -15,6 +15,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/subcommands/world"
 	"github.com/bedrock-tool/bedrocktool/ui/gui"
 	"github.com/bedrock-tool/bedrocktool/utils"
+	"golang.org/x/exp/slices"
 )
 
 var settings = map[string]func(utils.Command) *widget.Form{
@@ -97,22 +98,12 @@ func (g *GUI) Init() bool {
 	return true
 }
 
-func (g *GUI) Start(ctx context.Context) error {
+func (g *GUI) Start(ctx context.Context, cancel context.CancelFunc) error {
 	a := app.New()
 	w := a.NewWindow("Bedrocktool")
 
-	debug := binding.NewBool()
-	debug.AddListener(binding.NewDataListener(func() {
-		utils.Options.Debug, _ = debug.Get()
-	}))
-
-	extra_debug := binding.NewBool()
-	extra_debug.AddListener(binding.NewDataListener(func() {
-		utils.Options.ExtraDebug, _ = extra_debug.Get()
-		if utils.Options.ExtraDebug {
-			debug.Set(true)
-		}
-	}))
+	debug := binding.BindBool(&utils.Options.Debug)
+	extra_debug := binding.BindBool(&utils.Options.ExtraDebug)
 
 	entries := []string{}
 	forms := make(map[string]*widget.Form)
@@ -121,10 +112,10 @@ func (g *GUI) Start(ctx context.Context) error {
 
 		f := settings[k]
 		if f != nil {
-			s := f(c)
-			forms[k] = s
+			forms[k] = f(c)
 		}
 	}
+	slices.Sort(entries)
 
 	selected := binding.NewString()
 	forms_box := container.NewVBox()
@@ -146,28 +137,50 @@ func (g *GUI) Start(ctx context.Context) error {
 			l.Lock()
 			selected.Set(s)
 			forms_box.RemoveAll()
-			forms_box.Add(forms[s])
+			f := forms[s]
+			if f != nil {
+				forms_box.Add(forms[s])
+			}
 			l.Unlock()
 		}),
 		forms_box,
 		start_button,
 	))
 
+	wg := sync.WaitGroup{}
+
 	start_button.OnTapped = func() {
 		sub, _ := selected.Get()
 		cmd := utils.ValidCMDs[sub]
+		if cmd == nil {
+			return
+		}
 
 		u := gui.CommandUIs[sub]
 		if u != nil {
 			g.commandUI = u
-			w.SetContent(u.Layout())
+			u.Layout(w)
+		} else {
+			w.SetContent(container.NewCenter(
+				widget.NewRichTextFromMarkdown("# No UI yet, Look at the console."),
+			))
 		}
 
 		utils.InitDNS()
 		utils.InitExtraDebug()
 
-		go cmd.Execute(ctx, g)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			cmd.Execute(ctx, g)
+		}()
 	}
+
+	w.SetCloseIntercept(func() {
+		cancel()
+		wg.Wait()
+		w.Close()
+	})
 
 	w.ShowAndRun()
 	return nil

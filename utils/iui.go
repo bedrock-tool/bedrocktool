@@ -20,7 +20,7 @@ type MessageResponse struct {
 
 type UI interface {
 	Init() bool
-	Start(context.Context) error
+	Start(context.Context, context.CancelFunc) error
 	Message(name string, data interface{}) MessageResponse
 	ServerInput(context.Context, string) (string, string, error)
 }
@@ -56,7 +56,7 @@ func (c *InteractiveCLI) Init() bool {
 	return true
 }
 
-func (c *InteractiveCLI) Start(ctx context.Context) error {
+func (c *InteractiveCLI) Start(ctx context.Context, cancel context.CancelFunc) error {
 	select {
 	case <-ctx.Done():
 		return nil
@@ -69,6 +69,7 @@ func (c *InteractiveCLI) Start(ctx context.Context) error {
 
 		cmd, cancelled := UserInput(ctx, locale.Loc("input_command", nil))
 		if cancelled {
+			cancel()
 			return nil
 		}
 		_cmd := strings.Split(cmd, " ")

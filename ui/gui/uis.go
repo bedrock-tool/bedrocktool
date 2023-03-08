@@ -8,7 +8,7 @@ import (
 type HandlerFunc func(name string, data interface{}) utils.MessageResponse
 
 type CommandUI interface {
-	Layout() fyne.CanvasObject
+	Layout(fyne.Window)
 	Handler() HandlerFunc
 }
 

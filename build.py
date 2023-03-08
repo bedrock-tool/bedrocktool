@@ -20,8 +20,8 @@ print(f"Pack Support: {PACK_SUPPORT}")
 LDFLAGS = f"-s -w -X github.com/bedrock-tool/bedrocktool/utils.Version={TAG}"
 
 PLATFORMS = [
-    ("windows", ["386", "amd64"], ".exe"),
-    ("linux", ["386", "amd64", "arm64"], ""),
+    ("windows", ["amd64"], ".exe"),
+    ("linux", ["amd64"], ""),
     #("darwin", ["amd64", "arm64"], ""),
     ("android", ["arm64"], ".apk")
 ]

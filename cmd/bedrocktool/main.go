@@ -32,7 +32,7 @@ func (c *CLI) Init() bool {
 	return true
 }
 
-func (c *CLI) Start(ctx context.Context) error {
+func (c *CLI) Start(ctx context.Context, cancel context.CancelFunc) error {
 	flag.Parse()
 	utils.InitDNS()
 	utils.InitExtraDebug()
@@ -116,7 +116,8 @@ func main() {
 		logrus.Error("Failed to init UI!")
 		return
 	}
-	err = ui.Start(ctx)
+	err = ui.Start(ctx, cancel)
+	cancel()
 	if err != nil {
 		logrus.Error(err)
 	}

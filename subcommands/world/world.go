@@ -83,6 +83,11 @@ func NewWorldState(ctx context.Context, proxy *utils.ProxyContext, ServerName st
 		PlayerPos:          TPlayerPos{},
 	}
 	w.mapUI = NewMapUI(w)
+
+	w.gui.Message(utils.InitName, utils.InitPayload{
+		Handler: w.uiMessage,
+	})
+
 	return w
 }
 
@@ -177,6 +182,22 @@ func (c *WorldCMD) Execute(ctx context.Context, ui utils.UI) error {
 	return nil
 }
 
+func (w *WorldState) uiMessage(name string, data interface{}) utils.MessageResponse {
+	r := utils.MessageResponse{
+		Ok:   false,
+		Data: nil,
+	}
+	switch name {
+	case utils.SetVoidGenName:
+		set_void_gen := data.(utils.SetVoidGenPayload)
+		r.Ok = w.setVoidGen(set_void_gen.Value, true)
+	case utils.SetWorldNameName:
+		set_world_name := data.(utils.SetWorldNamePayload)
+		r.Ok = w.setWorldName(set_world_name.WorldName, true)
+	}
+	return r
+}
+
 func (w *WorldState) SetPlayerPos(Position mgl32.Vec3, Pitch, Yaw, HeadYaw float32) {
 	last := w.PlayerPos
 	w.PlayerPos = TPlayerPos{
@@ -189,6 +210,38 @@ func (w *WorldState) SetPlayerPos(Position mgl32.Vec3, Pitch, Yaw, HeadYaw float
 	if int(last.Position.X()) != int(w.PlayerPos.Position.X()) || int(last.Position.Z()) != int(w.PlayerPos.Position.Z()) {
 		w.mapUI.SchedRedraw()
 	}
+}
+
+func (w *WorldState) setVoidGen(val bool, fromUI bool) bool {
+	w.voidGen = val
+	var s string
+	if w.voidGen {
+		s = locale.Loc("void_generator_true", nil)
+	} else {
+		s = locale.Loc("void_generator_false", nil)
+	}
+	w.proxy.SendMessage(s)
+
+	if !fromUI {
+		w.gui.Message(utils.SetVoidGenName, utils.SetVoidGenPayload{
+			Value: w.voidGen,
+		})
+	}
+
+	return true
+}
+
+func (w *WorldState) setWorldName(val string, fromUI bool) bool {
+	w.WorldName = val
+	w.proxy.SendMessage(locale.Loc("worldname_set", locale.Strmap{"Name": w.WorldName}))
+
+	if !fromUI {
+		w.gui.Message(utils.SetWorldNameName, utils.SetWorldNamePayload{
+			WorldName: w.WorldName,
+		})
+	}
+
+	return true
 }
 
 func (w *WorldState) Reset() {
@@ -482,9 +535,7 @@ func (w *WorldState) OnConnect(proxy *utils.ProxyContext, err error) bool {
 
 	proxy.AddCommand(utils.IngameCommand{
 		Exec: func(cmdline []string) bool {
-			w.WorldName = strings.Join(cmdline, " ")
-			w.proxy.SendMessage(locale.Loc("worldname_set", locale.Strmap{"Name": w.WorldName}))
-			return true
+			return w.setWorldName(strings.Join(cmdline, " "), false)
 		},
 		Cmd: protocol.Command{
 			Name:        "setname",
@@ -505,15 +556,7 @@ func (w *WorldState) OnConnect(proxy *utils.ProxyContext, err error) bool {
 
 	proxy.AddCommand(utils.IngameCommand{
 		Exec: func(cmdline []string) bool {
-			w.voidGen = !w.voidGen
-			var s string
-			if w.voidGen {
-				s = locale.Loc("void_generator_true", nil)
-			} else {
-				s = locale.Loc("void_generator_false", nil)
-			}
-			w.proxy.SendMessage(s)
-			return true
+			return w.setVoidGen(!w.voidGen, false)
 		},
 		Cmd: protocol.Command{
 			Name:        "void",

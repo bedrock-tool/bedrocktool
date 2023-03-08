@@ -26,6 +26,7 @@ func (m *mapWidget) MinSize() fyne.Size {
 }
 
 func (m *mapWidget) CreateRenderer() fyne.WidgetRenderer {
+	m.ExtendBaseWidget(m)
 	c := container.NewMax(canvas.NewRaster(m.draw))
 	return widget.NewSimpleRenderer(c)
 }

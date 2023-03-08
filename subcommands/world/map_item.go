@@ -6,6 +6,7 @@ import (
 	"image/draw"
 	"math"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
@@ -76,6 +77,7 @@ type MapUI struct {
 	renderedChunks map[protocol.ChunkPos]*image.RGBA // prerendered chunks
 	needRedraw     bool                              // when the map has updated this is true
 	showOnGui      bool
+	l              sync.RWMutex
 
 	ticker *time.Ticker
 	w      *WorldState
@@ -94,10 +96,9 @@ func NewMapUI(w *WorldState) *MapUI {
 }
 
 func (m *MapUI) Start() {
-	r := m.w.gui.Message("init_map", struct {
-		GetTiles  func() map[protocol.ChunkPos]*image.RGBA
-		GetBounds func() (min, max protocol.ChunkPos)
-	}{
+	r := m.w.gui.Message(utils.InitMapName, utils.InitMapPayload{
+		RLock:   m.l.RLock,
+		RUnlock: m.l.RUnlock,
 		GetTiles: func() map[protocol.ChunkPos]*image.RGBA {
 			return m.renderedChunks
 		},
@@ -173,7 +174,9 @@ func (m *MapUI) Stop() {
 
 // Reset resets the map to inital state
 func (m *MapUI) Reset() {
+	m.l.Lock()
 	m.renderedChunks = make(map[protocol.ChunkPos]*image.RGBA)
+	m.l.Unlock()
 	m.SchedRedraw()
 }
 
@@ -193,6 +196,7 @@ func (m *MapUI) SchedRedraw() {
 
 // Redraw draws chunk images to the map image
 func (m *MapUI) Redraw() {
+	m.l.Lock()
 	for {
 		r, ok := m.renderQueue.Dequeue().(*RenderElem)
 		if !ok {
@@ -204,6 +208,7 @@ func (m *MapUI) Redraw() {
 			m.renderedChunks[r.pos] = black16x16
 		}
 	}
+	m.l.Unlock()
 
 	middle := protocol.ChunkPos{
 		int32(m.w.PlayerPos.Position.X()),
@@ -219,6 +224,7 @@ func (m *MapUI) Redraw() {
 		m.img.Pix[i] = 0
 	}
 
+	m.l.RLock()
 	for _ch := range m.renderedChunks {
 		relativeMiddleX := float64(_ch.X()*16 - middle.X())
 		relativeMiddleZ := float64(_ch.Z()*16 - middle.Z())
@@ -231,6 +237,8 @@ func (m *MapUI) Redraw() {
 			utils.DrawImgScaledPos(m.img, m.renderedChunks[_ch], px, pxSizeChunk)
 		}
 	}
+	ChunkCount := len(m.renderedChunks)
+	m.l.RUnlock()
 
 	drawFull := false
 
@@ -242,7 +250,9 @@ func (m *MapUI) Redraw() {
 	}
 
 	if m.showOnGui {
-		m.w.gui.Message("update_map", nil)
+		m.w.gui.Message(utils.UpdateMapName, utils.UpdateMapPayload{
+			ChunkCount: ChunkCount,
+		})
 	}
 }
 
@@ -254,7 +264,8 @@ func (m *MapUI) ToImage() *image.RGBA {
 
 	img2 := image.NewRGBA(image.Rect(0, 0, chunksX*16, chunksY*16))
 
-	for pos := range m.renderedChunks {
+	m.l.RLock()
+	for pos, tile := range m.renderedChunks {
 		px := image.Pt(
 			int((pos.X()-min.X())*16),
 			int((pos.Z()-min.Z())*16),
@@ -262,8 +273,9 @@ func (m *MapUI) ToImage() *image.RGBA {
 		draw.Draw(img2, image.Rect(
 			px.X, px.Y,
 			px.X+16, px.Y+16,
-		), m.renderedChunks[pos], image.Point{}, draw.Src)
+		), tile, image.Point{}, draw.Src)
 	}
+	m.l.RUnlock()
 	return img2
 }
 
