@@ -73,7 +73,9 @@ for (platform_name, archs, ext) in PLATFORMS:
         if PACK_SUPPORT:
             tags.append("packs")
 
-        env = ["GOVCS=*:off"]
+        env = {
+            "GOVCS": "*:off"
+        }
 
         if GUI:
             args = [
@@ -85,8 +87,8 @@ for (platform_name, archs, ext) in PLATFORMS:
                 "-tags", ",".join(["gui"] + tags),
                 "-debug"
             ]
-            for e in env:
-                args.extend(["-env", e])
+            for k,v in env.items():
+                args.extend(["-env", f"{k}={v}"])
             if platform_name == "windows":
                 args.append("-console")
             if platform_name in ["android"]:
@@ -98,8 +100,11 @@ for (platform_name, archs, ext) in PLATFORMS:
             for arch in archs:
                 out_path = f"./tmp/{platform_name}-{arch}/{name}{ext}"
                 os.makedirs(os.path.dirname(out_path), exist_ok=True)
-                env.extend([f"GOOS={platform_name}", f"GOARCH={arch}"])
-                env.append("CGO_ENABLED=0")
+                env.update({
+                    "GOOS": platform_name,
+                    "GOARCH": arch,
+                    "CGO_ENABLED": "0"
+                })
                 args = [
                     "go", "build",
                     "-ldflags", LDFLAGS,
@@ -110,7 +115,11 @@ for (platform_name, archs, ext) in PLATFORMS:
                 ]
                 args.append("./cmd/bedrocktool")
                 print(args)
-                out = subprocess.run(args, env=env)
+
+                env2 = os.environ.copy()
+                env2.update(env)
+
+                out = subprocess.run(args, env=env2)
                 out.check_returncode()
 
         for arch in archs:
