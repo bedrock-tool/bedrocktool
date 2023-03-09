@@ -35,7 +35,7 @@ func (c *CLI) Init() bool {
 func (c *CLI) Start(ctx context.Context, cancel context.CancelFunc) error {
 	flag.Parse()
 	utils.InitDNS()
-	utils.InitExtraDebug()
+	utils.InitExtraDebug(ctx)
 	subcommands.Execute(ctx)
 	return nil
 }

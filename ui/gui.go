@@ -167,7 +167,7 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelFunc) error {
 		}
 
 		utils.InitDNS()
-		utils.InitExtraDebug()
+		utils.InitExtraDebug(ctx)
 
 		wg.Add(1)
 		go func() {

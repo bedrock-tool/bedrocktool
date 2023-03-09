@@ -116,6 +116,10 @@ func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
 		pk = &packet.Unknown{PacketID: header.PacketID}
 	}
 
+	if pk.ID() == packet.IDRequestNetworkSettings {
+		ClientAddr = src
+	}
+
 	defer func() {
 		if recoveredErr := recover(); recoveredErr != nil {
 			logrus.Errorf("%T: %w", pk, recoveredErr)

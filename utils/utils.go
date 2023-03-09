@@ -198,7 +198,7 @@ func CfbDecrypt(data []byte, key []byte) ([]byte, error) {
 	return data, nil
 }
 
-func InitExtraDebug() {
+func InitExtraDebug(ctx context.Context) {
 	if !Options.ExtraDebug {
 		return
 	}
@@ -211,7 +211,10 @@ func InitExtraDebug() {
 	if err != nil {
 		logrus.Error(err)
 	} else {
-		defer logPlain.Close()
+		go func() {
+			<-ctx.Done()
+			logPlain.Close()
+		}()
 	}
 
 	// open gpg log
@@ -219,13 +222,19 @@ func InitExtraDebug() {
 	if err != nil {
 		logrus.Error(err)
 	} else {
-		defer logCrypt.Close()
+		go func() {
+			<-ctx.Done()
+			logCrypt.Close()
+		}()
 		// encrypter for the log
 		logCryptEnc, err = crypt.Encer("packets.log", logCrypt)
 		if err != nil {
 			logrus.Error(err)
 		} else {
-			defer logCryptEnc.Close()
+			go func() {
+				<-ctx.Done()
+				logCryptEnc.Close()
+			}()
 		}
 	}
 

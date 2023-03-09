@@ -17,6 +17,7 @@ __debug_bin
 keys.db
 /skins/
 /worlds/
+/packs/
 /dist/
 /builds/
 /updates/

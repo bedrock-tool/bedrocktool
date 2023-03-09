@@ -110,7 +110,7 @@ for (platform_name, archs, ext) in PLATFORMS:
                 ]
                 args.append("./cmd/bedrocktool")
                 print(args)
-                out = subprocess.run(args)
+                out = subprocess.run(args, env=env)
                 out.check_returncode()
 
         for arch in archs:
