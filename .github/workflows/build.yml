@@ -56,7 +56,7 @@ jobs:
 
       - name: Deploy with rsync
         if: ${{ env.SSH_HOST != '' }}
-        run: rsync -avz ./updates/ olebeck@${SSH_HOST}:/var/www/updates/
+        run: rsync -avzO ./updates/ olebeck@${SSH_HOST}:/var/www/updates/
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
 
