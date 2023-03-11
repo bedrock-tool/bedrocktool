@@ -53,18 +53,15 @@ func (w *WorldState) processLevelChunk(pk *packet.LevelChunk) {
 			break
 		}
 	}
-	if empty {
-		return
-	}
 
 	w.chunks[pk.Position] = ch
 
 	if pk.SubChunkRequestMode == protocol.SubChunkRequestModeLegacy {
-		w.mapUI.SetChunk(pk.Position, ch)
+		if !empty {
+			w.mapUI.SetChunk(pk.Position, ch)
+		}
 	} else {
-		w.mapUI.SetChunk(pk.Position, nil)
 		// request all the subchunks
-
 		max := w.Dim.Range().Height() / 16
 		if pk.SubChunkRequestMode == protocol.SubChunkRequestModeLimited {
 			max = int(pk.HighestSubChunk)
