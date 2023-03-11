@@ -40,3 +40,9 @@ var UpdateMapName = "update_map"
 type UpdateMapPayload struct {
 	ChunkCount int
 }
+
+var SavingWorldName = "saving_world"
+
+type SavingWorldPayload struct {
+	Saving bool
+}

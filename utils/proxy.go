@@ -93,11 +93,13 @@ type CustomClientData struct {
 	CapeFilename         string
 	SkinFilename         string
 	SkinGeometryFilename string
+	SkinID               string
 	PlayFabID            string
 	PersonaSkin          bool
 	PremiumSkin          bool
 	TrustedSkin          bool
 	ArmSize              string
+	SkinColour           string
 
 	// misc
 	IsEditorMode bool
@@ -117,11 +119,13 @@ func (p *ProxyContext) LoadCustomUserData(path string) error {
 	}
 
 	p.CustomClientData = &login.ClientData{
+		SkinID:      customData.SkinID,
 		PlayFabID:   customData.PlayFabID,
 		PersonaSkin: customData.PersonaSkin,
 		PremiumSkin: customData.PremiumSkin,
 		TrustedSkin: customData.TrustedSkin,
 		ArmSize:     customData.ArmSize,
+		SkinColour:  customData.SkinColour,
 	}
 
 	if customData.SkinFilename != "" {
