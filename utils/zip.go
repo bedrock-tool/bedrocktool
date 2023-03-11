@@ -2,14 +2,14 @@ package utils
 
 import (
 	"archive/zip"
-	"fmt"
 	"io"
 	"io/fs"
-	"log"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
+
+	"github.com/sirupsen/logrus"
 )
 
 func UnpackZip(r io.ReaderAt, size int64, unpackFolder string) {
@@ -31,7 +31,7 @@ func UnpackZip(r io.ReaderAt, size int64, unpackFolder string) {
 func ZipFolder(filename, folder string) error {
 	f, err := os.Create(filename)
 	if err != nil {
-		log.Fatal(err)
+		logrus.Fatal(err)
 	}
 	zw := zip.NewWriter(f)
 	err = filepath.WalkDir(folder, func(path string, d fs.DirEntry, err error) error {
@@ -40,7 +40,7 @@ func ZipFolder(filename, folder string) error {
 			zwf, _ := zw.Create(rel)
 			data, err := os.ReadFile(path)
 			if err != nil {
-				fmt.Println(err)
+				logrus.Error(err)
 			}
 			zwf.Write(data)
 		}

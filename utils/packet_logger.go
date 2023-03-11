@@ -54,46 +54,70 @@ var (
 	dmpLock      sync.Mutex
 )
 
-func dmpStruct(level int, in any, wType bool) (s string) {
+func dmpStruct(level int, inputStruct any, withType bool, isInList bool) (s string) {
 	tBase := strings.Repeat("\t", level)
 
-	ii := reflect.Indirect(reflect.ValueOf(in))
-	if wType {
-		typeName := reflect.TypeOf(in).String()
-		s += typeName + " "
-	} else {
-		s += "\t"
+	ii := reflect.Indirect(reflect.ValueOf(inputStruct))
+	typeName := reflect.TypeOf(inputStruct).String()
+	typeString := ""
+	if withType {
+		if slices.Contains([]string{"bool", "string"}, typeName) {
+		} else {
+			typeString = typeName + " "
+		}
 	}
 
 	if ii.Kind() == reflect.Struct {
-		s += "{\n"
-		for i := 0; i < ii.NumField(); i++ {
-			field := ii.Type().Field(i)
-			if field.IsExported() {
-				d := dmpStruct(level+1, ii.Field(i).Interface(), true)
-				s += tBase + fmt.Sprintf("\t%s = %s\n", field.Name, d)
-			} else {
-				s += tBase + "\t" + field.Name + " (unexported)"
+		if ii.NumField() == 0 {
+			s += typeName + "{}"
+		} else {
+			s += typeName + "{\n"
+			for i := 0; i < ii.NumField(); i++ {
+				fieldType := ii.Type().Field(i)
+
+				if fieldType.IsExported() {
+					field := ii.Field(i).Interface()
+					d := dmpStruct(level+1, field, true, false)
+					s += tBase + fmt.Sprintf("\t%s = %s\n", fieldType.Name, d)
+				} else {
+					s += tBase + " " + fieldType.Name + " (unexported)"
+				}
 			}
+			s += tBase + "}"
 		}
-		s += tBase + "}\n"
 	} else if ii.Kind() == reflect.Slice {
 		var t reflect.Type
+		is_elem_struct := false
 		if ii.Len() > 0 {
 			e := ii.Index(0)
 			t = reflect.TypeOf(e.Interface())
+			is_elem_struct = t.Kind() == reflect.Struct
 		}
+
 		if ii.Len() > 1000 {
-			s += " [<slice too long>]"
-		} else if ii.Len() == 0 || t.Kind() == reflect.Struct {
-			s += "\t[\n"
-			for i := 0; i < ii.Len(); i++ {
-				s += tBase
-				s += dmpStruct(level+1, ii.Index(i).Interface(), false)
-			}
-			s += tBase + "]\n"
+			s += "[<slice too long>]"
+		} else if ii.Len() == 0 {
+			s += typeString + "[]"
 		} else {
-			s += fmt.Sprintf("%#v", ii.Interface())
+			s += typeString + "["
+			if is_elem_struct {
+				s += "\n"
+			}
+			for i := 0; i < ii.Len(); i++ {
+				if is_elem_struct {
+					s += tBase + "\t"
+				}
+				s += dmpStruct(level+1, ii.Index(i).Interface(), false, true)
+				if is_elem_struct {
+					s += "\n"
+				} else {
+					s += " "
+				}
+			}
+			if is_elem_struct {
+				s += tBase
+			}
+			s += "]"
 		}
 	} else if ii.Kind() == reflect.Map {
 		j, err := json.MarshalIndent(ii.Interface(), tBase, "\t")
@@ -102,7 +126,10 @@ func dmpStruct(level int, in any, wType bool) (s string) {
 		}
 		s += string(j)
 	} else {
-		s += fmt.Sprintf(" %#v", ii.Interface())
+		if !isInList {
+			s += typeString
+		}
+		s += fmt.Sprintf("%#v", ii.Interface())
 	}
 
 	return s
@@ -131,8 +158,8 @@ func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
 	if FLog != nil {
 		dmpLock.Lock()
 		defer dmpLock.Unlock()
-		FLog.Write([]byte(dmpStruct(0, pk, true)))
-		FLog.Write([]byte("\n\n"))
+		FLog.Write([]byte(dmpStruct(0, pk, true, false)))
+		FLog.Write([]byte("\n\n\n"))
 	}
 
 	pkName := reflect.TypeOf(pk).String()[1:]
