@@ -252,10 +252,6 @@ func (w *WorldState) Reset() {
 	w.chunks = make(map[protocol.ChunkPos]*chunk.Chunk)
 	w.WorldName = fmt.Sprintf("world-%d", w.worldCounter)
 	w.mapUI.Reset()
-
-	w.gui.Message(utils.SavingWorldName, utils.SavingWorldPayload{
-		Saving: false,
-	})
 }
 
 // SaveAndReset writes the world to a folder, resets all the chunks
@@ -282,10 +278,6 @@ func (w *WorldState) SaveAndReset() {
 		w.Reset()
 		return
 	}
-
-	w.gui.Message(utils.SavingWorldName, utils.SavingWorldPayload{
-		Saving: true,
-	})
 
 	logrus.Infof(locale.Loc("saving_world", locale.Strmap{"Name": w.WorldName, "Count": len(w.chunks)}))
 

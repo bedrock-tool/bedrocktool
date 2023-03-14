@@ -44,7 +44,7 @@ func (p *Page) Overflow() []component.OverflowAction {
 
 func (p *Page) NavItem() component.NavItem {
 	return component.NavItem{
-		Name: "About this library",
+		Name: "World Downloader",
 		//Icon: icon.OtherIcon,
 	}
 }
