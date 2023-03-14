@@ -38,9 +38,7 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelFunc) (err error) 
 		app.Title("Bedrocktool"),
 	)
 
-	tctx, _ := context.WithTimeout(ctx, 2*time.Second)
-
-	g.router = pages.NewRouter(tctx, w.Invalidate)
+	g.router = pages.NewRouter(ctx, w.Invalidate)
 
 	g.router.Register("Settings", settings.New(&g.router))
 	g.router.Register("worlds", worlds.New(&g.router))
