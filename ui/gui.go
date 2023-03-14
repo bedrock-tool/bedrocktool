@@ -4,7 +4,6 @@ package ui
 
 import (
 	"context"
-	"time"
 
 	"gioui.org/app"
 	"gioui.org/font/gofont"
