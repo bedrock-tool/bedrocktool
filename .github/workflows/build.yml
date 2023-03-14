@@ -33,7 +33,7 @@ jobs:
       - uses: awalsh128/cache-apt-pkgs-action@latest
         if: ${{ env.REPO_KEY != '' }}
         with:
-          packages: git-crypt xxd
+          packages: git-crypt xxd gcc pkg-config libwayland-dev libx11-dev libx11-xcb-dev libxkbcommon-x11-dev libgles2-mesa-dev libegl1-mesa-dev libffi-dev libxcursor-dev libvulkan-dev
           version: 1.0
         env:
           REPO_KEY: ${{ secrets.REPO_KEY }}
@@ -47,7 +47,6 @@ jobs:
         env:
           REPO_KEY: ${{ secrets.REPO_KEY }}
 
-      - run: go install github.com/fyne-io/fyne-cross@latest
       - run: go get ./cmd/bedrocktool
 
       - name: build
