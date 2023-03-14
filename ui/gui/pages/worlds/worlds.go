@@ -71,7 +71,9 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 				Axis: layout.Vertical,
 			}.Layout(gtx,
 				layout.Rigid(material.Label(th, 20, "World Downloader Basic UI").Layout),
-				layout.Flexed(1, p.worldMap.Layout),
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					return layout.Center.Layout(gtx, p.worldMap.Layout)
+				}),
 			)
 		})
 	}

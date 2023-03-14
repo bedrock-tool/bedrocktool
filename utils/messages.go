@@ -40,6 +40,7 @@ var UpdateMapName = "update_map"
 
 type UpdateMapPayload struct {
 	ChunkCount   int
+	Rotation     float32
 	UpdatedTiles []protocol.ChunkPos
 	Tiles        map[protocol.ChunkPos]*image.RGBA
 	BoundsMin    protocol.ChunkPos

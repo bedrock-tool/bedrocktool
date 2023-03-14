@@ -232,6 +232,7 @@ func (m *MapUI) Redraw() {
 		min, max := m.GetBounds()
 		m.w.gui.Message(utils.UpdateMapName, utils.UpdateMapPayload{
 			ChunkCount:   ChunkCount,
+			Rotation:     m.w.PlayerPos.Yaw,
 			UpdatedTiles: updatedChunks,
 			Tiles:        m.renderedChunks,
 			BoundsMin:    min,
