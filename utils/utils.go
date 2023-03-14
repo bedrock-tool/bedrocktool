@@ -181,11 +181,8 @@ func WriteManifest(manifest *resource.Manifest, fpath string) error {
 	return nil
 }
 
-func CfbDecrypt(data []byte, key []byte) ([]byte, error) {
-	cipher, err := aes.NewCipher([]byte(key))
-	if err != nil {
-		return nil, err
-	}
+func CfbDecrypt(data []byte, key []byte) []byte {
+	cipher, _ := aes.NewCipher([]byte(key))
 
 	shiftRegister := append(key[:16], data...)
 	iv := make([]byte, 16)
@@ -195,7 +192,7 @@ func CfbDecrypt(data []byte, key []byte) ([]byte, error) {
 		data[off] ^= iv[0]
 		shiftRegister = shiftRegister[1:]
 	}
-	return data, nil
+	return data
 }
 
 func InitExtraDebug(ctx context.Context) {

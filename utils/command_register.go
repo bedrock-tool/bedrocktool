@@ -28,7 +28,7 @@ func (c *cmdWrap) Synopsis() string         { return c.cmd.Synopsis() }
 func (c *cmdWrap) SetFlags(f *flag.FlagSet) { c.cmd.SetFlags(f) }
 func (c *cmdWrap) Usage() string            { return c.Name() + ": " + c.Synopsis() }
 func (c *cmdWrap) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	err := c.cmd.Execute(ctx, currentUI)
+	err := c.cmd.Execute(ctx, CurrentUI)
 	if err != nil {
 		logrus.Error(err)
 		return 1

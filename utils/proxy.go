@@ -62,7 +62,7 @@ type ProxyContext struct {
 
 	// called for every packet
 	PacketFunc PacketFunc
-	// called after game started
+	// called after client connected
 	OnClientConnect ClientConnectCallback
 	// called after game started
 	ConnectCB ConnectCallback

@@ -41,10 +41,10 @@ func (u *BaseUI) ServerInput(ctx context.Context, server string) (string, string
 	return address, name, err
 }
 
-var currentUI UI
+var CurrentUI UI
 
 func SetCurrentUI(ui UI) {
-	currentUI = ui
+	CurrentUI = ui
 }
 
 type InteractiveCLI struct {
@@ -52,7 +52,7 @@ type InteractiveCLI struct {
 }
 
 func (c *InteractiveCLI) Init() bool {
-	currentUI = c
+	CurrentUI = c
 	return true
 }
 

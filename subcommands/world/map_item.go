@@ -1,11 +1,9 @@
 package world
 
 import (
-	"bytes"
 	"image"
 	"image/draw"
 	"math"
-	"os"
 	"sync"
 	"time"
 
@@ -17,7 +15,6 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/image/bmp"
 )
 
 const ViewMapID = 0x424242
@@ -96,16 +93,7 @@ func NewMapUI(w *WorldState) *MapUI {
 }
 
 func (m *MapUI) Start() {
-	r := m.w.gui.Message(utils.InitMapName, utils.InitMapPayload{
-		RLock:   m.l.RLock,
-		RUnlock: m.l.RUnlock,
-		GetTiles: func() map[protocol.ChunkPos]*image.RGBA {
-			return m.renderedChunks
-		},
-		GetBounds: func() (min, max protocol.ChunkPos) {
-			return m.GetBounds()
-		},
-	})
+	r := m.w.gui.Message("can_show_images", nil)
 	if r.Ok {
 		m.showOnGui = true
 	}
@@ -197,6 +185,7 @@ func (m *MapUI) SchedRedraw() {
 // Redraw draws chunk images to the map image
 func (m *MapUI) Redraw() {
 	m.l.Lock()
+	updatedChunks := []protocol.ChunkPos{}
 	for {
 		r, ok := m.renderQueue.Dequeue().(*RenderElem)
 		if !ok {
@@ -207,6 +196,7 @@ func (m *MapUI) Redraw() {
 		} else {
 			m.renderedChunks[r.pos] = black16x16
 		}
+		updatedChunks = append(updatedChunks, r.pos)
 	}
 	m.l.Unlock()
 
@@ -238,22 +228,17 @@ func (m *MapUI) Redraw() {
 		}
 	}
 	ChunkCount := len(m.renderedChunks)
-	m.l.RUnlock()
-
-	drawFull := false
-
-	if drawFull {
-		img2 := m.ToImage()
-		buf := bytes.NewBuffer(nil)
-		bmp.Encode(buf, img2)
-		os.WriteFile("test.bmp", buf.Bytes(), 0o777)
-	}
-
 	if m.showOnGui {
+		min, max := m.GetBounds()
 		m.w.gui.Message(utils.UpdateMapName, utils.UpdateMapPayload{
-			ChunkCount: ChunkCount,
+			ChunkCount:   ChunkCount,
+			UpdatedTiles: updatedChunks,
+			Tiles:        m.renderedChunks,
+			BoundsMin:    min,
+			BoundsMax:    max,
 		})
 	}
+	m.l.RUnlock()
 }
 
 func (m *MapUI) ToImage() *image.RGBA {

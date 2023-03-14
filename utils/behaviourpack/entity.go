@@ -2,23 +2,23 @@ package behaviourpack
 
 import "github.com/sandertv/gophertunnel/minecraft/protocol"
 
-type clientEntityDescription struct {
+type EntityDescription struct {
 	Identifier   string `json:"identifier"`
 	Spawnable    bool   `json:"is_spawnable"`
 	Summonable   bool   `json:"is_summonable"`
 	Experimental bool   `json:"is_experimental"`
 }
 
-type minecraftClientEntity struct {
-	Description     clientEntityDescription `json:"description"`
-	ComponentGroups map[string]any          `json:"component_groups"`
-	Components      map[string]any          `json:"components"`
-	Events          map[string]any          `json:"events,omitempty"`
+type MinecraftEntity struct {
+	Description     EntityDescription `json:"description"`
+	ComponentGroups map[string]any    `json:"component_groups"`
+	Components      map[string]any    `json:"components"`
+	Events          map[string]any    `json:"events,omitempty"`
 }
 
 type entityBehaviour struct {
-	FormatVersion   string                `json:"format_version"`
-	MinecraftEntity minecraftClientEntity `json:"minecraft:client_entity"`
+	FormatVersion   string          `json:"format_version"`
+	MinecraftEntity MinecraftEntity `json:"minecraft:entity"`
 }
 
 type EntityIn struct {
@@ -38,14 +38,14 @@ func (bp *BehaviourPack) AddEntity(entity EntityIn) {
 
 	entry := entityBehaviour{
 		FormatVersion: bp.formatVersion,
-		MinecraftEntity: minecraftClientEntity{
-			Description: clientEntityDescription{
+		MinecraftEntity: MinecraftEntity{
+			Description: EntityDescription{
 				Identifier:   entity.Identifier,
 				Spawnable:    true,
 				Summonable:   true,
 				Experimental: true,
 			},
-			ComponentGroups: nil,
+			ComponentGroups: make(map[string]any),
 			Components:      make(map[string]any),
 			Events:          nil,
 		},

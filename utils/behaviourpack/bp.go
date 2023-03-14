@@ -26,17 +26,18 @@ func New(name string) *BehaviourPack {
 		Manifest: &resource.Manifest{
 			FormatVersion: 2,
 			Header: resource.Header{
-				Name:               "pack.name",
-				Description:        "pack.description",
+				Name:               name,
+				Description:        "Adds Blocks, Items and Entities from the server to this world",
 				UUID:               utils.RandSeededUUID(name + "_datapack"),
 				Version:            [3]int{1, 0, 0},
 				MinimumGameVersion: [3]int{1, 19, 50},
 			},
 			Modules: []resource.Module{
 				{
-					Type:    "data",
-					UUID:    utils.RandSeededUUID(name + "_data_module"),
-					Version: [3]int{1, 0, 0},
+					Type:        "data",
+					UUID:        utils.RandSeededUUID(name + "_data_module"),
+					Description: "Datapack",
+					Version:     [3]int{1, 0, 0},
 				},
 			},
 			Dependencies: []resource.Dependency{},

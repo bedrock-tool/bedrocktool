@@ -57,6 +57,10 @@ var (
 func dmpStruct(level int, inputStruct any, withType bool, isInList bool) (s string) {
 	tBase := strings.Repeat("\t", level)
 
+	if inputStruct == nil {
+		return "nil"
+	}
+
 	ii := reflect.Indirect(reflect.ValueOf(inputStruct))
 	typeName := reflect.TypeOf(inputStruct).String()
 	typeString := ""
@@ -65,6 +69,19 @@ func dmpStruct(level int, inputStruct any, withType bool, isInList bool) (s stri
 		} else {
 			typeString = typeName + " "
 		}
+	}
+
+	if strings.HasPrefix(typeName, "protocol.Optional") {
+		v := ii.MethodByName("Value").Call(nil)
+		val, set := v[0], v[1]
+		if !set.Bool() {
+			s += typeName + " Not Set"
+		} else {
+			s += typeName + "{\n" + tBase + "\t"
+			s += dmpStruct(level+1, val.Interface(), false, false)
+			s += "\n" + tBase + "}"
+		}
+		return
 	}
 
 	if ii.Kind() == reflect.Struct {
@@ -126,13 +143,23 @@ func dmpStruct(level int, inputStruct any, withType bool, isInList bool) (s stri
 		}
 		s += string(j)
 	} else {
-		if !isInList {
+		is_array := ii.Kind() == reflect.Array
+		if !isInList && !is_array {
 			s += typeString
 		}
 		s += fmt.Sprintf("%#v", ii.Interface())
 	}
 
 	return s
+}
+
+func DumpStruct(data interface{}) {
+	if FLog == nil {
+		return
+	}
+
+	FLog.Write([]byte(dmpStruct(0, data, true, false)))
+	FLog.Write([]byte("\n\n\n"))
 }
 
 func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {

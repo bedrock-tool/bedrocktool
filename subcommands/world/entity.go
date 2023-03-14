@@ -44,6 +44,10 @@ func (t serverEntityType) EncodeNBT(e world.Entity) map[string]any {
 	return t.NBT
 }
 
+func (t serverEntityType) UniqueID() int64 {
+	return t.NBT["UniqueID"].(int64)
+}
+
 type serverEntity struct {
 	world.Entity
 	EntityType serverEntityType
@@ -116,6 +120,7 @@ func (s *entityState) ToServerEntity() serverEntity {
 				"Pos":      vec3float32(s.Position),
 				"Rotation": []float32{s.Yaw, s.Pitch},
 				"Motion":   vec3float32(s.Velocity),
+				"UniqueID": int64(s.UniqueID),
 			},
 		},
 	}

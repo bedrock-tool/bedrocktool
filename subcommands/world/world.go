@@ -154,6 +154,9 @@ func (c *WorldCMD) Execute(ctx context.Context, ui utils.UI) error {
 
 	proxy.AlwaysGetPacks = true
 	proxy.ConnectCB = w.OnConnect
+	proxy.OnClientConnect = func(proxy *utils.ProxyContext, hasClient bool) {
+		w.gui.Message(utils.SetUIStateName, utils.UIStateConnecting)
+	}
 	proxy.PacketCB = func(pk packet.Packet, proxy *utils.ProxyContext, toServer bool, _ time.Time) (packet.Packet, error) {
 		forward := true
 
@@ -174,6 +177,7 @@ func (c *WorldCMD) Execute(ctx context.Context, ui utils.UI) error {
 		return pk, nil
 	}
 
+	w.gui.Message(utils.SetUIStateName, utils.UIStateConnect)
 	err = w.proxy.Run(ctx, serverAddress)
 	if err != nil {
 		return err
@@ -256,6 +260,24 @@ func (w *WorldState) Reset() {
 
 // SaveAndReset writes the world to a folder, resets all the chunks
 func (w *WorldState) SaveAndReset() {
+	keys := make([]protocol.ChunkPos, 0, len(w.chunks))
+	for cp := range w.chunks {
+		keys = append(keys, cp)
+	}
+
+	for _, cp := range keys {
+		has_any := false
+		for _, sc := range w.chunks[cp].Sub() {
+			has_any = !sc.Empty()
+			if has_any {
+				break
+			}
+		}
+		if !has_any {
+			delete(w.chunks, cp)
+		}
+	}
+
 	if len(w.chunks) == 0 {
 		w.Reset()
 		return
@@ -407,7 +429,10 @@ func (w *WorldState) SaveAndReset() {
 	}
 
 	provider.SaveSettings(s)
-	provider.Close()
+	if err = provider.Close(); err != nil {
+		logrus.Error(err)
+	}
+
 	w.worldCounter += 1
 
 	type dep struct {
@@ -486,11 +511,13 @@ func (w *WorldState) SaveAndReset() {
 		fmt.Println(err)
 	}
 	logrus.Info(locale.Loc("saved", locale.Strmap{"Name": filename}))
-	os.RemoveAll(folder)
+	//os.RemoveAll(folder)
 	w.Reset()
 }
 
 func (w *WorldState) OnConnect(proxy *utils.ProxyContext, err error) bool {
+	w.gui.Message(utils.SetUIStateName, utils.UIStateMain)
+
 	if err != nil {
 		return false
 	}

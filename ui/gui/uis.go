@@ -1,15 +1,11 @@
 package gui
 
 import (
-	"fyne.io/fyne/v2"
+	"gioui.org/layout"
 	"github.com/bedrock-tool/bedrocktool/utils"
 )
 
-type HandlerFunc func(name string, data interface{}) utils.MessageResponse
+type C = layout.Context
+type D = layout.Dimensions
 
-type CommandUI interface {
-	Layout(fyne.Window)
-	Handler() HandlerFunc
-}
-
-var CommandUIs = map[string]CommandUI{}
+type HandlerFunc = func(name string, data interface{}) utils.MessageResponse
