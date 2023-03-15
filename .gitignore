@@ -8,6 +8,7 @@ token.json
 *.bmp
 *.bin
 *.log
+*.syso
 
 /bedrocktool
 /bedrocktool-*

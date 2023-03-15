@@ -16,11 +16,9 @@ print(f"VER: {VER}")
 print(f"TAG: {TAG}")
 
 GITHUB_OUTPUT = os.getenv("GITHUB_OUTPUT")
-
 if GITHUB_OUTPUT:
     with open(GITHUB_OUTPUT, "a") as f:
         f.write(f"release_tag=r{VER}\n")
-
 
 with open("./subcommands/resourcepack-d/resourcepack-d.go", "rb") as f:
     PACK_SUPPORT = f.read(100).count(b"package ") > 0
@@ -35,91 +33,149 @@ PLATFORMS = [
     #("android", ["arm64"], ".apk")
 ]
 
-platform_filter = ""
-arch_filter = ""
-if len(sys.argv) > 1:
-    platform_filter = sys.argv[1]
 
-if len(sys.argv) > 2:
-    arch_filter = sys.argv[2]
+def clean():
+    if os.path.exists("./tmp"):
+        shutil.rmtree("./tmp")
+    if os.path.exists("./builds"):
+        shutil.rmtree("./builds")
+    if os.path.exists("./updates"):
+        shutil.rmtree("./updates")
+    for file in os.listdir("./cmd/bedrocktool"):
+        if file.endswith(".syso"):
+            os.remove(f"./cmd/bedrocktool/{file}")
 
-if os.path.exists("./tmp"):
-    shutil.rmtree("./tmp")
-os.mkdir("./tmp")
+def make_dirs():
+    os.mkdir("./tmp")
+    os.mkdir("./builds")
+    os.mkdir("./updates")
 
-if os.path.exists("./builds"):
-    shutil.rmtree("./builds")
-os.mkdir("./builds")
 
-if os.path.exists("./updates"):
-    shutil.rmtree("./updates")
-os.mkdir("./updates")
+def build_cli(platform: str, arch: str, env_in: dict[str,str], tags: list[str], compiled_path: str):
+    env = {}
+    env.update(env_in)
+    env.update({
+        "GOOS": platform,
+        "GOARCH": arch,
+    })
+    args = [
+        "go", "build",
+        "-ldflags", LDFLAGS,
+        "-trimpath",
+        "-tags", ",".join(tags),
+        "-o", compiled_path,
+        "-v"
+    ]
+    args.append("./cmd/bedrocktool")
 
-for (platform_name, archs, ext) in PLATFORMS:
-    if platform_filter and platform_filter != platform_name:
-        continue
-    archs = [a for a in archs if arch_filter == "" or a == arch_filter]
-    if len(archs) == 0:
-        continue
-    for GUI in [False, True]:
-        if platform_name in ["android"] and not GUI:
+    env2 = os.environ.copy()
+    env2.update(env)
+    subprocess.run(args, env=env2).check_returncode()
+
+
+def build_gui(platform: str, arch: str, env, tags: list[str], compiled_path: str):
+    ldflags = LDFLAGS
+    if platform == "windows":
+        ldflags = "-H=windows " + ldflags
+    args = [
+        "gogio",
+        "-arch", arch,
+        "-target", platform,
+        "-icon", "icon.png",
+        "-tags", ",".join(tags),
+        "-ldflags", ldflags,
+        "-o", compiled_path,
+        "-x"
+    ]
+    if platform in ["android", "ios"]:
+        args.extend(["-appid", APP_ID])
+    args.append("./cmd/bedrocktool")
+
+    env2 = os.environ.copy()
+    env2.update(env)
+    subprocess.run(args, env=env2).check_returncode()
+
+
+def package(platform: str, arch: str, compiled_path: str, GUI: bool, ext: str):
+    SUB1 = '-gui' if GUI else ''
+    exe_out_path = f"./builds/{NAME}-{platform}-{arch}-{TAG}{SUB1}{ext}"
+
+    # create hash and copy
+    with open(compiled_path, "rb") as f:
+        exe_data = f.read()
+        sha = binascii.b2a_base64(hashlib.sha256(exe_data).digest()).decode("utf8").split("\n")[0]
+    shutil.copy(compiled_path, exe_out_path)
+
+    # create update
+    updates_dir = f"./updates/{NAME}{SUB1}"
+    os.makedirs(updates_dir, exist_ok=True)
+    with open(f"{updates_dir}/{platform}-{arch}.json", "w") as f:
+        f.write(json.dumps({
+            "Version": TAG,
+            "Sha256": sha,
+        }, indent=2))
+    
+    # write update data
+    os.makedirs(f"{updates_dir}/{TAG}", exist_ok=True)
+    with gzip.open(f"{updates_dir}/{TAG}/{platform}-{arch}.gz", "wb") as f:
+        f.write(exe_data)
+
+    os.remove(compiled_path)
+
+
+def build_all(platform_filter: str, arch_filter: str):
+    for (platform, archs, ext) in PLATFORMS:
+        if platform_filter and platform_filter != platform:
             continue
+        archs = [a for a in archs if arch_filter == "" or a == arch_filter]
+        if len(archs) == 0:
+            continue
+        for GUI in [False, True]:
+            if platform in ["android"] and not GUI:
+                continue
 
-        print(f"Building {platform_name} gui: {GUI}")
-        SUB1 = '-gui' if GUI else ''
-        name = f"{NAME}{SUB1}"
+            print(f"Building {platform} gui: {GUI}")
+            SUB1 = '-gui' if GUI else ''
+            name = f"{NAME}{SUB1}"
 
-        tags = []
-        if PACK_SUPPORT:
-            tags.append("packs")
-        if GUI:
-            tags.append("gui")
+            tags = []
+            if PACK_SUPPORT:
+                tags.append("packs")
+            if GUI:
+                tags.append("gui")
 
-        env = {
-            "GOVCS": "*:off"
-        }
+            env = {
+                "GOVCS": "*:off"
+            }
 
-        for arch in archs:
-            compiled_path = f"./tmp/{platform_name}-{arch}{SUB1}/{name}{ext}"
-            os.makedirs(os.path.dirname(compiled_path), exist_ok=True)
-            env.update({
-                "GOOS": platform_name,
-                "GOARCH": arch,
-            })
-            args = [
-                "go", "build",
-                "-ldflags", LDFLAGS,
-                "-trimpath",
-                "-tags", ",".join(tags),
-                "-v",
-                "-o", compiled_path,
-            ]
-            args.append("./cmd/bedrocktool")
-            print(args)
+            for arch in archs:
+                compiled_path = f"./tmp/{platform}-{arch}{SUB1}/{name}{ext}"
+                os.makedirs(os.path.dirname(compiled_path), exist_ok=True)
 
-            env2 = os.environ.copy()
-            env2.update(env)
+                if GUI and platform != "linux":
+                    build_gui(platform, arch, env, tags, compiled_path)
+                else:
+                    build_cli(platform, arch, env, tags, compiled_path)
+                
+                package(platform, arch, compiled_path, GUI, ext)
 
-            out = subprocess.run(args, env=env2)
-            out.check_returncode()
 
-            exe_out_path = f"./builds/{NAME}-{platform_name}-{arch}-{TAG}{SUB1}{ext}"
+def main():
+    platform_filter = ""
+    arch_filter = ""
+    if len(sys.argv) > 1:
+        platform_filter = sys.argv[1]
 
-            with open(compiled_path, "rb") as f:
-                exe_data = f.read()
-                sha = binascii.b2a_base64(hashlib.sha256(exe_data).digest()).decode("utf8").split("\n")[0]
-            shutil.copy(compiled_path, exe_out_path)
+    if len(sys.argv) > 2:
+        arch_filter = sys.argv[2]
+    
+    if platform_filter == "clean":
+        clean()
+        return
 
-            updates_dir = f"./updates/{NAME}{SUB1}"
-            os.makedirs(updates_dir, exist_ok=True)
-            with open(f"{updates_dir}/{platform_name}-{arch}.json", "w") as f:
-                f.write(json.dumps({
-                    "Version": TAG,
-                    "Sha256": sha,
-                }, indent=2))
-            
-            os.makedirs(f"{updates_dir}/{TAG}", exist_ok=True)
-            with gzip.open(f"{updates_dir}/{TAG}/{platform_name}-{arch}.gz", "wb") as f:
-                f.write(exe_data)
+    clean()
+    make_dirs()
+    build_all(platform_filter, arch_filter)
 
-            os.remove(compiled_path)
+
+main()

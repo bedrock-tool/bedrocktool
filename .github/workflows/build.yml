@@ -47,7 +47,10 @@ jobs:
         env:
           REPO_KEY: ${{ secrets.REPO_KEY }}
 
-      - run: go get ./cmd/bedrocktool
+      - name: dependencies
+        run: |
+          go get ./cmd/bedrocktool
+          go install gioui.org/cmd/gogio@latest
 
       - name: build
         id: build

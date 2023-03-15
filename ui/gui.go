@@ -32,6 +32,20 @@ func (g *GUI) Init() bool {
 	return true
 }
 
+var paletteLight = material.Palette{
+	Bg:         color.NRGBA{0xff, 0xff, 0xff, 0xff},
+	Fg:         color.NRGBA{0x12, 0x12, 0x12, 0xff},
+	ContrastBg: color.NRGBA{0x7c, 0x00, 0xf8, 0xff},
+	ContrastFg: color.NRGBA{0x00, 0x00, 0x00, 0xff},
+}
+
+var paletteDark = material.Palette{
+	Bg:         color.NRGBA{0x12, 0x12, 0x12, 0xff},
+	Fg:         color.NRGBA{0xff, 0xff, 0xff, 0xff},
+	ContrastBg: color.NRGBA{0x7c, 0x00, 0xf8, 0xff},
+	ContrastFg: color.NRGBA{0xff, 0xff, 0xff, 0xff},
+}
+
 func (g *GUI) Start(ctx context.Context, cancel context.CancelFunc) (err error) {
 	g.cancel = cancel
 
@@ -39,7 +53,20 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelFunc) (err error) 
 		app.Title("Bedrocktool"),
 	)
 
-	g.router = pages.NewRouter(ctx, w.Invalidate)
+	th := material.NewTheme(gofont.Collection())
+	dark, err := theme.IsDarkMode()
+	if err != nil {
+		logrus.Warn(err)
+	}
+	if dark {
+		_th := th.WithPalette(paletteDark)
+		th = &_th
+	} else {
+		_th := th.WithPalette(paletteLight)
+		th = &_th
+	}
+
+	g.router = pages.NewRouter(ctx, w.Invalidate, th)
 
 	g.router.Register("Settings", settings.New(&g.router))
 	g.router.Register("worlds", worlds.New(&g.router))
@@ -59,34 +86,7 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelFunc) (err error) 
 	return err
 }
 
-var paletteLight = material.Palette{
-	Bg:         color.NRGBA{0xff, 0xff, 0xff, 0xff},
-	Fg:         color.NRGBA{0x12, 0x12, 0x12, 0xff},
-	ContrastBg: color.NRGBA{0x7c, 0x00, 0xf8, 0xff},
-	ContrastFg: color.NRGBA{0x00, 0x00, 0x00, 0xff},
-}
-
-var paletteDark = material.Palette{
-	Bg:         color.NRGBA{0x12, 0x12, 0x12, 0xff},
-	Fg:         color.NRGBA{0xff, 0xff, 0xff, 0xff},
-	ContrastBg: color.NRGBA{0x7c, 0x00, 0xf8, 0xff},
-	ContrastFg: color.NRGBA{0xff, 0xff, 0xff, 0xff},
-}
-
 func (g *GUI) run(w *app.Window) error {
-	th := material.NewTheme(gofont.Collection())
-	dark, err := theme.IsDarkMode()
-	if err != nil {
-		logrus.Warn(err)
-	}
-	if dark {
-		_th := th.WithPalette(paletteDark)
-		th = &_th
-	} else {
-		_th := th.WithPalette(paletteLight)
-		th = &_th
-	}
-
 	var ops op.Ops
 	for {
 		select {
@@ -96,7 +96,7 @@ func (g *GUI) run(w *app.Window) error {
 				return e.Err
 			case system.FrameEvent:
 				gtx := layout.NewContext(&ops, e)
-				g.router.Layout(gtx, th)
+				g.router.Layout(gtx, g.router.Theme)
 				e.Frame(gtx.Ops)
 			case *system.DestroyEvent:
 				g.cancel()

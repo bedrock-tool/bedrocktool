@@ -3,7 +3,6 @@ package settings
 import (
 	"image"
 
-	"gioui.org/font/gofont"
 	"gioui.org/layout"
 	"gioui.org/unit"
 	"gioui.org/widget"
@@ -40,20 +39,19 @@ func New(router *pages.Router) *Page {
 		startButton: widget.Clickable{},
 	}
 
-	th := material.NewTheme(gofont.Collection())
-
 	options := make([]func(layout.Context) layout.Dimensions, 0, len(utils.ValidCMDs))
 	p.cmdMenu.items = make(map[string]*widget.Clickable, len(utils.ValidCMDs))
 	for k := range utils.ValidCMDs {
 		item := &widget.Clickable{}
 		p.cmdMenu.items[k] = item
-		options = append(options, component.MenuItem(th, item, k).Layout)
+		options = append(options, component.MenuItem(router.Theme, item, k).Layout)
 	}
 
 	p.cmdMenu.state = &component.MenuState{
 		OptionList: layout.List{},
 		Options:    options,
 	}
+	p.cmdMenu.selected = "worlds"
 
 	for _, su := range settings.Settings {
 		su.Init()

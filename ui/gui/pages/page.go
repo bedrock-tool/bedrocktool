@@ -30,6 +30,8 @@ type Router struct {
 	Wg         sync.WaitGroup
 	Invalidate func()
 
+	Theme *material.Theme
+
 	pages   map[string]Page
 	current string
 	*component.ModalNavDrawer
@@ -39,7 +41,7 @@ type Router struct {
 	NonModalDrawer, BottomBar bool
 }
 
-func NewRouter(ctx context.Context, invalidate func()) Router {
+func NewRouter(ctx context.Context, invalidate func(), th *material.Theme) Router {
 	modal := component.NewModal()
 
 	nav := component.NewNav("Navigation Drawer", "This is an example.")
@@ -55,6 +57,7 @@ func NewRouter(ctx context.Context, invalidate func()) Router {
 	return Router{
 		Ctx:            ctx,
 		Invalidate:     invalidate,
+		Theme:          th,
 		pages:          make(map[string]Page),
 		ModalLayer:     modal,
 		ModalNavDrawer: modalNav,
