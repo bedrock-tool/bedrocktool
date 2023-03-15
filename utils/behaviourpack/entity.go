@@ -24,6 +24,7 @@ type entityBehaviour struct {
 type EntityIn struct {
 	Identifier string
 	Attr       []protocol.AttributeValue
+	Meta       map[uint32]any
 }
 
 func (bp *BehaviourPack) AddEntity(entity EntityIn) {
@@ -61,6 +62,12 @@ func (bp *BehaviourPack) AddEntity(entity EntityIn) {
 			entry.MinecraftEntity.Components["minecraft:movement"] = map[string]any{
 				"value": av.Value,
 			}
+		}
+	}
+
+	if scale, ok := entity.Meta[protocol.EntityDataKeyScale].(float32); ok {
+		entry.MinecraftEntity.Components["minecraft:scale"] = map[string]any{
+			"value": scale,
 		}
 	}
 

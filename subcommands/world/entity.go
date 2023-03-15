@@ -71,6 +71,7 @@ func (w *WorldState) processAddActor(pk *packet.AddActor) {
 		w.bp.AddEntity(behaviourpack.EntityIn{
 			Identifier: pk.EntityType,
 			Attr:       pk.Attributes,
+			Meta:       pk.EntityMetadata,
 		})
 	}
 
@@ -102,9 +103,6 @@ func entityMetadataToNBT(metadata protocol.EntityMetadata, nbt map[string]any) {
 		} else {
 			nbt["CustomNameVisible"] = false
 		}
-	}
-	if scale, ok := metadata[protocol.EntityDataKeyScale].(float32); ok {
-		nbt["Scale"] = scale
 	}
 }
 
