@@ -20,6 +20,7 @@ type worldSettings struct {
 func (s *worldSettings) Init() {
 	s.worlds = utils.ValidCMDs["worlds"].(*world.WorldCMD)
 	s.serverAddress.SingleLine = true
+	s.voidGen.Value = true
 }
 
 func (s *worldSettings) Apply() {
