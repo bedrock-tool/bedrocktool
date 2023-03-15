@@ -89,11 +89,12 @@ func (w *WorldState) processAddActor(pk *packet.AddActor) {
 
 func entityMetadataToNBT(metadata protocol.EntityMetadata, nbt map[string]any) {
 	if variant, ok := metadata[protocol.EntityDataKeyVariant].(int32); ok {
-		block, ok := world.BlockByRuntimeID(uint32(variant))
-		if ok {
-			nbt["name"], _ = block.EncodeBlock()
-		}
+		nbt["Variant"] = variant
 	}
+	if markVariant, ok := metadata[protocol.EntityDataKeyMarkVariant].(int32); ok {
+		nbt["MarkVariant"] = markVariant
+	}
+
 	if name, ok := metadata[protocol.EntityDataKeyName].(string); ok {
 		nbt["CustomName"] = name
 	}
