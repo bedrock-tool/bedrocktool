@@ -93,15 +93,14 @@ func (g *GUI) run(w *app.Window) error {
 		case e := <-w.Events():
 			switch e := e.(type) {
 			case system.DestroyEvent:
+				logrus.Info("Closing")
+				g.cancel()
+				g.router.Wg.Wait()
 				return e.Err
 			case system.FrameEvent:
 				gtx := layout.NewContext(&ops, e)
 				g.router.Layout(gtx, g.router.Theme)
 				e.Frame(gtx.Ops)
-			case *system.DestroyEvent:
-				g.cancel()
-				g.router.Wg.Wait()
-				return nil
 			}
 		case <-g.router.Ctx.Done():
 			logrus.Info("Closing")
