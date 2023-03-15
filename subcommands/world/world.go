@@ -481,7 +481,7 @@ func (w *WorldState) SaveAndReset() {
 				utils.UnpackZip(bytes.NewReader(data), int64(len(data)), packFolder)
 
 				rdeps = append(rdeps, dep{
-					PackID:  p.Manifest().Header.Name,
+					PackID:  p.Manifest().Header.UUID,
 					Version: p.Manifest().Header.Version,
 				})
 			}
