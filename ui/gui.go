@@ -4,6 +4,7 @@ package ui
 
 import (
 	"context"
+	"image/color"
 
 	"gioui.org/app"
 	"gioui.org/font/gofont"
@@ -11,6 +12,7 @@ import (
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/widget/material"
+	"gioui.org/x/pref/theme"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages/settings"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages/worlds"
@@ -57,8 +59,34 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelFunc) (err error) 
 	return err
 }
 
+var paletteLight = material.Palette{
+	Bg:         color.NRGBA{0xff, 0xff, 0xff, 0xff},
+	Fg:         color.NRGBA{0x12, 0x12, 0x12, 0xff},
+	ContrastBg: color.NRGBA{0x7c, 0x00, 0xf8, 0xff},
+	ContrastFg: color.NRGBA{0x00, 0x00, 0x00, 0xff},
+}
+
+var paletteDark = material.Palette{
+	Bg:         color.NRGBA{0x12, 0x12, 0x12, 0xff},
+	Fg:         color.NRGBA{0xff, 0xff, 0xff, 0xff},
+	ContrastBg: color.NRGBA{0x7c, 0x00, 0xf8, 0xff},
+	ContrastFg: color.NRGBA{0xff, 0xff, 0xff, 0xff},
+}
+
 func (g *GUI) run(w *app.Window) error {
 	th := material.NewTheme(gofont.Collection())
+	dark, err := theme.IsDarkMode()
+	if err != nil {
+		logrus.Warn(err)
+	}
+	if dark {
+		_th := th.WithPalette(paletteDark)
+		th = &_th
+	} else {
+		_th := th.WithPalette(paletteLight)
+		th = &_th
+	}
+
 	var ops op.Ops
 	for {
 		select {
