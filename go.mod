@@ -6,7 +6,7 @@ go 1.20
 replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.27.4-3
 
 //replace github.com/df-mc/dragonfly => ./dragonfly
-replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.9.3-2
+replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.9.3-3
 
 require (
 	gioui.org v0.0.0-20221219171716-c455f0f342ef
