@@ -51,7 +51,7 @@ def make_dirs():
     os.mkdir("./updates")
 
 
-def build_cli(platform: str, arch: str, env_in: dict[str,str], tags: list[str], compiled_path: str):
+def build_cli(platform: str, arch: str, env_in: dict[str,str], tags: list[str], ldflags, compiled_path: str):
     env = {}
     env.update(env_in)
     env.update({
@@ -60,7 +60,7 @@ def build_cli(platform: str, arch: str, env_in: dict[str,str], tags: list[str], 
     })
     args = [
         "go", "build",
-        "-ldflags", LDFLAGS,
+        "-ldflags", ldflags,
         "-trimpath",
         "-tags", ",".join(tags),
         "-o", compiled_path,
@@ -73,10 +73,10 @@ def build_cli(platform: str, arch: str, env_in: dict[str,str], tags: list[str], 
     subprocess.run(args, env=env2).check_returncode()
 
 
-def build_gui(platform: str, arch: str, env, tags: list[str], compiled_path: str):
-    ldflags = LDFLAGS
+def build_gui(platform: str, arch: str, env, tags: list[str], ldflags, compiled_path: str):
     if platform == "windows":
-        ldflags = "-H=windows " + ldflags
+        ldflags += " -H=windows"
+
     args = [
         "gogio",
         "-arch", arch,
@@ -148,14 +148,22 @@ def build_all(platform_filter: str, arch_filter: str):
                 "GOVCS": "*:off"
             }
 
+            ldflags = LDFLAGS
+            if tags.count("gui"):
+                CmdName = "bedrocktool-gui"
+            else:
+                CmdName = "bedrocktool"
+            ldflags += f" -X github.com/bedrock-tool/bedrocktool/utils.CmdName={CmdName}"
+
+
             for arch in archs:
                 compiled_path = f"./tmp/{platform}-{arch}{SUB1}/{name}{ext}"
                 os.makedirs(os.path.dirname(compiled_path), exist_ok=True)
 
                 if GUI and platform != "linux":
-                    build_gui(platform, arch, env, tags, compiled_path)
+                    build_gui(platform, arch, env, tags, ldflags, compiled_path)
                 else:
-                    build_cli(platform, arch, env, tags, compiled_path)
+                    build_cli(platform, arch, env, tags, ldflags, compiled_path)
                 
                 package(platform, arch, compiled_path, GUI, ext)
 
