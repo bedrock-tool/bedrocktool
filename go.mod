@@ -3,7 +3,7 @@ module github.com/bedrock-tool/bedrocktool
 go 1.20
 
 //replace github.com/sandertv/gophertunnel => ./gophertunnel
-replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.27.4-3
+replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.27.4-4
 
 //replace github.com/df-mc/dragonfly => ./dragonfly
 replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.9.3-3
@@ -29,7 +29,6 @@ require (
 	golang.design/x/lockfree v0.0.1
 	golang.org/x/crypto v0.7.0
 	golang.org/x/exp v0.0.0-20230304125523-9ff063c70017
-	golang.org/x/image v0.6.0
 	golang.org/x/oauth2 v0.6.0
 	golang.org/x/text v0.8.0
 	gopkg.in/square/go-jose.v2 v2.6.0
@@ -56,6 +55,7 @@ require (
 	github.com/muhammadmuzzammil1998/jsonc v1.0.0 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	golang.org/x/exp/shiny v0.0.0-20220827204233-334a2380cb91 // indirect
+	golang.org/x/image v0.6.0 // indirect
 	golang.org/x/mod v0.8.0 // indirect
 	golang.org/x/net v0.8.0 // indirect
 	golang.org/x/sys v0.6.0 // indirect
