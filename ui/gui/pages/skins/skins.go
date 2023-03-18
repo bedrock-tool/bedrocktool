@@ -1,4 +1,4 @@
-package worlds
+package skins
 
 import (
 	"gioui.org/layout"
@@ -18,17 +18,12 @@ type (
 type Page struct {
 	*pages.Router
 
-	worldMap   *Map
-	State      messages.UIState
-	chunkCount int
-	voidGen    bool
-	worldName  string
+	State messages.UIState
 }
 
 func New(router *pages.Router) *Page {
 	return &Page{
-		Router:   router,
-		worldMap: &Map{},
+		Router: router,
 	}
 }
 
@@ -44,7 +39,7 @@ func (p *Page) Overflow() []component.OverflowAction {
 
 func (p *Page) NavItem() component.NavItem {
 	return component.NavItem{
-		Name: "World Downloader",
+		Name: "Skin Grabber",
 		//Icon: icon.OtherIcon,
 	}
 }
@@ -70,10 +65,7 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 			return layout.Flex{
 				Axis: layout.Vertical,
 			}.Layout(gtx,
-				layout.Rigid(material.Label(th, 20, "World Downloader Basic UI").Layout),
-				layout.Flexed(1, func(gtx C) D {
-					return layout.Center.Layout(gtx, p.worldMap.Layout)
-				}),
+				layout.Rigid(material.Label(th, 20, "Skin Basic UI").Layout),
 			)
 		})
 	}
@@ -97,25 +89,6 @@ func (u *Page) handler(name string, data interface{}) messages.MessageResponse {
 	case messages.Init:
 		init := data.(messages.InitPayload)
 		_ = init
-		r.Ok = true
-
-	case messages.UpdateMap:
-		update_map := data.(messages.UpdateMapPayload)
-		u.chunkCount = update_map.ChunkCount
-		u.worldMap.Update(&update_map)
-		u.Router.Invalidate()
-		r.Ok = true
-
-	case messages.SetVoidGen:
-		set_void_gen := data.(messages.SetVoidGenPayload)
-		u.voidGen = set_void_gen.Value
-		u.Router.Invalidate()
-		r.Ok = true
-
-	case messages.SetWorldName:
-		set_world_name := data.(messages.SetWorldNamePayload)
-		u.worldName = set_world_name.WorldName
-		u.Router.Invalidate()
 		r.Ok = true
 
 	}

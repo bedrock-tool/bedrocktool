@@ -1,10 +1,15 @@
-package utils
+package messages
 
 import (
 	"image"
 
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 )
+
+type MessageResponse struct {
+	Ok   bool
+	Data interface{}
+}
 
 type UIState = int
 
@@ -16,27 +21,39 @@ const (
 
 type HandlerFunc = func(name string, data interface{}) MessageResponse
 
-var SetUIStateName = "set_ui_state"
+//
 
-var SetVoidGenName = "set_void_gen"
+const SetUIState = "set_ui_state"
+
+type SetUIStatePayload = UIState
+
+//
+
+const SetVoidGen = "set_void_gen"
 
 type SetVoidGenPayload struct {
 	Value bool
 }
 
-var SetWorldNameName = "set_world_name"
+//
+
+const SetWorldName = "set_world_name"
 
 type SetWorldNamePayload struct {
 	WorldName string
 }
 
-var InitName = "init"
+//
+
+var Init = "init"
 
 type InitPayload struct {
 	Handler HandlerFunc
 }
 
-var UpdateMapName = "update_map"
+//
+
+var UpdateMap = "update_map"
 
 type UpdateMapPayload struct {
 	ChunkCount   int
@@ -45,4 +62,13 @@ type UpdateMapPayload struct {
 	Tiles        map[protocol.ChunkPos]*image.RGBA
 	BoundsMin    protocol.ChunkPos
 	BoundsMax    protocol.ChunkPos
+}
+
+//
+
+var NewSkin = "new_skin"
+
+type NewSkinPayload struct {
+	PlayerName string
+	Skin       *protocol.Skin
 }

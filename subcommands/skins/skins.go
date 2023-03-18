@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
+	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 
 	"github.com/google/uuid"
@@ -52,7 +53,7 @@ func NewSkinsSession(proxy *utils.ProxyContext, serverName, fpath string) *skins
 	}
 }
 
-func (s *skinsSession) AddPlayerSkin(playerID uuid.UUID, playerName string, skin *Skin) {
+func (s *skinsSession) AddPlayerSkin(playerID uuid.UUID, playerName string, skin *Skin) (added bool) {
 	p, ok := s.playerSkinPacks[playerID]
 	if !ok {
 		creating := fmt.Sprintf("Creating Skinpack for %s", playerName)
@@ -63,17 +64,19 @@ func (s *skinsSession) AddPlayerSkin(playerID uuid.UUID, playerName string, skin
 	}
 	if p.AddSkin(skin) {
 		if ok {
-			added := fmt.Sprintf("Added a skin to %s", playerName)
-			s.Proxy.SendPopup(added)
-			logrus.Info(added)
+			addedStr := fmt.Sprintf("Added a skin to %s", playerName)
+			s.Proxy.SendPopup(addedStr)
+			logrus.Info(addedStr)
 		}
+		added = true
 	}
 	if err := p.Save(path.Join(s.fpath, playerName), s.ServerName); err != nil {
 		logrus.Error(err)
 	}
+	return added
 }
 
-func (s *skinsSession) AddSkin(playerName string, playerID uuid.UUID, playerSkin *protocol.Skin) {
+func (s *skinsSession) AddSkin(playerName string, playerID uuid.UUID, playerSkin *protocol.Skin) (string, *Skin, bool) {
 	if playerName == "" {
 		playerName = s.playerNames[playerID]
 		if playerName == "" {
@@ -81,31 +84,45 @@ func (s *skinsSession) AddSkin(playerName string, playerID uuid.UUID, playerSkin
 		}
 	}
 	if !strings.HasPrefix(playerName, s.PlayerNameFilter) {
-		return
+		return "", nil, false
 	}
 	s.playerNames[playerID] = playerName
 
-	skin := Skin{playerSkin}
+	skin := &Skin{playerSkin}
 	if s.OnlyIfHasGeometry && !skin.HaveGeometry() {
-		return
+		return "", nil, false
 	}
-	s.AddPlayerSkin(playerID, playerName, &skin)
+	wasAdded := s.AddPlayerSkin(playerID, playerName, skin)
+
+	return playerName, skin, wasAdded
 }
 
-func (s *skinsSession) ProcessPacket(pk packet.Packet) {
+type skinAdd struct {
+	PlayerName string
+	Skin       *protocol.Skin
+}
+
+func (s *skinsSession) ProcessPacket(pk packet.Packet) (out []skinAdd) {
 	switch pk := pk.(type) {
 	case *packet.PlayerList:
 		if pk.ActionType == 1 { // remove
-			return
+			return nil
 		}
 		for _, player := range pk.Entries {
-			s.AddSkin(utils.CleanupName(player.Username), player.UUID, &player.Skin)
+			playerName, skin, wasAdded := s.AddSkin(utils.CleanupName(player.Username), player.UUID, &player.Skin)
+			if wasAdded {
+				out = append(out, skinAdd{
+					PlayerName: playerName,
+					Skin:       skin.Skin,
+				})
+			}
 		}
 	case *packet.AddPlayer:
 		if _, ok := s.playerNames[pk.UUID]; !ok {
 			s.playerNames[pk.UUID] = utils.CleanupName(pk.Username)
 		}
 	}
+	return out
 }
 
 type SkinCMD struct {
@@ -131,10 +148,14 @@ func (c *SkinCMD) Execute(ctx context.Context, ui utils.UI) error {
 
 	proxy, _ := utils.NewProxy()
 	proxy.WithClient = !c.NoProxy
+	proxy.OnClientConnect = func(proxy *utils.ProxyContext, hasClient bool) {
+		ui.Message(messages.SetUIState, messages.UIStateConnecting)
+	}
 	proxy.ConnectCB = func(proxy *utils.ProxyContext, err error) bool {
 		if err != nil {
 			return false
 		}
+		ui.Message(messages.SetUIState, messages.UIStateMain)
 		logrus.Info(locale.Loc("ctrl_c_to_exit", nil))
 		return true
 	}
@@ -146,11 +167,21 @@ func (c *SkinCMD) Execute(ctx context.Context, ui utils.UI) error {
 
 	proxy.PacketCB = func(pk packet.Packet, _ *utils.ProxyContext, toServer bool, _ time.Time) (packet.Packet, error) {
 		if !toServer {
-			s.ProcessPacket(pk)
+			for _, s := range s.ProcessPacket(pk) {
+				ui.Message(messages.NewSkin, messages.NewSkinPayload{
+					PlayerName: s.PlayerName,
+					Skin:       s.Skin,
+				})
+			}
 		}
 		return pk, nil
 	}
 
+	if proxy.WithClient {
+		ui.Message(messages.SetUIState, messages.UIStateConnect)
+	} else {
+		ui.Message(messages.SetUIState, messages.UIStateConnecting)
+	}
 	err = proxy.Run(ctx, address)
 	return err
 }

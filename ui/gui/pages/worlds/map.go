@@ -11,7 +11,7 @@ import (
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/paint"
-	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 )
 
@@ -86,7 +86,7 @@ func drawTile(img *image.RGBA, min, pos protocol.ChunkPos, tile *image.RGBA) {
 	), tile, image.Point{}, draw.Src)
 }
 
-func (m *Map) Update(u *utils.UpdateMapPayload) {
+func (m *Map) Update(u *messages.UpdateMapPayload) {
 	if m.MapImage == nil {
 		m.zoom = 1
 	}

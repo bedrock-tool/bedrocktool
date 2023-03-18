@@ -10,6 +10,7 @@ import (
 	"gioui.org/x/component"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/settings"
+	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/sirupsen/logrus"
 )
@@ -51,7 +52,7 @@ func New(router *pages.Router) *Page {
 		OptionList: layout.List{},
 		Options:    options,
 	}
-	p.cmdMenu.selected = "worlds"
+	//p.cmdMenu.selected = "worlds"
 
 	for _, su := range settings.Settings {
 		su.Init()
@@ -169,8 +170,8 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 }
 
 func (p *Page) Handler() pages.HandlerFunc {
-	return func(name string, data interface{}) utils.MessageResponse {
-		return utils.MessageResponse{
+	return func(name string, data interface{}) messages.MessageResponse {
+		return messages.MessageResponse{
 			Ok:   false,
 			Data: nil,
 		}

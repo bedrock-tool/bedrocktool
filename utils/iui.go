@@ -9,19 +9,15 @@ import (
 	"strings"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
+	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/google/subcommands"
 	"github.com/sirupsen/logrus"
 )
 
-type MessageResponse struct {
-	Ok   bool
-	Data interface{}
-}
-
 type UI interface {
 	Init() bool
 	Start(context.Context, context.CancelFunc) error
-	Message(name string, data interface{}) MessageResponse
+	Message(name string, data interface{}) messages.MessageResponse
 	ServerInput(context.Context, string) (string, string, error)
 }
 
@@ -29,8 +25,8 @@ type BaseUI struct {
 	UI
 }
 
-func (u *BaseUI) Message(name string, data interface{}) MessageResponse {
-	return MessageResponse{
+func (u *BaseUI) Message(name string, data interface{}) messages.MessageResponse {
+	return messages.MessageResponse{
 		Ok:   false,
 		Data: nil,
 	}

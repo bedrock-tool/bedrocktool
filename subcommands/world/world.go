@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
+	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/behaviourpack"
 
@@ -84,7 +85,7 @@ func NewWorldState(ctx context.Context, proxy *utils.ProxyContext, ServerName st
 	}
 	w.mapUI = NewMapUI(w)
 
-	w.gui.Message(utils.InitName, utils.InitPayload{
+	w.gui.Message(messages.Init, messages.InitPayload{
 		Handler: w.uiMessage,
 	})
 
@@ -155,7 +156,7 @@ func (c *WorldCMD) Execute(ctx context.Context, ui utils.UI) error {
 	proxy.AlwaysGetPacks = true
 	proxy.ConnectCB = w.OnConnect
 	proxy.OnClientConnect = func(proxy *utils.ProxyContext, hasClient bool) {
-		w.gui.Message(utils.SetUIStateName, utils.UIStateConnecting)
+		w.gui.Message(messages.SetUIState, messages.UIStateConnecting)
 	}
 	proxy.PacketCB = func(pk packet.Packet, proxy *utils.ProxyContext, toServer bool, _ time.Time) (packet.Packet, error) {
 		forward := true
@@ -177,7 +178,7 @@ func (c *WorldCMD) Execute(ctx context.Context, ui utils.UI) error {
 		return pk, nil
 	}
 
-	w.gui.Message(utils.SetUIStateName, utils.UIStateConnect)
+	w.gui.Message(messages.SetUIState, messages.UIStateConnect)
 	err = w.proxy.Run(ctx, serverAddress)
 	if err != nil {
 		return err
@@ -186,17 +187,17 @@ func (c *WorldCMD) Execute(ctx context.Context, ui utils.UI) error {
 	return nil
 }
 
-func (w *WorldState) uiMessage(name string, data interface{}) utils.MessageResponse {
-	r := utils.MessageResponse{
+func (w *WorldState) uiMessage(name string, data interface{}) messages.MessageResponse {
+	r := messages.MessageResponse{
 		Ok:   false,
 		Data: nil,
 	}
 	switch name {
-	case utils.SetVoidGenName:
-		set_void_gen := data.(utils.SetVoidGenPayload)
+	case messages.SetVoidGen:
+		set_void_gen := data.(messages.SetVoidGenPayload)
 		r.Ok = w.setVoidGen(set_void_gen.Value, true)
-	case utils.SetWorldNameName:
-		set_world_name := data.(utils.SetWorldNamePayload)
+	case messages.SetWorldName:
+		set_world_name := data.(messages.SetWorldNamePayload)
 		r.Ok = w.setWorldName(set_world_name.WorldName, true)
 	}
 	return r
@@ -227,7 +228,7 @@ func (w *WorldState) setVoidGen(val bool, fromUI bool) bool {
 	w.proxy.SendMessage(s)
 
 	if !fromUI {
-		w.gui.Message(utils.SetVoidGenName, utils.SetVoidGenPayload{
+		w.gui.Message(messages.SetVoidGen, messages.SetVoidGenPayload{
 			Value: w.voidGen,
 		})
 	}
@@ -240,7 +241,7 @@ func (w *WorldState) setWorldName(val string, fromUI bool) bool {
 	w.proxy.SendMessage(locale.Loc("worldname_set", locale.Strmap{"Name": w.WorldName}))
 
 	if !fromUI {
-		w.gui.Message(utils.SetWorldNameName, utils.SetWorldNamePayload{
+		w.gui.Message(messages.SetWorldName, messages.SetWorldNamePayload{
 			WorldName: w.WorldName,
 		})
 	}
@@ -446,7 +447,8 @@ func (w *WorldState) SaveAndReset() {
 
 	// save behaviourpack
 	if w.bp.HasContent() {
-		name := strings.ReplaceAll(w.ServerName, "/", "-") + "_blocks"
+		name := strings.ReplaceAll(w.ServerName, "./", "")
+		name = strings.ReplaceAll(name, "/", "-")
 		packFolder := path.Join(folder, "behavior_packs", name)
 		os.MkdirAll(packFolder, 0o755)
 
@@ -508,7 +510,7 @@ func (w *WorldState) SaveAndReset() {
 }
 
 func (w *WorldState) OnConnect(proxy *utils.ProxyContext, err error) bool {
-	w.gui.Message(utils.SetUIStateName, utils.UIStateMain)
+	w.gui.Message(messages.SetUIState, messages.UIStateMain)
 
 	if err != nil {
 		return false

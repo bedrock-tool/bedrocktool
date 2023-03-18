@@ -88,17 +88,23 @@ func (w *WorldState) processAddActor(pk *packet.AddActor) {
 }
 
 func entityMetadataToNBT(metadata protocol.EntityMetadata, nbt map[string]any) {
-	if variant, ok := metadata[protocol.EntityDataKeyVariant].(int32); ok {
+	if variant, ok := metadata[protocol.EntityDataKeyVariant]; ok {
 		nbt["Variant"] = variant
 	}
-	if markVariant, ok := metadata[protocol.EntityDataKeyMarkVariant].(int32); ok {
+	if markVariant, ok := metadata[protocol.EntityDataKeyMarkVariant]; ok {
 		nbt["MarkVariant"] = markVariant
 	}
+	if color, ok := metadata[protocol.EntityDataKeyColorIndex]; ok {
+		nbt["Color"] = color
+	}
+	if color2, ok := metadata[protocol.EntityDataKeyColorTwoIndex]; ok {
+		nbt["Color2"] = color2
+	}
 
-	if name, ok := metadata[protocol.EntityDataKeyName].(string); ok {
+	if name, ok := metadata[protocol.EntityDataKeyName]; ok {
 		nbt["CustomName"] = name
 	}
-	if ShowNameTag, ok := metadata[protocol.EntityDataKeyAlwaysShowNameTag].(uint8); ok {
+	if ShowNameTag, ok := metadata[protocol.EntityDataKeyAlwaysShowNameTag]; ok {
 		if ShowNameTag != 0 {
 			nbt["CustomNameVisible"] = true
 		} else {

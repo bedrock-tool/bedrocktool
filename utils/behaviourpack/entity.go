@@ -1,6 +1,8 @@
 package behaviourpack
 
-import "github.com/sandertv/gophertunnel/minecraft/protocol"
+import (
+	"github.com/sandertv/gophertunnel/minecraft/protocol"
+)
 
 type EntityDescription struct {
 	Identifier   string `json:"identifier"`
@@ -24,7 +26,7 @@ type entityBehaviour struct {
 type EntityIn struct {
 	Identifier string
 	Attr       []protocol.AttributeValue
-	Meta       map[uint32]any
+	Meta       protocol.EntityMetadata
 }
 
 func (bp *BehaviourPack) AddEntity(entity EntityIn) {
@@ -69,6 +71,13 @@ func (bp *BehaviourPack) AddEntity(entity EntityIn) {
 		entry.MinecraftEntity.Components["minecraft:scale"] = map[string]any{
 			"value": scale,
 		}
+	}
+
+	hasCollision := entity.Meta.Flag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagHasCollision)
+	hasGravity := entity.Meta.Flag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagHasGravity)
+	entry.MinecraftEntity.Components["minecraft:physics"] = map[string]any{
+		"has_collision": hasCollision,
+		"has_gravity":   hasGravity,
 	}
 
 	bp.entities[entity.Identifier] = entry

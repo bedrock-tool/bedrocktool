@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
+	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"golang.design/x/lockfree"
 
@@ -230,7 +231,7 @@ func (m *MapUI) Redraw() {
 	ChunkCount := len(m.renderedChunks)
 	if m.showOnGui {
 		min, max := m.GetBounds()
-		m.w.gui.Message(utils.UpdateMapName, utils.UpdateMapPayload{
+		m.w.gui.Message(messages.UpdateMap, messages.UpdateMapPayload{
 			ChunkCount:   ChunkCount,
 			Rotation:     m.w.PlayerPos.Yaw,
 			UpdatedTiles: updatedChunks,
