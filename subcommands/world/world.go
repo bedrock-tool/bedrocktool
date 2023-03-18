@@ -48,6 +48,7 @@ type WorldState struct {
 	bp    *behaviourpack.BehaviourPack
 
 	// save state
+	ChunkRadius        int
 	chunks             map[protocol.ChunkPos]*chunk.Chunk
 	blockNBT           map[protocol.SubChunkPos][]map[string]any
 	openItemContainers map[byte]*itemContainer
@@ -167,6 +168,11 @@ func (c *WorldCMD) Execute(ctx context.Context, ui utils.UI) error {
 			pk = w.processMapPacketsClient(pk, &forward)
 		} else {
 			// from server
+			switch pk := pk.(type) {
+			case *packet.ChunkRadiusUpdated:
+				w.ChunkRadius = int(pk.ChunkRadius)
+				pk.ChunkRadius = 80
+			}
 			pk = w.processItemPacketsServer(pk)
 			pk = w.ProcessChunkPackets(pk)
 			pk = w.ProcessEntityPackets(pk)
@@ -499,6 +505,8 @@ func (w *WorldState) SaveAndReset() {
 		f.Close()
 	}
 
+	time.Sleep(1 * time.Second)
+
 	// zip it
 	filename := folder + ".mcworld"
 	if err := utils.ZipFolder(filename, folder); err != nil {
@@ -517,6 +525,7 @@ func (w *WorldState) OnConnect(proxy *utils.ProxyContext, err error) bool {
 	}
 	w.proxy = proxy
 	gd := w.proxy.Server.GameData()
+	w.ChunkRadius = int(gd.ChunkRadius)
 
 	world.InsertCustomItems(gd.Items)
 
@@ -593,6 +602,10 @@ func (w *WorldState) OnConnect(proxy *utils.ProxyContext, err error) bool {
 			Description: locale.Loc("void_desc", nil),
 		},
 	})
+
+	if w.proxy.Client != nil {
+		w.proxy.Client.WritePacket(&packet.ChunkRadiusUpdated{ChunkRadius: 80})
+	}
 
 	return true
 }
