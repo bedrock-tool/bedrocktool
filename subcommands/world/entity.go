@@ -44,10 +44,6 @@ func (t serverEntityType) EncodeNBT(e world.Entity) map[string]any {
 	return t.NBT
 }
 
-func (t serverEntityType) UniqueID() int64 {
-	return t.NBT["UniqueID"].(int64)
-}
-
 type serverEntity struct {
 	world.Entity
 	EntityType serverEntityType
@@ -138,7 +134,6 @@ func (w *WorldState) ProcessEntityPackets(pk packet.Packet) packet.Packet {
 	case *packet.AddActor:
 		w.processAddActor(pk)
 	case *packet.RemoveActor:
-		delete(w.entities, uint64(pk.EntityUniqueID))
 	case *packet.SetActorData:
 		e, ok := w.entities[pk.EntityRuntimeID]
 		if ok {
