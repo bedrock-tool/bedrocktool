@@ -24,6 +24,8 @@ func UnpackZip(r io.ReaderAt, size int64, unpackFolder string) {
 			fr, _ := srcFile.Open()
 			f, _ := os.Create(path.Join(unpackFolder, srcName))
 			io.Copy(f, fr)
+			f.Close()
+			fr.Close()
 		}
 	}
 }

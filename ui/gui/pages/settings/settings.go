@@ -2,6 +2,7 @@ package settings
 
 import (
 	"image"
+	"sort"
 
 	"gioui.org/layout"
 	"gioui.org/unit"
@@ -40,12 +41,18 @@ func New(router *pages.Router) *Page {
 		startButton: widget.Clickable{},
 	}
 
-	options := make([]func(layout.Context) layout.Dimensions, 0, len(utils.ValidCMDs))
-	p.cmdMenu.items = make(map[string]*widget.Clickable, len(utils.ValidCMDs))
+	cmdNames := []string{}
 	for k := range utils.ValidCMDs {
+		cmdNames = append(cmdNames, k)
+	}
+	sort.Strings(cmdNames)
+
+	p.cmdMenu.items = make(map[string]*widget.Clickable, len(utils.ValidCMDs))
+	options := make([]func(layout.Context) layout.Dimensions, 0, len(utils.ValidCMDs))
+	for _, name := range cmdNames {
 		item := &widget.Clickable{}
-		p.cmdMenu.items[k] = item
-		options = append(options, component.MenuItem(router.Theme, item, k).Layout)
+		p.cmdMenu.items[name] = item
+		options = append(options, component.MenuItem(router.Theme, item, name).Layout)
 	}
 
 	p.cmdMenu.state = &component.MenuState{

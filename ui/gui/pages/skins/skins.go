@@ -1,8 +1,11 @@
 package skins
 
 import (
+	"sync"
+
 	"gioui.org/layout"
 	"gioui.org/unit"
+	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
 	"github.com/bedrock-tool/bedrocktool/ui/gui"
@@ -18,12 +21,20 @@ type (
 type Page struct {
 	*pages.Router
 
-	State messages.UIState
+	State     messages.UIState
+	SkinsList widget.List
+	l         sync.Mutex
+	Skins     []messages.NewSkinPayload
 }
 
 func New(router *pages.Router) *Page {
 	return &Page{
 		Router: router,
+		SkinsList: widget.List{
+			List: layout.List{
+				Axis: layout.Vertical,
+			},
+		},
 	}
 }
 
@@ -66,6 +77,20 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 				Axis: layout.Vertical,
 			}.Layout(gtx,
 				layout.Rigid(material.Label(th, 20, "Skin Basic UI").Layout),
+				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+					p.l.Lock()
+					defer p.l.Unlock()
+					return material.List(th, &p.SkinsList).Layout(gtx, len(p.Skins), func(gtx layout.Context, index int) layout.Dimensions {
+						entry := p.Skins[len(p.Skins)-index-1]
+						return layout.UniformInset(25).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return layout.Flex{
+								Axis: layout.Horizontal,
+							}.Layout(gtx,
+								layout.Rigid(material.Label(th, th.TextSize, entry.PlayerName).Layout),
+							)
+						})
+					})
+				}),
 			)
 		})
 	}
@@ -73,7 +98,7 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 	return layout.Flex{}.Layout(gtx)
 }
 
-func (u *Page) handler(name string, data interface{}) messages.MessageResponse {
+func (p *Page) handler(name string, data interface{}) messages.MessageResponse {
 	r := messages.MessageResponse{
 		Ok:   false,
 		Data: nil,
@@ -82,8 +107,8 @@ func (u *Page) handler(name string, data interface{}) messages.MessageResponse {
 	switch name {
 	case messages.SetUIState:
 		state := data.(messages.UIState)
-		u.State = state
-		u.Router.Invalidate()
+		p.State = state
+		p.Router.Invalidate()
 		r.Ok = true
 
 	case messages.Init:
@@ -91,6 +116,13 @@ func (u *Page) handler(name string, data interface{}) messages.MessageResponse {
 		_ = init
 		r.Ok = true
 
+	case messages.NewSkin:
+		p.l.Lock()
+		new_skin := data.(messages.NewSkinPayload)
+		p.Skins = append(p.Skins, new_skin)
+		r.Ok = true
+		p.l.Unlock()
+		p.Router.Invalidate()
 	}
 	return r
 }
