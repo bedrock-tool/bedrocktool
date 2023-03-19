@@ -23,7 +23,6 @@ type entityState struct {
 }
 
 type serverEntityType struct {
-	world.SaveableEntityType
 	Encoded string
 	NBT     map[string]any
 }
@@ -48,6 +47,8 @@ type serverEntity struct {
 	world.Entity
 	EntityType serverEntityType
 }
+
+var _ world.SaveableEntityType = &serverEntityType{}
 
 func (e serverEntity) Type() world.EntityType {
 	return e.EntityType

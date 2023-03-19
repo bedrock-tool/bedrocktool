@@ -73,12 +73,5 @@ func (bp *BehaviourPack) AddEntity(entity EntityIn) {
 		}
 	}
 
-	hasCollision := entity.Meta.Flag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagHasCollision)
-	hasGravity := entity.Meta.Flag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagHasGravity)
-	entry.MinecraftEntity.Components["minecraft:physics"] = map[string]any{
-		"has_collision": hasCollision,
-		"has_gravity":   hasGravity,
-	}
-
 	bp.entities[entity.Identifier] = entry
 }
