@@ -3,13 +3,13 @@ package worlds
 import (
 	"image"
 	"image/draw"
-	"time"
+	"math"
 
 	"gioui.org/f32"
-	"gioui.org/gesture"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
@@ -17,68 +17,83 @@ import (
 
 type Map struct {
 	click   f32.Point
-	mapPos  f32.Point
-	pos     f32.Point
 	imageOp paint.ImageOp
-	zoom    float32
 
-	drag   gesture.Drag
-	scroll gesture.Scroll
+	scaleFactor float32
+	center      f32.Point
+	transform   f32.Affine2D
+	grabbed     bool
 
 	MapImage  *image.RGBA
 	BoundsMin protocol.ChunkPos
 	BoundsMax protocol.ChunkPos
-	Rotation  float32
+}
+
+func (m *Map) HandlePointerEvent(e pointer.Event) {
+	switch e.Type {
+	case pointer.Press:
+		m.click = e.Position
+		m.grabbed = true
+	case pointer.Drag:
+		m.transform = m.transform.Offset(e.Position.Sub(m.click))
+		m.click = e.Position
+	case pointer.Release:
+		m.grabbed = false
+	case pointer.Scroll:
+		m.HandleScrollEvent(e)
+	}
+}
+
+func (m *Map) HandleScrollEvent(e pointer.Event) {
+	scaleFactor := float32(math.Pow(1.01, float64(e.Scroll.Y)))
+	m.transform = m.transform.Scale(e.Position.Sub(m.center), f32.Pt(scaleFactor, scaleFactor))
+	m.scaleFactor *= scaleFactor
 }
 
 func (m *Map) Layout(gtx layout.Context) layout.Dimensions {
 	// here we loop through all the events associated with this button.
-	for _, e := range m.drag.Events(gtx.Metric, gtx.Queue, gesture.Both) {
-		switch e.Type {
-		case pointer.Press:
-			m.click = e.Position
-		case pointer.Drag:
-			m.pos = m.mapPos.Sub(m.click).Add(e.Position)
-		case pointer.Release:
-			m.mapPos = m.pos
+	for _, e := range gtx.Events(m) {
+		if e, ok := e.(pointer.Event); ok {
+			m.HandlePointerEvent(e)
 		}
 	}
 
-	scrollDist := m.scroll.Scroll(gtx.Metric, gtx.Queue, time.Now(), gesture.Vertical)
-
-	m.zoom -= float32(scrollDist) / 20
-	if m.zoom < 0.2 {
-		m.zoom = 0.2
-	}
-
-	size := gtx.Constraints.Max
-
 	if m.MapImage != nil {
-		m.imageOp.Add(gtx.Ops)
-		b := m.MapImage.Bounds()
-		sx := float32(b.Dx() / 2)
-		sy := float32(b.Dy() / 2)
+		// Calculate the size of the widget based on the size of the image and the current scale factor.
+		dx := float32(m.MapImage.Bounds().Dx())
+		dy := float32(m.MapImage.Bounds().Dy())
+		size := f32.Pt(dx*m.scaleFactor, dy*m.scaleFactor)
 
-		op.Affine(
-			f32.Affine2D{}.
-				Scale(f32.Pt(sx, sy), f32.Pt(m.zoom, m.zoom)).
-				Offset(m.pos),
-		).Add(gtx.Ops)
+		m.center = f32.Pt(
+			float32(gtx.Constraints.Max.X),
+			float32(gtx.Constraints.Max.Y),
+		).Div(2)
+
+		// Calculate the offset required to center the image within the widget.
+		offset := m.center.Sub(size.Div(2))
+
+		// Draw the image at the correct position and scale.
+		defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
+		op.Affine(m.transform.Offset(offset)).Add(gtx.Ops)
+		m.imageOp.Add(gtx.Ops)
 		paint.PaintOp{}.Add(gtx.Ops)
 	}
 
-	m.drag.Add(gtx.Ops)
-	m.scroll.Add(gtx.Ops, image.Rect(-size.X, -size.Y, size.X, size.Y))
+	size := gtx.Constraints.Max
+	pointer.InputOp{
+		Tag:          m,
+		Grab:         m.grabbed,
+		Types:        pointer.Scroll | pointer.Drag | pointer.Press | pointer.Release,
+		ScrollBounds: image.Rect(-size.X, -size.Y, size.X, size.Y),
+	}.Add(gtx.Ops)
 
-	return layout.Dimensions{
-		Size: size,
-	}
+	return layout.Dimensions{Size: size}
 }
 
 func drawTile(img *image.RGBA, min, pos protocol.ChunkPos, tile *image.RGBA) {
 	px := image.Pt(
 		int((pos.X()-min[0])*16),
-		int((pos.Z()-min[0])*16),
+		int((pos.Z()-min[1])*16),
 	)
 	draw.Draw(img, image.Rect(
 		px.X, px.Y,
@@ -88,7 +103,7 @@ func drawTile(img *image.RGBA, min, pos protocol.ChunkPos, tile *image.RGBA) {
 
 func (m *Map) Update(u *messages.UpdateMapPayload) {
 	if m.MapImage == nil {
-		m.zoom = 1
+		m.scaleFactor = 1
 	}
 
 	needNewImage := false
