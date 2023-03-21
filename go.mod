@@ -8,6 +8,8 @@ replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.2
 //replace github.com/df-mc/dragonfly => ./dragonfly
 replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.9.3-6
 
+replace gioui.org => github.com/olebeck/gio v0.0.0-20230321105529-d424f1a59af9
+
 require (
 	gioui.org v0.0.0-20221219171716-c455f0f342ef
 	gioui.org/x v0.0.0-20230313161557-05b40af72ed0

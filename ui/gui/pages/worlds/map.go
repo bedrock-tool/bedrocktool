@@ -130,5 +130,5 @@ func (m *Map) Update(u *messages.UpdateMapPayload) {
 		}
 	}
 
-	m.imageOp = paint.NewImageOp(m.MapImage)
+	m.imageOp = paint.NewImageOpFilter(m.MapImage, paint.FilterNearest)
 }
