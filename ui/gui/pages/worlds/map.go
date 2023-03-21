@@ -40,14 +40,10 @@ func (m *Map) HandlePointerEvent(e pointer.Event) {
 	case pointer.Release:
 		m.grabbed = false
 	case pointer.Scroll:
-		m.HandleScrollEvent(e)
+		scaleFactor := float32(math.Pow(1.01, float64(e.Scroll.Y)))
+		m.transform = m.transform.Scale(e.Position.Sub(m.center), f32.Pt(scaleFactor, scaleFactor))
+		m.scaleFactor *= scaleFactor
 	}
-}
-
-func (m *Map) HandleScrollEvent(e pointer.Event) {
-	scaleFactor := float32(math.Pow(1.01, float64(e.Scroll.Y)))
-	m.transform = m.transform.Scale(e.Position.Sub(m.center), f32.Pt(scaleFactor, scaleFactor))
-	m.scaleFactor *= scaleFactor
 }
 
 func (m *Map) Layout(gtx layout.Context) layout.Dimensions {

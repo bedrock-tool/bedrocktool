@@ -257,6 +257,8 @@ func (w *WorldState) setWorldName(val string, fromUI bool) bool {
 
 func (w *WorldState) Reset() {
 	w.chunks = make(map[protocol.ChunkPos]*chunk.Chunk)
+	w.entities = make(map[uint64]*entityState)
+	w.openItemContainers = make(map[byte]*itemContainer)
 	w.WorldName = fmt.Sprintf("world-%d", w.worldCounter)
 	w.mapUI.Reset()
 }
