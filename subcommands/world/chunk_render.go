@@ -13,6 +13,9 @@ import (
 )
 
 func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.RGBA) {
+	if y < int16(c.Range().Min()) {
+		return color.RGBA{0, 0, 0, 0}
+	}
 	blockColor = color.RGBA{255, 0, 255, 255}
 	rid := c.Block(x, y, z, 0)
 	if rid == 0 && y == 0 { // void
@@ -20,10 +23,13 @@ func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.R
 	} else {
 		b, found := world.BlockByRuntimeID(rid)
 		if found {
-			if d, ok := b.(block.LightDiffuser); ok && d.LightDiffusionLevel() == 0 && y > int16(c.Range().Min()) {
-				return blockColorAt(c, x, y-1, z)
+			d, isDiffuser := b.(block.LightDiffuser)
+			if isDiffuser && d.LightDiffusionLevel() == 0 {
+				if _, ok := b.(block.Slab); !ok {
+					return blockColorAt(c, x, y-1, z)
+				}
 			}
-			if _, ok := b.(block.Water); ok {
+			if _, ok := b.(block.Water); ok && false {
 				y2 := c.HeightMap().At(x, z)
 				depth := y - y2
 				if depth > 0 {
