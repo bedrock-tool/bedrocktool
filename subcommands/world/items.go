@@ -18,77 +18,84 @@ type itemContainer struct {
 }
 
 func (w *WorldState) processItemPacketsServer(pk packet.Packet) packet.Packet {
+	if !w.experimentInventory {
+		return pk
+	}
+
 	switch pk := pk.(type) {
 	case *packet.ContainerOpen:
-		if w.experimentInventory {
-			// add to open containers
-			existing, ok := w.openItemContainers[pk.WindowID]
-			if !ok {
-				existing = &itemContainer{}
-			}
-			w.openItemContainers[pk.WindowID] = &itemContainer{
-				OpenPacket: pk,
-				Content:    existing.Content,
-			}
+		// add to open containers
+		existing, ok := w.openItemContainers[pk.WindowID]
+		if !ok {
+			existing = &itemContainer{}
 		}
+		w.openItemContainers[pk.WindowID] = &itemContainer{
+			OpenPacket: pk,
+			Content:    existing.Content,
+		}
+
 	case *packet.InventoryContent:
-		if w.experimentInventory {
-			// save content
-			existing, ok := w.openItemContainers[byte(pk.WindowID)]
-			if !ok {
-				if pk.WindowID == 0x0 { // inventory
-					w.openItemContainers[byte(pk.WindowID)] = &itemContainer{
-						Content: pk,
-					}
+		// save content
+		existing, ok := w.openItemContainers[byte(pk.WindowID)]
+		if !ok {
+			if pk.WindowID == 0x0 { // inventory
+				w.openItemContainers[byte(pk.WindowID)] = &itemContainer{
+					Content: pk,
 				}
+			}
+			break
+		}
+		existing.Content = pk
+
+	case *packet.ContainerClose:
+		// find container info
+		existing, ok := w.openItemContainers[byte(pk.WindowID)]
+
+		switch pk.WindowID {
+		case protocol.WindowIDArmour: // todo handle
+		case protocol.WindowIDOffHand: // todo handle
+		case protocol.WindowIDUI:
+		case protocol.WindowIDInventory: // todo handle
+			if !ok {
 				break
 			}
-			existing.Content = pk
-		}
-	case *packet.ContainerClose:
-		if w.experimentInventory {
-			switch pk.WindowID {
-			case protocol.WindowIDArmour: // todo handle
-			case protocol.WindowIDOffHand: // todo handle
-			case protocol.WindowIDUI:
-			case protocol.WindowIDInventory: // todo handle
-			default:
-				// find container info
-				existing, ok := w.openItemContainers[byte(pk.WindowID)]
-				if !ok {
-					logrus.Warn(locale.Loc("warn_window_closed_not_open", nil))
-					break
-				}
 
-				if existing.Content == nil {
-					break
-				}
-
-				pos := existing.OpenPacket.ContainerPosition
-				cp := protocol.SubChunkPos{pos.X() << 4, pos.Z() << 4}
-
-				// create inventory
-				inv := inventory.New(len(existing.Content.Content), nil)
-				for i, c := range existing.Content.Content {
-					item := stackToItem(c.Stack)
-					inv.SetItem(i, item)
-				}
-
-				// put into subchunk
-				nbts := w.blockNBT[cp]
-				for i, v := range nbts {
-					NBTPos := protocol.BlockPos{v["x"].(int32), v["y"].(int32), v["z"].(int32)}
-					if NBTPos == pos {
-						w.blockNBT[cp][i]["Items"] = nbtconv.InvToNBT(inv)
-					}
-				}
-
-				w.proxy.SendMessage(locale.Loc("saved_block_inv", nil))
-
-				// remove it again
-				delete(w.openItemContainers, byte(pk.WindowID))
+		default:
+			if !ok {
+				logrus.Warn(locale.Loc("warn_window_closed_not_open", nil))
+				break
 			}
+
+			if existing.Content == nil {
+				break
+			}
+
+			pos := existing.OpenPacket.ContainerPosition
+			cp := protocol.SubChunkPos{pos.X() << 4, pos.Z() << 4}
+
+			// create inventory
+			inv := inventory.New(len(existing.Content.Content), nil)
+			for i, c := range existing.Content.Content {
+				item := stackToItem(c.Stack)
+				inv.SetItem(i, item)
+			}
+
+			// put into subchunk
+			nbts := w.blockNBT[cp]
+			for i, v := range nbts {
+				NBTPos := protocol.BlockPos{v["x"].(int32), v["y"].(int32), v["z"].(int32)}
+				if NBTPos == pos {
+					w.blockNBT[cp][i]["Items"] = nbtconv.InvToNBT(inv)
+					break
+				}
+			}
+
+			w.proxy.SendMessage(locale.Loc("saved_block_inv", nil))
+
+			// remove it again
+			delete(w.openItemContainers, byte(pk.WindowID))
 		}
+
 	case *packet.ItemComponent:
 		w.bp.ApplyComponentEntries(pk.Items)
 	}
