@@ -29,7 +29,7 @@ func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.R
 					return blockColorAt(c, x, y-1, z)
 				}
 			}
-			if _, ok := b.(block.Water); ok && false {
+			if _, ok := b.(block.Water); ok {
 				y2 := c.HeightMap().At(x, z)
 				depth := y - y2
 				if depth > 0 {
