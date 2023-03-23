@@ -12,6 +12,7 @@ git.wow.st/gmp/jni v0.0.0-20210610011705-34026c7e22d0 h1:bGG/g4ypjrCJoSvFrP5hafr
 git.wow.st/gmp/jni v0.0.0-20210610011705-34026c7e22d0/go.mod h1:+axXBRUTIDlCeE73IKeD/os7LoEnTKdkp8/gQOFjqyo=
 github.com/BurntSushi/toml v1.0.0 h1:dtDWrepsVPfW9H/4y7dDgFc2MBUSeJhlaDtK13CxFlU=
 github.com/BurntSushi/toml v1.0.0/go.mod h1:CxXYINrC8qIiEnFrOxCa7Jy5BFHlXnUU2pbicEuybxQ=
+github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/benoitkugler/pstokenizer v1.0.0/go.mod h1:l1G2Voirz0q/jj0TQfabNxVsa8HZXh/VMxFSRALWTiE=
 github.com/benoitkugler/textlayout v0.3.0 h1:2ehWXEkgb6RUokTjXh1LzdGwG4dRP6X3dqhYYDYhUVk=
 github.com/benoitkugler/textlayout v0.3.0/go.mod h1:o+1hFV+JSHBC9qNLIuwVoLedERU7sBPgEFcuSgfvi/w=
@@ -19,6 +20,8 @@ github.com/benoitkugler/textlayout-testdata v0.1.1 h1:AvFxBxpfrQd8v55qH59mZOJOQj
 github.com/benoitkugler/textlayout-testdata v0.1.1/go.mod h1:i/qZl09BbUOtd7Bu/W1CAubRwTWrEXWq6JwMkw8wYxo=
 github.com/brentp/intintmap v0.0.0-20190211203843-30dc0ade9af9 h1:/G0ghZwrhou0Wq21qc1vXXMm/t/aKWkALWwITptKbE0=
 github.com/brentp/intintmap v0.0.0-20190211203843-30dc0ade9af9/go.mod h1:TOk10ahXejq9wkEaym3KPRNeuR/h5Jx+s8QRWIa2oTM=
+github.com/cespare/xxhash v1.1.0 h1:a6HrQnmkObjyL+Gs60czilIUGqrzKutQD6XZog3p+ko=
+github.com/cespare/xxhash v1.1.0/go.mod h1:XrSqR1VqqWfGrhpAt58auRo0WTKS1nRRg3ghfAqPWnc=
 github.com/changkun/lockfree v0.0.1 h1:5WefVJLglY4IHRqOQmh6Ao6wkJYaJkarshKU8VUtId4=
 github.com/changkun/lockfree v0.0.1/go.mod h1:3bKiaXn/iNzIPlSvSOMSVbRQUQtAp8qUAyBUtzU11s4=
 github.com/cloudfoundry-attic/jibber_jabber v0.0.0-20151120183258-bcc4c8345a21 h1:Yg2hDs4b13Evkpj42FU2idX2cVXVFqQSheXYKM86Qsk=
@@ -81,10 +84,18 @@ github.com/olebeck/dragonfly v0.9.3-5 h1:8MUpzKz1UZ0K+DJrywBV6C/ydGMggTxGg1n9VFA
 github.com/olebeck/dragonfly v0.9.3-5/go.mod h1:ODAzVcmM7KvKgPB89hoYndQiVVgTm9FlDXUko1H3YVs=
 github.com/olebeck/dragonfly v0.9.3-6 h1:ots1osXxuP6fQg4C8tt3y8xfpc+JNqOarI5zufisKFs=
 github.com/olebeck/dragonfly v0.9.3-6/go.mod h1:ODAzVcmM7KvKgPB89hoYndQiVVgTm9FlDXUko1H3YVs=
+github.com/olebeck/dragonfly v0.9.3-7 h1:zIMWsox18efEe7R+VmJOTJRePU9x2YN3CE1uzfse1AM=
+github.com/olebeck/dragonfly v0.9.3-7/go.mod h1:nnnmYWgSTNQb9x33nBthqN/2vyHlUaijfo+e2y3W5j4=
+github.com/olebeck/dragonfly v0.9.3-8 h1:w514gGVTK2iv3TDI8EuzSCDHrF2Hv2f+/lIicW0J6Bg=
+github.com/olebeck/dragonfly v0.9.3-8/go.mod h1:nnnmYWgSTNQb9x33nBthqN/2vyHlUaijfo+e2y3W5j4=
 github.com/olebeck/gio v0.0.0-20230321105529-d424f1a59af9 h1:TqDsMHwjW5ZYfh+RE8ussT62m0qXqo+QjzSXb7BCVA4=
 github.com/olebeck/gio v0.0.0-20230321105529-d424f1a59af9/go.mod h1:+W1Kpf96YcfissZocFqIp6O42FDTuphkObbEybp+Ffc=
+github.com/olebeck/gophertunnel v1.27.4-3 h1:RktAdTNTvCFn6PQou0H3RyqrTo3/xH0bqODrHb/oXAs=
+github.com/olebeck/gophertunnel v1.27.4-3/go.mod h1:ekREo7U9TPHh86kbuPMaWA93NMyWsfVvP/iNT3XhAb8=
 github.com/olebeck/gophertunnel v1.27.4-4 h1:ZzmZquRW0WdoH/smsOk91O+40dotn7574bID+BkHbuk=
 github.com/olebeck/gophertunnel v1.27.4-4/go.mod h1:ekREo7U9TPHh86kbuPMaWA93NMyWsfVvP/iNT3XhAb8=
+github.com/olebeck/gophertunnel v1.28.1-1 h1:bw2jeMz94YHF5qQYhq1Yq/6fALkklGu7k26YbPI4DSs=
+github.com/olebeck/gophertunnel v1.28.1-1/go.mod h1:ekREo7U9TPHh86kbuPMaWA93NMyWsfVvP/iNT3XhAb8=
 github.com/onsi/ginkgo v1.6.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=
 github.com/onsi/ginkgo v1.7.0 h1:WSHQ+IS43OoUrWtD1/bbclrwK8TTH5hzp+umCiuxHgs=
 github.com/onsi/ginkgo v1.7.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=
@@ -98,6 +109,7 @@ github.com/sandertv/go-raknet v1.12.0 h1:olUzZlIJyX/pgj/mrsLCZYjKLNDsYiWdvQ4NIm3
 github.com/sandertv/go-raknet v1.12.0/go.mod h1:Gx+WgZBMQ0V2UoouGoJ8Wj6CDrMBQ4SB2F/ggpl5/+Y=
 github.com/sirupsen/logrus v1.9.0 h1:trlNQbNUG3OdDrDil03MCb1H2o9nJ1x4/5LYw7byDE0=
 github.com/sirupsen/logrus v1.9.0/go.mod h1:naHLuLoDiP4jHNo9R0sCBMtWGeIprob74mVsIT4qYEQ=
+github.com/spaolacci/murmur3 v0.0.0-20180118202830-f09979ecbc72/go.mod h1:JwIasOWyU6f++ZhiEuf87xNszmSA2myDM2Kzu9HwQUA=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.7.0 h1:nwc3DEeHmmLAfoZucVR881uASk0Mfjw8xYJ99tb5CcY=
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=

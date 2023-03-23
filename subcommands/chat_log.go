@@ -43,13 +43,13 @@ func (c *ChatLogCMD) Execute(ctx context.Context, ui utils.UI) error {
 	if err != nil {
 		return err
 	}
-	proxy.PacketCB = func(pk packet.Packet, proxy *utils.ProxyContext, toServer bool, _ time.Time) (packet.Packet, error) {
+	proxy.PacketCB = func(pk packet.Packet, toServer bool, t time.Time) (packet.Packet, error) {
 		if text, ok := pk.(*packet.Text); ok {
 			logLine := text.Message
 			if c.Verbose {
 				logLine += fmt.Sprintf("   (TextType: %d | XUID: %s | PlatformChatID: %s)", text.TextType, text.XUID, text.PlatformChatID)
 			}
-			f.WriteString(fmt.Sprintf("[%s] ", time.Now().Format(time.RFC3339)))
+			f.WriteString(fmt.Sprintf("[%s] ", t.Format(time.RFC3339)))
 			logrus.Info(logLine)
 			if toServer {
 				f.WriteString("SENT: ")

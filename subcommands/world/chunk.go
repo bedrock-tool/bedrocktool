@@ -44,29 +44,14 @@ func (w *WorldState) processLevelChunk(pk *packet.LevelChunk) {
 			pk.Position.X(), 0, pk.Position.Z(),
 		}] = blockNBTs
 	}
-
-	// check if chunk is empty
-	empty := true
-	for _, sub := range ch.Sub() {
-		if !sub.Empty() {
-			empty = false
-			break
-		}
-	}
-
 	w.chunks[pk.Position] = ch
 
-	if pk.SubChunkRequestMode == protocol.SubChunkRequestModeLegacy {
-		if !empty {
-			w.mapUI.SetChunk(pk.Position, ch)
-		}
-	} else {
-		// request all the subchunks
-		max := w.Dim.Range().Height() / 16
-		if pk.SubChunkRequestMode == protocol.SubChunkRequestModeLimited {
-			max = int(pk.HighestSubChunk)
-		}
-
+	max := w.Dim.Range().Height() / 16
+	switch pk.SubChunkCount {
+	case protocol.SubChunkRequestModeLimited:
+		max = int(pk.HighestSubChunk)
+		fallthrough
+	case protocol.SubChunkRequestModeLimitless:
 		w.proxy.Server.WritePacket(&packet.SubChunkRequest{
 			Dimension: int32(w.Dim.EncodeDimension()),
 			Position: protocol.SubChunkPos{
@@ -74,6 +59,18 @@ func (w *WorldState) processLevelChunk(pk *packet.LevelChunk) {
 			},
 			Offsets: offsetTable[:max],
 		})
+	default:
+		// legacy
+		empty := true
+		for _, sub := range ch.Sub() {
+			if !sub.Empty() {
+				empty = false
+				break
+			}
+		}
+		if !empty {
+			w.mapUI.SetChunk(pk.Position, ch)
+		}
 	}
 }
 

@@ -34,7 +34,7 @@ func WriteReplayHeader(f io.Writer) {
 	binary.Write(f, binary.LittleEndian, &header)
 }
 
-func createReplayConnection(ctx context.Context, filename string, onConnect ConnectCallback, packetCB PacketCallback) error {
+func createReplayConnection(ctx context.Context, filename string, proxy *ProxyContext) error {
 	logrus.Infof("Reading replay %s", filename)
 
 	f, err := os.Open(filename)
@@ -63,7 +63,6 @@ func createReplayConnection(ctx context.Context, filename string, onConnect Conn
 		f.Seek(-4, io.SeekCurrent)
 	}
 
-	proxy, _ := NewProxy()
 	proxy.Server = minecraft.NewConn()
 
 	gameStarted := false
@@ -129,8 +128,8 @@ func createReplayConnection(ctx context.Context, filename string, onConnect Conn
 			}
 
 			if gameStarted {
-				if packetCB != nil {
-					packetCB(pk, proxy, toServer, timeReceived)
+				if proxy.PacketCB != nil {
+					proxy.PacketCB(pk, toServer, timeReceived)
 				}
 			} else {
 				switch pk := pk.(type) {
@@ -165,8 +164,8 @@ func createReplayConnection(ctx context.Context, filename string, onConnect Conn
 						DisablePlayerInteractions:    pk.DisablePlayerInteractions,
 					})
 					gameStarted = true
-					if onConnect != nil {
-						onConnect(proxy, nil)
+					if proxy.ConnectCB != nil {
+						proxy.ConnectCB(nil)
 					}
 				}
 			}

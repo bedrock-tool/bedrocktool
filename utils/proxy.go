@@ -41,9 +41,9 @@ func (p dummyProto) ConvertFromLatest(pk packet.Packet, _ *minecraft.Conn) []pac
 
 type (
 	PacketFunc            func(header packet.Header, payload []byte, src, dst net.Addr)
-	PacketCallback        func(pk packet.Packet, proxy *ProxyContext, toServer bool, timeReceived time.Time) (packet.Packet, error)
-	ClientConnectCallback func(proxy *ProxyContext, hasClient bool)
-	ConnectCallback       func(proxy *ProxyContext, err error) bool
+	PacketCallback        func(pk packet.Packet, toServer bool, timeReceived time.Time) (packet.Packet, error)
+	ClientConnectCallback func(hasClient bool)
+	ConnectCallback       func(err error) bool
 	IngameCommand         struct {
 		Exec func(cmdline []string) bool
 		Cmd  protocol.Command
@@ -161,25 +161,28 @@ func (p *ProxyContext) LoadCustomUserData(path string) error {
 	return nil
 }
 
-func (p *ProxyContext) SendMessage(text string) {
-	if p.Client != nil {
-		p.Client.WritePacket(&packet.Text{
-			TextType: packet.TextTypeSystem,
-			Message:  "§8[§bBedrocktool§8]§r " + text,
-		})
+func (p *ProxyContext) ClientWritePacket(pk packet.Packet) error {
+	if p.Client == nil {
+		return nil
 	}
+	return p.Client.WritePacket(pk)
+}
+
+func (p *ProxyContext) SendMessage(text string) {
+	p.ClientWritePacket(&packet.Text{
+		TextType: packet.TextTypeSystem,
+		Message:  "§8[§bBedrocktool§8]§r " + text,
+	})
 }
 
 func (p *ProxyContext) SendPopup(text string) {
-	if p.Client != nil {
-		p.Client.WritePacket(&packet.Text{
-			TextType: packet.TextTypePopup,
-			Message:  text,
-		})
-	}
+	p.ClientWritePacket(&packet.Text{
+		TextType: packet.TextTypePopup,
+		Message:  text,
+	})
 }
 
-func (p *ProxyContext) CommandHandlerPacketCB(pk packet.Packet, proxy *ProxyContext, toServer bool, _ time.Time) (packet.Packet, error) {
+func (p *ProxyContext) CommandHandlerPacketCB(pk packet.Packet, toServer bool, _ time.Time) (packet.Packet, error) {
 	switch _pk := pk.(type) {
 	case *packet.CommandRequest:
 		cmd := strings.Split(_pk.CommandLine, " ")
@@ -223,7 +226,7 @@ func (p *ProxyContext) proxyLoop(ctx context.Context, toServer bool, packetCBs [
 		}
 
 		for _, packetCB := range packetCBs {
-			pk, err = packetCB(pk, p, toServer, time.Now())
+			pk, err = packetCB(pk, toServer, time.Now())
 			if err != nil {
 				return err
 			}
@@ -240,11 +243,9 @@ func (p *ProxyContext) proxyLoop(ctx context.Context, toServer bool, packetCBs [
 	}
 }
 
-var ClientAddr net.Addr
-
 func (p *ProxyContext) Run(ctx context.Context, serverAddress string) (err error) {
 	if strings.HasPrefix(serverAddress, "PCAP!") {
-		return createReplayConnection(ctx, serverAddress[5:], p.ConnectCB, p.PacketCB)
+		return createReplayConnection(ctx, serverAddress[5:], p)
 	}
 
 	GetTokenSource() // ask for login before listening
@@ -298,7 +299,7 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress string) (err error
 	}
 
 	if p.OnClientConnect != nil {
-		p.OnClientConnect(p, p.WithClient)
+		p.OnClientConnect(p.WithClient)
 	}
 
 	if p.CustomClientData != nil {
@@ -308,7 +309,7 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress string) (err error
 	p.Server, err = connectServer(ctx, serverAddress, cdp, p.AlwaysGetPacks, p.PacketFunc)
 	if err != nil {
 		if p.ConnectCB != nil {
-			if p.ConnectCB(p, err) {
+			if p.ConnectCB(err) {
 				err = nil
 			}
 		}
@@ -324,7 +325,7 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress string) (err error
 	}
 
 	if p.ConnectCB != nil {
-		if !p.ConnectCB(p, nil) {
+		if !p.ConnectCB(nil) {
 			return errors.New("Cancelled")
 		}
 	}

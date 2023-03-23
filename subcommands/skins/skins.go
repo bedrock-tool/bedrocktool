@@ -148,10 +148,10 @@ func (c *SkinCMD) Execute(ctx context.Context, ui utils.UI) error {
 
 	proxy, _ := utils.NewProxy()
 	proxy.WithClient = !c.NoProxy
-	proxy.OnClientConnect = func(proxy *utils.ProxyContext, hasClient bool) {
+	proxy.OnClientConnect = func(hasClient bool) {
 		ui.Message(messages.SetUIState, messages.UIStateConnecting)
 	}
-	proxy.ConnectCB = func(proxy *utils.ProxyContext, err error) bool {
+	proxy.ConnectCB = func(err error) bool {
 		if err != nil {
 			return false
 		}
@@ -165,7 +165,7 @@ func (c *SkinCMD) Execute(ctx context.Context, ui utils.UI) error {
 
 	s := NewSkinsSession(proxy, hostname, outPathBase)
 
-	proxy.PacketCB = func(pk packet.Packet, _ *utils.ProxyContext, toServer bool, _ time.Time) (packet.Packet, error) {
+	proxy.PacketCB = func(pk packet.Packet, toServer bool, _ time.Time) (packet.Packet, error) {
 		if !toServer {
 			for _, s := range s.ProcessPacket(pk) {
 				ui.Message(messages.NewSkin, messages.NewSkinPayload{

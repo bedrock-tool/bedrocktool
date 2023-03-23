@@ -66,16 +66,14 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 		return margin.Layout(gtx, material.Label(th, 100, "Connecting").Layout)
 	case messages.UIStateMain:
 		// show the main ui
-		return margin.Layout(gtx, func(gtx C) D {
-			return layout.Flex{
-				Axis: layout.Vertical,
-			}.Layout(gtx,
-				layout.Rigid(material.Label(th, 20, "World Downloader Basic UI").Layout),
-				layout.Flexed(1, func(gtx C) D {
-					return layout.Center.Layout(gtx, p.worldMap.Layout)
-				}),
-			)
-		})
+		return layout.Flex{
+			Axis: layout.Vertical,
+		}.Layout(gtx,
+			layout.Rigid(material.Label(th, 20, "World Downloader Basic UI").Layout),
+			layout.Flexed(1, func(gtx C) D {
+				return layout.Center.Layout(gtx, p.worldMap.Layout)
+			}),
+		)
 	}
 
 	return layout.Flex{}.Layout(gtx)

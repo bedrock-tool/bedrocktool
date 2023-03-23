@@ -12,39 +12,45 @@ import (
 	"github.com/df-mc/dragonfly/server/world/chunk"
 )
 
+func isBlockLightblocking(b world.Block) bool {
+	d, isDiffuser := b.(block.LightDiffuser)
+	_, isSlab := b.(block.Slab)
+	noDiffuse := isDiffuser && d.LightDiffusionLevel() == 0
+	return noDiffuse && !isSlab
+}
+
 func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.RGBA) {
-	if y < int16(c.Range().Min()) {
+	if y <= int16(c.Range().Min()) {
 		return color.RGBA{0, 0, 0, 0}
 	}
 	blockColor = color.RGBA{255, 0, 255, 255}
 	rid := c.Block(x, y, z, 0)
-	if rid == 0 && y == 0 { // void
+	if rid == 0 && y == int16(c.Range().Min()) { // void
 		blockColor = color.RGBA{0, 0, 0, 255}
 	} else {
 		b, found := world.BlockByRuntimeID(rid)
 		if found {
-			d, isDiffuser := b.(block.LightDiffuser)
-			if isDiffuser && d.LightDiffusionLevel() == 0 {
-				if _, ok := b.(block.Slab); !ok {
-					return blockColorAt(c, x, y-1, z)
-				}
+			if isBlockLightblocking(b) {
+				return blockColorAt(c, x, y-1, z)
 			}
-			if _, ok := b.(block.Water); ok {
-				y2 := c.HeightMap().At(x, z)
-				depth := y - y2
-				if depth > 0 {
-					blockColor = blockColorAt(c, x, y2, z)
-				}
+			_, isWater := b.(block.Water)
+			if !isWater {
+				return b.Color()
+			}
+			// get the first non water block at the position
+			heightBlock := c.HeightMap().At(x, z)
+			depth := y - heightBlock
+			if depth > 0 {
+				blockColor = blockColorAt(c, x, heightBlock, z)
+			}
 
-				bw := (&block.Water{}).Color()
-				bw.A = uint8(utils.Clamp(int(150+depth*7), 255))
-				blockColor = utils.BlendColors(blockColor, bw)
-				blockColor.R -= uint8(depth * 2)
-				blockColor.G -= uint8(depth * 2)
-				blockColor.B -= uint8(depth * 2)
-			} else {
-				blockColor = b.Color()
-			}
+			// blend that blocks color with water depending on depth
+			waterColor := (&block.Water{}).Color()
+			waterColor.A = uint8(utils.Clamp(int(150+depth*7), 255))
+			blockColor = utils.BlendColors(blockColor, waterColor)
+			blockColor.R -= uint8(depth * 2)
+			blockColor.G -= uint8(depth * 2)
+			blockColor.B -= uint8(depth * 2)
 		}
 		/*
 			if blockColor.R == 0 || blockColor.R == 255 && blockColor.B == 255 {
@@ -58,39 +64,37 @@ func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.R
 }
 
 func chunkGetColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) color.RGBA {
-	p := cube.Pos{int(x), int(y), int(z)}
 	haveUp := false
-	p.Side(cube.FaceUp).Neighbours(func(neighbour cube.Pos) {
-		if neighbour.X() < 0 || neighbour.X() >= 16 || neighbour.Z() < 0 || neighbour.Z() >= 16 || neighbour.Y() > c.Range().Max() {
-			return
-		}
-		if !haveUp {
+	cube.Pos{int(x), int(y), int(z)}.
+		Side(cube.FaceUp).
+		Neighbours(func(neighbour cube.Pos) {
+			if neighbour.X() < 0 || neighbour.X() >= 16 || neighbour.Z() < 0 || neighbour.Z() >= 16 || neighbour.Y() > c.Range().Max() || haveUp {
+				return
+			}
 			blockRid := c.Block(uint8(neighbour[0]), int16(neighbour[1]), uint8(neighbour[2]), 0)
 			if blockRid > 0 {
 				b, found := world.BlockByRuntimeID(blockRid)
 				if found {
-					if _, ok := b.(block.Air); !ok {
+					if isBlockLightblocking(b) {
 						haveUp = true
 					}
 				}
 			}
-		}
-	}, cube.Range{int(y + 1), int(y + 1)})
+		}, cube.Range{int(y + 1), int(y + 1)})
 
-	col := blockColorAt(c, x, y, z)
-
+	blockColor := blockColorAt(c, x, y, z)
 	if haveUp {
-		if col.R > 10 {
-			col.R -= 10
+		if blockColor.R > 10 {
+			blockColor.R -= 10
 		}
-		if col.G > 10 {
-			col.G -= 10
+		if blockColor.G > 10 {
+			blockColor.G -= 10
 		}
-		if col.B > 10 {
-			col.B -= 10
+		if blockColor.B > 10 {
+			blockColor.B -= 10
 		}
 	}
-	return col
+	return blockColor
 }
 
 func Chunk2Img(c *chunk.Chunk) *image.RGBA {
@@ -99,9 +103,10 @@ func Chunk2Img(c *chunk.Chunk) *image.RGBA {
 
 	for x := uint8(0); x < 16; x++ {
 		for z := uint8(0); z < 16; z++ {
-			height := hm.At(x, z)
-			col := chunkGetColorAt(c, x, height, z)
-			img.SetRGBA(int(x), int(z), col)
+			img.SetRGBA(
+				int(x), int(z),
+				chunkGetColorAt(c, x, hm.At(x, z), z),
+			)
 		}
 	}
 	return img

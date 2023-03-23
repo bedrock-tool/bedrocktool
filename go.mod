@@ -3,10 +3,10 @@ module github.com/bedrock-tool/bedrocktool
 go 1.20
 
 //replace github.com/sandertv/gophertunnel => ./gophertunnel
-replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.27.4-4
+replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.28.1-1
 
 //replace github.com/df-mc/dragonfly => ./dragonfly
-replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.9.3-6
+replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.9.3-8
 
 replace gioui.org => github.com/olebeck/gio v0.0.0-20230321105529-d424f1a59af9
 
@@ -26,7 +26,7 @@ require (
 	github.com/nicksnyder/go-i18n/v2 v2.2.1
 	github.com/sanbornm/go-selfupdate v0.0.0-20210106163404-c9b625feac49
 	github.com/sandertv/go-raknet v1.12.0
-	github.com/sandertv/gophertunnel v1.27.4
+	github.com/sandertv/gophertunnel v1.28.1
 	github.com/sirupsen/logrus v1.9.0
 	golang.design/x/lockfree v0.0.1
 	golang.org/x/crypto v0.7.0

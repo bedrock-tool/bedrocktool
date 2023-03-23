@@ -162,6 +162,8 @@ func DumpStruct(data interface{}) {
 	FLog.Write([]byte("\n\n\n"))
 }
 
+var ClientAddr net.Addr
+
 func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
 	var pk packet.Packet
 	if pkFunc, ok := pool[header.PacketID]; ok {
@@ -176,11 +178,11 @@ func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
 
 	defer func() {
 		if recoveredErr := recover(); recoveredErr != nil {
-			logrus.Errorf("%T: %w", pk, recoveredErr)
+			logrus.Errorf("%T: %s", pk, recoveredErr.(error))
 		}
 	}()
 
-	pk.Unmarshal(protocol.NewReader(bytes.NewBuffer(payload), 0))
+	pk.Marshal(protocol.NewReader(bytes.NewBuffer(payload), 0))
 
 	if FLog != nil {
 		dmpLock.Lock()

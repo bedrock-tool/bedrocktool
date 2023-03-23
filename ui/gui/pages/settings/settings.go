@@ -59,7 +59,6 @@ func New(router *pages.Router) *Page {
 		OptionList: layout.List{},
 		Options:    options,
 	}
-	//p.cmdMenu.selected = "worlds"
 
 	for _, su := range settings.Settings {
 		su.Init()

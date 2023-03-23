@@ -100,19 +100,18 @@ func (m *MapUI) Start() {
 	}
 
 	// init map
-	if m.w.proxy.Client != nil {
-		if err := m.w.proxy.Client.WritePacket(&packet.ClientBoundMapItemData{
-			MapID:          ViewMapID,
-			Scale:          4,
-			MapsIncludedIn: []int64{ViewMapID},
-			Width:          0,
-			Height:         0,
-			Pixels:         nil,
-			UpdateFlags:    packet.MapUpdateFlagInitialisation,
-		}); err != nil {
-			logrus.Error(err)
-			return
-		}
+	err := m.w.proxy.ClientWritePacket(&packet.ClientBoundMapItemData{
+		MapID:          ViewMapID,
+		Scale:          4,
+		MapsIncludedIn: []int64{ViewMapID},
+		Width:          0,
+		Height:         0,
+		Pixels:         nil,
+		UpdateFlags:    packet.MapUpdateFlagInitialisation,
+	})
+	if err != nil {
+		logrus.Error(err)
+		return
 	}
 
 	m.ticker = time.NewTicker(33 * time.Millisecond)
@@ -122,18 +121,16 @@ func (m *MapUI) Start() {
 				m.needRedraw = false
 				m.Redraw()
 
-				if m.w.proxy.Client != nil {
-					if err := m.w.proxy.Client.WritePacket(&packet.ClientBoundMapItemData{
-						MapID:       ViewMapID,
-						Scale:       4,
-						Width:       128,
-						Height:      128,
-						Pixels:      utils.Img2rgba(m.img),
-						UpdateFlags: packet.MapUpdateFlagTexture,
-					}); err != nil {
-						logrus.Error(err)
-						return
-					}
+				if err := m.w.proxy.ClientWritePacket(&packet.ClientBoundMapItemData{
+					MapID:       ViewMapID,
+					Scale:       4,
+					Width:       128,
+					Height:      128,
+					Pixels:      utils.Img2rgba(m.img),
+					UpdateFlags: packet.MapUpdateFlagTexture,
+				}); err != nil {
+					logrus.Error(err)
+					return
 				}
 			}
 		}
@@ -144,12 +141,10 @@ func (m *MapUI) Start() {
 			if m.w.ctx.Err() != nil {
 				return
 			}
-			if m.w.proxy.Client != nil {
-				err := m.w.proxy.Client.WritePacket(&MapItemPacket)
-				if err != nil {
-					logrus.Error(err)
-					return
-				}
+			err := m.w.proxy.ClientWritePacket(&MapItemPacket)
+			if err != nil {
+				logrus.Error(err)
+				return
 			}
 		}
 	}()

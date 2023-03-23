@@ -156,10 +156,10 @@ func (c *WorldCMD) Execute(ctx context.Context, ui utils.UI) error {
 
 	proxy.AlwaysGetPacks = true
 	proxy.ConnectCB = w.OnConnect
-	proxy.OnClientConnect = func(proxy *utils.ProxyContext, hasClient bool) {
+	proxy.OnClientConnect = func(hasClient bool) {
 		w.gui.Message(messages.SetUIState, messages.UIStateConnecting)
 	}
-	proxy.PacketCB = func(pk packet.Packet, proxy *utils.ProxyContext, toServer bool, _ time.Time) (packet.Packet, error) {
+	proxy.PacketCB = func(pk packet.Packet, toServer bool, _ time.Time) (packet.Packet, error) {
 		forward := true
 
 		if toServer {
@@ -263,11 +263,12 @@ func (w *WorldState) Reset() {
 
 // SaveAndReset writes the world to a folder, resets all the chunks
 func (w *WorldState) SaveAndReset() {
+
+	// cull empty chunks
 	keys := make([]protocol.ChunkPos, 0, len(w.chunks))
 	for cp := range w.chunks {
 		keys = append(keys, cp)
 	}
-
 	for _, cp := range keys {
 		has_any := false
 		for _, sc := range w.chunks[cp].Sub() {
@@ -280,7 +281,6 @@ func (w *WorldState) SaveAndReset() {
 			delete(w.chunks, cp)
 		}
 	}
-
 	if len(w.chunks) == 0 {
 		w.Reset()
 		return
@@ -316,6 +316,7 @@ func (w *WorldState) SaveAndReset() {
 		}
 	}
 
+	// save entities
 	chunkEntities := make(map[world.ChunkPos][]world.Entity)
 	for _, es := range w.entities {
 		cp := world.ChunkPos{int32(es.Position.X()) >> 4, int32(es.Position.Z()) >> 4}
@@ -517,13 +518,12 @@ func (w *WorldState) SaveAndReset() {
 	w.Reset()
 }
 
-func (w *WorldState) OnConnect(proxy *utils.ProxyContext, err error) bool {
+func (w *WorldState) OnConnect(err error) bool {
 	w.gui.Message(messages.SetUIState, messages.UIStateMain)
 
 	if err != nil {
 		return false
 	}
-	w.proxy = proxy
 	gd := w.proxy.Server.GameData()
 	w.ChunkRadius = int(gd.ChunkRadius)
 
@@ -570,9 +570,7 @@ func (w *WorldState) OnConnect(proxy *utils.ProxyContext, err error) bool {
 
 	w.proxy.SendMessage(locale.Loc("use_setname", nil))
 
-	w.mapUI.Start()
-
-	proxy.AddCommand(utils.IngameCommand{
+	w.proxy.AddCommand(utils.IngameCommand{
 		Exec: func(cmdline []string) bool {
 			return w.setWorldName(strings.Join(cmdline, " "), false)
 		},
@@ -593,7 +591,7 @@ func (w *WorldState) OnConnect(proxy *utils.ProxyContext, err error) bool {
 		},
 	})
 
-	proxy.AddCommand(utils.IngameCommand{
+	w.proxy.AddCommand(utils.IngameCommand{
 		Exec: func(cmdline []string) bool {
 			return w.setVoidGen(!w.voidGen, false)
 		},
@@ -603,9 +601,10 @@ func (w *WorldState) OnConnect(proxy *utils.ProxyContext, err error) bool {
 		},
 	})
 
-	if w.proxy.Client != nil {
-		w.proxy.Client.WritePacket(&packet.ChunkRadiusUpdated{ChunkRadius: 80})
-	}
+	w.mapUI.Start()
 
+	w.proxy.ClientWritePacket(&packet.ChunkRadiusUpdated{
+		ChunkRadius: 80,
+	})
 	return true
 }

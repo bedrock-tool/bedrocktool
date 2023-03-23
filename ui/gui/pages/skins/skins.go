@@ -77,15 +77,13 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 				Axis: layout.Vertical,
 			}.Layout(gtx,
 				layout.Rigid(material.Label(th, 20, "Skin Basic UI").Layout),
-				layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				layout.Flexed(1, func(gtx C) D {
 					p.l.Lock()
 					defer p.l.Unlock()
-					return material.List(th, &p.SkinsList).Layout(gtx, len(p.Skins), func(gtx layout.Context, index int) layout.Dimensions {
+					return material.List(th, &p.SkinsList).Layout(gtx, len(p.Skins), func(gtx C, index int) D {
 						entry := p.Skins[len(p.Skins)-index-1]
-						return layout.UniformInset(25).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return layout.Flex{
-								Axis: layout.Horizontal,
-							}.Layout(gtx,
+						return layout.UniformInset(25).Layout(gtx, func(gtx C) D {
+							return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 								layout.Rigid(material.Label(th, th.TextSize, entry.PlayerName).Layout),
 							)
 						})
