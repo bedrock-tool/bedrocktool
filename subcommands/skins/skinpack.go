@@ -18,6 +18,9 @@ type _skinWithIndex struct {
 }
 
 func (s _skinWithIndex) Name(name string) string {
+	if s.i == 1 {
+		return name
+	}
 	return fmt.Sprintf("%s-%d", name, s.i)
 }
 

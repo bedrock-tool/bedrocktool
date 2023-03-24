@@ -1,7 +1,6 @@
 package skins
 
 import (
-	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -28,12 +27,8 @@ type SkinGeometry struct {
 }
 
 func (skin *Skin) Hash() uuid.UUID {
-	h := sha256.New()
-	h.Write(skin.SkinData)
-	h.Write(skin.SkinGeometry)
-	h.Write(skin.CapeData)
-	h.Write([]byte(skin.SkinID))
-	return uuid.NewSHA1(uuid.NameSpaceURL, h.Sum(nil))
+	h := append(skin.CapeData, append(skin.SkinData, skin.SkinGeometry...)...)
+	return uuid.NewSHA1(uuid.NameSpaceURL, h)
 }
 
 func (skin *Skin) getGeometry() (*SkinGeometry, string, error) {
