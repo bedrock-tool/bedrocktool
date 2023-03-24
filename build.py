@@ -23,6 +23,7 @@ if GITHUB_OUTPUT:
 with open("./subcommands/resourcepack-d/resourcepack-d.go", "rb") as f:
     PACK_SUPPORT = f.read(100).count(b"package ") > 0
 print(f"Pack Support: {PACK_SUPPORT}")
+print(flush=True)
 
 LDFLAGS = f"-s -w -X github.com/bedrock-tool/bedrocktool/utils.Version={TAG}"
 

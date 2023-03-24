@@ -2,6 +2,7 @@ package world
 
 import (
 	"github.com/bedrock-tool/bedrocktool/utils/behaviourpack"
+	"github.com/bedrock-tool/bedrocktool/utils/nbtconv"
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/go-gl/mathgl/mgl32"
@@ -19,7 +20,13 @@ type entityState struct {
 	HeadYaw, BodyYaw float32
 	Velocity         mgl32.Vec3
 
-	Metadata protocol.EntityMetadata
+	Metadata  protocol.EntityMetadata
+	Inventory map[byte]map[byte]protocol.ItemInstance
+
+	Helmet     *protocol.ItemInstance
+	Chestplate *protocol.ItemInstance
+	Leggings   *protocol.ItemInstance
+	Boots      *protocol.ItemInstance
 }
 
 type serverEntityType struct {
@@ -84,6 +91,27 @@ func (w *WorldState) processAddActor(pk *packet.AddActor) {
 	}
 }
 
+var flagNames = map[uint8]string{
+	protocol.EntityDataFlagSheared:      "Sheared",
+	protocol.EntityDataFlagCaptain:      "IsIllagerCaptain",
+	protocol.EntityDataFlagSitting:      "Sitting",
+	protocol.EntityDataFlagBaby:         "IsBaby",
+	protocol.EntityDataFlagTamed:        "IsTamed",
+	protocol.EntityDataFlagTrusting:     "IsTrusting",
+	protocol.EntityDataFlagOrphaned:     "IsOrphaned",
+	protocol.EntityDataFlagAngry:        "IsAngry",
+	protocol.EntityDataFlagOutOfControl: "IsOutOfControl",
+	protocol.EntityDataFlagSaddled:      "Saddled",
+	protocol.EntityDataFlagChested:      "Chested",
+	protocol.EntityDataFlagShowBottom:   "ShowBottom",
+	protocol.EntityDataFlagGliding:      "IsGliding",
+	protocol.EntityDataFlagSwimming:     "IsSwimming",
+	protocol.EntityDataFlagEating:       "IsEating",
+	protocol.EntityDataFlagScared:       "IsScared",
+	protocol.EntityDataFlagStunned:      "IsStunned",
+	protocol.EntityDataFlagRoaring:      "IsRoaring",
+}
+
 func entityMetadataToNBT(metadata protocol.EntityMetadata, nbt map[string]any) {
 	if variant, ok := metadata[protocol.EntityDataKeyVariant]; ok {
 		nbt["Variant"] = variant
@@ -108,6 +136,49 @@ func entityMetadataToNBT(metadata protocol.EntityMetadata, nbt map[string]any) {
 			nbt["CustomNameVisible"] = false
 		}
 	}
+
+	if metadata.Flag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagNoAI) {
+		nbt["IsAutonomous"] = false
+	}
+	for k, v := range flagNames {
+		nbt[v] = metadata.Flag(protocol.EntityDataKeyFlags, k)
+	}
+
+	AlwaysShowName := metadata.Flag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagAlwaysShowName)
+	if AlwaysShowName {
+		nbt["CustomNameVisible"] = true
+	}
+
+	type effect struct {
+		Id                              byte
+		Amplifier                       byte
+		Duration                        int32
+		DurationEasy                    int32
+		DurationNormal                  int32
+		DurationHard                    int32
+		Ambient                         bool
+		ShowParticles                   bool
+		DisplayOnScreenTextureAnimation bool
+	}
+
+	activeEffects := []effect{}
+	addEffect := func(id int, showParticles bool) {
+		activeEffects = append(activeEffects, effect{
+			Id:            byte(id),
+			Amplifier:     1,
+			Duration:      10000000,
+			ShowParticles: false,
+		})
+	}
+
+	invisible := metadata.Flag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagInvisible)
+	if invisible {
+		addEffect(packet.EffectInvisibility, false)
+	}
+
+	if len(activeEffects) > 0 {
+		nbt["ActiveEffects"] = activeEffects
+	}
 }
 
 func vec3float32(x mgl32.Vec3) []float32 {
@@ -127,6 +198,16 @@ func (s *entityState) ToServerEntity() serverEntity {
 		},
 	}
 	entityMetadataToNBT(s.Metadata, e.EntityType.NBT)
+
+	if s.Helmet != nil || s.Chestplate != nil || s.Leggings != nil || s.Boots != nil {
+		armor := make([]map[string]any, 0, 4)
+		armor = append(armor, nbtconv.WriteItem(stackToItem(s.Helmet.Stack), true))
+		armor = append(armor, nbtconv.WriteItem(stackToItem(s.Chestplate.Stack), true))
+		armor = append(armor, nbtconv.WriteItem(stackToItem(s.Leggings.Stack), true))
+		armor = append(armor, nbtconv.WriteItem(stackToItem(s.Boots.Stack), true))
+		e.EntityType.NBT["Armor"] = armor
+	}
+
 	return e
 }
 
@@ -175,6 +256,24 @@ func (w *WorldState) ProcessEntityPackets(pk packet.Packet) packet.Packet {
 			e.Position = pk.Position
 			e.Pitch = pk.Rotation.X()
 			e.Yaw = pk.Rotation.Y()
+		}
+	case *packet.MobEquipment:
+		e, ok := w.entities[pk.EntityRuntimeID]
+		if ok {
+			w, ok := e.Inventory[pk.WindowID]
+			if !ok {
+				w = make(map[byte]protocol.ItemInstance)
+				e.Inventory[pk.WindowID] = w
+			}
+			w[pk.HotBarSlot] = pk.NewItem
+		}
+	case *packet.MobArmourEquipment:
+		e, ok := w.entities[pk.EntityRuntimeID]
+		if ok {
+			e.Helmet = &pk.Helmet
+			e.Chestplate = &pk.Chestplate
+			e.Leggings = &pk.Chestplate
+			e.Boots = &pk.Boots
 		}
 	}
 	return pk

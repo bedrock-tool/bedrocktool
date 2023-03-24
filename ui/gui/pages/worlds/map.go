@@ -40,18 +40,15 @@ func (m *Map) HandlePointerEvent(e pointer.Event) {
 	case pointer.Release:
 		m.grabbed = false
 	case pointer.Scroll:
-		m.HandleScrollEvent(e)
+		scaleFactor := float32(math.Pow(1.01, float64(e.Scroll.Y)))
+		m.transform = m.transform.Scale(e.Position.Sub(m.center), f32.Pt(scaleFactor, scaleFactor))
+		m.scaleFactor *= scaleFactor
 	}
 }
 
-func (m *Map) HandleScrollEvent(e pointer.Event) {
-	scaleFactor := float32(math.Pow(1.01, float64(e.Scroll.Y)))
-	m.transform = m.transform.Scale(e.Position.Sub(m.center), f32.Pt(scaleFactor, scaleFactor))
-	m.scaleFactor *= scaleFactor
-}
-
 func (m *Map) Layout(gtx layout.Context) layout.Dimensions {
-	// here we loop through all the events associated with this button.
+	m.center = f32.Pt(float32(gtx.Constraints.Max.X), float32(gtx.Constraints.Max.Y)).Div(2)
+
 	for _, e := range gtx.Events(m) {
 		if e, ok := e.(pointer.Event); ok {
 			m.HandlePointerEvent(e)
@@ -64,17 +61,9 @@ func (m *Map) Layout(gtx layout.Context) layout.Dimensions {
 		dy := float32(m.MapImage.Bounds().Dy())
 		size := f32.Pt(dx*m.scaleFactor, dy*m.scaleFactor)
 
-		m.center = f32.Pt(
-			float32(gtx.Constraints.Max.X),
-			float32(gtx.Constraints.Max.Y),
-		).Div(2)
-
-		// Calculate the offset required to center the image within the widget.
-		offset := m.center.Sub(size.Div(2))
-
 		// Draw the image at the correct position and scale.
 		defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
-		op.Affine(m.transform.Offset(offset)).Add(gtx.Ops)
+		op.Affine(m.transform.Offset(m.center.Sub(size.Div(2)))).Add(gtx.Ops)
 		m.imageOp.Add(gtx.Ops)
 		paint.PaintOp{}.Add(gtx.Ops)
 	}

@@ -482,6 +482,10 @@ func (w *WorldState) SaveAndReset() {
 		} else {
 			var rdeps []dep
 			for k, p := range packs {
+				if p.Encrypted() && !p.CanDecrypt() {
+					logrus.Warnf("Cant add %s, it is encrypted", p.Name())
+					continue
+				}
 				logrus.Infof(locale.Loc("adding_pack", locale.Strmap{"Name": k}))
 				packFolder := path.Join(folder, "resource_packs", p.Name())
 				os.MkdirAll(packFolder, 0o755)
@@ -495,7 +499,7 @@ func (w *WorldState) SaveAndReset() {
 				})
 			}
 			if len(rdeps) > 0 {
-				addPacksJSON("world_resource_packs.json", rdeps)
+				//addPacksJSON("world_resource_packs.json", rdeps)
 			}
 		}
 	}
