@@ -331,10 +331,12 @@ func (w *WorldState) SaveAndReset() {
 		}
 	}
 
-	err = provider.SaveLocalPlayerData(playerData(w.playerInventory))
-	if err != nil {
-		logrus.Error(err)
-	}
+	/*
+		err = provider.SaveLocalPlayerData(playerData(w.playerInventory))
+		if err != nil {
+			logrus.Error(err)
+		}
+	*/
 
 	// write metadata
 	s := provider.Settings()
