@@ -35,17 +35,28 @@ func (w *WorldState) processItemPacketsServer(pk packet.Packet) packet.Packet {
 		}
 
 	case *packet.InventoryContent:
-		// save content
-		existing, ok := w.openItemContainers[byte(pk.WindowID)]
-		if !ok {
-			if pk.WindowID == 0x0 { // inventory
-				w.openItemContainers[byte(pk.WindowID)] = &itemContainer{
-					Content: pk,
-				}
+		if pk.WindowID == 0x0 { // inventory
+			w.playerInventory = pk.Content
+		} else {
+			// save content
+			existing, ok := w.openItemContainers[byte(pk.WindowID)]
+			if ok {
+				existing.Content = pk
 			}
-			break
 		}
-		existing.Content = pk
+
+	case *packet.InventorySlot:
+		if pk.WindowID == 0x0 {
+			w.playerInventory[pk.Slot] = pk.NewItem
+		} else {
+			// save content
+			existing, ok := w.openItemContainers[byte(pk.WindowID)]
+			if ok {
+				existing.Content.Content[pk.Slot] = pk.NewItem
+			}
+		}
+
+	case *packet.ItemStackResponse:
 
 	case *packet.ContainerClose:
 		// find container info
@@ -171,4 +182,20 @@ func stackToItem(it protocol.ItemStack) item.Stack {
 	}
 	s := item.NewStack(t, int(it.Count))
 	return nbtconv.ReadItem(it.NBTData, &s)
+}
+
+func playerData(items []protocol.ItemInstance) (ret map[string]any) {
+	ret = map[string]any{}
+
+	if len(items) > 0 {
+		inv := inventory.New(len(items), nil)
+		for i, ii := range items {
+			inv.SetItem(i, stackToItem(ii.Stack))
+		}
+		ret["Inventory"] = nbtconv.InvToNBT(inv)
+	}
+
+	ret["format_version"] = "1.12.0"
+
+	return
 }

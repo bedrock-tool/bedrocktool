@@ -88,14 +88,14 @@ func connectServer(ctx context.Context, address string, ClientData *login.Client
 	return serverConn, nil
 }
 
-func spawnConn(ctx context.Context, clientConn *minecraft.Conn, serverConn *minecraft.Conn) error {
+func spawnConn(ctx context.Context, clientConn *minecraft.Conn, serverConn *minecraft.Conn, gd minecraft.GameData) error {
 	wg := sync.WaitGroup{}
 	errs := make(chan error, 2)
 	if clientConn != nil {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			errs <- clientConn.StartGame(serverConn.GameData())
+			errs <- clientConn.StartGame(gd)
 		}()
 	}
 	wg.Add(1)

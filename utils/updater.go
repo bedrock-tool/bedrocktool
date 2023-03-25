@@ -8,6 +8,8 @@ import (
 	"runtime"
 
 	"github.com/sanbornm/go-selfupdate/selfupdate"
+	"github.com/shirou/gopsutil/v3/cpu"
+	"github.com/shirou/gopsutil/v3/mem"
 )
 
 var Version string
@@ -26,7 +28,13 @@ func (httpRequester *trequester) Fetch(url string) (io.ReadCloser, error) {
 	}
 	// set user agent to know what versions are run
 	h, _ := os.Hostname()
-	req.Header.Add("User-Agent", fmt.Sprintf("%s %s '%s' %d", CmdName, Version, h, runtime.NumCPU()))
+	v, _ := mem.VirtualMemory()
+	c, _ := cpu.Info()
+	var ct string
+	if len(c) > 0 {
+		ct = c[0].ModelName
+	}
+	req.Header.Add("User-Agent", fmt.Sprintf("%s '%s' '%s' %d %d '%s'", CmdName, Version, h, runtime.NumCPU(), v.Total, ct))
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

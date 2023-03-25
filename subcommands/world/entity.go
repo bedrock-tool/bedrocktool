@@ -68,6 +68,7 @@ func (w *WorldState) processAddActor(pk *packet.AddActor) {
 			RuntimeID:  pk.EntityRuntimeID,
 			UniqueID:   pk.EntityUniqueID,
 			EntityType: pk.EntityType,
+			Inventory:  make(map[byte]map[byte]protocol.ItemInstance),
 			Metadata:   make(map[uint32]any),
 		}
 		w.entities[pk.EntityRuntimeID] = e

@@ -24,17 +24,23 @@ func (w *WorldState) processChangeDimension(pk *packet.ChangeDimension) {
 }
 
 func (w *WorldState) processLevelChunk(pk *packet.LevelChunk) {
-	_, exists := w.chunks[pk.Position]
-	if exists {
-		return
-	}
-
 	// ignore empty chunks THANKS WEIRD SERVER SOFTWARE DEVS
 	if len(pk.RawPayload) == 0 {
 		logrus.Info(locale.Loc("empty_chunk", nil))
 		return
 	}
-	ch, blockNBTs, err := chunk.NetworkDecode(world.AirRID(), pk.RawPayload, int(pk.SubChunkCount), w.Dim.Range(), w.ispre118, w.bp.HasBlocks())
+
+	var subChunkCount int
+	switch pk.SubChunkCount {
+	case protocol.SubChunkRequestModeLimited:
+		fallthrough
+	case protocol.SubChunkRequestModeLimitless:
+		subChunkCount = 0
+	default:
+		subChunkCount = int(pk.SubChunkCount)
+	}
+
+	ch, blockNBTs, err := chunk.NetworkDecode(world.AirRID(), pk.RawPayload, subChunkCount, w.Dim.Range(), w.ispre118, w.bp.HasBlocks())
 	if err != nil {
 		logrus.Error(err)
 		return
@@ -52,6 +58,12 @@ func (w *WorldState) processLevelChunk(pk *packet.LevelChunk) {
 		max = int(pk.HighestSubChunk)
 		fallthrough
 	case protocol.SubChunkRequestModeLimitless:
+		var offsetTable []protocol.SubChunkOffset
+		r := w.Dim.Range()
+		for y := int8(r.Min() / 16); y < int8(r.Max()); y++ {
+			offsetTable = append(offsetTable, protocol.SubChunkOffset{0, y, 0})
+		}
+
 		w.proxy.Server.WritePacket(&packet.SubChunkRequest{
 			Dimension: int32(w.Dim.EncodeDimension()),
 			Position: protocol.SubChunkPos{
@@ -69,7 +81,7 @@ func (w *WorldState) processLevelChunk(pk *packet.LevelChunk) {
 			}
 		}
 		if !empty {
-			w.mapUI.SetChunk(pk.Position, ch)
+			w.mapUI.SetChunk(pk.Position, ch, true)
 		}
 	}
 }
@@ -103,9 +115,13 @@ func (w *WorldState) processSubChunk(pk *packet.SubChunk) {
 
 	// redraw the chunks
 	for pos := range posToRedraw {
-		w.mapUI.SetChunk(pos, w.chunks[pos])
+		w.mapUI.SetChunk(pos, w.chunks[pos], true)
 	}
 	w.mapUI.SchedRedraw()
+}
+
+func blockPosInChunk(pos protocol.BlockPos) (uint8, int16, uint8) {
+	return uint8(pos.X() & 0x0f), int16(pos.Y() & 0x0f), uint8(pos.Z() & 0x0f)
 }
 
 func (w *WorldState) ProcessChunkPackets(pk packet.Packet) packet.Packet {
@@ -118,6 +134,44 @@ func (w *WorldState) ProcessChunkPackets(pk packet.Packet) packet.Packet {
 		w.proxy.SendPopup(locale.Locm("popup_chunk_count", locale.Strmap{"Count": len(w.chunks), "Name": w.WorldName}, len(w.chunks)))
 	case *packet.SubChunk:
 		w.processSubChunk(pk)
+	case *packet.BlockActorData:
+		sp := protocol.SubChunkPos{pk.Position.X() << 4, 0, pk.Position.Z() << 4}
+		b, ok := w.blockNBT[sp]
+		if !ok {
+			w.blockNBT[sp] = []map[string]any{pk.NBTData}
+		} else {
+			for i, v := range b {
+				x, y, z := v["x"].(int32), v["y"].(int32), v["z"].(int32)
+				if x == pk.Position.X() && y == pk.Position.Y() && z == pk.Position.Z() {
+					b[i] = pk.NBTData
+					break
+				}
+			}
+		}
+	case *packet.UpdateBlock:
+		cp := protocol.ChunkPos{pk.Position.X() >> 4, pk.Position.Z() >> 4}
+		c, ok := w.chunks[cp]
+		if ok {
+			x, y, z := blockPosInChunk(pk.Position)
+			c.SetBlock(x, y, z, uint8(pk.Layer), pk.NewBlockRuntimeID)
+			w.mapUI.SetChunk(cp, w.chunks[cp], true)
+		}
+	case *packet.UpdateSubChunkBlocks:
+		cp := protocol.ChunkPos{pk.Position.X(), pk.Position.Z()}
+		c, ok := w.chunks[cp]
+		if ok {
+			for _, bce := range pk.Blocks {
+				name, _, _ := chunk.RuntimeIDToState(bce.BlockRuntimeID)
+				logrus.Infof("update %v %s", bce.BlockPos, name)
+				x, y, z := blockPosInChunk(bce.BlockPos)
+				if bce.SyncedUpdateType == packet.EntityToBlockTransition {
+					c.SetBlock(x, y, z, 0, world.AirRID())
+				} else {
+					c.SetBlock(x, y, z, 0, bce.BlockRuntimeID)
+				}
+			}
+			w.mapUI.SetChunk(cp, w.chunks[cp], true)
+		}
 	}
 	return pk
 }

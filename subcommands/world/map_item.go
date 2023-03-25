@@ -64,8 +64,9 @@ func (m *MapUI) GetBounds() (min, max protocol.ChunkPos) {
 }
 
 type RenderElem struct {
-	pos protocol.ChunkPos
-	ch  *chunk.Chunk
+	pos      protocol.ChunkPos
+	ch       *chunk.Chunk
+	complete bool
 }
 
 type MapUI struct {
@@ -188,7 +189,7 @@ func (m *MapUI) Redraw() {
 			break
 		}
 		if r.ch != nil {
-			m.renderedChunks[r.pos] = Chunk2Img(r.ch)
+			m.renderedChunks[r.pos] = Chunk2Img(r.ch, !r.complete)
 		} else {
 			m.renderedChunks[r.pos] = black16x16
 		}
@@ -201,7 +202,6 @@ func (m *MapUI) Redraw() {
 		int32(m.w.PlayerPos.Position.Z()),
 	}
 
-	// total_width := 32 * math.Ceil(float64(chunks_x)/32)
 	chunksPerLine := float64(128 / m.zoomLevel)
 	pxPerBlock := 128 / chunksPerLine / 16 // how many pixels per block
 	pxSizeChunk := int(math.Floor(pxPerBlock * 16))
@@ -223,11 +223,10 @@ func (m *MapUI) Redraw() {
 			utils.DrawImgScaledPos(m.img, m.renderedChunks[_ch], px, pxSizeChunk)
 		}
 	}
-	ChunkCount := len(m.renderedChunks)
 	if m.showOnGui {
 		min, max := m.GetBounds()
 		m.w.gui.Message(messages.UpdateMap, messages.UpdateMapPayload{
-			ChunkCount:   ChunkCount,
+			ChunkCount:   len(m.renderedChunks),
 			Rotation:     m.w.PlayerPos.Yaw,
 			UpdatedTiles: updatedChunks,
 			Tiles:        m.renderedChunks,
@@ -261,8 +260,8 @@ func (m *MapUI) ToImage() *image.RGBA {
 	return img2
 }
 
-func (m *MapUI) SetChunk(pos protocol.ChunkPos, ch *chunk.Chunk) {
-	m.renderQueue.Enqueue(&RenderElem{pos, ch})
+func (m *MapUI) SetChunk(pos protocol.ChunkPos, ch *chunk.Chunk, complete bool) {
+	m.renderQueue.Enqueue(&RenderElem{pos, ch, complete})
 	m.SchedRedraw()
 }
 

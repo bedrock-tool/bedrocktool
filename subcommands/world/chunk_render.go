@@ -14,9 +14,8 @@ import (
 
 func isBlockLightblocking(b world.Block) bool {
 	d, isDiffuser := b.(block.LightDiffuser)
-	_, isSlab := b.(block.Slab)
 	noDiffuse := isDiffuser && d.LightDiffusionLevel() == 0
-	return noDiffuse && !isSlab
+	return !noDiffuse
 }
 
 func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.RGBA) {
@@ -30,7 +29,7 @@ func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.R
 	} else {
 		b, found := world.BlockByRuntimeID(rid)
 		if found {
-			if isBlockLightblocking(b) {
+			if !isBlockLightblocking(b) {
 				return blockColorAt(c, x, y-1, z)
 			}
 			_, isWater := b.(block.Water)
@@ -97,7 +96,7 @@ func chunkGetColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) color.RGBA {
 	return blockColor
 }
 
-func Chunk2Img(c *chunk.Chunk) *image.RGBA {
+func Chunk2Img(c *chunk.Chunk, warn bool) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, 16, 16))
 	hm := c.HeightMapWithWater()
 

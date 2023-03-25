@@ -23,6 +23,7 @@ import (
 
 var DisconnectReason = "Connection lost"
 
+/*
 type dummyProto struct {
 	id  int32
 	ver string
@@ -38,6 +39,7 @@ func (p dummyProto) ConvertToLatest(pk packet.Packet, _ *minecraft.Conn) []packe
 func (p dummyProto) ConvertFromLatest(pk packet.Packet, _ *minecraft.Conn) []packet.Packet {
 	return []packet.Packet{pk}
 }
+*/
 
 type (
 	PacketFunc            func(header packet.Header, payload []byte, src, dst net.Addr)
@@ -68,6 +70,8 @@ type ProxyContext struct {
 	ConnectCB ConnectCallback
 	// called on every packet after login
 	PacketCB PacketCallback
+	// called to change game data
+	GameDataModifier func(*minecraft.GameData)
 }
 
 func NewProxy() (*ProxyContext, error) {
@@ -318,8 +322,13 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress string) (err error
 	}
 	defer p.Server.Close()
 
+	gd := p.Server.GameData()
+	if p.GameDataModifier != nil {
+		p.GameDataModifier(&gd)
+	}
+
 	// spawn and start the game
-	if err = spawnConn(ctx, p.Client, p.Server); err != nil {
+	if err = spawnConn(ctx, p.Client, p.Server, gd); err != nil {
 		err = fmt.Errorf(locale.Loc("failed_to_spawn", locale.Strmap{"Err": err}))
 		return err
 	}

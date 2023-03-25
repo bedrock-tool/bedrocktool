@@ -26,6 +26,7 @@ import (
 	"github.com/df-mc/dragonfly/server/world/mcdb"
 	"github.com/df-mc/goleveldb/leveldb/opt"
 	"github.com/go-gl/mathgl/mgl32"
+	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sirupsen/logrus"
@@ -52,6 +53,7 @@ type WorldState struct {
 	chunks             map[protocol.ChunkPos]*chunk.Chunk
 	blockNBT           map[protocol.SubChunkPos][]map[string]any
 	openItemContainers map[byte]*itemContainer
+	playerInventory    []protocol.ItemInstance
 	entities           map[uint64]*entityState
 	Dim                world.Dimension
 	PlayerPos          TPlayerPos
@@ -104,14 +106,10 @@ var dimensionIDMap = map[uint8]world.Dimension{
 }
 
 var (
-	black16x16  = image.NewRGBA(image.Rect(0, 0, 16, 16))
-	offsetTable [24]protocol.SubChunkOffset
+	black16x16 = image.NewRGBA(image.Rect(0, 0, 16, 16))
 )
 
 func init() {
-	for i := range offsetTable {
-		offsetTable[i] = protocol.SubChunkOffset{0, int8(i), 0}
-	}
 	for i := 3; i < len(black16x16.Pix); i += 4 {
 		black16x16.Pix[i] = 255
 	}
@@ -155,6 +153,9 @@ func (c *WorldCMD) Execute(ctx context.Context, ui utils.UI) error {
 	w.experimentInventory = c.ExperimentInventory
 
 	proxy.AlwaysGetPacks = true
+	proxy.GameDataModifier = func(gd *minecraft.GameData) {
+		gd.ClientSideGeneration = false
+	}
 	proxy.ConnectCB = w.OnConnect
 	proxy.OnClientConnect = func(hasClient bool) {
 		w.gui.Message(messages.SetUIState, messages.UIStateConnecting)
@@ -330,6 +331,11 @@ func (w *WorldState) SaveAndReset() {
 		}
 	}
 
+	err = provider.SaveLocalPlayerData(playerData(w.playerInventory))
+	if err != nil {
+		logrus.Error(err)
+	}
+
 	// write metadata
 	s := provider.Settings()
 	player := w.proxy.Server.GameData().PlayerPosition
@@ -480,7 +486,7 @@ func (w *WorldState) SaveAndReset() {
 		if err != nil {
 			logrus.Error(err)
 		} else {
-			var rdeps []dep
+			//var rdeps []dep
 			for k, p := range packs {
 				if p.Encrypted() && !p.CanDecrypt() {
 					logrus.Warnf("Cant add %s, it is encrypted", p.Name())
@@ -493,14 +499,18 @@ func (w *WorldState) SaveAndReset() {
 				p.ReadAt(data, 0)
 				utils.UnpackZip(bytes.NewReader(data), int64(len(data)), packFolder)
 
-				rdeps = append(rdeps, dep{
-					PackID:  p.Manifest().Header.UUID,
-					Version: p.Manifest().Header.Version,
-				})
+				/*
+					rdeps = append(rdeps, dep{
+						PackID:  p.Manifest().Header.UUID,
+						Version: p.Manifest().Header.Version,
+					})
+				*/
 			}
-			if len(rdeps) > 0 {
-				//addPacksJSON("world_resource_packs.json", rdeps)
-			}
+			/*
+				if len(rdeps) > 0 {
+					addPacksJSON("world_resource_packs.json", rdeps)
+				}
+			*/
 		}
 	}
 
