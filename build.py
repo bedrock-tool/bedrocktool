@@ -36,12 +36,9 @@ PLATFORMS = [
 
 
 def clean():
-    if os.path.exists("./tmp"):
-        shutil.rmtree("./tmp")
-    if os.path.exists("./builds"):
-        shutil.rmtree("./builds")
-    if os.path.exists("./updates"):
-        shutil.rmtree("./updates")
+    shutil.rmtree("./tmp", True)
+    shutil.rmtree("./builds", True)
+    shutil.rmtree("./updates", True)
     for file in os.listdir("./cmd/bedrocktool"):
         if file.endswith(".syso"):
             os.remove(f"./cmd/bedrocktool/{file}")

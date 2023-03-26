@@ -161,8 +161,6 @@ func (w *WorldState) ProcessChunkPackets(pk packet.Packet) packet.Packet {
 		c, ok := w.chunks[cp]
 		if ok {
 			for _, bce := range pk.Blocks {
-				name, _, _ := chunk.RuntimeIDToState(bce.BlockRuntimeID)
-				logrus.Infof("update %v %s", bce.BlockPos, name)
 				x, y, z := blockPosInChunk(bce.BlockPos)
 				if bce.SyncedUpdateType == packet.EntityToBlockTransition {
 					c.SetBlock(x, y, z, 0, world.AirRID())
