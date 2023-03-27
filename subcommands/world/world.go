@@ -67,6 +67,7 @@ type WorldState struct {
 	withPacks           bool
 	saveImage           bool
 	experimentInventory bool
+	blockUpdates        bool
 }
 
 func NewWorldState(ctx context.Context, proxy *utils.ProxyContext, ServerName string, ui utils.UI) *WorldState {
@@ -596,17 +597,13 @@ func (w *WorldState) OnConnect(err error) bool {
 		Cmd: protocol.Command{
 			Name:        "setname",
 			Description: locale.Loc("setname_desc", nil),
-			Overloads: []protocol.CommandOverload{
-				{
-					Parameters: []protocol.CommandParameter{
-						{
-							Name:     "name",
-							Type:     protocol.CommandArgTypeString,
-							Optional: false,
-						},
-					},
-				},
-			},
+			Overloads: []protocol.CommandOverload{{
+				Parameters: []protocol.CommandParameter{{
+					Name:     "name",
+					Type:     protocol.CommandArgTypeString,
+					Optional: false,
+				}},
+			}},
 		},
 	})
 

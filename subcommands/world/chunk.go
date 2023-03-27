@@ -135,40 +135,46 @@ func (w *WorldState) ProcessChunkPackets(pk packet.Packet) packet.Packet {
 	case *packet.SubChunk:
 		w.processSubChunk(pk)
 	case *packet.BlockActorData:
-		sp := protocol.SubChunkPos{pk.Position.X() << 4, 0, pk.Position.Z() << 4}
-		b, ok := w.blockNBT[sp]
-		if !ok {
-			w.blockNBT[sp] = []map[string]any{pk.NBTData}
-		} else {
-			for i, v := range b {
-				x, y, z := v["x"].(int32), v["y"].(int32), v["z"].(int32)
-				if x == pk.Position.X() && y == pk.Position.Y() && z == pk.Position.Z() {
-					b[i] = pk.NBTData
-					break
+		if w.blockUpdates {
+			sp := protocol.SubChunkPos{pk.Position.X() << 4, 0, pk.Position.Z() << 4}
+			b, ok := w.blockNBT[sp]
+			if !ok {
+				w.blockNBT[sp] = []map[string]any{pk.NBTData}
+			} else {
+				for i, v := range b {
+					x, y, z := v["x"].(int32), v["y"].(int32), v["z"].(int32)
+					if x == pk.Position.X() && y == pk.Position.Y() && z == pk.Position.Z() {
+						b[i] = pk.NBTData
+						break
+					}
 				}
 			}
 		}
 	case *packet.UpdateBlock:
-		cp := protocol.ChunkPos{pk.Position.X() >> 4, pk.Position.Z() >> 4}
-		c, ok := w.chunks[cp]
-		if ok {
-			x, y, z := blockPosInChunk(pk.Position)
-			c.SetBlock(x, y, z, uint8(pk.Layer), pk.NewBlockRuntimeID)
-			w.mapUI.SetChunk(cp, w.chunks[cp], true)
+		if w.blockUpdates {
+			cp := protocol.ChunkPos{pk.Position.X() >> 4, pk.Position.Z() >> 4}
+			c, ok := w.chunks[cp]
+			if ok {
+				x, y, z := blockPosInChunk(pk.Position)
+				c.SetBlock(x, y, z, uint8(pk.Layer), pk.NewBlockRuntimeID)
+				w.mapUI.SetChunk(cp, w.chunks[cp], true)
+			}
 		}
 	case *packet.UpdateSubChunkBlocks:
-		cp := protocol.ChunkPos{pk.Position.X(), pk.Position.Z()}
-		c, ok := w.chunks[cp]
-		if ok {
-			for _, bce := range pk.Blocks {
-				x, y, z := blockPosInChunk(bce.BlockPos)
-				if bce.SyncedUpdateType == packet.EntityToBlockTransition {
-					c.SetBlock(x, y, z, 0, world.AirRID())
-				} else {
-					c.SetBlock(x, y, z, 0, bce.BlockRuntimeID)
+		if w.blockUpdates {
+			cp := protocol.ChunkPos{pk.Position.X(), pk.Position.Z()}
+			c, ok := w.chunks[cp]
+			if ok {
+				for _, bce := range pk.Blocks {
+					x, y, z := blockPosInChunk(bce.BlockPos)
+					if bce.SyncedUpdateType == packet.BlockToEntityTransition {
+						c.SetBlock(x, y, z, 0, world.AirRID())
+					} else {
+						c.SetBlock(x, y, z, 0, bce.BlockRuntimeID)
+					}
 				}
+				w.mapUI.SetChunk(cp, w.chunks[cp], true)
 			}
-			w.mapUI.SetChunk(cp, w.chunks[cp], true)
 		}
 	}
 	return pk

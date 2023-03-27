@@ -22,46 +22,44 @@ func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.R
 	if y <= int16(c.Range().Min()) {
 		return color.RGBA{0, 0, 0, 0}
 	}
-	blockColor = color.RGBA{255, 0, 255, 255}
 	rid := c.Block(x, y, z, 0)
 	if rid == 0 && y == int16(c.Range().Min()) { // void
-		blockColor = color.RGBA{0, 0, 0, 255}
-	} else {
-		b, found := world.BlockByRuntimeID(rid)
-		if found {
-			if _, isWater := b.(block.Water); isWater {
-				// get the first non water block at the position
-				heightBlock := c.HeightMap().At(x, z)
-				depth := y - heightBlock
-				if depth > 0 {
-					blockColor = blockColorAt(c, x, heightBlock, z)
-				}
-
-				// blend that blocks color with water depending on depth
-				waterColor := (&block.Water{}).Color()
-				waterColor.A = uint8(utils.Clamp(int(150+depth*7), 255))
-				blockColor = utils.BlendColors(blockColor, waterColor)
-				blockColor.R -= uint8(depth * 2)
-				blockColor.G -= uint8(depth * 2)
-				blockColor.B -= uint8(depth * 2)
-				return blockColor
-			} else {
-				col := b.Color()
-				if col.A != 255 {
-					col = utils.BlendColors(blockColorAt(c, x, y-1, z), col)
-				}
-				return col
-			}
-		}
-		/*
-			if blockColor.R == 0 || blockColor.R == 255 && blockColor.B == 255 {
-				name, nbt := b.EncodeBlock()
-				fmt.Printf("unknown color %d  %s %s %s\n", rid, reflect.TypeOf(b), name, nbt)
-				b.Color()
-			}
-		*/
+		return color.RGBA{0, 0, 0, 255}
 	}
-	return blockColor
+
+	blockColor = color.RGBA{255, 0, 255, 255}
+	b, found := world.BlockByRuntimeID(rid)
+	if found {
+		if _, isWater := b.(block.Water); isWater {
+			// get the first non water block at the position
+			heightBlock := c.HeightMap().At(x, z)
+			depth := y - heightBlock
+			if depth > 0 {
+				blockColor = blockColorAt(c, x, heightBlock, z)
+			}
+
+			// blend that blocks color with water depending on depth
+			waterColor := (&block.Water{}).Color()
+			waterColor.A = uint8(utils.Clamp(int(150+depth*7), 255))
+			blockColor = utils.BlendColors(blockColor, waterColor)
+			blockColor.R -= uint8(depth * 2)
+			blockColor.G -= uint8(depth * 2)
+			blockColor.B -= uint8(depth * 2)
+			return blockColor
+		} else {
+			col := b.Color()
+			if col.A != 255 {
+				col = utils.BlendColors(blockColorAt(c, x, y-1, z), col)
+			}
+			return col
+		}
+	} else {
+		/*
+			name, nbt := b.EncodeBlock()
+			fmt.Printf("unknown color %d  %s %s %s\n", rid, reflect.TypeOf(b), name, nbt)
+		*/
+		return blockColor
+	}
 }
 
 func chunkGetColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) color.RGBA {
@@ -84,7 +82,7 @@ func chunkGetColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) color.RGBA {
 		}, cube.Range{int(y + 1), int(y + 1)})
 
 	blockColor := blockColorAt(c, x, y, z)
-	if haveUp {
+	if haveUp && (x+z)%2 == 0 {
 		if blockColor.R > 10 {
 			blockColor.R -= 10
 		}
