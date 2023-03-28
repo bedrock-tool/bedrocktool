@@ -1,8 +1,13 @@
 package worlds
 
 import (
+	"fmt"
+	"image"
+	"sync"
+
 	"gioui.org/layout"
 	"gioui.org/unit"
+	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
 	"github.com/bedrock-tool/bedrocktool/ui/gui"
@@ -23,12 +28,21 @@ type Page struct {
 	chunkCount int
 	voidGen    bool
 	worldName  string
+
+	worldsList widget.List
+	worlds     []messages.SavingWorldPayload
+	l          sync.Mutex
 }
 
 func New(router *pages.Router) *Page {
 	return &Page{
 		Router:   router,
 		worldMap: &Map{},
+		worldsList: widget.List{
+			List: layout.List{
+				Axis: layout.Vertical,
+			},
+		},
 	}
 }
 
@@ -69,14 +83,36 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 		return layout.Flex{
 			Axis: layout.Vertical,
 		}.Layout(gtx,
-			layout.Rigid(material.Label(th, 20, "World Downloader Basic UI").Layout),
 			layout.Flexed(1, func(gtx C) D {
 				return layout.Center.Layout(gtx, p.worldMap.Layout)
 			}),
 		)
+	case messages.UIStateFinished:
+		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+			layout.Rigid(func(gtx C) D {
+				return layout.UniformInset(20).
+					Layout(gtx, material.Label(th, 20, "Worlds Saved").Layout)
+			}),
+			layout.Flexed(1, func(gtx C) D {
+				p.l.Lock()
+				defer p.l.Unlock()
+				return material.List(th, &p.worldsList).Layout(gtx, len(p.worlds), func(gtx C, index int) D {
+					entry := p.worlds[len(p.worlds)-index-1]
+					return layout.UniformInset(25).Layout(gtx, func(gtx C) D {
+						return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+							layout.Rigid(material.Label(th, th.TextSize, entry.Name).Layout),
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								return layout.Dimensions{Size: image.Pt(20, 20)}
+							}),
+							layout.Rigid(material.Label(th, th.TextSize, fmt.Sprintf("%d chunks", entry.Chunks)).Layout),
+						)
+					})
+				})
+			}),
+		)
 	}
 
-	return layout.Flex{}.Layout(gtx)
+	return layout.Dimensions{}
 }
 
 func (u *Page) handler(name string, data interface{}) messages.MessageResponse {
@@ -116,6 +152,13 @@ func (u *Page) handler(name string, data interface{}) messages.MessageResponse {
 		u.Router.Invalidate()
 		r.Ok = true
 
+	case messages.SavingWorld:
+		u.l.Lock()
+		saving_world := data.(messages.SavingWorldPayload)
+		u.worlds = append(u.worlds, saving_world)
+		u.l.Unlock()
+		u.Router.Invalidate()
+		r.Ok = true
 	}
 	return r
 }

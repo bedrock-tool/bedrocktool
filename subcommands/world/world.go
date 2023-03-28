@@ -192,6 +192,7 @@ func (c *WorldCMD) Execute(ctx context.Context, ui utils.UI) error {
 		return err
 	}
 	w.SaveAndReset()
+	ui.Message(messages.SetUIState, messages.UIStateFinished)
 	return nil
 }
 
@@ -292,6 +293,10 @@ func (w *WorldState) SaveAndReset() {
 	}
 
 	logrus.Infof(locale.Loc("saving_world", locale.Strmap{"Name": w.WorldName, "Count": len(w.chunks)}))
+	w.gui.Message(messages.SavingWorld, messages.SavingWorldPayload{
+		Name:   w.WorldName,
+		Chunks: len(w.chunks),
+	})
 
 	// open world
 	folder := path.Join("worlds", fmt.Sprintf("%s/%s", w.ServerName, w.WorldName))
@@ -335,21 +340,17 @@ func (w *WorldState) SaveAndReset() {
 		}
 	}
 
-	/*
-		err = provider.SaveLocalPlayerData(playerData(w.playerInventory))
-		if err != nil {
-			logrus.Error(err)
-		}
-	*/
+	playerPos := w.proxy.Server.GameData().PlayerPosition
+	spawnPos := cube.Pos{int(playerPos.X()), int(playerPos.Y()), int(playerPos.Z())}
+
+	err = provider.SaveLocalPlayerData(w.playerData())
+	if err != nil {
+		logrus.Error(err)
+	}
 
 	// write metadata
 	s := provider.Settings()
-	player := w.proxy.Server.GameData().PlayerPosition
-	s.Spawn = cube.Pos{
-		int(player.X()),
-		int(player.Y()),
-		int(player.Z()),
-	}
+	s.Spawn = spawnPos
 	s.Name = w.WorldName
 
 	// set gamerules
@@ -536,6 +537,7 @@ func (w *WorldState) SaveAndReset() {
 	logrus.Info(locale.Loc("saved", locale.Strmap{"Name": filename}))
 	//os.RemoveAll(folder)
 	w.Reset()
+	w.gui.Message(messages.SetUIState, messages.UIStateMain)
 }
 
 func (w *WorldState) OnConnect(err error) bool {

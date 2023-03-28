@@ -114,9 +114,9 @@ func dmpStruct(level int, inputStruct any, withType bool, isInList bool) (s stri
 		if ii.Len() > 1000 {
 			s += "[<slice too long>]"
 		} else if ii.Len() == 0 {
-			s += typeString + "[]"
+			s += fmt.Sprintf("[0%s", typeName[1:])
 		} else {
-			s += typeString + "["
+			s += fmt.Sprintf("[%d%s{", ii.Len(), typeString[1:])
 			if is_elem_struct {
 				s += "\n"
 			}

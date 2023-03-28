@@ -118,9 +118,9 @@ func (p *Page) handler(name string, data interface{}) messages.MessageResponse {
 		p.l.Lock()
 		new_skin := data.(messages.NewSkinPayload)
 		p.Skins = append(p.Skins, new_skin)
-		r.Ok = true
 		p.l.Unlock()
 		p.Router.Invalidate()
+		r.Ok = true
 	}
 	return r
 }

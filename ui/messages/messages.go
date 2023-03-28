@@ -17,6 +17,7 @@ const (
 	UIStateConnect = iota
 	UIStateConnecting
 	UIStateMain
+	UIStateFinished
 )
 
 type HandlerFunc = func(name string, data interface{}) MessageResponse
@@ -71,4 +72,11 @@ var NewSkin = "new_skin"
 type NewSkinPayload struct {
 	PlayerName string
 	Skin       *protocol.Skin
+}
+
+var SavingWorld = "saving_world"
+
+type SavingWorldPayload struct {
+	Name   string
+	Chunks int
 }
