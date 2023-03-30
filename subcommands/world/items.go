@@ -17,25 +17,25 @@ type itemContainer struct {
 	Content    *packet.InventoryContent
 }
 
-func (w *WorldState) processItemPacketsServer(pk packet.Packet) packet.Packet {
+func (w *worldsServer) processItemPacketsServer(pk packet.Packet) packet.Packet {
 	switch pk := pk.(type) {
 	case *packet.ContainerOpen:
 		// add to open containers
-		existing, ok := w.openItemContainers[pk.WindowID]
+		existing, ok := w.worldState.openItemContainers[pk.WindowID]
 		if !ok {
 			existing = &itemContainer{}
 		}
-		w.openItemContainers[pk.WindowID] = &itemContainer{
+		w.worldState.openItemContainers[pk.WindowID] = &itemContainer{
 			OpenPacket: pk,
 			Content:    existing.Content,
 		}
 
 	case *packet.InventoryContent:
 		if pk.WindowID == 0x0 { // inventory
-			w.playerInventory = pk.Content
+			w.serverState.playerInventory = pk.Content
 		} else {
 			// save content
-			existing, ok := w.openItemContainers[byte(pk.WindowID)]
+			existing, ok := w.worldState.openItemContainers[byte(pk.WindowID)]
 			if ok {
 				existing.Content = pk
 			}
@@ -43,10 +43,10 @@ func (w *WorldState) processItemPacketsServer(pk packet.Packet) packet.Packet {
 
 	case *packet.InventorySlot:
 		if pk.WindowID == 0x0 {
-			w.playerInventory[pk.Slot] = pk.NewItem
+			w.serverState.playerInventory[pk.Slot] = pk.NewItem
 		} else {
 			// save content
-			existing, ok := w.openItemContainers[byte(pk.WindowID)]
+			existing, ok := w.worldState.openItemContainers[byte(pk.WindowID)]
 			if ok {
 				existing.Content.Content[pk.Slot] = pk.NewItem
 			}
@@ -56,7 +56,7 @@ func (w *WorldState) processItemPacketsServer(pk packet.Packet) packet.Packet {
 
 	case *packet.ContainerClose:
 		// find container info
-		existing, ok := w.openItemContainers[byte(pk.WindowID)]
+		existing, ok := w.worldState.openItemContainers[byte(pk.WindowID)]
 
 		switch pk.WindowID {
 		case protocol.WindowIDArmour: // todo handle
@@ -88,11 +88,11 @@ func (w *WorldState) processItemPacketsServer(pk packet.Packet) packet.Packet {
 			}
 
 			// put into subchunk
-			nbts := w.blockNBT[cp]
+			nbts := w.worldState.blockNBT[cp]
 			for i, v := range nbts {
 				NBTPos := protocol.BlockPos{v["x"].(int32), v["y"].(int32), v["z"].(int32)}
 				if NBTPos == pos {
-					w.blockNBT[cp][i]["Items"] = nbtconv.InvToNBT(inv)
+					w.worldState.blockNBT[cp][i]["Items"] = nbtconv.InvToNBT(inv)
 					break
 				}
 			}
@@ -100,7 +100,7 @@ func (w *WorldState) processItemPacketsServer(pk packet.Packet) packet.Packet {
 			w.proxy.SendMessage(locale.Loc("saved_block_inv", nil))
 
 			// remove it again
-			delete(w.openItemContainers, byte(pk.WindowID))
+			delete(w.worldState.openItemContainers, byte(pk.WindowID))
 		}
 
 	case *packet.ItemComponent:
@@ -113,7 +113,7 @@ func (w *WorldState) processItemPacketsServer(pk packet.Packet) packet.Packet {
 	return pk
 }
 
-func (w *WorldState) processItemPacketsClient(pk packet.Packet, forward *bool) packet.Packet {
+func (w *worldsServer) processItemPacketsClient(pk packet.Packet, forward *bool) packet.Packet {
 	switch pk := pk.(type) {
 	case *packet.ItemStackRequest:
 		var requests []protocol.ItemStackRequest
@@ -184,15 +184,15 @@ func stackToItem(it protocol.ItemStack) item.Stack {
 	return nbtconv.ReadItem(it.NBTData, &s)
 }
 
-func (w *WorldState) playerData() (ret map[string]any) {
+func (w *worldsServer) playerData() (ret map[string]any) {
 	ret = map[string]any{
 		"format_version": "1.12.0",
 		"identifier":     "minecraft:player",
 	}
 
-	if len(w.playerInventory) > 0 {
-		inv := inventory.New(len(w.playerInventory), nil)
-		for i, ii := range w.playerInventory {
+	if len(w.serverState.playerInventory) > 0 {
+		inv := inventory.New(len(w.serverState.playerInventory), nil)
+		for i, ii := range w.serverState.playerInventory {
 			inv.SetItem(i, stackToItem(ii.Stack))
 		}
 		ret["Inventory"] = nbtconv.InvToNBT(inv)
@@ -373,8 +373,8 @@ func (w *WorldState) playerData() (ret map[string]any) {
 	}
 
 	ret["Rotation"] = []float32{
-		w.PlayerPos.Pitch,
-		w.PlayerPos.Yaw,
+		w.serverState.PlayerPos.Pitch,
+		w.serverState.PlayerPos.Yaw,
 	}
 
 	return

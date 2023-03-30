@@ -2,7 +2,6 @@ package utils
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -17,8 +16,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
 )
-
-var pool = packet.NewPool()
 
 var MutedPackets = []string{
 	"packet.UpdateBlock",
@@ -49,9 +46,8 @@ var MutedPackets = []string{
 }
 
 var (
-	ExtraVerbose []string
-	FLog         io.Writer
-	dmpLock      sync.Mutex
+	FLog    io.Writer
+	dmpLock sync.Mutex
 )
 
 func dmpStruct(level int, inputStruct any, withType bool, isInList bool) (s string) {
@@ -63,11 +59,14 @@ func dmpStruct(level int, inputStruct any, withType bool, isInList bool) (s stri
 
 	ii := reflect.Indirect(reflect.ValueOf(inputStruct))
 	typeName := reflect.TypeOf(inputStruct).String()
+	if typeName == "[]interface {}" {
+		typeName = "[]any"
+	}
 	typeString := ""
 	if withType {
 		if slices.Contains([]string{"bool", "string"}, typeName) {
 		} else {
-			typeString = typeName + " "
+			typeString = typeName
 		}
 	}
 
@@ -84,7 +83,8 @@ func dmpStruct(level int, inputStruct any, withType bool, isInList bool) (s stri
 		return
 	}
 
-	if ii.Kind() == reflect.Struct {
+	switch ii.Kind() {
+	case reflect.Struct:
 		if ii.NumField() == 0 {
 			s += typeName + "{}"
 		} else {
@@ -93,30 +93,24 @@ func dmpStruct(level int, inputStruct any, withType bool, isInList bool) (s stri
 				fieldType := ii.Type().Field(i)
 
 				if fieldType.IsExported() {
-					field := ii.Field(i).Interface()
-					d := dmpStruct(level+1, field, true, false)
-					s += tBase + fmt.Sprintf("\t%s = %s\n", fieldType.Name, d)
+					s += fmt.Sprintf("%s\t%s: %s,\n", tBase, fieldType.Name, dmpStruct(level+1, ii.Field(i).Interface(), true, false))
 				} else {
 					s += tBase + " " + fieldType.Name + " (unexported)"
 				}
 			}
 			s += tBase + "}"
 		}
-	} else if ii.Kind() == reflect.Slice {
-		var t reflect.Type
-		is_elem_struct := false
-		if ii.Len() > 0 {
-			e := ii.Index(0)
-			t = reflect.TypeOf(e.Interface())
-			is_elem_struct = t.Kind() == reflect.Struct
-		}
+	case reflect.Slice:
+		s += typeName + "{"
 
 		if ii.Len() > 1000 {
-			s += "[<slice too long>]"
+			s += "<slice too long>"
 		} else if ii.Len() == 0 {
-			s += fmt.Sprintf("[0%s", typeName[1:])
 		} else {
-			s += fmt.Sprintf("[%d%s{", ii.Len(), typeString[1:])
+			e := ii.Index(0)
+			t := reflect.TypeOf(e.Interface())
+			is_elem_struct := t.Kind() == reflect.Struct
+
 			if is_elem_struct {
 				s += "\n"
 			}
@@ -124,32 +118,55 @@ func dmpStruct(level int, inputStruct any, withType bool, isInList bool) (s stri
 				if is_elem_struct {
 					s += tBase + "\t"
 				}
-				s += dmpStruct(level+1, ii.Index(i).Interface(), false, true)
+				s += dmpStruct(level+1, ii.Index(i).Interface(), false, true) + ","
 				if is_elem_struct {
 					s += "\n"
 				} else {
-					s += " "
+					if i != ii.Len()-1 {
+						s += " "
+					}
 				}
 			}
 			if is_elem_struct {
 				s += tBase
 			}
-			s += "]"
 		}
-	} else if ii.Kind() == reflect.Map {
-		j, err := json.MarshalIndent(ii.Interface(), tBase, "\t")
-		if err != nil {
-			s += err.Error()
+		s += "}"
+	case reflect.Map:
+		it := reflect.TypeOf(inputStruct)
+		valType := it.Elem().String()
+		if valType == "interface {}" {
+			valType = "any"
 		}
-		s += string(j)
-	} else {
+		keyType := it.Key().String()
+
+		s += fmt.Sprintf("map[%s]%s{", keyType, valType)
+		if ii.Len() > 0 {
+			s += "\n"
+		}
+
+		iter := ii.MapRange()
+		for iter.Next() {
+			k := iter.Key()
+			v := iter.Value()
+			s += fmt.Sprintf("%s\t%#v: %s,\n", tBase, k.Interface(), dmpStruct(level+1, v.Interface(), true, false))
+		}
+
+		if ii.Len() > 0 {
+			s += tBase
+		}
+		s += "}"
+	default:
 		is_array := ii.Kind() == reflect.Array
-		if !isInList && !is_array {
-			s += typeString
+		add_type := !isInList && !is_array && len(typeString) > 0
+		if add_type {
+			s += typeString + "("
 		}
 		s += fmt.Sprintf("%#v", ii.Interface())
+		if add_type {
+			s += ")"
+		}
 	}
-
 	return s
 }
 
@@ -163,17 +180,18 @@ func DumpStruct(data interface{}) {
 }
 
 var ClientAddr net.Addr
+var pool = packet.NewPool()
 
 func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
+	if header.PacketID == packet.IDRequestNetworkSettings {
+		ClientAddr = src
+	}
+
 	var pk packet.Packet
 	if pkFunc, ok := pool[header.PacketID]; ok {
 		pk = pkFunc()
 	} else {
-		pk = &packet.Unknown{PacketID: header.PacketID}
-	}
-
-	if pk.ID() == packet.IDRequestNetworkSettings {
-		ClientAddr = src
+		pk = &packet.Unknown{PacketID: header.PacketID, Payload: payload}
 	}
 
 	defer func() {
@@ -186,9 +204,8 @@ func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
 
 	if FLog != nil {
 		dmpLock.Lock()
-		defer dmpLock.Unlock()
-		FLog.Write([]byte(dmpStruct(0, pk, true, false)))
-		FLog.Write([]byte("\n\n\n"))
+		FLog.Write([]byte(dmpStruct(0, pk, true, false) + "\n\n\n"))
+		dmpLock.Unlock()
 	}
 
 	pkName := reflect.TypeOf(pk).String()[1:]
@@ -217,8 +234,4 @@ func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
 	}
 
 	logrus.Debugf("%s 0x%02x, %s", dir, pk.ID(), pkName)
-
-	if slices.Contains(ExtraVerbose, pkName) {
-		logrus.Debugf("%+v", pk)
-	}
 }

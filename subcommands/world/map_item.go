@@ -79,10 +79,10 @@ type MapUI struct {
 	l              sync.RWMutex
 
 	ticker *time.Ticker
-	w      *WorldState
+	w      *worldsServer
 }
 
-func NewMapUI(w *WorldState) *MapUI {
+func NewMapUI(w *worldsServer) *MapUI {
 	m := &MapUI{
 		img:            image.NewRGBA(image.Rect(0, 0, 128, 128)),
 		zoomLevel:      16,
@@ -198,8 +198,8 @@ func (m *MapUI) Redraw() {
 	m.l.Unlock()
 
 	middle := protocol.ChunkPos{
-		int32(m.w.PlayerPos.Position.X()),
-		int32(m.w.PlayerPos.Position.Z()),
+		int32(m.w.serverState.PlayerPos.Position.X()),
+		int32(m.w.serverState.PlayerPos.Position.Z()),
 	}
 
 	chunksPerLine := float64(128 / m.zoomLevel)
@@ -227,7 +227,7 @@ func (m *MapUI) Redraw() {
 		min, max := m.GetBounds()
 		m.w.gui.Message(messages.UpdateMap, messages.UpdateMapPayload{
 			ChunkCount:   len(m.renderedChunks),
-			Rotation:     m.w.PlayerPos.Yaw,
+			Rotation:     m.w.serverState.PlayerPos.Yaw,
 			UpdatedTiles: updatedChunks,
 			Tiles:        m.renderedChunks,
 			BoundsMin:    min,
@@ -265,14 +265,14 @@ func (m *MapUI) SetChunk(pos protocol.ChunkPos, ch *chunk.Chunk, complete bool) 
 	m.SchedRedraw()
 }
 
-func (w *WorldState) ProcessAnimate(pk *packet.Animate) {
+func (w *worldsServer) ProcessAnimate(pk *packet.Animate) {
 	if pk.ActionType == packet.AnimateActionSwingArm {
 		w.mapUI.ChangeZoom()
 		w.proxy.SendPopup(locale.Loc("zoom_level", locale.Strmap{"Level": w.mapUI.zoomLevel}))
 	}
 }
 
-func (w *WorldState) processMapPacketsClient(pk packet.Packet, forward *bool) packet.Packet {
+func (w *worldsServer) processMapPacketsClient(pk packet.Packet, forward *bool) packet.Packet {
 	switch pk := pk.(type) {
 	case *packet.MovePlayer:
 		w.SetPlayerPos(pk.Position, pk.Pitch, pk.Yaw, pk.HeadYaw)

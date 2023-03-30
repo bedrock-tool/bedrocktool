@@ -2,6 +2,7 @@
 package utils
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/aes"
@@ -207,11 +208,6 @@ func InitExtraDebug(ctx context.Context) {
 	logPlain, err := os.Create("packets.log")
 	if err != nil {
 		logrus.Error(err)
-	} else {
-		go func() {
-			<-ctx.Done()
-			logPlain.Close()
-		}()
 	}
 
 	// open gpg log
@@ -219,24 +215,30 @@ func InitExtraDebug(ctx context.Context) {
 	if err != nil {
 		logrus.Error(err)
 	} else {
-		go func() {
-			<-ctx.Done()
-			logCrypt.Close()
-		}()
 		// encrypter for the log
 		logCryptEnc, err = crypt.Encer("packets.log", logCrypt)
 		if err != nil {
 			logrus.Error(err)
-		} else {
-			go func() {
-				<-ctx.Done()
-				logCryptEnc.Close()
-			}()
 		}
 	}
 
-	FLog = io.MultiWriter(logPlain, logCryptEnc)
+	b := bufio.NewWriter(io.MultiWriter(logPlain, logCryptEnc))
+	FLog = b
 	if err != nil {
 		logrus.Error(err)
 	}
+	go func() {
+		<-ctx.Done()
+		b.Flush()
+
+		if logPlain != nil {
+			logPlain.Close()
+		}
+		if logCrypt != nil {
+			logCrypt.Close()
+		}
+		if logCryptEnc != nil {
+			logCryptEnc.Close()
+		}
+	}()
 }

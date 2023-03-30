@@ -61,8 +61,8 @@ func (e serverEntity) Type() world.EntityType {
 	return e.EntityType
 }
 
-func (w *WorldState) processAddActor(pk *packet.AddActor) {
-	e, ok := w.entities[pk.EntityRuntimeID]
+func (w *worldsServer) processAddActor(pk *packet.AddActor) {
+	e, ok := w.worldState.entities[pk.EntityRuntimeID]
 	if !ok {
 		e = &entityState{
 			RuntimeID:  pk.EntityRuntimeID,
@@ -71,7 +71,7 @@ func (w *WorldState) processAddActor(pk *packet.AddActor) {
 			Inventory:  make(map[byte]map[byte]protocol.ItemInstance),
 			Metadata:   make(map[uint32]any),
 		}
-		w.entities[pk.EntityRuntimeID] = e
+		w.worldState.entities[pk.EntityRuntimeID] = e
 
 		w.bp.AddEntity(behaviourpack.EntityIn{
 			Identifier: pk.EntityType,
@@ -211,25 +211,25 @@ func (s *entityState) ToServerEntity() serverEntity {
 	return e
 }
 
-func (w *WorldState) ProcessEntityPackets(pk packet.Packet) packet.Packet {
+func (w *worldsServer) ProcessEntityPackets(pk packet.Packet) packet.Packet {
 	switch pk := pk.(type) {
 	case *packet.AddActor:
 		w.processAddActor(pk)
 	case *packet.RemoveActor:
 	case *packet.SetActorData:
-		e, ok := w.entities[pk.EntityRuntimeID]
+		e, ok := w.worldState.entities[pk.EntityRuntimeID]
 		if ok {
 			for k, v := range pk.EntityMetadata {
 				e.Metadata[k] = v
 			}
 		}
 	case *packet.SetActorMotion:
-		e, ok := w.entities[pk.EntityRuntimeID]
+		e, ok := w.worldState.entities[pk.EntityRuntimeID]
 		if ok {
 			e.Velocity = pk.Velocity
 		}
 	case *packet.MoveActorDelta:
-		e, ok := w.entities[pk.EntityRuntimeID]
+		e, ok := w.worldState.entities[pk.EntityRuntimeID]
 		if ok {
 			if pk.Flags&packet.MoveActorDeltaFlagHasX != 0 {
 				e.Position[0] = pk.Position[0]
@@ -251,14 +251,14 @@ func (w *WorldState) ProcessEntityPackets(pk packet.Packet) packet.Packet {
 			//}
 		}
 	case *packet.MoveActorAbsolute:
-		e, ok := w.entities[pk.EntityRuntimeID]
+		e, ok := w.worldState.entities[pk.EntityRuntimeID]
 		if ok {
 			e.Position = pk.Position
 			e.Pitch = pk.Rotation.X()
 			e.Yaw = pk.Rotation.Y()
 		}
 	case *packet.MobEquipment:
-		e, ok := w.entities[pk.EntityRuntimeID]
+		e, ok := w.worldState.entities[pk.EntityRuntimeID]
 		if ok {
 			w, ok := e.Inventory[pk.WindowID]
 			if !ok {
@@ -268,7 +268,7 @@ func (w *WorldState) ProcessEntityPackets(pk packet.Packet) packet.Packet {
 			w[pk.HotBarSlot] = pk.NewItem
 		}
 	case *packet.MobArmourEquipment:
-		e, ok := w.entities[pk.EntityRuntimeID]
+		e, ok := w.worldState.entities[pk.EntityRuntimeID]
 		if ok {
 			e.Helmet = &pk.Helmet
 			e.Chestplate = &pk.Chestplate

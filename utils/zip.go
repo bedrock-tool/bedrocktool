@@ -2,6 +2,7 @@ package utils
 
 import (
 	"archive/zip"
+	"compress/flate"
 	"io"
 	"io/fs"
 	"os"
@@ -36,6 +37,12 @@ func ZipFolder(filename, folder string) error {
 		logrus.Fatal(err)
 	}
 	zw := zip.NewWriter(f)
+
+	// Register a custom Deflate compressor.
+	zw.RegisterCompressor(zip.Deflate, func(out io.Writer) (io.WriteCloser, error) {
+		return flate.NewWriter(out, flate.NoCompression)
+	})
+
 	err = filepath.WalkDir(folder, func(path string, d fs.DirEntry, err error) error {
 		if !d.Type().IsDir() {
 			rel := path[len(folder)+1:]

@@ -6,7 +6,7 @@ go 1.20
 replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.28.1-1
 
 //replace github.com/df-mc/dragonfly => ./dragonfly
-replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.9.3-10
+replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.9.4-3
 
 //replace gioui.org => ./gio
 replace gioui.org => github.com/olebeck/gio v0.0.0-20230321105529-d424f1a59af9
@@ -15,7 +15,7 @@ require (
 	gioui.org v0.0.0-20230323230841-d7b1c7c33b33
 	gioui.org/x v0.0.0-20230313161557-05b40af72ed0
 	github.com/cloudfoundry-attic/jibber_jabber v0.0.0-20151120183258-bcc4c8345a21
-	github.com/df-mc/dragonfly v0.9.3
+	github.com/df-mc/dragonfly v0.9.4
 	github.com/df-mc/goleveldb v1.1.9
 	github.com/fatih/color v1.15.0
 	github.com/flytam/filenamify v1.1.2
@@ -48,6 +48,7 @@ require (
 	github.com/changkun/lockfree v0.0.1 // indirect
 	github.com/cloudfoundry/jibber_jabber v0.0.0-20151120183258-bcc4c8345a21 // indirect
 	github.com/df-mc/atomic v1.10.0 // indirect
+	github.com/df-mc/worldupgrader v1.0.3 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-text/typesetting v0.0.0-20221214153724-0399769901d5 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect

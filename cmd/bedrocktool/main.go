@@ -41,6 +41,15 @@ func (c *CLI) Start(ctx context.Context, cancel context.CancelFunc) error {
 }
 
 func main() {
+	/*
+		cf, _ := os.Create("cpu.pprof")
+		err := pprof.StartCPUProfile(cf)
+		if err != nil {
+			logrus.Error(err)
+		}
+		defer pprof.StopCPUProfile()
+	*/
+
 	defer func() {
 		if err := recover(); err != nil {
 			logrus.Errorf(locale.Loc("fatal_error", nil))
