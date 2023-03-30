@@ -78,14 +78,16 @@ func main() {
 		logrus.Infof(locale.Loc("bedrocktool_version", locale.Strmap{"Version": utils.Version}))
 	}
 
-	newVersion, err := utils.Updater.UpdateAvailable()
-	if err != nil {
-		logrus.Error(err)
-	}
+	go func() {
+		newVersion, err := utils.Updater.UpdateAvailable()
+		if err != nil {
+			logrus.Error(err)
+		}
 
-	if newVersion != "" && utils.Version != "" {
-		logrus.Infof(locale.Loc("update_available", locale.Strmap{"Version": newVersion}))
-	}
+		if newVersion != "" && utils.Version != "" {
+			logrus.Infof(locale.Loc("update_available", locale.Strmap{"Version": newVersion}))
+		}
+	}()
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -125,7 +127,7 @@ func main() {
 		logrus.Error("Failed to init UI!")
 		return
 	}
-	err = ui.Start(ctx, cancel)
+	err := ui.Start(ctx, cancel)
 	cancel()
 	if err != nil {
 		logrus.Error(err)
