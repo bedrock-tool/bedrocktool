@@ -83,12 +83,8 @@ github.com/muhammadmuzzammil1998/jsonc v1.0.0 h1:8o5gBQn4ZA3NBA9DlTujCj2a4w0tqWr
 github.com/muhammadmuzzammil1998/jsonc v1.0.0/go.mod h1:saF2fIVw4banK0H4+/EuqfFLpRnoy5S+ECwTOCcRcSU=
 github.com/nicksnyder/go-i18n/v2 v2.2.1 h1:aOzRCdwsJuoExfZhoiXHy4bjruwCMdt5otbYojM/PaA=
 github.com/nicksnyder/go-i18n/v2 v2.2.1/go.mod h1:fF2++lPHlo+/kPaj3nB0uxtPwzlPm+BlgwGX7MkeGj0=
-github.com/olebeck/dragonfly v0.9.3-10 h1:USruaK+8c3gsX9CtDzInLbwsdoZxcYjmnC8t/H4/Zjw=
-github.com/olebeck/dragonfly v0.9.3-10/go.mod h1:nnnmYWgSTNQb9x33nBthqN/2vyHlUaijfo+e2y3W5j4=
-github.com/olebeck/dragonfly v0.9.4-1 h1:AvP0JALUJqkDBTCT/7tOrIndKIrIol1rX6XFcbOwpLI=
-github.com/olebeck/dragonfly v0.9.4-1/go.mod h1:Iu46xugbkTQ9CcUj+zPC4VvKP94CmxxLGtW8pHgAPr4=
-github.com/olebeck/dragonfly v0.9.4-2 h1:e1bzsTxcPMaUUs2B6wnCbc1FE96XcdBbL7mp1LE92NI=
-github.com/olebeck/dragonfly v0.9.4-2/go.mod h1:k8OQvjmfj+JbrwQf1qHfMETlFHOp0WJLjILN+QVqh+c=
+github.com/olebeck/dragonfly v0.9.4-3 h1:zG6f7zBCM9HWx6eQ/O5VKUBxU6bjln+nDlfCF0vNZ/A=
+github.com/olebeck/dragonfly v0.9.4-3/go.mod h1:k8OQvjmfj+JbrwQf1qHfMETlFHOp0WJLjILN+QVqh+c=
 github.com/olebeck/gio v0.0.0-20230321105529-d424f1a59af9 h1:TqDsMHwjW5ZYfh+RE8ussT62m0qXqo+QjzSXb7BCVA4=
 github.com/olebeck/gio v0.0.0-20230321105529-d424f1a59af9/go.mod h1:+W1Kpf96YcfissZocFqIp6O42FDTuphkObbEybp+Ffc=
 github.com/olebeck/gophertunnel v1.28.1-1 h1:bw2jeMz94YHF5qQYhq1Yq/6fALkklGu7k26YbPI4DSs=
