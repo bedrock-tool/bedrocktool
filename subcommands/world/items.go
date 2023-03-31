@@ -43,6 +43,9 @@ func (w *worldsServer) processItemPacketsServer(pk packet.Packet) packet.Packet 
 
 	case *packet.InventorySlot:
 		if pk.WindowID == 0x0 {
+			if w.serverState.playerInventory == nil {
+				w.serverState.playerInventory = make([]protocol.ItemInstance, 36)
+			}
 			w.serverState.playerInventory[pk.Slot] = pk.NewItem
 		} else {
 			// save content

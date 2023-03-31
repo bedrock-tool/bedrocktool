@@ -62,12 +62,40 @@ func (bp *BehaviourPack) CheckAddLink(pack utils.Pack) {
 		logrus.Error(err)
 		return
 	}
-	if len(bp.blocks) > 0 {
+
+	hasBlocksJson := false
+	if bp.HasBlocks() {
 		_, err = z.Open("blocks.json")
-		if err != nil {
-			return
+		if err == nil {
+			hasBlocksJson = true
 		}
 	}
+
+	hasEntitiesFolder := false
+	if bp.HasEntities() {
+		for _, f := range z.File {
+			if f.Name == "entity" && f.FileInfo().IsDir() {
+				hasEntitiesFolder = true
+				break
+			}
+		}
+	}
+
+	hasItemsFolder := false
+	if bp.HasItems() {
+		for _, f := range z.File {
+			if f.Name == "items" && f.FileInfo().IsDir() {
+				hasItemsFolder = true
+				break
+			}
+		}
+	}
+
+	// has no assets needed
+	if !(hasBlocksJson || hasEntitiesFolder || hasItemsFolder) {
+		return
+	}
+
 	h := pack.Manifest().Header
 	bp.AddDependency(h.UUID, h.Version)
 }
@@ -78,6 +106,10 @@ func (bp *BehaviourPack) HasBlocks() bool {
 
 func (bp *BehaviourPack) HasItems() bool {
 	return len(bp.items) > 0
+}
+
+func (bp *BehaviourPack) HasEntities() bool {
+	return len(bp.entities) > 0
 }
 
 func (bp *BehaviourPack) HasContent() bool {

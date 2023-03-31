@@ -550,8 +550,6 @@ func (w *worldsServer) SaveAndReset() {
 		f.Close()
 	}
 
-	time.Sleep(1 * time.Second)
-
 	// zip it
 	filename := folder + ".mcworld"
 	if err := utils.ZipFolder(filename, folder); err != nil {
