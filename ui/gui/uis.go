@@ -8,4 +8,4 @@ import (
 type C = layout.Context
 type D = layout.Dimensions
 
-type HandlerFunc = func(name string, data interface{}) messages.MessageResponse
+type HandlerFunc = func(data interface{}) messages.MessageResponse

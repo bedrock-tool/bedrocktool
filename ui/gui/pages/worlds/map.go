@@ -90,7 +90,7 @@ func drawTile(img *image.RGBA, min, pos protocol.ChunkPos, tile *image.RGBA) {
 	), tile, image.Point{}, draw.Src)
 }
 
-func (m *Map) Update(u *messages.UpdateMapPayload) {
+func (m *Map) Update(u *messages.UpdateMap) {
 	if m.MapImage == nil {
 		m.scaleFactor = 1
 	}

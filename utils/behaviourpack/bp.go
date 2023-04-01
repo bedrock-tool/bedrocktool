@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/repeale/fp-go"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 	"github.com/sirupsen/logrus"
 )
@@ -73,22 +74,16 @@ func (bp *BehaviourPack) CheckAddLink(pack utils.Pack) {
 
 	hasEntitiesFolder := false
 	if bp.HasEntities() {
-		for _, f := range z.File {
-			if f.Name == "entity" && f.FileInfo().IsDir() {
-				hasEntitiesFolder = true
-				break
-			}
-		}
+		hasEntitiesFolder = fp.Some(func(f *zip.File) bool {
+			return f.Name == "entity" && f.FileInfo().IsDir()
+		})(z.File)
 	}
 
 	hasItemsFolder := false
 	if bp.HasItems() {
-		for _, f := range z.File {
-			if f.Name == "items" && f.FileInfo().IsDir() {
-				hasItemsFolder = true
-				break
-			}
-		}
+		hasItemsFolder = fp.Some(func(f *zip.File) bool {
+			return f.Name == "items" && f.FileInfo().IsDir()
+		})(z.File)
 	}
 
 	// has no assets needed
@@ -139,7 +134,7 @@ func (bp *BehaviourPack) Save(fpath string) error {
 		return e.Encode(thing)
 	}
 
-	if len(bp.blocks) > 0 { // blocks
+	if bp.HasBlocks() { // blocks
 		blocks_dir := path.Join(fpath, "blocks")
 		os.Mkdir(blocks_dir, 0o755)
 		for _, be := range bp.blocks {
@@ -149,7 +144,7 @@ func (bp *BehaviourPack) Save(fpath string) error {
 			}
 		}
 	}
-	if len(bp.items) > 0 { // items
+	if bp.HasItems() { // items
 		items_dir := path.Join(fpath, "items")
 		os.Mkdir(items_dir, 0o755)
 		for _, ib := range bp.items {
@@ -159,7 +154,7 @@ func (bp *BehaviourPack) Save(fpath string) error {
 			}
 		}
 	}
-	if len(bp.entities) > 0 { // items
+	if bp.HasEntities() { // entities
 		items_dir := path.Join(fpath, "entities")
 		os.Mkdir(items_dir, 0o755)
 		for _, eb := range bp.entities {

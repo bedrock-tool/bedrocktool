@@ -30,7 +30,7 @@ type Page struct {
 	worldName  string
 
 	worldsList widget.List
-	worlds     []messages.SavingWorldPayload
+	worlds     []messages.SavingWorld
 	l          sync.Mutex
 }
 
@@ -115,47 +115,33 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 	return layout.Dimensions{}
 }
 
-func (u *Page) handler(name string, data interface{}) messages.MessageResponse {
+func (u *Page) handler(data interface{}) messages.MessageResponse {
 	r := messages.MessageResponse{
 		Ok:   false,
 		Data: nil,
 	}
 
-	switch name {
+	switch m := data.(type) {
 	case messages.SetUIState:
-		state := data.(messages.UIState)
-		u.State = state
+		u.State = m
 		u.Router.Invalidate()
 		r.Ok = true
-
-	case messages.Init:
-		init := data.(messages.InitPayload)
-		_ = init
-		r.Ok = true
-
 	case messages.UpdateMap:
-		update_map := data.(messages.UpdateMapPayload)
-		u.chunkCount = update_map.ChunkCount
-		u.worldMap.Update(&update_map)
+		u.chunkCount = m.ChunkCount
+		u.worldMap.Update(&m)
 		u.Router.Invalidate()
 		r.Ok = true
-
 	case messages.SetVoidGen:
-		set_void_gen := data.(messages.SetVoidGenPayload)
-		u.voidGen = set_void_gen.Value
+		u.voidGen = m.Value
 		u.Router.Invalidate()
 		r.Ok = true
-
 	case messages.SetWorldName:
-		set_world_name := data.(messages.SetWorldNamePayload)
-		u.worldName = set_world_name.WorldName
+		u.worldName = m.WorldName
 		u.Router.Invalidate()
 		r.Ok = true
-
 	case messages.SavingWorld:
 		u.l.Lock()
-		saving_world := data.(messages.SavingWorldPayload)
-		u.worlds = append(u.worlds, saving_world)
+		u.worlds = append(u.worlds, m)
 		u.l.Unlock()
 		u.Router.Invalidate()
 		r.Ok = true

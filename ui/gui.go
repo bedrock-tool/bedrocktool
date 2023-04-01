@@ -114,8 +114,8 @@ func (g *GUI) run(w *app.Window) error {
 	}
 }
 
-func (g *GUI) Message(name string, data interface{}) messages.MessageResponse {
-	r := g.router.Handler(name, data)
+func (g *GUI) Message(data interface{}) messages.MessageResponse {
+	r := g.router.Handler(data)
 	if r.Ok || r.Data != nil {
 		return r
 	}
@@ -125,8 +125,8 @@ func (g *GUI) Message(name string, data interface{}) messages.MessageResponse {
 		Data: nil,
 	}
 
-	switch name {
-	case "can_show_images":
+	switch data.(type) {
+	case messages.CanShowImages:
 		r.Ok = true
 	}
 

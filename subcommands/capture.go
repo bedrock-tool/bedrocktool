@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/binary"
 	"flag"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -15,7 +16,6 @@ import (
 	"github.com/bedrock-tool/bedrocktool/utils"
 
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
-	"github.com/sirupsen/logrus"
 )
 
 func init() {
@@ -32,13 +32,7 @@ func dumpPacket(f io.WriteCloser, toServer bool, payload []byte) {
 	binary.Write(f, binary.LittleEndian, packetSize)
 	binary.Write(f, binary.LittleEndian, toServer)
 	binary.Write(f, binary.LittleEndian, time.Now().UnixMilli())
-	n, err := f.Write(payload)
-	if err != nil {
-		logrus.Error(err)
-	}
-	if n < int(packetSize) {
-		f.Write(make([]byte, int(packetSize)-n))
-	}
+	f.Write(payload)
 	f.Write([]byte{0xBB, 0xBB, 0xBB, 0xBB})
 }
 
@@ -59,7 +53,7 @@ func (c *CaptureCMD) Execute(ctx context.Context, ui utils.UI) error {
 	}
 
 	os.Mkdir("captures", 0o775)
-	fio, err := os.Create("captures/" + hostname + "-" + time.Now().Format("2006-01-02_15-04-05") + ".pcap2")
+	fio, err := os.Create(fmt.Sprintf("captures/%s-%s.pcap2", hostname, time.Now().Format("2006-01-02_15-04-05")))
 	if err != nil {
 		return err
 	}
@@ -68,7 +62,7 @@ func (c *CaptureCMD) Execute(ctx context.Context, ui utils.UI) error {
 
 	proxy, err := utils.NewProxy()
 	if err != nil {
-		logrus.Fatal(err)
+		return err
 	}
 	proxy.PacketFunc = func(header packet.Header, payload []byte, src, dst net.Addr) {
 		IsfromClient := src.String() == proxy.Client.LocalAddr().String()
@@ -79,10 +73,5 @@ func (c *CaptureCMD) Execute(ctx context.Context, ui utils.UI) error {
 		dumpPacket(fio, IsfromClient, buf.Bytes())
 	}
 
-	err = proxy.Run(ctx, address)
-	time.Sleep(2 * time.Second)
-	if err != nil {
-		return err
-	}
-	return nil
+	return proxy.Run(ctx, address)
 }

@@ -4,6 +4,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/df-mc/dragonfly/server/world/chunk"
+	"github.com/repeale/fp-go"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sirupsen/logrus"
@@ -76,13 +77,9 @@ func (w *worldsServer) processLevelChunk(pk *packet.LevelChunk) {
 		})
 	default:
 		// legacy
-		empty := true
-		for _, sub := range ch.Sub() {
-			if !sub.Empty() {
-				empty = false
-				break
-			}
-		}
+		empty := fp.Every(func(sub *chunk.SubChunk) bool {
+			return sub.Empty()
+		})(ch.Sub())
 		if !empty {
 			w.mapUI.SetChunk(pk.Position, ch, true)
 		}

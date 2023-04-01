@@ -11,7 +11,7 @@ type MessageResponse struct {
 	Data interface{}
 }
 
-type UIState = int
+type UIState int
 
 const (
 	UIStateConnect = iota
@@ -24,39 +24,29 @@ type HandlerFunc = func(name string, data interface{}) MessageResponse
 
 //
 
-const SetUIState = "set_ui_state"
-
-type SetUIStatePayload = UIState
+type SetUIState = UIState
 
 //
 
-const SetVoidGen = "set_void_gen"
-
-type SetVoidGenPayload struct {
+type SetVoidGen struct {
 	Value bool
 }
 
 //
 
-const SetWorldName = "set_world_name"
-
-type SetWorldNamePayload struct {
+type SetWorldName struct {
 	WorldName string
 }
 
 //
 
-var Init = "init"
-
-type InitPayload struct {
+type Init struct {
 	Handler HandlerFunc
 }
 
 //
 
-var UpdateMap = "update_map"
-
-type UpdateMapPayload struct {
+type UpdateMap struct {
 	ChunkCount   int
 	Rotation     float32
 	UpdatedTiles []protocol.ChunkPos
@@ -67,16 +57,14 @@ type UpdateMapPayload struct {
 
 //
 
-var NewSkin = "new_skin"
-
-type NewSkinPayload struct {
+type NewSkin struct {
 	PlayerName string
 	Skin       *protocol.Skin
 }
 
-var SavingWorld = "saving_world"
-
-type SavingWorldPayload struct {
+type SavingWorld struct {
 	Name   string
 	Chunks int
 }
+
+type CanShowImages struct{}

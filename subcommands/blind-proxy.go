@@ -54,11 +54,6 @@ func (c *BlindProxyCMD) Execute(ctx context.Context, ui utils.UI) error {
 		listener.ID(), "Creative", 1, listener.Addr().(*net.UDPAddr).Port, listener.Addr().(*net.UDPAddr).Port,
 	)))
 
-	go func() {
-		<-ctx.Done()
-		listener.Close()
-	}()
-
 	clientConn, err := listener.Accept()
 	if err != nil {
 		return err

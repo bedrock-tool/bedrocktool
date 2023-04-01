@@ -149,13 +149,13 @@ func (c *SkinCMD) Execute(ctx context.Context, ui utils.UI) error {
 	proxy, _ := utils.NewProxy()
 	proxy.WithClient = !c.NoProxy
 	proxy.OnClientConnect = func(hasClient bool) {
-		ui.Message(messages.SetUIState, messages.UIStateConnecting)
+		ui.Message(messages.SetUIState(messages.UIStateConnecting))
 	}
 	proxy.ConnectCB = func(err error) bool {
 		if err != nil {
 			return false
 		}
-		ui.Message(messages.SetUIState, messages.UIStateMain)
+		ui.Message(messages.SetUIState(messages.UIStateMain))
 		logrus.Info(locale.Loc("ctrl_c_to_exit", nil))
 		return true
 	}
@@ -168,7 +168,7 @@ func (c *SkinCMD) Execute(ctx context.Context, ui utils.UI) error {
 	proxy.PacketCB = func(pk packet.Packet, toServer bool, _ time.Time) (packet.Packet, error) {
 		if !toServer {
 			for _, s := range s.ProcessPacket(pk) {
-				ui.Message(messages.NewSkin, messages.NewSkinPayload{
+				ui.Message(messages.NewSkin{
 					PlayerName: s.PlayerName,
 					Skin:       s.Skin,
 				})
@@ -178,9 +178,9 @@ func (c *SkinCMD) Execute(ctx context.Context, ui utils.UI) error {
 	}
 
 	if proxy.WithClient {
-		ui.Message(messages.SetUIState, messages.UIStateConnect)
+		ui.Message(messages.SetUIState(messages.UIStateConnect))
 	} else {
-		ui.Message(messages.SetUIState, messages.UIStateConnecting)
+		ui.Message(messages.SetUIState(messages.UIStateConnecting))
 	}
 	err = proxy.Run(ctx, address)
 	return err

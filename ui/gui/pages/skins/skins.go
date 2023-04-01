@@ -24,7 +24,7 @@ type Page struct {
 	State     messages.UIState
 	SkinsList widget.List
 	l         sync.Mutex
-	Skins     []messages.NewSkinPayload
+	Skins     []messages.NewSkin
 }
 
 func New(router *pages.Router) *Page {
@@ -96,28 +96,20 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 	return layout.Flex{}.Layout(gtx)
 }
 
-func (p *Page) handler(name string, data interface{}) messages.MessageResponse {
+func (p *Page) handler(data interface{}) messages.MessageResponse {
 	r := messages.MessageResponse{
 		Ok:   false,
 		Data: nil,
 	}
 
-	switch name {
+	switch m := data.(type) {
 	case messages.SetUIState:
-		state := data.(messages.UIState)
-		p.State = state
+		p.State = m
 		p.Router.Invalidate()
 		r.Ok = true
-
-	case messages.Init:
-		init := data.(messages.InitPayload)
-		_ = init
-		r.Ok = true
-
 	case messages.NewSkin:
 		p.l.Lock()
-		new_skin := data.(messages.NewSkinPayload)
-		p.Skins = append(p.Skins, new_skin)
+		p.Skins = append(p.Skins, m)
 		p.l.Unlock()
 		p.Router.Invalidate()
 		r.Ok = true

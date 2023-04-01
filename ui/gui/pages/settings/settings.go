@@ -176,7 +176,7 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 }
 
 func (p *Page) Handler() pages.HandlerFunc {
-	return func(name string, data interface{}) messages.MessageResponse {
+	return func(data interface{}) messages.MessageResponse {
 		return messages.MessageResponse{
 			Ok:   false,
 			Data: nil,

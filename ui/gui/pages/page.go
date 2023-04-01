@@ -13,7 +13,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 )
 
-type HandlerFunc = func(name string, data interface{}) messages.MessageResponse
+type HandlerFunc = func(data interface{}) messages.MessageResponse
 
 type Page interface {
 	Actions() []component.AppBarAction
@@ -133,10 +133,10 @@ func (r *Router) Layout(gtx layout.Context, th *material.Theme) layout.Dimension
 	return layout.Dimensions{Size: gtx.Constraints.Max}
 }
 
-func (r *Router) Handler(name string, data interface{}) messages.MessageResponse {
+func (r *Router) Handler(data interface{}) messages.MessageResponse {
 	page, ok := r.pages[r.current]
 	if ok {
-		return page.Handler()(name, data)
+		return page.Handler()(data)
 	}
 	return messages.MessageResponse{}
 }

@@ -95,7 +95,7 @@ func NewMapUI(w *worldsServer) *MapUI {
 }
 
 func (m *MapUI) Start() {
-	r := m.w.gui.Message("can_show_images", nil)
+	r := m.w.gui.Message(messages.CanShowImages{})
 	if r.Ok {
 		m.showOnGui = true
 	}
@@ -182,7 +182,7 @@ func (m *MapUI) SchedRedraw() {
 // Redraw draws chunk images to the map image
 func (m *MapUI) Redraw() {
 	m.l.Lock()
-	updatedChunks := []protocol.ChunkPos{}
+	updatedChunks := make([]protocol.ChunkPos, 0, m.renderQueue.Length())
 	for {
 		r, ok := m.renderQueue.Dequeue().(*RenderElem)
 		if !ok {
@@ -225,7 +225,7 @@ func (m *MapUI) Redraw() {
 	}
 	if m.showOnGui {
 		min, max := m.GetBounds()
-		m.w.gui.Message(messages.UpdateMap, messages.UpdateMapPayload{
+		m.w.gui.Message(messages.UpdateMap{
 			ChunkCount:   len(m.renderedChunks),
 			Rotation:     m.w.serverState.PlayerPos.Yaw,
 			UpdatedTiles: updatedChunks,

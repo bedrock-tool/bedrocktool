@@ -59,8 +59,7 @@ func (c *ChatLogCMD) Execute(ctx context.Context, ui utils.UI) error {
 		return pk, nil
 	}
 
-	err = proxy.Run(ctx, address)
-	return err
+	return proxy.Run(ctx, address)
 }
 
 func init() {

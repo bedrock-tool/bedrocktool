@@ -120,30 +120,6 @@ func spawnConn(ctx context.Context, clientConn *minecraft.Conn, serverConn *mine
 	return nil
 }
 
-// get longest line length
-func maxLen(lines []string) int {
-	o := 0
-	for _, line := range lines {
-		if o < len(line) {
-			o = len(line)
-		}
-	}
-	return o
-}
-
-// MarginLines makes text centered
-func MarginLines(lines []string) string {
-	ret := ""
-	max := maxLen(lines)
-	for _, line := range lines {
-		if len(line) != max {
-			ret += strings.Repeat(" ", max/2-len(line)/4)
-		}
-		ret += line + "\n"
-	}
-	return ret
-}
-
 // SplitExt splits path to filename and extension
 func SplitExt(filename string) (name, ext string) {
 	name, ext = path.Base(filename), path.Ext(filename)

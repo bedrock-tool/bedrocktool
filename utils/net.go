@@ -1,8 +1,12 @@
 package utils
 
-import "net"
+import (
+	"net"
 
-var PrivateIPNetworks = []net.IPNet{
+	"github.com/repeale/fp-go"
+)
+
+var privateIPNetworks = []net.IPNet{
 	{
 		IP:   net.ParseIP("10.0.0.0"),
 		Mask: net.CIDRMask(8, 32),
@@ -19,12 +23,9 @@ var PrivateIPNetworks = []net.IPNet{
 
 // IPPrivate checks if ip is private
 func IPPrivate(ip net.IP) bool {
-	for _, ipNet := range PrivateIPNetworks {
-		if ipNet.Contains(ip) {
-			return true
-		}
-	}
-	return false
+	return fp.Some(func(ipNet net.IPNet) bool {
+		return ipNet.Contains(ip)
+	})(privateIPNetworks)
 }
 
 // GetLocalIP returns the non loopback local IP of the host

@@ -29,36 +29,42 @@ func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.R
 
 	blockColor = color.RGBA{255, 0, 255, 255}
 	b, found := world.BlockByRuntimeID(rid)
-	if found {
-		if _, isWater := b.(block.Water); isWater {
-			// get the first non water block at the position
-			heightBlock := c.HeightMap().At(x, z)
-			depth := y - heightBlock
-			if depth > 0 {
-				blockColor = blockColorAt(c, x, heightBlock, z)
-			}
-
-			// blend that blocks color with water depending on depth
-			waterColor := (&block.Water{}).Color()
-			waterColor.A = uint8(utils.Clamp(int(150+depth*7), 255))
-			blockColor = utils.BlendColors(blockColor, waterColor)
-			blockColor.R -= uint8(depth * 2)
-			blockColor.G -= uint8(depth * 2)
-			blockColor.B -= uint8(depth * 2)
-			return blockColor
-		} else {
-			col := b.Color()
-			if col.A != 255 {
-				col = utils.BlendColors(blockColorAt(c, x, y-1, z), col)
-			}
-			return col
-		}
-	} else {
-		/*
-			name, nbt := b.EncodeBlock()
-			fmt.Printf("unknown color %d  %s %s %s\n", rid, reflect.TypeOf(b), name, nbt)
-		*/
+	if !found {
 		return blockColor
+	}
+
+	if _, isWater := b.(block.Water); isWater {
+		waterColor := block.Water{}.Color()
+
+		// get the first non water block at the position
+		heightBlock := c.HeightMap().At(x, z)
+		depth := y - heightBlock
+		if depth > 0 {
+			blockColor = blockColorAt(c, x, heightBlock, z)
+		}
+
+		// blend that blocks color with water depending on depth
+		waterColor.A = uint8(utils.Clamp(int(150+depth*7), 255))
+		blockColor = utils.BlendColors(blockColor, waterColor)
+		blockColor.R -= uint8(depth * 2)
+		blockColor.G -= uint8(depth * 2)
+		blockColor.B -= uint8(depth * 2)
+		return blockColor
+	} else {
+		col := b.Color()
+		if col.A != 255 {
+			col = utils.BlendColors(blockColorAt(c, x, y-1, z), col)
+		}
+
+		/*
+			a := color.RGBA{255, 0, 255, 255}
+			if col == a {
+				name, nbt := b.EncodeBlock()
+				fmt.Printf("unknown color %d  %s %s %s\n", rid, reflect.TypeOf(b), name, nbt)
+			}
+		*/
+
+		return col
 	}
 }
 

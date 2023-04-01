@@ -25,6 +25,7 @@ import (
 	"github.com/df-mc/dragonfly/server/world/mcdb"
 	"github.com/df-mc/goleveldb/leveldb/opt"
 	"github.com/go-gl/mathgl/mgl32"
+	"github.com/repeale/fp-go"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
@@ -104,8 +105,8 @@ func NewWorldsServer(ctx context.Context, proxy *utils.ProxyContext, ServerName 
 	w.mapUI = NewMapUI(w)
 	w.Reset(w.CurrentName())
 
-	w.gui.Message(messages.Init, messages.InitPayload{
-		Handler: w.uiMessage,
+	w.gui.Message(messages.Init{
+		Handler: nil,
 	})
 
 	return w
@@ -173,7 +174,7 @@ func (c *WorldCMD) Execute(ctx context.Context, ui utils.UI) error {
 	}
 	proxy.ConnectCB = w.OnConnect
 	proxy.OnClientConnect = func(hasClient bool) {
-		w.gui.Message(messages.SetUIState, messages.UIStateConnecting)
+		w.gui.Message(messages.SetUIState(messages.UIStateConnecting))
 	}
 	proxy.PacketCB = func(pk packet.Packet, toServer bool, _ time.Time) (packet.Packet, error) {
 		forward := true
@@ -200,30 +201,14 @@ func (c *WorldCMD) Execute(ctx context.Context, ui utils.UI) error {
 		return pk, nil
 	}
 
-	w.gui.Message(messages.SetUIState, messages.UIStateConnect)
+	w.gui.Message(messages.SetUIState(messages.UIStateConnect))
 	err = w.proxy.Run(ctx, serverAddress)
 	if err != nil {
 		return err
 	}
 	w.SaveAndReset()
-	ui.Message(messages.SetUIState, messages.UIStateFinished)
+	ui.Message(messages.SetUIState(messages.UIStateFinished))
 	return nil
-}
-
-func (w *worldsServer) uiMessage(name string, data interface{}) messages.MessageResponse {
-	r := messages.MessageResponse{
-		Ok:   false,
-		Data: nil,
-	}
-	switch name {
-	case messages.SetVoidGen:
-		set_void_gen := data.(messages.SetVoidGenPayload)
-		r.Ok = w.setVoidGen(set_void_gen.Value, true)
-	case messages.SetWorldName:
-		set_world_name := data.(messages.SetWorldNamePayload)
-		r.Ok = w.setWorldName(set_world_name.WorldName, true)
-	}
-	return r
 }
 
 func (w *worldsServer) SetPlayerPos(Position mgl32.Vec3, Pitch, Yaw, HeadYaw float32) {
@@ -243,16 +228,14 @@ func (w *worldsServer) SetPlayerPos(Position mgl32.Vec3, Pitch, Yaw, HeadYaw flo
 
 func (w *worldsServer) setVoidGen(val bool, fromUI bool) bool {
 	w.settings.voidGen = val
-	var s string
+	var s = locale.Loc("void_generator_false", nil)
 	if w.settings.voidGen {
 		s = locale.Loc("void_generator_true", nil)
-	} else {
-		s = locale.Loc("void_generator_false", nil)
 	}
 	w.proxy.SendMessage(s)
 
 	if !fromUI {
-		w.gui.Message(messages.SetVoidGen, messages.SetVoidGenPayload{
+		w.gui.Message(messages.SetVoidGen{
 			Value: w.settings.voidGen,
 		})
 	}
@@ -265,7 +248,7 @@ func (w *worldsServer) setWorldName(val string, fromUI bool) bool {
 	w.proxy.SendMessage(locale.Loc("worldname_set", locale.Strmap{"Name": w.worldState.Name}))
 
 	if !fromUI {
-		w.gui.Message(messages.SetWorldName, messages.SetWorldNamePayload{
+		w.gui.Message(messages.SetWorldName{
 			WorldName: w.worldState.Name,
 		})
 	}
@@ -301,25 +284,22 @@ func (w *worldsServer) SaveAndReset() {
 	for cp := range w.worldState.chunks {
 		keys = append(keys, cp)
 	}
-	for _, cp := range keys {
-		has_any := false
-		for _, sc := range w.worldState.chunks[cp].Sub() {
-			has_any = !sc.Empty()
-			if has_any {
-				break
-			}
-		}
-		if !has_any {
-			delete(w.worldState.chunks, cp)
-		}
+
+	for _, cp := range fp.Filter(func(cp protocol.ChunkPos) bool {
+		return fp.Some(func(sc *chunk.SubChunk) bool {
+			return !sc.Empty()
+		})(w.worldState.chunks[cp].Sub())
+	})(keys) {
+		delete(w.worldState.chunks, cp)
 	}
+
 	if len(w.worldState.chunks) == 0 {
 		w.Reset(w.CurrentName())
 		return
 	}
 
 	logrus.Infof(locale.Loc("saving_world", locale.Strmap{"Name": w.worldState.Name, "Count": len(w.worldState.chunks)}))
-	w.gui.Message(messages.SavingWorld, messages.SavingWorldPayload{
+	w.gui.Message(messages.SavingWorld{
 		Name:   w.worldState.Name,
 		Chunks: len(w.worldState.chunks),
 	})
@@ -558,11 +538,11 @@ func (w *worldsServer) SaveAndReset() {
 	logrus.Info(locale.Loc("saved", locale.Strmap{"Name": filename}))
 	//os.RemoveAll(folder)
 	w.Reset(w.CurrentName())
-	w.gui.Message(messages.SetUIState, messages.UIStateMain)
+	w.gui.Message(messages.SetUIState(messages.UIStateMain))
 }
 
 func (w *worldsServer) OnConnect(err error) bool {
-	w.gui.Message(messages.SetUIState, messages.UIStateMain)
+	w.gui.Message(messages.SetUIState(messages.UIStateMain))
 
 	if err != nil {
 		return false

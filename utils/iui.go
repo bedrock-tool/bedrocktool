@@ -17,7 +17,7 @@ import (
 type UI interface {
 	Init() bool
 	Start(context.Context, context.CancelFunc) error
-	Message(name string, data interface{}) messages.MessageResponse
+	Message(data interface{}) messages.MessageResponse
 	ServerInput(context.Context, string) (string, string, error)
 }
 
@@ -25,7 +25,7 @@ type BaseUI struct {
 	UI
 }
 
-func (u *BaseUI) Message(name string, data interface{}) messages.MessageResponse {
+func (u *BaseUI) Message(data interface{}) messages.MessageResponse {
 	return messages.MessageResponse{
 		Ok:   false,
 		Data: nil,
