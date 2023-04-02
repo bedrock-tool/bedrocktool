@@ -286,7 +286,7 @@ func (w *worldsServer) SaveAndReset() {
 	}
 
 	for _, cp := range fp.Filter(func(cp protocol.ChunkPos) bool {
-		return fp.Some(func(sc *chunk.SubChunk) bool {
+		return !fp.Some(func(sc *chunk.SubChunk) bool {
 			return !sc.Empty()
 		})(w.worldState.chunks[cp].Sub())
 	})(keys) {

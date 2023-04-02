@@ -126,6 +126,9 @@ func entityMetadataToNBT(metadata protocol.EntityMetadata, nbt map[string]any) {
 	if color2, ok := metadata[protocol.EntityDataKeyColorTwoIndex]; ok {
 		nbt["Color2"] = color2
 	}
+	if skinID, ok := metadata[protocol.EntityDataKeySkinID]; ok {
+		nbt["SkinID"] = int32(skinID.(int32))
+	}
 
 	if name, ok := metadata[protocol.EntityDataKeyName]; ok {
 		nbt["CustomName"] = name
@@ -219,9 +222,12 @@ func (w *worldsServer) ProcessEntityPackets(pk packet.Packet) packet.Packet {
 	case *packet.SetActorData:
 		e, ok := w.worldState.entities[pk.EntityRuntimeID]
 		if ok {
-			for k, v := range pk.EntityMetadata {
-				e.Metadata[k] = v
-			}
+			e.Metadata = pk.EntityMetadata
+			w.bp.AddEntity(behaviourpack.EntityIn{
+				Identifier: e.EntityType,
+				Attr:       nil,
+				Meta:       pk.EntityMetadata,
+			})
 		}
 	case *packet.SetActorMotion:
 		e, ok := w.worldState.entities[pk.EntityRuntimeID]

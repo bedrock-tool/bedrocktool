@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"runtime/debug"
 	"syscall"
+	"time"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
@@ -37,6 +38,9 @@ func (c *CLI) Start(ctx context.Context, cancel context.CancelFunc) error {
 	utils.InitDNS()
 	utils.InitExtraDebug(ctx)
 	subcommands.Execute(ctx)
+	time.Sleep(50 * time.Millisecond)
+	cancel()
+	time.Sleep(50 * time.Millisecond)
 	return nil
 }
 

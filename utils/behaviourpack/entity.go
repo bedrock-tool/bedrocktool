@@ -35,24 +35,26 @@ func (bp *BehaviourPack) AddEntity(entity EntityIn) {
 		return
 	}
 
-	if _, ok := bp.entities[entity.Identifier]; ok {
-		return
+	entry, ok := bp.entities[entity.Identifier]
+	if !ok {
+		entry = entityBehaviour{
+			FormatVersion: bp.formatVersion,
+			MinecraftEntity: MinecraftEntity{
+				Description: EntityDescription{
+					Identifier:   entity.Identifier,
+					Spawnable:    true,
+					Summonable:   true,
+					Experimental: true,
+				},
+				ComponentGroups: make(map[string]any),
+				Components:      make(map[string]any),
+				Events:          nil,
+			},
+		}
+	} else {
+		println()
 	}
 
-	entry := entityBehaviour{
-		FormatVersion: bp.formatVersion,
-		MinecraftEntity: MinecraftEntity{
-			Description: EntityDescription{
-				Identifier:   entity.Identifier,
-				Spawnable:    true,
-				Summonable:   true,
-				Experimental: true,
-			},
-			ComponentGroups: make(map[string]any),
-			Components:      make(map[string]any),
-			Events:          nil,
-		},
-	}
 	for _, av := range entity.Attr {
 		switch av.Name {
 		case "minecraft:health":
@@ -70,6 +72,13 @@ func (bp *BehaviourPack) AddEntity(entity EntityIn) {
 	if scale, ok := entity.Meta[protocol.EntityDataKeyScale].(float32); ok {
 		entry.MinecraftEntity.Components["minecraft:scale"] = map[string]any{
 			"value": scale,
+		}
+	}
+	AlwaysShowName := entity.Meta.Flag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagAlwaysShowName)
+	if AlwaysShowName {
+		entry.MinecraftEntity.Components["minecraft:nameable"] = map[string]any{
+			"always_show":             true,
+			"allow_name_tag_renaming": false,
 		}
 	}
 

@@ -259,11 +259,9 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress string) (err error
 		var packs []*resource.Pack
 		if Options.Preload {
 			logrus.Info(locale.Loc("preloading_packs", nil))
-			var serverConn *minecraft.Conn
-			serverConn, err = connectServer(ctx, serverAddress, nil, true, nil)
+			serverConn, err := connectServer(ctx, serverAddress, nil, true, nil)
 			if err != nil {
-				err = fmt.Errorf(locale.Loc("failed_to_connect", locale.Strmap{"Address": serverAddress, "Err": err}))
-				return
+				return fmt.Errorf(locale.Loc("failed_to_connect", locale.Strmap{"Address": serverAddress, "Err": err}))
 			}
 			serverConn.Close()
 			packs = serverConn.ResourcePacks()
