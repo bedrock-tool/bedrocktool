@@ -1,4 +1,4 @@
-package skins
+package utils
 
 import (
 	"encoding/json"
@@ -6,11 +6,23 @@ import (
 	"os"
 	"path"
 
-	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/google/uuid"
+	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 	"github.com/sirupsen/logrus"
 )
+
+type SkinMeta struct {
+	SkinID        string
+	PlayFabID     string
+	PremiumSkin   bool
+	PersonaSkin   bool
+	CapeID        string
+	SkinColour    string
+	ArmSize       string
+	Trusted       bool
+	PersonaPieces []protocol.PersonaPiece
+}
 
 type _skinWithIndex struct {
 	i    int
@@ -144,7 +156,7 @@ func (s *SkinPack) Save(fpath, serverName string) error {
 			},
 		}
 
-		if err := utils.WriteManifest(&manifest, fpath); err != nil {
+		if err := WriteManifest(&manifest, fpath); err != nil {
 			return err
 		}
 	}

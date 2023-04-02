@@ -8,11 +8,13 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
+	"github.com/repeale/fp-go"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/login"
@@ -42,15 +44,35 @@ func (p dummyProto) ConvertFromLatest(pk packet.Packet, _ *minecraft.Conn) []pac
 */
 
 type (
-	PacketFunc            func(header packet.Header, payload []byte, src, dst net.Addr)
-	PacketCallback        func(pk packet.Packet, toServer bool, timeReceived time.Time) (packet.Packet, error)
-	ClientConnectCallback func(hasClient bool)
-	ConnectCallback       func(err error) bool
-	IngameCommand         struct {
+	PacketFunc    func(header packet.Header, payload []byte, src, dst net.Addr)
+	IngameCommand struct {
 		Exec func(cmdline []string) bool
 		Cmd  protocol.Command
 	}
 )
+
+type ProxyHandler struct {
+	Name     string
+	ProxyRef func(*ProxyContext)
+	//
+	AddressAndName func(address, name string) error
+
+	// called for every packet
+	PacketFunc func(header packet.Header, payload []byte, src, dst net.Addr)
+
+	// called on every packet after login
+	PacketCB func(pk packet.Packet, toServer bool, timeReceived time.Time) (packet.Packet, error)
+
+	// called after client connected
+	OnClientConnect   func(conn *minecraft.Conn)
+	SecondaryClientCB func(conn *minecraft.Conn)
+
+	// called after game started
+	ConnectCB func(err error) bool
+
+	// called when the proxy stops
+	OnEnd func()
+}
 
 type ProxyContext struct {
 	Server           *minecraft.Conn
@@ -62,14 +84,8 @@ type ProxyContext struct {
 	IgnoreDisconnect bool
 	CustomClientData *login.ClientData
 
-	// called for every packet
-	PacketFunc PacketFunc
-	// called after client connected
-	OnClientConnect ClientConnectCallback
-	// called after game started
-	ConnectCB ConnectCallback
-	// called on every packet after login
-	PacketCB PacketCallback
+	handlers []*ProxyHandler
+
 	// called to change game data
 	GameDataModifier func(*minecraft.GameData)
 }
@@ -186,6 +202,10 @@ func (p *ProxyContext) SendPopup(text string) {
 	})
 }
 
+func (p *ProxyContext) AddHandler(handler *ProxyHandler) {
+	p.handlers = append(p.handlers, handler)
+}
+
 func (p *ProxyContext) CommandHandlerPacketCB(pk packet.Packet, toServer bool, _ time.Time) (packet.Packet, error) {
 	switch _pk := pk.(type) {
 	case *packet.CommandRequest:
@@ -209,7 +229,7 @@ func (p *ProxyContext) CommandHandlerPacketCB(pk packet.Packet, toServer bool, _
 	return pk, nil
 }
 
-func (p *ProxyContext) proxyLoop(ctx context.Context, toServer bool, packetCBs []PacketCallback) error {
+func (p *ProxyContext) proxyLoop(ctx context.Context, toServer bool) error {
 	var c1, c2 *minecraft.Conn
 	if toServer {
 		c1 = p.Client
@@ -229,10 +249,17 @@ func (p *ProxyContext) proxyLoop(ctx context.Context, toServer bool, packetCBs [
 			return err
 		}
 
-		for _, packetCB := range packetCBs {
-			pk, err = packetCB(pk, toServer, time.Now())
-			if err != nil {
-				return err
+		pkName := reflect.TypeOf(pk).String()
+		for _, handler := range p.handlers {
+			if handler.PacketCB != nil {
+				pk, err = handler.PacketCB(pk, toServer, time.Now())
+				if err != nil {
+					return err
+				}
+				if pk == nil {
+					logrus.Tracef("Dropped Packet: %s", pkName)
+					break
+				}
 			}
 		}
 
@@ -247,7 +274,16 @@ func (p *ProxyContext) proxyLoop(ctx context.Context, toServer bool, packetCBs [
 	}
 }
 
-func (p *ProxyContext) Run(ctx context.Context, serverAddress string) (err error) {
+func (p *ProxyContext) Run(ctx context.Context, serverAddress, name string) (err error) {
+	for _, handler := range p.handlers {
+		if handler.AddressAndName != nil {
+			handler.AddressAndName(serverAddress, name)
+		}
+		if handler.ProxyRef != nil {
+			handler.ProxyRef(p)
+		}
+	}
+
 	if strings.HasPrefix(serverAddress, "PCAP!") {
 		return createReplayConnection(ctx, serverAddress[5:], p)
 	}
@@ -279,9 +315,7 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress string) (err error
 		if err != nil {
 			return err
 		}
-
-		go func() {
-			<-ctx.Done()
+		defer func() {
 			if p.Client != nil {
 				p.Listener.Disconnect(p.Client, DisconnectReason)
 			}
@@ -300,22 +334,40 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress string) (err error
 		cdp = &cd
 	}
 
-	if p.OnClientConnect != nil {
-		p.OnClientConnect(p.WithClient)
+	for _, handler := range p.handlers {
+		if handler.OnClientConnect == nil {
+			continue
+		}
+		handler.OnClientConnect(p.Client)
 	}
 
 	if p.CustomClientData != nil {
 		cdp = p.CustomClientData
 	}
 
-	p.Server, err = connectServer(ctx, serverAddress, cdp, p.AlwaysGetPacks, p.PacketFunc)
+	p.Server, err = connectServer(ctx, serverAddress, cdp, p.AlwaysGetPacks, func(header packet.Header, payload []byte, src, dst net.Addr) {
+		for _, handler := range p.handlers {
+			if handler.PacketFunc == nil {
+				continue
+			}
+			handler.PacketFunc(header, payload, src, dst)
+		}
+	})
 	if err != nil {
-		if p.ConnectCB != nil {
-			if p.ConnectCB(err) {
+		for _, handler := range p.handlers {
+			if handler.ConnectCB == nil {
+				continue
+			}
+			ignore := handler.ConnectCB(err)
+			if ignore {
 				err = nil
+				break
 			}
 		}
-		err = fmt.Errorf(locale.Loc("failed_to_connect", locale.Strmap{"Address": serverAddress, "Err": err}))
+
+		if err != nil {
+			err = fmt.Errorf(locale.Loc("failed_to_connect", locale.Strmap{"Address": serverAddress, "Err": err}))
+		}
 		return err
 	}
 	defer p.Server.Close()
@@ -331,25 +383,27 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress string) (err error
 		return err
 	}
 
-	if p.ConnectCB != nil {
-		if !p.ConnectCB(nil) {
+	for _, handler := range p.handlers {
+		if handler.ConnectCB == nil {
+			continue
+		}
+		if !handler.ConnectCB(nil) {
 			return errors.New("Cancelled")
 		}
 	}
 
+	// append self to handlers for commands
+	p.handlers = append(p.handlers, &ProxyHandler{
+		Name:     "Commands",
+		PacketCB: p.CommandHandlerPacketCB,
+	})
+
 	wg := sync.WaitGroup{}
-
-	var cbs []PacketCallback
-	cbs = append(cbs, p.CommandHandlerPacketCB)
-	if p.PacketCB != nil {
-		cbs = append(cbs, p.PacketCB)
-	}
-
 	// server to client
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := p.proxyLoop(ctx, false, cbs); err != nil {
+		if err := p.proxyLoop(ctx, false); err != nil {
 			logrus.Error(err)
 			return
 		}
@@ -360,13 +414,37 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress string) (err error
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err := p.proxyLoop(ctx, true, cbs); err != nil {
+			if err := p.proxyLoop(ctx, true); err != nil {
 				logrus.Error(err)
 				return
 			}
 		}()
 	}
 
+	wantSecondary := fp.Filter(func(handler *ProxyHandler) bool {
+		return handler.SecondaryClientCB != nil
+	})(p.handlers)
+
+	if len(wantSecondary) > 0 {
+		go func() {
+			c, err := p.Listener.Accept()
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+
+			for _, handler := range wantSecondary {
+				go handler.SecondaryClientCB(c.(*minecraft.Conn))
+			}
+		}()
+	}
+
 	wg.Wait()
+
+	for _, handler := range p.handlers {
+		if handler.OnEnd != nil {
+			handler.OnEnd()
+		}
+	}
 	return err
 }

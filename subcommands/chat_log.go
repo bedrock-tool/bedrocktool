@@ -3,15 +3,10 @@ package subcommands
 import (
 	"context"
 	"flag"
-	"fmt"
-	"os"
-	"time"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
-
-	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
-	"github.com/sirupsen/logrus"
+	"github.com/bedrock-tool/bedrocktool/utils/handlers"
 )
 
 type ChatLogCMD struct {
@@ -32,34 +27,12 @@ func (c *ChatLogCMD) Execute(ctx context.Context, ui utils.UI) error {
 		return err
 	}
 
-	filename := fmt.Sprintf("%s_%s_chat.log", hostname, time.Now().Format("2006-01-02_15-04-05_Z07"))
-	f, err := os.Create(filename)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
 	proxy, err := utils.NewProxy()
 	if err != nil {
 		return err
 	}
-	proxy.PacketCB = func(pk packet.Packet, toServer bool, t time.Time) (packet.Packet, error) {
-		if text, ok := pk.(*packet.Text); ok {
-			logLine := text.Message
-			if c.Verbose {
-				logLine += fmt.Sprintf("   (TextType: %d | XUID: %s | PlatformChatID: %s)", text.TextType, text.XUID, text.PlatformChatID)
-			}
-			f.WriteString(fmt.Sprintf("[%s] ", t.Format(time.RFC3339)))
-			logrus.Info(logLine)
-			if toServer {
-				f.WriteString("SENT: ")
-			}
-			f.WriteString(logLine + "\n")
-		}
-		return pk, nil
-	}
-
-	return proxy.Run(ctx, address)
+	proxy.AddHandler(handlers.NewChatLogger())
+	return proxy.Run(ctx, address, hostname)
 }
 
 func init() {

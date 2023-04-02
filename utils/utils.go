@@ -69,6 +69,10 @@ func connectServer(ctx context.Context, address string, ClientData *login.Client
 		TokenSource: GetTokenSource(),
 		ClientData:  cd,
 		PacketFunc: func(header packet.Header, payload []byte, src, dst net.Addr) {
+			if header.PacketID == packet.IDRequestNetworkSettings {
+				ClientAddr = src
+			}
+
 			if Options.Debug {
 				PacketLogger(header, payload, src, dst)
 			}
@@ -85,7 +89,6 @@ func connectServer(ctx context.Context, address string, ClientData *login.Client
 	}
 
 	logrus.Debug(locale.Loc("connected", nil))
-	ClientAddr = serverConn.LocalAddr()
 	return serverConn, nil
 }
 

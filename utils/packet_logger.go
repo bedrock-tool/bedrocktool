@@ -183,10 +183,6 @@ var ClientAddr net.Addr
 var pool = packet.NewPool()
 
 func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
-	if header.PacketID == packet.IDRequestNetworkSettings {
-		ClientAddr = src
-	}
-
 	var pk packet.Packet
 	if pkFunc, ok := pool[header.PacketID]; ok {
 		pk = pkFunc()

@@ -19,7 +19,7 @@ func (c *DebugProxyCMD) SetFlags(f *flag.FlagSet) {
 }
 
 func (c *DebugProxyCMD) Execute(ctx context.Context, ui utils.UI) error {
-	address, _, err := utils.ServerInput(ctx, c.ServerAddress)
+	address, hostname, err := utils.ServerInput(ctx, c.ServerAddress)
 	if err != nil {
 		return err
 	}
@@ -30,7 +30,7 @@ func (c *DebugProxyCMD) Execute(ctx context.Context, ui utils.UI) error {
 	if err != nil {
 		return err
 	}
-	return proxy.Run(ctx, address)
+	return proxy.Run(ctx, address, hostname)
 }
 
 func init() {

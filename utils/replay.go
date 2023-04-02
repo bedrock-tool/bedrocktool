@@ -63,6 +63,13 @@ func createReplayConnection(ctx context.Context, filename string, proxy *ProxyCo
 		f.Seek(-4, io.SeekCurrent)
 	}
 
+	server, client := &net.UDPAddr{
+		IP: net.IPv4(1, 1, 1, 1),
+	}, &net.UDPAddr{
+		IP: net.IPv4(2, 2, 2, 2),
+	}
+	ClientAddr = client
+
 	proxy.Server = minecraft.NewConn()
 
 	gameStarted := false
@@ -123,13 +130,32 @@ func createReplayConnection(ctx context.Context, filename string, proxy *ProxyCo
 			b := protocol.NewWriter(f, 0)
 			pk.Marshal(b)
 
+			hdr := packet.Header{PacketID: pk.ID()}
+
+			var src, dst net.Addr
+			if toServer {
+				src = client
+				dst = server
+			} else {
+				src = server
+				dst = client
+			}
+
 			if Options.Debug {
-				PacketLogger(packet.Header{PacketID: pk.ID()}, f.Bytes(), &net.UDPAddr{}, &net.UDPAddr{})
+				PacketLogger(hdr, f.Bytes(), src, dst)
+			}
+
+			for _, handler := range proxy.handlers {
+				if handler.PacketFunc != nil {
+					handler.PacketFunc(hdr, f.Bytes(), src, dst)
+				}
 			}
 
 			if gameStarted {
-				if proxy.PacketCB != nil {
-					proxy.PacketCB(pk, toServer, timeReceived)
+				for _, handler := range proxy.handlers {
+					if handler.PacketCB != nil {
+						handler.PacketCB(pk, toServer, timeReceived)
+					}
 				}
 			} else {
 				switch pk := pk.(type) {
@@ -164,10 +190,18 @@ func createReplayConnection(ctx context.Context, filename string, proxy *ProxyCo
 						DisablePlayerInteractions:    pk.DisablePlayerInteractions,
 					})
 					gameStarted = true
-					if proxy.ConnectCB != nil {
-						proxy.ConnectCB(nil)
+					for _, handler := range proxy.handlers {
+						if handler.ConnectCB != nil {
+							handler.ConnectCB(nil)
+						}
 					}
 				}
+			}
+		}
+
+		for _, handler := range proxy.handlers {
+			if handler.OnEnd != nil {
+				handler.OnEnd()
 			}
 		}
 	}

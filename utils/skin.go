@@ -1,4 +1,4 @@
-package skins
+package utils
 
 import (
 	"encoding/json"

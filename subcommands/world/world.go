@@ -172,37 +172,41 @@ func (c *WorldCMD) Execute(ctx context.Context, ui utils.UI) error {
 	proxy.GameDataModifier = func(gd *minecraft.GameData) {
 		gd.ClientSideGeneration = false
 	}
-	proxy.ConnectCB = w.OnConnect
-	proxy.OnClientConnect = func(hasClient bool) {
-		w.gui.Message(messages.SetUIState(messages.UIStateConnecting))
-	}
-	proxy.PacketCB = func(pk packet.Packet, toServer bool, _ time.Time) (packet.Packet, error) {
-		forward := true
 
-		if toServer {
-			// from client
-			pk = w.processItemPacketsClient(pk, &forward)
-			pk = w.processMapPacketsClient(pk, &forward)
-		} else {
-			// from server
-			switch pk := pk.(type) {
-			case *packet.ChunkRadiusUpdated:
-				w.serverState.ChunkRadius = int(pk.ChunkRadius)
-				pk.ChunkRadius = 80
+	proxy.AddHandler(&utils.ProxyHandler{
+		Name:      "Worlds",
+		ConnectCB: w.OnConnect,
+		OnClientConnect: func(conn *minecraft.Conn) {
+			w.gui.Message(messages.SetUIState(messages.UIStateConnecting))
+		},
+		PacketCB: func(pk packet.Packet, toServer bool, timeReceived time.Time) (packet.Packet, error) {
+			forward := true
+
+			if toServer {
+				// from client
+				pk = w.processItemPacketsClient(pk, &forward)
+				pk = w.processMapPacketsClient(pk, &forward)
+			} else {
+				// from server
+				switch pk := pk.(type) {
+				case *packet.ChunkRadiusUpdated:
+					w.serverState.ChunkRadius = int(pk.ChunkRadius)
+					pk.ChunkRadius = 80
+				}
+				pk = w.processItemPacketsServer(pk)
+				pk = w.ProcessChunkPackets(pk)
+				pk = w.ProcessEntityPackets(pk)
 			}
-			pk = w.processItemPacketsServer(pk)
-			pk = w.ProcessChunkPackets(pk)
-			pk = w.ProcessEntityPackets(pk)
-		}
 
-		if !forward {
-			return nil, nil
-		}
-		return pk, nil
-	}
+			if !forward {
+				return nil, nil
+			}
+			return pk, nil
+		},
+	})
 
 	w.gui.Message(messages.SetUIState(messages.UIStateConnect))
-	err = w.proxy.Run(ctx, serverAddress)
+	err = w.proxy.Run(ctx, serverAddress, hostname)
 	if err != nil {
 		return err
 	}
