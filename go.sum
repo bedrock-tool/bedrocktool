@@ -90,6 +90,8 @@ github.com/nicksnyder/go-i18n/v2 v2.2.1 h1:aOzRCdwsJuoExfZhoiXHy4bjruwCMdt5otbYo
 github.com/nicksnyder/go-i18n/v2 v2.2.1/go.mod h1:fF2++lPHlo+/kPaj3nB0uxtPwzlPm+BlgwGX7MkeGj0=
 github.com/olebeck/dragonfly v0.9.4-5 h1:ixVX0Fe3wX8FryJiKC5gFVS4KDrKtd1dXJoBkzWhd1c=
 github.com/olebeck/dragonfly v0.9.4-5/go.mod h1:k8OQvjmfj+JbrwQf1qHfMETlFHOp0WJLjILN+QVqh+c=
+github.com/olebeck/dragonfly v0.9.4-6 h1:Pom7oMbUA/kFu6PCwr3mWtTOSPvgzD2/71+mUsqK42o=
+github.com/olebeck/dragonfly v0.9.4-6/go.mod h1:k8OQvjmfj+JbrwQf1qHfMETlFHOp0WJLjILN+QVqh+c=
 github.com/olebeck/gio v0.0.0-20230321105529-d424f1a59af9 h1:TqDsMHwjW5ZYfh+RE8ussT62m0qXqo+QjzSXb7BCVA4=
 github.com/olebeck/gio v0.0.0-20230321105529-d424f1a59af9/go.mod h1:+W1Kpf96YcfissZocFqIp6O42FDTuphkObbEybp+Ffc=
 github.com/olebeck/gophertunnel v1.28.1-1 h1:bw2jeMz94YHF5qQYhq1Yq/6fALkklGu7k26YbPI4DSs=

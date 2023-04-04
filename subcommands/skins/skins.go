@@ -4,16 +4,13 @@ import (
 	"context"
 	"flag"
 
+	"github.com/bedrock-tool/bedrocktool/handlers"
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
-	"github.com/bedrock-tool/bedrocktool/utils/handlers"
 
 	"github.com/sandertv/gophertunnel/minecraft"
 )
-
-type skinsSession struct {
-}
 
 type SkinCMD struct {
 	ServerAddress string

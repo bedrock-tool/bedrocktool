@@ -6,7 +6,7 @@ go 1.20
 replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.28.1-1
 
 //replace github.com/df-mc/dragonfly => ./dragonfly
-replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.9.4-5
+replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.9.4-6
 
 //replace gioui.org => ./gio
 replace gioui.org => github.com/olebeck/gio v0.0.0-20230321105529-d424f1a59af9
@@ -25,6 +25,7 @@ require (
 	github.com/jinzhu/copier v0.3.5
 	github.com/miekg/dns v1.1.52
 	github.com/nicksnyder/go-i18n/v2 v2.2.1
+	github.com/repeale/fp-go v0.11.1
 	github.com/sanbornm/go-selfupdate v0.0.0-20210106163404-c9b625feac49
 	github.com/sandertv/go-raknet v1.12.0
 	github.com/sandertv/gophertunnel v1.28.1
@@ -45,6 +46,7 @@ require (
 	git.wow.st/gmp/jni v0.0.0-20210610011705-34026c7e22d0 // indirect
 	github.com/benoitkugler/textlayout v0.3.0 // indirect
 	github.com/brentp/intintmap v0.0.0-20190211203843-30dc0ade9af9 // indirect
+	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/changkun/lockfree v0.0.1 // indirect
 	github.com/cloudfoundry/jibber_jabber v0.0.0-20151120183258-bcc4c8345a21 // indirect
 	github.com/df-mc/atomic v1.10.0 // indirect
@@ -61,7 +63,7 @@ require (
 	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/muhammadmuzzammil1998/jsonc v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
-	github.com/repeale/fp-go v0.11.1 // indirect
+	github.com/rogpeppe/go-internal v1.9.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.11 // indirect
 	github.com/tklauser/numcpus v0.6.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect

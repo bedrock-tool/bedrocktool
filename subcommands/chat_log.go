@@ -4,9 +4,9 @@ import (
 	"context"
 	"flag"
 
+	"github.com/bedrock-tool/bedrocktool/handlers"
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
-	"github.com/bedrock-tool/bedrocktool/utils/handlers"
 )
 
 type ChatLogCMD struct {

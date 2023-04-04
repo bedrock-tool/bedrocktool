@@ -4,9 +4,9 @@ import (
 	"context"
 	"flag"
 
+	seconduser "github.com/bedrock-tool/bedrocktool/handlers/second-user"
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
-	seconduser "github.com/bedrock-tool/bedrocktool/utils/handlers/second-user"
 )
 
 type DebugProxyCMD struct {
