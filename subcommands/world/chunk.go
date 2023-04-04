@@ -10,7 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func (w *worldsServer) processChangeDimension(pk *packet.ChangeDimension) {
+func (w *worldsHandler) processChangeDimension(pk *packet.ChangeDimension) {
 	if len(w.worldState.chunks) > 0 {
 		w.SaveAndReset()
 	} else {
@@ -18,13 +18,14 @@ func (w *worldsServer) processChangeDimension(pk *packet.ChangeDimension) {
 		w.Reset(w.CurrentName())
 	}
 	dimensionID := pk.Dimension
-	if w.serverState.ispre118 {
+	if w.serverState.ispre118 && dimensionID == 0 {
 		dimensionID += 10
 	}
-	w.worldState.Dim = dimensionIDMap[uint8(dimensionID)]
+	d, _ := world.DimensionByID(int(dimensionID))
+	w.worldState.dimension = d
 }
 
-func (w *worldsServer) processLevelChunk(pk *packet.LevelChunk) {
+func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 	// ignore empty chunks THANKS WEIRD SERVER SOFTWARE DEVS
 	if len(pk.RawPayload) == 0 {
 		logrus.Info(locale.Loc("empty_chunk", nil))
@@ -41,7 +42,7 @@ func (w *worldsServer) processLevelChunk(pk *packet.LevelChunk) {
 		subChunkCount = int(pk.SubChunkCount)
 	}
 
-	ch, blockNBTs, err := chunk.NetworkDecode(world.AirRID(), pk.RawPayload, subChunkCount, w.worldState.Dim.Range(), w.serverState.ispre118, w.bp.HasBlocks())
+	ch, blockNBTs, err := chunk.NetworkDecode(world.AirRID(), pk.RawPayload, subChunkCount, w.worldState.dimension.Range(), w.serverState.ispre118, w.bp.HasBlocks())
 	if err != nil {
 		logrus.Error(err)
 		return
@@ -53,21 +54,19 @@ func (w *worldsServer) processLevelChunk(pk *packet.LevelChunk) {
 	}
 	w.worldState.chunks[pk.Position] = ch
 
-	max := w.worldState.Dim.Range().Height() / 16
+	max := w.worldState.dimension.Range().Height() / 16
 	switch pk.SubChunkCount {
 	case protocol.SubChunkRequestModeLimited:
 		max = int(pk.HighestSubChunk)
 		fallthrough
 	case protocol.SubChunkRequestModeLimitless:
 		var offsetTable []protocol.SubChunkOffset
-		r := w.worldState.Dim.Range()
+		r := w.worldState.dimension.Range()
 		for y := int8(r.Min() / 16); y < int8(r.Max()); y++ {
 			offsetTable = append(offsetTable, protocol.SubChunkOffset{0, y, 0})
 		}
 
-		dimId, ok := world.DimensionID(w.worldState.Dim)
-		_ = ok
-
+		dimId, _ := world.DimensionID(w.worldState.dimension)
 		w.proxy.Server.WritePacket(&packet.SubChunkRequest{
 			Dimension: int32(dimId),
 			Position: protocol.SubChunkPos{
@@ -86,7 +85,7 @@ func (w *worldsServer) processLevelChunk(pk *packet.LevelChunk) {
 	}
 }
 
-func (w *worldsServer) processSubChunk(pk *packet.SubChunk) {
+func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) {
 	posToRedraw := make(map[protocol.ChunkPos]bool)
 
 	for _, sub := range pk.SubChunkEntries {
@@ -124,14 +123,16 @@ func blockPosInChunk(pos protocol.BlockPos) (uint8, int16, uint8) {
 	return uint8(pos.X() & 0x0f), int16(pos.Y() & 0x0f), uint8(pos.Z() & 0x0f)
 }
 
-func (w *worldsServer) ProcessChunkPackets(pk packet.Packet) packet.Packet {
+func (w *worldsHandler) ProcessChunkPackets(pk packet.Packet) packet.Packet {
 	switch pk := pk.(type) {
 	case *packet.ChangeDimension:
 		w.processChangeDimension(pk)
 	case *packet.LevelChunk:
 		w.processLevelChunk(pk)
-
-		w.proxy.SendPopup(locale.Locm("popup_chunk_count", locale.Strmap{"Count": len(w.worldState.chunks), "Name": w.worldState.Name}, len(w.worldState.chunks)))
+		w.proxy.SendPopup(locale.Locm("popup_chunk_count", locale.Strmap{
+			"Count": len(w.worldState.chunks),
+			"Name":  w.worldState.Name,
+		}, len(w.worldState.chunks)))
 	case *packet.SubChunk:
 		w.processSubChunk(pk)
 	case *packet.BlockActorData:

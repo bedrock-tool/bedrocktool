@@ -141,10 +141,6 @@ func createReplayConnection(ctx context.Context, filename string, proxy *ProxyCo
 				dst = client
 			}
 
-			if Options.Debug {
-				PacketLogger(hdr, f.Bytes(), src, dst)
-			}
-
 			for _, handler := range proxy.handlers {
 				if handler.PacketFunc != nil {
 					handler.PacketFunc(hdr, f.Bytes(), src, dst)

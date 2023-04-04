@@ -61,7 +61,7 @@ func (e serverEntity) Type() world.EntityType {
 	return e.EntityType
 }
 
-func (w *worldsServer) processAddActor(pk *packet.AddActor) {
+func (w *worldsHandler) processAddActor(pk *packet.AddActor) {
 	e, ok := w.worldState.entities[pk.EntityRuntimeID]
 	if !ok {
 		e = &entityState{
@@ -141,47 +141,49 @@ func entityMetadataToNBT(metadata protocol.EntityMetadata, nbt map[string]any) {
 		}
 	}
 
-	if metadata.Flag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagNoAI) {
-		nbt["IsAutonomous"] = false
-	}
-	for k, v := range flagNames {
-		nbt[v] = metadata.Flag(protocol.EntityDataKeyFlags, k)
-	}
+	if _, ok := metadata[protocol.EntityDataKeyFlags]; ok {
+		if metadata.Flag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagNoAI) {
+			nbt["IsAutonomous"] = false
+		}
+		for k, v := range flagNames {
+			nbt[v] = metadata.Flag(protocol.EntityDataKeyFlags, k)
+		}
 
-	AlwaysShowName := metadata.Flag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagAlwaysShowName)
-	if AlwaysShowName {
-		nbt["CustomNameVisible"] = true
-	}
+		AlwaysShowName := metadata.Flag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagAlwaysShowName)
+		if AlwaysShowName {
+			nbt["CustomNameVisible"] = true
+		}
 
-	type effect struct {
-		Id                              byte
-		Amplifier                       byte
-		Duration                        int32
-		DurationEasy                    int32
-		DurationNormal                  int32
-		DurationHard                    int32
-		Ambient                         bool
-		ShowParticles                   bool
-		DisplayOnScreenTextureAnimation bool
-	}
+		type effect struct {
+			Id                              byte
+			Amplifier                       byte
+			Duration                        int32
+			DurationEasy                    int32
+			DurationNormal                  int32
+			DurationHard                    int32
+			Ambient                         bool
+			ShowParticles                   bool
+			DisplayOnScreenTextureAnimation bool
+		}
 
-	activeEffects := []effect{}
-	addEffect := func(id int, showParticles bool) {
-		activeEffects = append(activeEffects, effect{
-			Id:            byte(id),
-			Amplifier:     1,
-			Duration:      10000000,
-			ShowParticles: false,
-		})
-	}
+		activeEffects := []effect{}
+		addEffect := func(id int, showParticles bool) {
+			activeEffects = append(activeEffects, effect{
+				Id:            byte(id),
+				Amplifier:     1,
+				Duration:      10000000,
+				ShowParticles: false,
+			})
+		}
 
-	invisible := metadata.Flag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagInvisible)
-	if invisible {
-		addEffect(packet.EffectInvisibility, false)
-	}
+		invisible := metadata.Flag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagInvisible)
+		if invisible {
+			addEffect(packet.EffectInvisibility, false)
+		}
 
-	if len(activeEffects) > 0 {
-		nbt["ActiveEffects"] = activeEffects
+		if len(activeEffects) > 0 {
+			nbt["ActiveEffects"] = activeEffects
+		}
 	}
 }
 
@@ -214,7 +216,7 @@ func (s *entityState) ToServerEntity() serverEntity {
 	return e
 }
 
-func (w *worldsServer) ProcessEntityPackets(pk packet.Packet) packet.Packet {
+func (w *worldsHandler) ProcessEntityPackets(pk packet.Packet) packet.Packet {
 	switch pk := pk.(type) {
 	case *packet.AddActor:
 		w.processAddActor(pk)

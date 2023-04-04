@@ -2,14 +2,12 @@
 package utils
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"crypto/aes"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
-	"io"
 	"net"
 	"os"
 	"path"
@@ -18,7 +16,6 @@ import (
 	"sync"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
-	"github.com/bedrock-tool/bedrocktool/utils/crypt"
 	"github.com/google/uuid"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sirupsen/logrus"
@@ -71,10 +68,6 @@ func connectServer(ctx context.Context, address string, ClientData *login.Client
 		PacketFunc: func(header packet.Header, payload []byte, src, dst net.Addr) {
 			if header.PacketID == packet.IDRequestNetworkSettings {
 				ClientAddr = src
-			}
-
-			if Options.Debug {
-				PacketLogger(header, payload, src, dst)
 			}
 			if packetFunc != nil {
 				packetFunc(header, payload, src, dst)
@@ -173,51 +166,4 @@ func CfbDecrypt(data []byte, key []byte) []byte {
 		shiftRegister = shiftRegister[1:]
 	}
 	return data
-}
-
-func InitExtraDebug(ctx context.Context) {
-	if !Options.ExtraDebug {
-		return
-	}
-	Options.Debug = true
-
-	var logPlain, logCryptEnc io.WriteCloser = nil, nil
-
-	// open plain text log
-	logPlain, err := os.Create("packets.log")
-	if err != nil {
-		logrus.Error(err)
-	}
-
-	// open gpg log
-	logCrypt, err := os.Create("packets.log.gpg")
-	if err != nil {
-		logrus.Error(err)
-	} else {
-		// encrypter for the log
-		logCryptEnc, err = crypt.Encer("packets.log", logCrypt)
-		if err != nil {
-			logrus.Error(err)
-		}
-	}
-
-	b := bufio.NewWriter(io.MultiWriter(logPlain, logCryptEnc))
-	FLog = b
-	if err != nil {
-		logrus.Error(err)
-	}
-	go func() {
-		<-ctx.Done()
-		b.Flush()
-
-		if logPlain != nil {
-			logPlain.Close()
-		}
-		if logCrypt != nil {
-			logCrypt.Close()
-		}
-		if logCryptEnc != nil {
-			logCryptEnc.Close()
-		}
-	}()
 }

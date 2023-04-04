@@ -60,7 +60,7 @@ func (s *SkinSaver) AddSkin(playerName string, playerID uuid.UUID, playerSkin *p
 	}
 	s.playerNames[playerID] = playerName
 
-	skin := &utils.Skin{playerSkin}
+	skin := &utils.Skin{Skin: playerSkin}
 	if s.OnlyIfHasGeometry && !skin.HaveGeometry() {
 		return "", nil, false
 	}

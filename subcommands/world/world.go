@@ -41,7 +41,7 @@ type TPlayerPos struct {
 
 // the state used for drawing and saving
 
-type worldSettings struct {
+type WorldSettings struct {
 	// settings
 	voidGen      bool
 	withPacks    bool
@@ -50,7 +50,7 @@ type worldSettings struct {
 }
 
 type worldState struct {
-	Dim                world.Dimension
+	dimension          world.Dimension
 	chunks             map[protocol.ChunkPos]*chunk.Chunk
 	blockNBT           map[protocol.SubChunkPos][]map[string]any
 	entities           map[uint64]*entityState
@@ -69,7 +69,7 @@ type serverState struct {
 	Name string
 }
 
-type worldsServer struct {
+type worldsHandler struct {
 	ctx   context.Context
 	proxy *utils.ProxyContext
 	mapUI *MapUI
@@ -78,53 +78,10 @@ type worldsServer struct {
 
 	worldState  worldState
 	serverState serverState
-	settings    worldSettings
+	settings    WorldSettings
 }
 
-func NewWorldsServer(ctx context.Context, proxy *utils.ProxyContext, ServerName string, ui utils.UI) *worldsServer {
-	w := &worldsServer{
-		ctx:   ctx,
-		proxy: proxy,
-		mapUI: nil,
-		gui:   ui,
-		bp:    behaviourpack.New(ServerName),
-
-		serverState: serverState{
-			ispre118:     false,
-			worldCounter: 0,
-			ChunkRadius:  0,
-
-			playerInventory: nil,
-			PlayerPos:       TPlayerPos{},
-
-			Name: ServerName,
-		},
-
-		settings: worldSettings{},
-	}
-	w.mapUI = NewMapUI(w)
-	w.Reset(w.CurrentName())
-
-	w.gui.Message(messages.Init{
-		Handler: nil,
-	})
-
-	return w
-}
-
-var dimensionIDMap = map[uint8]world.Dimension{
-	0: world.Overworld,
-	1: world.Nether,
-	2: world.End,
-	// < 1.18
-	10: world.Overworld_legacy,
-	11: world.Nether,
-	12: world.End,
-}
-
-var (
-	black16x16 = image.NewRGBA(image.Rect(0, 0, 16, 16))
-)
+var black16x16 = image.NewRGBA(image.Rect(0, 0, 16, 16))
 
 func init() {
 	for i := 3; i < len(black16x16.Pix); i += 4 {
@@ -161,24 +118,87 @@ func (c *WorldCMD) Execute(ctx context.Context, ui utils.UI) error {
 		return err
 	}
 
-	w := NewWorldsServer(ctx, proxy, hostname, ui)
-	w.settings = worldSettings{
+	proxy.AlwaysGetPacks = true
+	proxy.AddHandler(NewWorldsHandler(ctx, ui, WorldSettings{
 		voidGen:   c.EnableVoid,
 		withPacks: c.Packs,
 		saveImage: c.SaveImage,
-	}
+	}))
 
-	proxy.AlwaysGetPacks = true
-	proxy.GameDataModifier = func(gd *minecraft.GameData) {
-		gd.ClientSideGeneration = false
+	ui.Message(messages.SetUIState(messages.UIStateConnect))
+	err = proxy.Run(ctx, serverAddress, hostname)
+	if err != nil {
+		return err
 	}
+	ui.Message(messages.SetUIState(messages.UIStateFinished))
+	return nil
+}
 
-	proxy.AddHandler(&utils.ProxyHandler{
-		Name:      "Worlds",
-		ConnectCB: w.OnConnect,
+func NewWorldsHandler(ctx context.Context, ui utils.UI, settings WorldSettings) *utils.ProxyHandler {
+	w := &worldsHandler{
+		ctx:   ctx,
+		mapUI: nil,
+		gui:   ui,
+		bp:    nil,
+
+		serverState: serverState{
+			ispre118:     false,
+			worldCounter: 0,
+			ChunkRadius:  0,
+
+			playerInventory: nil,
+			PlayerPos:       TPlayerPos{},
+		},
+
+		settings: WorldSettings{},
+	}
+	w.mapUI = NewMapUI(w)
+	w.Reset(w.CurrentName())
+
+	return &utils.ProxyHandler{
+		Name: "Worlds",
+		ProxyRef: func(pc *utils.ProxyContext) {
+			w.proxy = pc
+
+			w.proxy.AddCommand(utils.IngameCommand{
+				Exec: func(cmdline []string) bool {
+					return w.setWorldName(strings.Join(cmdline, " "), false)
+				},
+				Cmd: protocol.Command{
+					Name:        "setname",
+					Description: locale.Loc("setname_desc", nil),
+					Overloads: []protocol.CommandOverload{{
+						Parameters: []protocol.CommandParameter{{
+							Name:     "name",
+							Type:     protocol.CommandArgTypeString,
+							Optional: false,
+						}},
+					}},
+				},
+			})
+
+			w.proxy.AddCommand(utils.IngameCommand{
+				Exec: func(cmdline []string) bool {
+					return w.setVoidGen(!w.settings.voidGen, false)
+				},
+				Cmd: protocol.Command{
+					Name:        "void",
+					Description: locale.Loc("void_desc", nil),
+				},
+			})
+		},
+		AddressAndName: func(address, hostname string) error {
+			w.bp = behaviourpack.New(hostname)
+			w.serverState.Name = hostname
+			return nil
+		},
 		OnClientConnect: func(conn *minecraft.Conn) {
 			w.gui.Message(messages.SetUIState(messages.UIStateConnecting))
 		},
+		GameDataModifier: func(gd *minecraft.GameData) {
+			gd.ClientSideGeneration = false
+		},
+		ConnectCB: w.OnConnect,
 		PacketCB: func(pk packet.Packet, toServer bool, timeReceived time.Time) (packet.Packet, error) {
 			forward := true
 
@@ -203,34 +223,13 @@ func (c *WorldCMD) Execute(ctx context.Context, ui utils.UI) error {
 			}
 			return pk, nil
 		},
-	})
-
-	w.gui.Message(messages.SetUIState(messages.UIStateConnect))
-	err = w.proxy.Run(ctx, serverAddress, hostname)
-	if err != nil {
-		return err
-	}
-	w.SaveAndReset()
-	ui.Message(messages.SetUIState(messages.UIStateFinished))
-	return nil
-}
-
-func (w *worldsServer) SetPlayerPos(Position mgl32.Vec3, Pitch, Yaw, HeadYaw float32) {
-	last := w.serverState.PlayerPos
-	current := TPlayerPos{
-		Position: Position,
-		Pitch:    Pitch,
-		Yaw:      Yaw,
-		HeadYaw:  HeadYaw,
-	}
-	w.serverState.PlayerPos = current
-
-	if int(last.Position.X()) != int(current.Position.X()) || int(last.Position.Z()) != int(current.Position.Z()) {
-		w.mapUI.SchedRedraw()
+		OnEnd: func() {
+			w.SaveAndReset()
+		},
 	}
 }
 
-func (w *worldsServer) setVoidGen(val bool, fromUI bool) bool {
+func (w *worldsHandler) setVoidGen(val bool, fromUI bool) bool {
 	w.settings.voidGen = val
 	var s = locale.Loc("void_generator_false", nil)
 	if w.settings.voidGen {
@@ -247,7 +246,7 @@ func (w *worldsServer) setVoidGen(val bool, fromUI bool) bool {
 	return true
 }
 
-func (w *worldsServer) setWorldName(val string, fromUI bool) bool {
+func (w *worldsHandler) setWorldName(val string, fromUI bool) bool {
 	w.worldState.Name = val
 	w.proxy.SendMessage(locale.Loc("worldname_set", locale.Strmap{"Name": w.worldState.Name}))
 
@@ -260,7 +259,7 @@ func (w *worldsServer) setWorldName(val string, fromUI bool) bool {
 	return true
 }
 
-func (w *worldsServer) CurrentName() string {
+func (w *worldsHandler) CurrentName() string {
 	worldName := "world"
 	if w.serverState.worldCounter > 1 {
 		worldName = fmt.Sprintf("world-%d", w.serverState.worldCounter)
@@ -268,9 +267,9 @@ func (w *worldsServer) CurrentName() string {
 	return worldName
 }
 
-func (w *worldsServer) Reset(newName string) {
+func (w *worldsHandler) Reset(newName string) {
 	w.worldState = worldState{
-		Dim:                nil,
+		dimension:          nil,
 		chunks:             make(map[protocol.ChunkPos]*chunk.Chunk),
 		blockNBT:           make(map[protocol.SubChunkPos][]map[string]any),
 		entities:           make(map[uint64]*entityState),
@@ -280,23 +279,63 @@ func (w *worldsServer) Reset(newName string) {
 	w.mapUI.Reset()
 }
 
-// SaveAndReset writes the world to a folder, resets all the chunks
-func (w *worldsServer) SaveAndReset() {
-
-	// cull empty chunks
-	keys := make([]protocol.ChunkPos, 0, len(w.worldState.chunks))
-	for cp := range w.worldState.chunks {
+func (w *worldState) cullChunks() {
+	keys := make([]protocol.ChunkPos, 0, len(w.chunks))
+	for cp := range w.chunks {
 		keys = append(keys, cp)
 	}
-
 	for _, cp := range fp.Filter(func(cp protocol.ChunkPos) bool {
 		return !fp.Some(func(sc *chunk.SubChunk) bool {
 			return !sc.Empty()
-		})(w.worldState.chunks[cp].Sub())
+		})(w.chunks[cp].Sub())
 	})(keys) {
-		delete(w.worldState.chunks, cp)
+		delete(w.chunks, cp)
+	}
+}
+
+func (w *worldState) Save(folder string) (*mcdb.Provider, error) {
+	provider, err := mcdb.New(logrus.StandardLogger(), folder, opt.DefaultCompression)
+	if err != nil {
+		return nil, err
 	}
 
+	// save chunk data
+	for cp, c := range w.chunks {
+		provider.SaveChunk((world.ChunkPos)(cp), c, w.dimension)
+	}
+
+	// save block nbt data
+	blockNBT := make(map[world.ChunkPos][]map[string]any)
+	for scp, v := range w.blockNBT { // 3d to 2d
+		cp := world.ChunkPos{scp.X(), scp.Z()}
+		blockNBT[cp] = append(blockNBT[cp], v...)
+	}
+	for cp, v := range blockNBT {
+		err = provider.SaveBlockNBT(cp, v, w.dimension)
+		if err != nil {
+			logrus.Error(err)
+		}
+	}
+
+	// save entities
+	chunkEntities := make(map[world.ChunkPos][]world.Entity)
+	for _, es := range w.entities {
+		cp := world.ChunkPos{int32(es.Position.X()) >> 4, int32(es.Position.Z()) >> 4}
+		chunkEntities[cp] = append(chunkEntities[cp], es.ToServerEntity())
+	}
+	for cp, v := range chunkEntities {
+		err = provider.SaveEntities(cp, v, w.dimension)
+		if err != nil {
+			logrus.Error(err)
+		}
+	}
+
+	return provider, err
+}
+
+// SaveAndReset writes the world to a folder, resets all the chunks
+func (w *worldsHandler) SaveAndReset() {
+	w.worldState.cullChunks()
 	if len(w.worldState.chunks) == 0 {
 		w.Reset(w.CurrentName())
 		return
@@ -312,42 +351,10 @@ func (w *worldsServer) SaveAndReset() {
 	folder := path.Join("worlds", fmt.Sprintf("%s/%s", w.serverState.Name, w.worldState.Name))
 	os.RemoveAll(folder)
 	os.MkdirAll(folder, 0o777)
-
-	provider, err := mcdb.New(logrus.StandardLogger(), folder, opt.DefaultCompression)
+	provider, err := w.worldState.Save(folder)
 	if err != nil {
-		logrus.Fatal(err)
-	}
-
-	// save chunk data
-	for cp, c := range w.worldState.chunks {
-		provider.SaveChunk((world.ChunkPos)(cp), c, w.worldState.Dim)
-	}
-
-	// save block nbt data
-	blockNBT := make(map[world.ChunkPos][]map[string]any)
-	for scp, v := range w.worldState.blockNBT { // 3d to 2d
-		cp := world.ChunkPos{scp.X(), scp.Z()}
-		blockNBT[cp] = append(blockNBT[cp], v...)
-	}
-	for cp, v := range blockNBT {
-		err = provider.SaveBlockNBT(cp, v, w.worldState.Dim)
-		if err != nil {
-			logrus.Error(err)
-		}
-	}
-
-	// save entities
-	chunkEntities := make(map[world.ChunkPos][]world.Entity)
-	for _, es := range w.worldState.entities {
-		cp := world.ChunkPos{int32(es.Position.X()) >> 4, int32(es.Position.Z()) >> 4}
-		chunkEntities[cp] = append(chunkEntities[cp], es.ToServerEntity())
-	}
-
-	for cp, v := range chunkEntities {
-		err = provider.SaveEntities(cp, v, w.worldState.Dim)
-		if err != nil {
-			logrus.Error(err)
-		}
+		logrus.Error(err)
+		return
 	}
 
 	err = provider.SaveLocalPlayerData(w.playerData())
@@ -366,6 +373,7 @@ func (w *worldsServer) SaveAndReset() {
 	// set gamerules
 	ld := provider.LevelDat()
 	gd := w.proxy.Server.GameData()
+	ld.RandomSeed = int64(gd.WorldSeed)
 	for _, gr := range gd.GameRules {
 		switch gr.Name {
 		case "commandblockoutput":
@@ -433,8 +441,6 @@ func (w *worldsServer) SaveAndReset() {
 			logrus.Warnf(locale.Loc("unknown_gamerule", locale.Strmap{"Name": gr.Name}))
 		}
 	}
-
-	ld.RandomSeed = int64(gd.WorldSeed)
 
 	// void world
 	if w.settings.voidGen {
@@ -545,9 +551,8 @@ func (w *worldsServer) SaveAndReset() {
 	w.gui.Message(messages.SetUIState(messages.UIStateMain))
 }
 
-func (w *worldsServer) OnConnect(err error) bool {
+func (w *worldsHandler) OnConnect(err error) bool {
 	w.gui.Message(messages.SetUIState(messages.UIStateMain))
-
 	if err != nil {
 		return false
 	}
@@ -592,40 +597,14 @@ func (w *worldsServer) OnConnect(err error) bool {
 		dimensionID := gd.Dimension
 		if w.serverState.ispre118 {
 			logrus.Info(locale.Loc("using_under_118", nil))
-			dimensionID += 10
+			if dimensionID == 0 {
+				dimensionID += 10
+			}
 		}
-		w.worldState.Dim = dimensionIDMap[uint8(dimensionID)]
+		w.worldState.dimension, _ = world.DimensionByID(int(dimensionID))
 	}
 
 	w.proxy.SendMessage(locale.Loc("use_setname", nil))
-
-	w.proxy.AddCommand(utils.IngameCommand{
-		Exec: func(cmdline []string) bool {
-			return w.setWorldName(strings.Join(cmdline, " "), false)
-		},
-		Cmd: protocol.Command{
-			Name:        "setname",
-			Description: locale.Loc("setname_desc", nil),
-			Overloads: []protocol.CommandOverload{{
-				Parameters: []protocol.CommandParameter{{
-					Name:     "name",
-					Type:     protocol.CommandArgTypeString,
-					Optional: false,
-				}},
-			}},
-		},
-	})
-
-	w.proxy.AddCommand(utils.IngameCommand{
-		Exec: func(cmdline []string) bool {
-			return w.setVoidGen(!w.settings.voidGen, false)
-		},
-		Cmd: protocol.Command{
-			Name:        "void",
-			Description: locale.Loc("void_desc", nil),
-		},
-	})
-
 	w.mapUI.Start()
 	return true
 }

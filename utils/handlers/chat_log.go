@@ -10,22 +10,12 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type ChatLogger struct {
+type chatLogger struct {
 	Verbose bool
 	fio     *os.File
 }
 
-func (c *ChatLogger) AddressAndName(address, hostname string) error {
-	filename := fmt.Sprintf("%s_%s_chat.log", hostname, time.Now().Format("2006-01-02_15-04-05_Z07"))
-	f, err := os.Create(filename)
-	if err != nil {
-		return err
-	}
-	c.fio = f
-	return nil
-}
-
-func (c *ChatLogger) PacketCB(pk packet.Packet, toServer bool, t time.Time) (packet.Packet, error) {
+func (c *chatLogger) PacketCB(pk packet.Packet, toServer bool, t time.Time) (packet.Packet, error) {
 	if text, ok := pk.(*packet.Text); ok {
 		logLine := text.Message
 		if c.Verbose {
@@ -42,13 +32,21 @@ func (c *ChatLogger) PacketCB(pk packet.Packet, toServer bool, t time.Time) (pac
 }
 
 func NewChatLogger() *utils.ProxyHandler {
-	p := &ChatLogger{}
+	c := &chatLogger{}
 	return &utils.ProxyHandler{
-		Name:           "Packet Capturer",
-		PacketCB:       p.PacketCB,
-		AddressAndName: p.AddressAndName,
+		Name:     "Packet Capturer",
+		PacketCB: c.PacketCB,
+		AddressAndName: func(address, hostname string) error {
+			filename := fmt.Sprintf("%s_%s_chat.log", hostname, time.Now().Format("2006-01-02_15-04-05_Z07"))
+			f, err := os.Create(filename)
+			if err != nil {
+				return err
+			}
+			c.fio = f
+			return nil
+		},
 		OnEnd: func() {
-			p.fio.Close()
+			c.fio.Close()
 		},
 	}
 }

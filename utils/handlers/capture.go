@@ -28,12 +28,12 @@ func dumpPacket(f io.WriteCloser, toServer bool, payload []byte) {
 	f.Write([]byte{0xBB, 0xBB, 0xBB, 0xBB})
 }
 
-type PacketCapturer struct {
+type packetCapturer struct {
 	proxy *utils.ProxyContext
 	fio   *os.File
 }
 
-func (p *PacketCapturer) AddressAndName(address, hostname string) error {
+func (p *packetCapturer) AddressAndName(address, hostname string) error {
 	os.Mkdir("captures", 0o775)
 	fio, err := os.Create(fmt.Sprintf("captures/%s-%s.pcap2", hostname, time.Now().Format("2006-01-02_15-04-05")))
 	if err != nil {
@@ -44,7 +44,7 @@ func (p *PacketCapturer) AddressAndName(address, hostname string) error {
 	return nil
 }
 
-func (p *PacketCapturer) PacketFunc(header packet.Header, payload []byte, src, dst net.Addr) {
+func (p *packetCapturer) PacketFunc(header packet.Header, payload []byte, src, dst net.Addr) {
 	IsfromClient := utils.ClientAddr.String() == src.String()
 
 	buf := bytes.NewBuffer(nil)
@@ -54,14 +54,14 @@ func (p *PacketCapturer) PacketFunc(header packet.Header, payload []byte, src, d
 }
 
 func NewPacketCapturer() *utils.ProxyHandler {
-	p := &PacketCapturer{}
+	p := &packetCapturer{}
 	return &utils.ProxyHandler{
 		Name: "Packet Capturer",
 		ProxyRef: func(pc *utils.ProxyContext) {
 			p.proxy = pc
 		},
-		PacketFunc:     p.PacketFunc,
 		AddressAndName: p.AddressAndName,
+		PacketFunc:     p.PacketFunc,
 		OnEnd: func() {
 			p.fio.Close()
 		},

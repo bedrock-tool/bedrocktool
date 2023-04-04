@@ -1,15 +1,17 @@
 package utils
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"reflect"
 	"strings"
 	"sync"
 
-	"github.com/bedrock-tool/bedrocktool/locale"
+	"github.com/bedrock-tool/bedrocktool/utils/crypt"
 	"github.com/fatih/color"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
@@ -182,52 +184,87 @@ func DumpStruct(data interface{}) {
 var ClientAddr net.Addr
 var pool = packet.NewPool()
 
-func PacketLogger(header packet.Header, payload []byte, src, dst net.Addr) {
-	var pk packet.Packet
-	if pkFunc, ok := pool[header.PacketID]; ok {
-		pk = pkFunc()
-	} else {
-		pk = &packet.Unknown{PacketID: header.PacketID, Payload: payload}
-	}
+func NewDebugLogger(extraVerbose bool) *ProxyHandler {
+	var logPlain, logCrypt, logCryptEnc io.WriteCloser
+	var packetsLogF *bufio.Writer
 
-	defer func() {
-		if recoveredErr := recover(); recoveredErr != nil {
-			logrus.Errorf("%T: %s", pk, recoveredErr.(error))
+	if extraVerbose {
+		// open plain text log
+		logPlain, err := os.Create("packets.log")
+		if err != nil {
+			logrus.Error(err)
 		}
-	}()
 
-	pk.Marshal(protocol.NewReader(bytes.NewBuffer(payload), 0))
-
-	if FLog != nil {
-		dmpLock.Lock()
-		FLog.Write([]byte(dmpStruct(0, pk, true, false) + "\n\n\n"))
-		dmpLock.Unlock()
-	}
-
-	pkName := reflect.TypeOf(pk).String()[1:]
-	if slices.Contains(MutedPackets, pkName) {
-		return
-	}
-
-	switch pk := pk.(type) {
-	case *packet.Disconnect:
-		logrus.Infof(locale.Loc("disconnect", locale.Strmap{"Pk": pk}))
-	}
-
-	dirS2C := color.GreenString("S") + "->" + color.CyanString("C")
-	dirC2S := color.CyanString("C") + "->" + color.GreenString("S")
-	var dir string = dirS2C
-
-	if ClientAddr != nil {
-		if src == ClientAddr {
-			dir = dirC2S
+		// open gpg log
+		logCrypt, err := os.Create("packets.log.gpg")
+		if err != nil {
+			logrus.Error(err)
+		} else {
+			// encrypter for the log
+			logCryptEnc, err = crypt.Encer("packets.log", logCrypt)
+			if err != nil {
+				logrus.Error(err)
+			}
 		}
-	} else {
-		srcAddr, _, _ := net.SplitHostPort(src.String())
-		if IPPrivate(net.ParseIP(srcAddr)) {
-			dir = dirS2C
-		}
+		packetsLogF = bufio.NewWriter(io.MultiWriter(logPlain, logCryptEnc))
 	}
 
-	logrus.Debugf("%s 0x%02x, %s", dir, pk.ID(), pkName)
+	return &ProxyHandler{
+		Name: "Debug",
+		PacketFunc: func(header packet.Header, payload []byte, src, dst net.Addr) {
+			var pk packet.Packet
+			if pkFunc, ok := pool[header.PacketID]; ok {
+				pk = pkFunc()
+			} else {
+				pk = &packet.Unknown{PacketID: header.PacketID, Payload: payload}
+			}
+
+			defer func() {
+				if recoveredErr := recover(); recoveredErr != nil {
+					logrus.Errorf("%T: %s", pk, recoveredErr.(error))
+				}
+			}()
+			pk.Marshal(protocol.NewReader(bytes.NewBuffer(payload), 0))
+
+			if extraVerbose {
+				dmpLock.Lock()
+				packetsLogF.Write([]byte(dmpStruct(0, pk, true, false) + "\n\n\n"))
+				dmpLock.Unlock()
+			}
+
+			pkName := reflect.TypeOf(pk).String()[1:]
+			if !slices.Contains(MutedPackets, pkName) {
+				dirS2C := color.GreenString("S") + "->" + color.CyanString("C")
+				dirC2S := color.CyanString("C") + "->" + color.GreenString("S")
+				var dir string = dirS2C
+
+				if ClientAddr != nil {
+					if src == ClientAddr {
+						dir = dirC2S
+					}
+				} else {
+					srcAddr, _, _ := net.SplitHostPort(src.String())
+					if IPPrivate(net.ParseIP(srcAddr)) {
+						dir = dirS2C
+					}
+				}
+
+				logrus.Debugf("%s 0x%02x, %s", dir, pk.ID(), pkName)
+			}
+		},
+		OnEnd: func() {
+			if packetsLogF != nil {
+				packetsLogF.Flush()
+			}
+			if logPlain != nil {
+				logPlain.Close()
+			}
+			if logCryptEnc != nil {
+				logCryptEnc.Close()
+			}
+			if logCrypt != nil {
+				logCrypt.Close()
+			}
+		},
+	}
 }

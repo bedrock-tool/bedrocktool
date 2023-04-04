@@ -74,7 +74,6 @@ func (c *InteractiveCLI) Start(ctx context.Context, cancel context.CancelFunc) e
 	flag.Parse()
 
 	InitDNS()
-	InitExtraDebug(ctx)
 
 	subcommands.Execute(ctx)
 

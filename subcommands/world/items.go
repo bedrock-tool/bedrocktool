@@ -17,7 +17,7 @@ type itemContainer struct {
 	Content    *packet.InventoryContent
 }
 
-func (w *worldsServer) processItemPacketsServer(pk packet.Packet) packet.Packet {
+func (w *worldsHandler) processItemPacketsServer(pk packet.Packet) packet.Packet {
 	switch pk := pk.(type) {
 	case *packet.ContainerOpen:
 		// add to open containers
@@ -116,7 +116,7 @@ func (w *worldsServer) processItemPacketsServer(pk packet.Packet) packet.Packet 
 	return pk
 }
 
-func (w *worldsServer) processItemPacketsClient(pk packet.Packet, forward *bool) packet.Packet {
+func (w *worldsHandler) processItemPacketsClient(pk packet.Packet, forward *bool) packet.Packet {
 	switch pk := pk.(type) {
 	case *packet.ItemStackRequest:
 		var requests []protocol.ItemStackRequest
@@ -187,7 +187,7 @@ func stackToItem(it protocol.ItemStack) item.Stack {
 	return nbtconv.ReadItem(it.NBTData, &s)
 }
 
-func (w *worldsServer) playerData() (ret map[string]any) {
+func (w *worldsHandler) playerData() (ret map[string]any) {
 	ret = map[string]any{
 		"format_version": "1.12.0",
 		"identifier":     "minecraft:player",

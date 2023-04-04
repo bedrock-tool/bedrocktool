@@ -55,7 +55,10 @@ type ProxyHandler struct {
 	Name     string
 	ProxyRef func(*ProxyContext)
 	//
-	AddressAndName func(address, name string) error
+	AddressAndName func(address, hostname string) error
+
+	// called to change game data
+	GameDataModifier func(*minecraft.GameData)
 
 	// called for every packet
 	PacketFunc func(header packet.Header, payload []byte, src, dst net.Addr)
@@ -85,9 +88,6 @@ type ProxyContext struct {
 	CustomClientData *login.ClientData
 
 	handlers []*ProxyHandler
-
-	// called to change game data
-	GameDataModifier func(*minecraft.GameData)
 }
 
 func NewProxy() (*ProxyContext, error) {
@@ -284,6 +284,10 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress, name string) (err
 		}
 	}
 
+	if Options.Debug || Options.ExtraDebug {
+		p.AddHandler(NewDebugLogger(Options.ExtraDebug))
+	}
+
 	if strings.HasPrefix(serverAddress, "PCAP!") {
 		return createReplayConnection(ctx, serverAddress[5:], p)
 	}
@@ -373,8 +377,10 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress, name string) (err
 	defer p.Server.Close()
 
 	gd := p.Server.GameData()
-	if p.GameDataModifier != nil {
-		p.GameDataModifier(&gd)
+	for _, handler := range p.handlers {
+		if handler.GameDataModifier != nil {
+			handler.GameDataModifier(&gd)
+		}
 	}
 
 	// spawn and start the game
@@ -427,14 +433,16 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress, name string) (err
 
 	if len(wantSecondary) > 0 {
 		go func() {
-			c, err := p.Listener.Accept()
-			if err != nil {
-				logrus.Error(err)
-				return
-			}
+			for {
+				c, err := p.Listener.Accept()
+				if err != nil {
+					logrus.Error(err)
+					return
+				}
 
-			for _, handler := range wantSecondary {
-				go handler.SecondaryClientCB(c.(*minecraft.Conn))
+				for _, handler := range wantSecondary {
+					go handler.SecondaryClientCB(c.(*minecraft.Conn))
+				}
 			}
 		}()
 	}

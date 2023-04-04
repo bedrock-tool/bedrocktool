@@ -10,6 +10,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/go-gl/mathgl/mgl32"
 	"golang.design/x/lockfree"
 
 	"github.com/df-mc/dragonfly/server/world/chunk"
@@ -79,10 +80,10 @@ type MapUI struct {
 	l              sync.RWMutex
 
 	ticker *time.Ticker
-	w      *worldsServer
+	w      *worldsHandler
 }
 
-func NewMapUI(w *worldsServer) *MapUI {
+func NewMapUI(w *worldsHandler) *MapUI {
 	m := &MapUI{
 		img:            image.NewRGBA(image.Rect(0, 0, 128, 128)),
 		zoomLevel:      16,
@@ -265,14 +266,29 @@ func (m *MapUI) SetChunk(pos protocol.ChunkPos, ch *chunk.Chunk, complete bool) 
 	m.SchedRedraw()
 }
 
-func (w *worldsServer) ProcessAnimate(pk *packet.Animate) {
+func (w *worldsHandler) ProcessAnimate(pk *packet.Animate) {
 	if pk.ActionType == packet.AnimateActionSwingArm {
 		w.mapUI.ChangeZoom()
 		w.proxy.SendPopup(locale.Loc("zoom_level", locale.Strmap{"Level": w.mapUI.zoomLevel}))
 	}
 }
 
-func (w *worldsServer) processMapPacketsClient(pk packet.Packet, forward *bool) packet.Packet {
+func (w *worldsHandler) SetPlayerPos(Position mgl32.Vec3, Pitch, Yaw, HeadYaw float32) {
+	last := w.serverState.PlayerPos
+	current := TPlayerPos{
+		Position: Position,
+		Pitch:    Pitch,
+		Yaw:      Yaw,
+		HeadYaw:  HeadYaw,
+	}
+	w.serverState.PlayerPos = current
+
+	if int(last.Position.X()) != int(current.Position.X()) || int(last.Position.Z()) != int(current.Position.Z()) {
+		w.mapUI.SchedRedraw()
+	}
+}
+
+func (w *worldsHandler) processMapPacketsClient(pk packet.Packet, forward *bool) packet.Packet {
 	switch pk := pk.(type) {
 	case *packet.MovePlayer:
 		w.SetPlayerPos(pk.Position, pk.Pitch, pk.Yaw, pk.HeadYaw)
