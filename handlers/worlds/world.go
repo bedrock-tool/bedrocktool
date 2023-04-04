@@ -439,6 +439,7 @@ func (w *worldsHandler) SaveAndReset() {
 	if w.bp.HasContent() {
 		name := strings.ReplaceAll(w.serverState.Name, "./", "")
 		name = strings.ReplaceAll(name, "/", "-")
+		name = strings.ReplaceAll(name, ":", "_")
 		packFolder := path.Join(folder, "behavior_packs", name)
 		os.MkdirAll(packFolder, 0o755)
 
@@ -470,7 +471,9 @@ func (w *worldsHandler) SaveAndReset() {
 					continue
 				}
 				logrus.Infof(locale.Loc("adding_pack", locale.Strmap{"Name": k}))
-				packFolder := path.Join(folder, "resource_packs", p.Name())
+				name := p.Name()
+				name = strings.ReplaceAll(name, ":", "_")
+				packFolder := path.Join(folder, "resource_packs", name)
 				os.MkdirAll(packFolder, 0o755)
 				utils.UnpackZip(p, int64(p.Len()), packFolder)
 
@@ -479,12 +482,9 @@ func (w *worldsHandler) SaveAndReset() {
 					Version: p.Manifest().Header.Version,
 				})
 			}
-			_ = rdeps
-			/*
-				if len(rdeps) > 0 {
-					addPacksJSON("world_resource_packs.json", rdeps)
-				}
-			*/
+			if len(rdeps) > 0 {
+				addPacksJSON("world_resource_packs.json", rdeps)
+			}
 		}
 	}
 
