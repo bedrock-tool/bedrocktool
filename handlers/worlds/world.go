@@ -104,7 +104,7 @@ func NewWorldsHandler(ctx context.Context, ui utils.UI, settings WorldSettings) 
 			PlayerPos:       TPlayerPos{},
 		},
 
-		settings: WorldSettings{},
+		settings: settings,
 	}
 	w.mapUI = NewMapUI(w)
 	w.Reset(w.CurrentName())

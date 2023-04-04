@@ -22,7 +22,7 @@ type SkinGeometry struct {
 	Textureheight       int       `json:"textureheight"`
 	VisibleBoundsWidth  float64   `json:"visible_bounds_width"`
 	VisibleBoundsHeight float64   `json:"visible_bounds_height"`
-	VisibleBoundsOffset []float64 `json:"visible_bounds_offset"`
+	VisibleBoundsOffset []float64 `json:"visible_bounds_offset,omitempty"`
 	Bones               []any     `json:"bones"`
 }
 
