@@ -184,7 +184,7 @@ func stackToItem(it protocol.ItemStack) item.Stack {
 		t = nbter.DecodeNBT(it.NBTData).(world.Item)
 	}
 	s := item.NewStack(t, int(it.Count))
-	return nbtconv.ReadItem(it.NBTData, &s)
+	return nbtconv.Item(it.NBTData, &s)
 }
 
 func (w *worldsHandler) playerData() (ret map[string]any) {
