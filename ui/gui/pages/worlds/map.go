@@ -23,6 +23,7 @@ type Map struct {
 	center      f32.Point
 	transform   f32.Affine2D
 	grabbed     bool
+	cursor      image.Point
 
 	MapImage  *image.RGBA
 	BoundsMin protocol.ChunkPos
@@ -40,7 +41,7 @@ func (m *Map) HandlePointerEvent(e pointer.Event) {
 	case pointer.Release:
 		m.grabbed = false
 	case pointer.Scroll:
-		scaleFactor := float32(math.Pow(1.01, float64(e.Scroll.Y)))
+		scaleFactor := -float32(math.Pow(1.01, float64(e.Scroll.Y)))
 		m.transform = m.transform.Scale(e.Position.Sub(m.center), f32.Pt(scaleFactor, scaleFactor))
 		m.scaleFactor *= scaleFactor
 	}
@@ -66,6 +67,13 @@ func (m *Map) Layout(gtx layout.Context) layout.Dimensions {
 		op.Affine(m.transform.Offset(m.center.Sub(size.Div(2)))).Add(gtx.Ops)
 		m.imageOp.Add(gtx.Ops)
 		paint.PaintOp{}.Add(gtx.Ops)
+		if m.cursor.In(image.Rectangle(gtx.Constraints)) {
+			if m.grabbed {
+				pointer.CursorGrabbing.Add(gtx.Ops)
+			} else {
+				pointer.CursorGrab.Add(gtx.Ops)
+			}
+		}
 	}
 
 	size := gtx.Constraints.Max
