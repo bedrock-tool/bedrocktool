@@ -42,10 +42,12 @@ type TPlayerPos struct {
 
 type WorldSettings struct {
 	// settings
-	VoidGen      bool
-	WithPacks    bool
-	SaveImage    bool
-	BlockUpdates bool
+	VoidGen         bool
+	WithPacks       bool
+	SaveImage       bool
+	SaveEntities    bool
+	SaveInventories bool
+	BlockUpdates    bool
 }
 
 type worldState struct {

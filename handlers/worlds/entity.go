@@ -217,6 +217,10 @@ func (s *entityState) ToServerEntity() serverEntity {
 }
 
 func (w *worldsHandler) ProcessEntityPackets(pk packet.Packet) packet.Packet {
+	if !w.settings.SaveEntities {
+		return pk
+	}
+
 	switch pk := pk.(type) {
 	case *packet.AddActor:
 		w.processAddActor(pk)

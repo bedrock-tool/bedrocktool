@@ -15,10 +15,12 @@ func init() {
 }
 
 type WorldCMD struct {
-	ServerAddress string
-	Packs         bool
-	EnableVoid    bool
-	SaveImage     bool
+	ServerAddress   string
+	Packs           bool
+	EnableVoid      bool
+	SaveEntities    bool
+	SaveInventories bool
+	SaveImage       bool
 }
 
 func (*WorldCMD) Name() string     { return "worlds" }
@@ -29,6 +31,8 @@ func (c *WorldCMD) SetFlags(f *flag.FlagSet) {
 	f.BoolVar(&c.Packs, "packs", false, locale.Loc("save_packs_with_world", nil))
 	f.BoolVar(&c.EnableVoid, "void", true, locale.Loc("enable_void", nil))
 	f.BoolVar(&c.SaveImage, "image", false, locale.Loc("save_image", nil))
+	f.BoolVar(&c.SaveEntities, "save-entities", true, "Save Entities")
+	f.BoolVar(&c.SaveInventories, "save-inventories", true, "Save Inventories")
 }
 
 func (c *WorldCMD) Execute(ctx context.Context, ui utils.UI) error {
@@ -44,9 +48,11 @@ func (c *WorldCMD) Execute(ctx context.Context, ui utils.UI) error {
 
 	proxy.AlwaysGetPacks = true
 	proxy.AddHandler(worlds.NewWorldsHandler(ctx, ui, worlds.WorldSettings{
-		VoidGen:   c.EnableVoid,
-		WithPacks: c.Packs,
-		SaveImage: c.SaveImage,
+		VoidGen:         c.EnableVoid,
+		WithPacks:       c.Packs,
+		SaveEntities:    c.SaveEntities,
+		SaveInventories: c.SaveInventories,
+		SaveImage:       c.SaveImage,
 	}))
 
 	ui.Message(messages.SetUIState(messages.UIStateConnect))

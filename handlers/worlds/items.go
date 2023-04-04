@@ -18,6 +18,10 @@ type itemContainer struct {
 }
 
 func (w *worldsHandler) processItemPacketsServer(pk packet.Packet) packet.Packet {
+	if !w.settings.SaveInventories {
+		return pk
+	}
+
 	switch pk := pk.(type) {
 	case *packet.ContainerOpen:
 		// add to open containers
