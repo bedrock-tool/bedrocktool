@@ -307,7 +307,7 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress, name string) (err
 		var packs []*resource.Pack
 		if Options.Preload {
 			logrus.Info(locale.Loc("preloading_packs", nil))
-			serverConn, err := connectServer(ctx, serverAddress, nil, true, nil)
+			serverConn, err := connectServer(ctx, serverAddress, nil, true, func(header packet.Header, payload []byte, src, dst net.Addr) {})
 			if err != nil {
 				return fmt.Errorf(locale.Loc("failed_to_connect", locale.Strmap{"Address": serverAddress, "Err": err}))
 			}
