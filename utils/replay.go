@@ -68,7 +68,7 @@ func createReplayConnection(ctx context.Context, filename string, proxy *ProxyCo
 	}, &net.UDPAddr{
 		IP: net.IPv4(2, 2, 2, 2),
 	}
-	ClientAddr = client
+	proxy.clientAddr = client
 
 	proxy.Server = minecraft.NewConn()
 
@@ -84,7 +84,7 @@ func createReplayConnection(ctx context.Context, filename string, proxy *ProxyCo
 		offset, _ := f.Seek(0, io.SeekCurrent)
 		if offset == totalSize {
 			logrus.Info("Reached End")
-			return nil
+			break
 		}
 
 		binary.Read(f, binary.LittleEndian, &magic)
@@ -103,7 +103,7 @@ func createReplayConnection(ctx context.Context, filename string, proxy *ProxyCo
 		n, err := f.Read(payload)
 		if err != nil {
 			logrus.Error(err)
-			return nil
+			break
 		}
 		if n != int(packetLength) {
 			return fmt.Errorf("truncated %d", i)
@@ -194,11 +194,11 @@ func createReplayConnection(ctx context.Context, filename string, proxy *ProxyCo
 				}
 			}
 		}
-
-		for _, handler := range proxy.handlers {
-			if handler.OnEnd != nil {
-				handler.OnEnd()
-			}
+	}
+	for _, handler := range proxy.handlers {
+		if handler.OnEnd != nil {
+			handler.OnEnd()
 		}
 	}
+	return nil
 }

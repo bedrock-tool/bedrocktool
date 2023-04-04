@@ -1,4 +1,4 @@
-package utils
+package handlers
 
 import (
 	"bufio"
@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/crypt"
 	"github.com/fatih/color"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
@@ -181,10 +182,11 @@ func DumpStruct(data interface{}) {
 	FLog.Write([]byte("\n\n\n"))
 }
 
-var ClientAddr net.Addr
+var dirS2C = color.GreenString("S") + "->" + color.CyanString("C")
+var dirC2S = color.CyanString("C") + "->" + color.GreenString("S")
 var pool = packet.NewPool()
 
-func NewDebugLogger(extraVerbose bool) *ProxyHandler {
+func NewDebugLogger(extraVerbose bool) *utils.ProxyHandler {
 	var logPlain, logCrypt, logCryptEnc io.WriteCloser
 	var packetsLogF *bufio.Writer
 
@@ -209,8 +211,13 @@ func NewDebugLogger(extraVerbose bool) *ProxyHandler {
 		packetsLogF = bufio.NewWriter(io.MultiWriter(logPlain, logCryptEnc))
 	}
 
-	return &ProxyHandler{
+	var proxy *utils.ProxyContext
+
+	return &utils.ProxyHandler{
 		Name: "Debug",
+		ProxyRef: func(pc *utils.ProxyContext) {
+			proxy = pc
+		},
 		PacketFunc: func(header packet.Header, payload []byte, src, dst net.Addr) {
 			var pk packet.Packet
 			if pkFunc, ok := pool[header.PacketID]; ok {
@@ -234,21 +241,10 @@ func NewDebugLogger(extraVerbose bool) *ProxyHandler {
 
 			pkName := reflect.TypeOf(pk).String()[1:]
 			if !slices.Contains(MutedPackets, pkName) {
-				dirS2C := color.GreenString("S") + "->" + color.CyanString("C")
-				dirC2S := color.CyanString("C") + "->" + color.GreenString("S")
 				var dir string = dirS2C
-
-				if ClientAddr != nil {
-					if src == ClientAddr {
-						dir = dirC2S
-					}
-				} else {
-					srcAddr, _, _ := net.SplitHostPort(src.String())
-					if IPPrivate(net.ParseIP(srcAddr)) {
-						dir = dirS2C
-					}
+				if proxy.IsClient(src) {
+					dir = dirC2S
 				}
-
 				logrus.Debugf("%s 0x%02x, %s", dir, pk.ID(), pkName)
 			}
 		},
@@ -267,4 +263,9 @@ func NewDebugLogger(extraVerbose bool) *ProxyHandler {
 			}
 		},
 	}
+}
+
+func init() {
+	// hacky solution to allow proxy to add this
+	utils.NewDebugLogger = NewDebugLogger
 }

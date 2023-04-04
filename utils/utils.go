@@ -8,7 +8,6 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
-	"net"
 	"os"
 	"path"
 	"regexp"
@@ -23,7 +22,6 @@ import (
 	//"github.com/sandertv/gophertunnel/minecraft/gatherings"
 
 	"github.com/sandertv/gophertunnel/minecraft/protocol/login"
-	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 )
 
@@ -65,14 +63,7 @@ func connectServer(ctx context.Context, address string, ClientData *login.Client
 	serverConn, err = minecraft.Dialer{
 		TokenSource: GetTokenSource(),
 		ClientData:  cd,
-		PacketFunc: func(header packet.Header, payload []byte, src, dst net.Addr) {
-			if header.PacketID == packet.IDRequestNetworkSettings {
-				ClientAddr = src
-			}
-			if packetFunc != nil {
-				packetFunc(header, payload, src, dst)
-			}
-		},
+		PacketFunc:  packetFunc,
 		DownloadResourcePack: func(id uuid.UUID, version string, current int, total int) bool {
 			return wantPacks
 		},

@@ -21,9 +21,6 @@ func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.R
 		return color.RGBA{0, 0, 0, 0}
 	}
 	rid := c.Block(x, y, z, 0)
-	if rid == 0 && y == int16(c.Range().Min()) { // void
-		return color.RGBA{0, 0, 0, 255}
-	}
 
 	blockColor = color.RGBA{255, 0, 255, 255}
 	b, found := world.BlockByRuntimeID(rid)

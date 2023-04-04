@@ -78,15 +78,17 @@ type ProxyHandler struct {
 }
 
 type ProxyContext struct {
-	Server           *minecraft.Conn
-	Client           *minecraft.Conn
-	Listener         *minecraft.Listener
-	commands         map[string]IngameCommand
+	Server     *minecraft.Conn
+	Client     *minecraft.Conn
+	clientAddr net.Addr
+	Listener   *minecraft.Listener
+
 	AlwaysGetPacks   bool
 	WithClient       bool
 	IgnoreDisconnect bool
 	CustomClientData *login.ClientData
 
+	commands map[string]IngameCommand
 	handlers []*ProxyHandler
 }
 
@@ -274,7 +276,17 @@ func (p *ProxyContext) proxyLoop(ctx context.Context, toServer bool) error {
 	}
 }
 
+func (p *ProxyContext) IsClient(addr net.Addr) bool {
+	return p.clientAddr.String() == addr.String()
+}
+
+var NewDebugLogger func(bool) *ProxyHandler
+
 func (p *ProxyContext) Run(ctx context.Context, serverAddress, name string) (err error) {
+	if Options.Debug || Options.ExtraDebug {
+		p.AddHandler(NewDebugLogger(Options.ExtraDebug))
+	}
+
 	for _, handler := range p.handlers {
 		if handler.AddressAndName != nil {
 			handler.AddressAndName(serverAddress, name)
@@ -282,10 +294,6 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress, name string) (err
 		if handler.ProxyRef != nil {
 			handler.ProxyRef(p)
 		}
-	}
-
-	if Options.Debug || Options.ExtraDebug {
-		p.AddHandler(NewDebugLogger(Options.ExtraDebug))
 	}
 
 	if strings.HasPrefix(serverAddress, "PCAP!") {

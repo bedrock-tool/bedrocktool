@@ -223,7 +223,7 @@ func (w *worldsHandler) CurrentName() string {
 
 func (w *worldsHandler) Reset(newName string) {
 	w.worldState = worldState{
-		dimension:          nil,
+		dimension:          w.worldState.dimension,
 		chunks:             make(map[protocol.ChunkPos]*chunk.Chunk),
 		blockNBT:           make(map[protocol.SubChunkPos][]map[string]any),
 		entities:           make(map[uint64]*entityState),
