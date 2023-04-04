@@ -28,6 +28,8 @@ func (s *worldSettings) Apply() {
 	s.worlds.EnableVoid = s.voidGen.Value
 	s.worlds.SaveImage = s.saveImage.Value
 	s.worlds.ServerAddress = s.serverAddress.Text()
+	s.worlds.SaveEntities = true
+	s.worlds.SaveInventories = true
 }
 
 func (s *worldSettings) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
