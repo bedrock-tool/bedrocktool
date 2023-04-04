@@ -1,10 +1,8 @@
-package world
+package utils
 
 import (
 	"image"
 	"image/color"
-
-	"github.com/bedrock-tool/bedrocktool/utils"
 
 	"github.com/df-mc/dragonfly/server/block"
 	"github.com/df-mc/dragonfly/server/block/cube"
@@ -44,8 +42,8 @@ func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.R
 		}
 
 		// blend that blocks color with water depending on depth
-		waterColor.A = uint8(utils.Clamp(int(150+depth*7), 255))
-		blockColor = utils.BlendColors(blockColor, waterColor)
+		waterColor.A = uint8(Clamp(int(150+depth*7), 255))
+		blockColor = BlendColors(blockColor, waterColor)
 		blockColor.R -= uint8(depth * 2)
 		blockColor.G -= uint8(depth * 2)
 		blockColor.B -= uint8(depth * 2)
@@ -53,7 +51,7 @@ func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.R
 	} else {
 		col := b.Color()
 		if col.A != 255 {
-			col = utils.BlendColors(blockColorAt(c, x, y-1, z), col)
+			col = BlendColors(blockColorAt(c, x, y-1, z), col)
 		}
 
 		/*

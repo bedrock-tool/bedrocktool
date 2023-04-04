@@ -52,14 +52,30 @@ func (s *secondaryUser) processLevelChunk(pk *packet.LevelChunk) {
 	}
 	s.chunks[world.ChunkPos(pk.Position)] = ch
 
-	switch pk.SubChunkCount {
-	case protocol.SubChunkRequestModeLimited:
-	case protocol.SubChunkRequestModeLimitless:
-	default:
-	}
-
 	for _, p := range s.server.Players() {
 		p.Session().ViewChunk(world.ChunkPos(pk.Position), ch, nil)
+	}
+
+	max := s.dimension.Range().Height() / 16
+	switch pk.SubChunkCount {
+	case protocol.SubChunkRequestModeLimited:
+		max = int(pk.HighestSubChunk)
+		fallthrough
+	case protocol.SubChunkRequestModeLimitless:
+		var offsetTable []protocol.SubChunkOffset
+		r := s.dimension.Range()
+		for y := int8(r.Min() / 16); y < int8(r.Max()); y++ {
+			offsetTable = append(offsetTable, protocol.SubChunkOffset{0, y, 0})
+		}
+
+		dimId, _ := world.DimensionID(s.dimension)
+		s.proxy.Server.WritePacket(&packet.SubChunkRequest{
+			Dimension: int32(dimId),
+			Position: protocol.SubChunkPos{
+				pk.Position.X(), 0, pk.Position.Z(),
+			},
+			Offsets: offsetTable[:max],
+		})
 	}
 }
 

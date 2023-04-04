@@ -6,6 +6,7 @@ import (
 
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
+	seconduser "github.com/bedrock-tool/bedrocktool/utils/handlers/second-user"
 )
 
 type DebugProxyCMD struct {
@@ -30,6 +31,7 @@ func (c *DebugProxyCMD) Execute(ctx context.Context, ui utils.UI) error {
 	if err != nil {
 		return err
 	}
+	proxy.AddHandler(seconduser.NewSecondUser())
 	return proxy.Run(ctx, address, hostname)
 }
 

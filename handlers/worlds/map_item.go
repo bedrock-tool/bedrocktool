@@ -1,4 +1,4 @@
-package world
+package worlds
 
 import (
 	"image"
@@ -190,7 +190,7 @@ func (m *MapUI) Redraw() {
 			break
 		}
 		if r.ch != nil {
-			m.renderedChunks[r.pos] = Chunk2Img(r.ch, !r.complete)
+			m.renderedChunks[r.pos] = utils.Chunk2Img(r.ch, !r.complete)
 		} else {
 			m.renderedChunks[r.pos] = black16x16
 		}

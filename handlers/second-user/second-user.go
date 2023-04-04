@@ -20,6 +20,7 @@ import (
 type secondaryUser struct {
 	listener *fwdlistener
 	server   *server.Server
+	proxy    *utils.ProxyContext
 
 	ispre118        bool
 	hasCustomBlocks bool
@@ -27,6 +28,7 @@ type secondaryUser struct {
 	chunks    map[world.ChunkPos]*chunk.Chunk
 	blockNBT  map[protocol.SubChunkPos][]map[string]any
 	dimension world.Dimension
+	entities  map[int64]*serverEntity
 
 	mainPlayer *player.Player
 }
@@ -40,6 +42,7 @@ func NewSecondUser() *utils.ProxyHandler {
 		chunks:    make(map[world.ChunkPos]*chunk.Chunk),
 		blockNBT:  make(map[protocol.SubChunkPos][]map[string]any),
 		dimension: world.Overworld,
+		entities:  make(map[int64]*serverEntity),
 	}
 
 	s.server = server.Config{
@@ -58,11 +61,15 @@ func NewSecondUser() *utils.ProxyHandler {
 	go s.loop()
 
 	return &utils.ProxyHandler{
-		Name:              "Secondary User",
+		Name: "Secondary User",
+		ProxyRef: func(pc *utils.ProxyContext) {
+			s.proxy = pc
+		},
 		SecondaryClientCB: s.SecondaryClientCB,
 		OnClientConnect: func(conn *minecraft.Conn) {
 			id := conn.IdentityData()
 			s.mainPlayer = player.New(id.DisplayName, skin.New(64, 64), mgl64.Vec3{0, 00})
+			s.server.World().AddEntity(s.mainPlayer)
 		},
 		PacketCB: func(pk packet.Packet, toServer bool, timeReceived time.Time) (packet.Packet, error) {
 
@@ -80,9 +87,11 @@ func NewSecondUser() *utils.ProxyHandler {
 			case *packet.PlayerAuthInput:
 				v := mgl64.Vec3{float64(pk.Position.X()), float64(pk.Position.Y()), float64(pk.Position.Z())}
 				s.mainPlayer.Teleport(v)
-				for _, p := range s.server.Players() {
-					p.Teleport(s.mainPlayer.Position())
-				}
+
+			case *packet.AddActor:
+				e := newServerEntity(pk.EntityType)
+				s.entities[pk.EntityUniqueID] = e
+				s.server.World().AddEntity(e)
 			}
 
 			return pk, nil

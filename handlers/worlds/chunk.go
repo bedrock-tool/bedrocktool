@@ -1,4 +1,4 @@
-package world
+package worlds
 
 import (
 	"github.com/bedrock-tool/bedrocktool/locale"
@@ -136,7 +136,7 @@ func (w *worldsHandler) ProcessChunkPackets(pk packet.Packet) packet.Packet {
 	case *packet.SubChunk:
 		w.processSubChunk(pk)
 	case *packet.BlockActorData:
-		if w.settings.blockUpdates {
+		if w.settings.BlockUpdates {
 			sp := protocol.SubChunkPos{pk.Position.X() << 4, 0, pk.Position.Z() << 4}
 			b, ok := w.worldState.blockNBT[sp]
 			if !ok {
@@ -152,7 +152,7 @@ func (w *worldsHandler) ProcessChunkPackets(pk packet.Packet) packet.Packet {
 			}
 		}
 	case *packet.UpdateBlock:
-		if w.settings.blockUpdates {
+		if w.settings.BlockUpdates {
 			cp := protocol.ChunkPos{pk.Position.X() >> 4, pk.Position.Z() >> 4}
 			c, ok := w.worldState.chunks[cp]
 			if ok {
@@ -162,7 +162,7 @@ func (w *worldsHandler) ProcessChunkPackets(pk packet.Packet) packet.Packet {
 			}
 		}
 	case *packet.UpdateSubChunkBlocks:
-		if w.settings.blockUpdates {
+		if w.settings.BlockUpdates {
 			cp := protocol.ChunkPos{pk.Position.X(), pk.Position.Z()}
 			c, ok := w.worldState.chunks[cp]
 			if ok {

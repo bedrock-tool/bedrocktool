@@ -29,3 +29,7 @@ keys.db
 packets.log.gpg
 customdata.json
 /logs-to-map/
+__pycache__/entityflags.cpython-310.pyc
+gathering.py
+*.ipynb
+entityflags.py

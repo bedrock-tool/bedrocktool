@@ -1,4 +1,4 @@
-package world
+package worlds
 
 import (
 	"github.com/bedrock-tool/bedrocktool/utils/behaviourpack"
