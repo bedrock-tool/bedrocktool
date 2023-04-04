@@ -3,10 +3,11 @@ package nbtconv
 import (
 	"bytes"
 	"encoding/gob"
+	"sort"
+
 	"github.com/df-mc/dragonfly/server/item"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/df-mc/dragonfly/server/world/chunk"
-	"sort"
 )
 
 // WriteItem encodes an item stack into a map that can be encoded using NBT.
@@ -20,10 +21,13 @@ func WriteItem(s item.Stack, disk bool) map[string]any {
 	if disk {
 		writeItemStack(m, s)
 	}
-	writeDamage(m, s, disk)
-	writeAnvilCost(m, s)
-	writeDisplay(m, s)
-	writeEnchantments(m, s)
+	t := make(map[string]any)
+	writeDamage(t, s, disk)
+	writeAnvilCost(t, s)
+	writeDisplay(t, s)
+	writeEnchantments(t, s)
+	m["tag"] = t
+
 	writeDragonflyData(m, s)
 	return m
 }

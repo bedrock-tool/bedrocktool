@@ -410,7 +410,8 @@ func (w *worldsHandler) SaveAndReset() {
 		ld.Experiments["experiments_ever_used"] = true
 		ld.Experiments["saved_with_toggled_experiments"] = true
 	}
-
+	ld.RandomTickSpeed = 0
+	s.CurrentTick = 0
 	provider.SaveSettings(s)
 	if err = provider.Close(); err != nil {
 		logrus.Error(err)

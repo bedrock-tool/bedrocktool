@@ -51,8 +51,6 @@ func (bp *BehaviourPack) AddEntity(entity EntityIn) {
 				Events:          nil,
 			},
 		}
-	} else {
-		println()
 	}
 
 	for _, av := range entity.Attr {
