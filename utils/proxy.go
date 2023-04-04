@@ -358,6 +358,9 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress, name string) (err
 	}
 
 	p.Server, err = connectServer(ctx, serverAddress, cdp, p.AlwaysGetPacks, func(header packet.Header, payload []byte, src, dst net.Addr) {
+		if header.PacketID == packet.IDRequestNetworkSettings {
+			p.clientAddr = src
+		}
 		for _, handler := range p.handlers {
 			if handler.PacketFunc == nil {
 				continue
