@@ -367,7 +367,7 @@ func (w *worldsHandler) playerData() (ret map[string]any) {
 	ret["Tags"] = []string{}
 	ret["OnGround"] = true
 
-	spawn := w.proxy.Server.GameData().PlayerPosition
+	spawn := w.serverState.PlayerPos.Position
 
 	ret["SpawnX"] = int32(spawn.X())
 	ret["SpawnY"] = int32(spawn.Y())

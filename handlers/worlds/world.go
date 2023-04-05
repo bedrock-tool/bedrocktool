@@ -318,7 +318,7 @@ func (w *worldsHandler) SaveAndReset() {
 		logrus.Error(err)
 	}
 
-	playerPos := w.proxy.Server.GameData().PlayerPosition
+	playerPos := w.serverState.PlayerPos.Position
 	spawnPos := cube.Pos{int(playerPos.X()), int(playerPos.Y()), int(playerPos.Z())}
 
 	// write metadata

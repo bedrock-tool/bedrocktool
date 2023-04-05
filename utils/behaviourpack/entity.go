@@ -72,11 +72,23 @@ func (bp *BehaviourPack) AddEntity(entity EntityIn) {
 			"value": scale,
 		}
 	}
-	AlwaysShowName := entity.Meta.Flag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagAlwaysShowName)
-	if AlwaysShowName {
-		entry.MinecraftEntity.Components["minecraft:nameable"] = map[string]any{
-			"always_show":             true,
-			"allow_name_tag_renaming": false,
+
+	width, widthOk := entity.Meta[protocol.EntityDataKeyWidth].(float32)
+	height, heightOk := entity.Meta[protocol.EntityDataKeyHeight].(float32)
+	if widthOk || heightOk {
+		entry.MinecraftEntity.Components["minecraft:collision_box"] = map[string]any{
+			"width":  width,
+			"height": height,
+		}
+	}
+
+	if _, ok := entity.Meta[protocol.EntityDataKeyFlags]; ok {
+		AlwaysShowName := entity.Meta.Flag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagAlwaysShowName)
+		if AlwaysShowName {
+			entry.MinecraftEntity.Components["minecraft:nameable"] = map[string]any{
+				"always_show":             true,
+				"allow_name_tag_renaming": false,
+			}
 		}
 	}
 

@@ -197,7 +197,7 @@ func (s *entityState) ToServerEntity() serverEntity {
 			Encoded: s.EntityType,
 			NBT: map[string]any{
 				"Pos":      vec3float32(s.Position),
-				"Rotation": []float32{s.Yaw, s.Pitch},
+				"Rotation": []float32{s.HeadYaw, s.Pitch},
 				"Motion":   vec3float32(s.Velocity),
 				"UniqueID": int64(s.UniqueID),
 			},
