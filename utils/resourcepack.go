@@ -60,8 +60,7 @@ var PackFromBase = func(pack *resource.Pack) Pack {
 	return b
 }
 
-func GetPacks(server *minecraft.Conn) (packs map[string]Pack, err error) {
-	packs = make(map[string]Pack)
+func GetPacks(server *minecraft.Conn) (packs []Pack, err error) {
 	for _, pack := range server.ResourcePacks() {
 		pack := PackFromBase(pack)
 		if pack.Encrypted() && pack.CanDecrypt() {
@@ -73,9 +72,9 @@ func GetPacks(server *minecraft.Conn) (packs map[string]Pack, err error) {
 			if err != nil {
 				return nil, err
 			}
-			packs[pack.Name()] = &Packb{pack2}
+			packs = append(packs, &Packb{pack2})
 		} else {
-			packs[pack.Name()] = pack
+			packs = append(packs, pack)
 		}
 	}
 	return

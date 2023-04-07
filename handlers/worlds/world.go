@@ -17,6 +17,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/behaviourpack"
+	"github.com/flytam/filenamify"
 
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"
@@ -424,6 +425,26 @@ func (w *worldsHandler) SaveAndReset() {
 
 	w.serverState.worldCounter += 1
 
+	if w.settings.SaveImage {
+		f, _ := os.Create(folder + ".png")
+		png.Encode(f, w.mapUI.ToImage())
+		f.Close()
+	}
+
+	w.AddPacks(folder)
+
+	// zip it
+	filename := folder + ".mcworld"
+	if err := utils.ZipFolder(filename, folder); err != nil {
+		logrus.Error(err)
+	}
+	logrus.Info(locale.Loc("saved", locale.Strmap{"Name": filename}))
+	//os.RemoveAll(folder)
+	w.Reset(w.CurrentName())
+	w.gui.Message(messages.SetUIState(messages.UIStateMain))
+}
+
+func (w *worldsHandler) AddPacks(folder string) {
 	type dep struct {
 		PackID  string `json:"pack_id"`
 		Version [3]int `json:"version"`
@@ -470,22 +491,31 @@ func (w *worldsHandler) SaveAndReset() {
 		if err != nil {
 			logrus.Error(err)
 		} else {
+			packNames := make(map[string]int)
+			for _, pack := range packs {
+				packNames[pack.Name()] += 1
+			}
+
 			var rdeps []dep
-			for k, p := range packs {
-				if p.Encrypted() && !p.CanDecrypt() {
-					logrus.Warnf("Cant add %s, it is encrypted", p.Name())
+			for _, pack := range packs {
+				if pack.Encrypted() && !pack.CanDecrypt() {
+					logrus.Warnf("Cant add %s, it is encrypted", pack.Name())
 					continue
 				}
-				logrus.Infof(locale.Loc("adding_pack", locale.Strmap{"Name": k}))
-				name := p.Name()
-				name = strings.ReplaceAll(name, ":", "_")
-				packFolder := path.Join(folder, "resource_packs", name)
+				logrus.Infof(locale.Loc("adding_pack", locale.Strmap{"Name": pack.Name()}))
+
+				packName := pack.Name()
+				if packNames[packName] > 1 {
+					packName += "_" + pack.UUID()
+				}
+				packName, _ = filenamify.FilenamifyV2(packName)
+				packFolder := path.Join(folder, "resource_packs", packName)
 				os.MkdirAll(packFolder, 0o755)
-				utils.UnpackZip(p, int64(p.Len()), packFolder)
+				utils.UnpackZip(pack, int64(pack.Len()), packFolder)
 
 				rdeps = append(rdeps, dep{
-					PackID:  p.Manifest().Header.UUID,
-					Version: p.Manifest().Header.Version,
+					PackID:  pack.Manifest().Header.UUID,
+					Version: pack.Manifest().Header.Version,
 				})
 			}
 			if len(rdeps) > 0 {
@@ -493,22 +523,6 @@ func (w *worldsHandler) SaveAndReset() {
 			}
 		}
 	}
-
-	if w.settings.SaveImage {
-		f, _ := os.Create(folder + ".png")
-		png.Encode(f, w.mapUI.ToImage())
-		f.Close()
-	}
-
-	// zip it
-	filename := folder + ".mcworld"
-	if err := utils.ZipFolder(filename, folder); err != nil {
-		logrus.Error(err)
-	}
-	logrus.Info(locale.Loc("saved", locale.Strmap{"Name": filename}))
-	//os.RemoveAll(folder)
-	w.Reset(w.CurrentName())
-	w.gui.Message(messages.SetUIState(messages.UIStateMain))
 }
 
 func (w *worldsHandler) OnConnect(err error) bool {
