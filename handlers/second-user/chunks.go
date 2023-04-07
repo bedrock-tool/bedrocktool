@@ -80,9 +80,8 @@ func (s *secondaryUser) processLevelChunk(pk *packet.LevelChunk) {
 }
 
 func (s *secondaryUser) processSubChunk(pk *packet.SubChunk) {
-	offsets := make([]protocol.SubChunkOffset, 0, len(pk.SubChunkEntries))
+	offsets := make(map[world.ChunkPos]bool, len(pk.SubChunkEntries))
 	for _, sub := range pk.SubChunkEntries {
-		offsets = append(offsets, sub.Offset)
 		var (
 			absX   = pk.Position[0] + int32(sub.Offset[0])
 			absY   = pk.Position[1] + int32(sub.Offset[1])
@@ -90,6 +89,7 @@ func (s *secondaryUser) processSubChunk(pk *packet.SubChunk) {
 			subPos = protocol.SubChunkPos{absX, absY, absZ}
 			pos    = world.ChunkPos{absX, absZ}
 		)
+		offsets[pos] = true
 		ch, ok := s.chunks[pos]
 		if !ok {
 			logrus.Error(locale.Loc("subchunk_before_chunk", nil))
@@ -107,6 +107,13 @@ func (s *secondaryUser) processSubChunk(pk *packet.SubChunk) {
 	}
 
 	for _, p := range s.server.Players() {
-		p.Session().ViewSubChunks(world.SubChunkPos(pk.Position), offsets)
+		for pos := range offsets {
+			ch, ok := s.chunks[pos]
+			if !ok {
+				continue
+			}
+			p.Session().ViewChunk(pos, ch, nil)
+		}
+
 	}
 }

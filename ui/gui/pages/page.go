@@ -22,7 +22,7 @@ type Page interface {
 	NavItem() component.NavItem
 
 	// handle events from program
-	Handler() HandlerFunc
+	Handler(data any) messages.MessageResponse
 }
 
 type Router struct {
@@ -136,7 +136,7 @@ func (r *Router) Layout(gtx layout.Context, th *material.Theme) layout.Dimension
 func (r *Router) Handler(data interface{}) messages.MessageResponse {
 	page, ok := r.pages[r.current]
 	if ok {
-		return page.Handler()(data)
+		return page.Handler(data)
 	}
 	return messages.MessageResponse{}
 }

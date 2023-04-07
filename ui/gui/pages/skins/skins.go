@@ -8,7 +8,6 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
-	"github.com/bedrock-tool/bedrocktool/ui/gui"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 )
@@ -96,7 +95,7 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 	return layout.Flex{}.Layout(gtx)
 }
 
-func (p *Page) handler(data interface{}) messages.MessageResponse {
+func (p *Page) Handler(data interface{}) messages.MessageResponse {
 	r := messages.MessageResponse{
 		Ok:   false,
 		Data: nil,
@@ -115,8 +114,4 @@ func (p *Page) handler(data interface{}) messages.MessageResponse {
 		r.Ok = true
 	}
 	return r
-}
-
-func (p *Page) Handler() gui.HandlerFunc {
-	return p.handler
 }

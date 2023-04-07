@@ -45,12 +45,10 @@ func (p *packetCapturer) AddressAndName(address, hostname string) error {
 }
 
 func (p *packetCapturer) PacketFunc(header packet.Header, payload []byte, src, dst net.Addr) {
-	IsfromClient := p.proxy.IsClient(src)
-
 	buf := bytes.NewBuffer(nil)
 	header.Write(buf)
 	buf.Write(payload)
-	dumpPacket(p.fio, IsfromClient, buf.Bytes())
+	dumpPacket(p.fio, p.proxy.IsClient(src), buf.Bytes())
 }
 
 func NewPacketCapturer() *utils.ProxyHandler {

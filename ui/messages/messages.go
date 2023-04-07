@@ -20,7 +20,7 @@ const (
 	UIStateFinished
 )
 
-type HandlerFunc = func(name string, data interface{}) MessageResponse
+type HandlerFunc = func(data interface{}) MessageResponse
 
 //
 

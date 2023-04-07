@@ -217,7 +217,7 @@ func (w *worldsHandler) setWorldName(val string, fromUI bool) bool {
 
 func (w *worldsHandler) CurrentName() string {
 	worldName := "world"
-	if w.serverState.worldCounter > 1 {
+	if w.serverState.worldCounter > 0 {
 		worldName = fmt.Sprintf("world-%d", w.serverState.worldCounter)
 	}
 	return worldName
@@ -249,8 +249,11 @@ func (w *worldState) cullChunks() {
 	}
 }
 
-func (w *worldState) Save(folder string) (*mcdb.Provider, error) {
-	provider, err := mcdb.New(logrus.StandardLogger(), folder, opt.DefaultCompression)
+func (w *worldState) Save(folder string) (*mcdb.DB, error) {
+	provider, err := mcdb.Config{
+		Log:         logrus.StandardLogger(),
+		Compression: opt.DefaultCompression,
+	}.New(folder)
 	if err != nil {
 		return nil, err
 	}
