@@ -48,11 +48,6 @@ var MutedPackets = []string{
 	"packet.PlaySound",
 }
 
-var (
-	FLog    io.Writer
-	dmpLock sync.Mutex
-)
-
 func dmpStruct(level int, inputStruct any, withType bool, isInList bool) (s string) {
 	tBase := strings.Repeat("\t", level)
 
@@ -173,15 +168,6 @@ func dmpStruct(level int, inputStruct any, withType bool, isInList bool) (s stri
 	return s
 }
 
-func DumpStruct(data interface{}) {
-	if FLog == nil {
-		return
-	}
-
-	FLog.Write([]byte(dmpStruct(0, data, true, false)))
-	FLog.Write([]byte("\n\n\n"))
-}
-
 var dirS2C = color.GreenString("S") + "->" + color.CyanString("C")
 var dirC2S = color.CyanString("C") + "->" + color.GreenString("S")
 var pool = packet.NewPool()
@@ -189,6 +175,7 @@ var pool = packet.NewPool()
 func NewDebugLogger(extraVerbose bool) *utils.ProxyHandler {
 	var logPlain, logCrypt, logCryptEnc io.WriteCloser
 	var packetsLogF *bufio.Writer
+	var dmpLock sync.Mutex
 
 	if extraVerbose {
 		// open plain text log
@@ -196,19 +183,14 @@ func NewDebugLogger(extraVerbose bool) *utils.ProxyHandler {
 		if err != nil {
 			logrus.Error(err)
 		}
-
 		// open gpg log
-		logCrypt, err := os.Create("packets.log.gpg")
+		logCryptEnc, err = crypt.Encer("packets.log.gpg")
 		if err != nil {
 			logrus.Error(err)
-		} else {
-			// encrypter for the log
-			logCryptEnc, err = crypt.Encer("packets.log", logCrypt)
-			if err != nil {
-				logrus.Error(err)
-			}
 		}
-		packetsLogF = bufio.NewWriter(io.MultiWriter(logPlain, logCryptEnc))
+		if logPlain != nil || logCryptEnc != nil {
+			packetsLogF = bufio.NewWriter(io.MultiWriter(logPlain, logCryptEnc))
+		}
 	}
 
 	var proxy *utils.ProxyContext
@@ -233,7 +215,7 @@ func NewDebugLogger(extraVerbose bool) *utils.ProxyHandler {
 			}()
 			pk.Marshal(protocol.NewReader(bytes.NewBuffer(payload), 0))
 
-			if extraVerbose {
+			if packetsLogF != nil {
 				dmpLock.Lock()
 				packetsLogF.Write([]byte(dmpStruct(0, pk, true, false) + "\n\n\n"))
 				dmpLock.Unlock()

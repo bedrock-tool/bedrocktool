@@ -4,6 +4,7 @@ import (
 	"bytes"
 	_ "embed"
 	"io"
+	"os"
 	"time"
 
 	"golang.org/x/crypto/openpgp"
@@ -42,9 +43,13 @@ func Enc(name string, data []byte) ([]byte, error) {
 	return w.Bytes(), nil
 }
 
-func Encer(name string, w io.Writer) (io.WriteCloser, error) {
+func Encer(filename string) (io.WriteCloser, error) {
+	w, err := os.Create(filename)
+	if err != nil {
+		return nil, err
+	}
 	wc, err := openpgp.Encrypt(w, recipients, nil, &openpgp.FileHints{
-		IsBinary: true, FileName: name, ModTime: time.Now(),
+		IsBinary: true, FileName: filename, ModTime: time.Now(),
 	}, nil)
 	return wc, err
 }
