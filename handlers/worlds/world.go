@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"image"
 	"image/png"
 	"math/rand"
 	"os"
@@ -83,28 +82,16 @@ type worldsHandler struct {
 	settings    WorldSettings
 }
 
-var black16x16 = image.NewRGBA(image.Rect(0, 0, 16, 16))
-
-func init() {
-	for i := 3; i < len(black16x16.Pix); i += 4 {
-		black16x16.Pix[i] = 255
-	}
-}
-
 func NewWorldsHandler(ctx context.Context, ui utils.UI, settings WorldSettings) *utils.ProxyHandler {
 	w := &worldsHandler{
-		ctx:   ctx,
-		mapUI: nil,
-		gui:   ui,
-		bp:    nil,
+		ctx: ctx,
+		gui: ui,
 
 		serverState: serverState{
 			ispre118:     false,
 			worldCounter: 0,
 			ChunkRadius:  0,
-
-			playerInventory: nil,
-			PlayerPos:       TPlayerPos{},
+			PlayerPos:    TPlayerPos{},
 		},
 
 		settings: settings,

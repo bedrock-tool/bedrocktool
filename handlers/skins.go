@@ -56,13 +56,13 @@ func (s *SkinSaver) AddSkin(playerName string, playerID uuid.UUID, playerSkin *p
 		}
 	}
 	if !strings.HasPrefix(playerName, s.PlayerNameFilter) {
-		return "", nil, false
+		return playerName, nil, false
 	}
 	s.playerNames[playerID] = playerName
 
 	skin := &utils.Skin{Skin: playerSkin}
 	if s.OnlyIfHasGeometry && !skin.HaveGeometry() {
-		return "", nil, false
+		return playerName, nil, false
 	}
 	wasAdded := s.AddPlayerSkin(playerID, playerName, skin)
 

@@ -101,7 +101,6 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 			p.Router.Wg.Add(1)
 			go func() {
 				defer p.Router.Wg.Done()
-				utils.InitDNS()
 
 				err := cmd.Execute(p.Router.Ctx, utils.CurrentUI)
 				if err != nil {

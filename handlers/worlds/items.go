@@ -112,10 +112,6 @@ func (w *worldsHandler) processItemPacketsServer(pk packet.Packet) packet.Packet
 
 	case *packet.ItemComponent:
 		w.bp.ApplyComponentEntries(pk.Items)
-	case *packet.MobArmourEquipment:
-		if pk.EntityRuntimeID == w.proxy.Server.GameData().EntityRuntimeID {
-
-		}
 	}
 	return pk
 }

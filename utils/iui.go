@@ -72,9 +72,6 @@ func (c *InteractiveCLI) Start(ctx context.Context, cancel context.CancelFunc) e
 		os.Args = append(os.Args, _cmd...)
 	}
 	flag.Parse()
-
-	InitDNS()
-
 	subcommands.Execute(ctx)
 
 	if Options.IsInteractive {

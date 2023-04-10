@@ -21,8 +21,7 @@ func (w *worldsHandler) processChangeDimension(pk *packet.ChangeDimension) {
 	if w.serverState.ispre118 && dimensionID == 0 {
 		dimensionID += 10
 	}
-	d, _ := world.DimensionByID(int(dimensionID))
-	w.worldState.dimension = d
+	w.worldState.dimension, _ = world.DimensionByID(int(dimensionID))
 }
 
 func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {

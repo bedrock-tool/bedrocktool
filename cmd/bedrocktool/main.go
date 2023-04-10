@@ -35,7 +35,6 @@ func (c *CLI) Init() bool {
 
 func (c *CLI) Start(ctx context.Context, cancel context.CancelFunc) error {
 	flag.Parse()
-	utils.InitDNS()
 	subcommands.Execute(ctx)
 	time.Sleep(50 * time.Millisecond)
 	cancel()

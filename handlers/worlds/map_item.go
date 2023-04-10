@@ -43,31 +43,37 @@ var MapItemPacket packet.InventoryContent = packet.InventoryContent{
 	},
 }
 
+func imin(a, b int32) int32 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func imax(a, b int32) int32 {
+	if a > b {
+		return a
+	}
+	return b
+}
+
 func (m *MapUI) GetBounds() (min, max protocol.ChunkPos) {
-	// get the chunk coord bounds
-	i := 0
-	for _ch := range m.renderedChunks {
-		if _ch.X() < min.X() || i == 0 {
-			min[0] = _ch.X()
-		}
-		if _ch.Z() < min.Z() || i == 0 {
-			min[1] = _ch.Z()
-		}
-		if _ch.X() > max.X() || i == 0 {
-			max[0] = _ch.X()
-		}
-		if _ch.Z() > max.Z() || i == 0 {
-			max[1] = _ch.Z()
-		}
-		i++
+	if len(m.renderedChunks) == 0 {
+		return
+	}
+	min = protocol.ChunkPos{math.MaxInt32, math.MaxInt32}
+	for chunk := range m.renderedChunks {
+		min[0] = imin(min[0], chunk[0])
+		min[1] = imin(min[1], chunk[1])
+		max[0] = imax(max[0], chunk[0])
+		max[1] = imax(max[1], chunk[1])
 	}
 	return
 }
 
 type RenderElem struct {
-	pos      protocol.ChunkPos
-	ch       *chunk.Chunk
-	complete bool
+	pos protocol.ChunkPos
+	ch  *chunk.Chunk
 }
 
 type MapUI struct {
@@ -190,9 +196,7 @@ func (m *MapUI) Redraw() {
 			break
 		}
 		if r.ch != nil {
-			m.renderedChunks[r.pos] = utils.Chunk2Img(r.ch, !r.complete)
-		} else {
-			m.renderedChunks[r.pos] = black16x16
+			m.renderedChunks[r.pos] = utils.Chunk2Img(r.ch)
 		}
 		updatedChunks = append(updatedChunks, r.pos)
 	}
@@ -262,7 +266,7 @@ func (m *MapUI) ToImage() *image.RGBA {
 }
 
 func (m *MapUI) SetChunk(pos protocol.ChunkPos, ch *chunk.Chunk, complete bool) {
-	m.renderQueue.Enqueue(&RenderElem{pos, ch, complete})
+	m.renderQueue.Enqueue(&RenderElem{pos, ch})
 	m.SchedRedraw()
 }
 

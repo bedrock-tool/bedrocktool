@@ -97,7 +97,7 @@ func chunkGetColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) color.RGBA {
 	return blockColor
 }
 
-func Chunk2Img(c *chunk.Chunk, warn bool) *image.RGBA {
+func Chunk2Img(c *chunk.Chunk) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, 16, 16))
 	hm := c.HeightMapWithWater()
 

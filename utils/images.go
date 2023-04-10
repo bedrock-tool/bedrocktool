@@ -5,15 +5,11 @@ import (
 	"image/color"
 	"image/png"
 	"os"
-	"reflect"
 	"unsafe"
 )
 
 func Img2rgba(img *image.RGBA) []color.RGBA {
-	header := *(*reflect.SliceHeader)(unsafe.Pointer(&img.Pix))
-	header.Len /= 4
-	header.Cap /= 4
-	return *(*[]color.RGBA)(unsafe.Pointer(&header))
+	return unsafe.Slice((*color.RGBA)(unsafe.Pointer(unsafe.SliceData(img.Pix))), len(img.Pix)/4)
 }
 
 func loadPng(path string) (*image.RGBA, error) {

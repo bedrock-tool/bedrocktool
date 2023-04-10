@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"sync"
@@ -14,23 +13,22 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 )
 
-var dumpLock sync.Mutex
-
-func dumpPacket(f io.WriteCloser, toServer bool, payload []byte) {
-	dumpLock.Lock()
-	defer dumpLock.Unlock()
-	f.Write([]byte{0xAA, 0xAA, 0xAA, 0xAA})
+func (p *packetCapturer) dumpPacket(toServer bool, payload []byte) {
+	p.dumpLock.Lock()
+	defer p.dumpLock.Unlock()
+	p.fio.Write([]byte{0xAA, 0xAA, 0xAA, 0xAA})
 	packetSize := uint32(len(payload))
-	binary.Write(f, binary.LittleEndian, packetSize)
-	binary.Write(f, binary.LittleEndian, toServer)
-	binary.Write(f, binary.LittleEndian, time.Now().UnixMilli())
-	f.Write(payload)
-	f.Write([]byte{0xBB, 0xBB, 0xBB, 0xBB})
+	binary.Write(p.fio, binary.LittleEndian, packetSize)
+	binary.Write(p.fio, binary.LittleEndian, toServer)
+	binary.Write(p.fio, binary.LittleEndian, time.Now().UnixMilli())
+	p.fio.Write(payload)
+	p.fio.Write([]byte{0xBB, 0xBB, 0xBB, 0xBB})
 }
 
 type packetCapturer struct {
-	proxy *utils.ProxyContext
-	fio   *os.File
+	proxy    *utils.ProxyContext
+	fio      *os.File
+	dumpLock sync.Mutex
 }
 
 func (p *packetCapturer) AddressAndName(address, hostname string) error {
@@ -48,7 +46,7 @@ func (p *packetCapturer) PacketFunc(header packet.Header, payload []byte, src, d
 	buf := bytes.NewBuffer(nil)
 	header.Write(buf)
 	buf.Write(payload)
-	dumpPacket(p.fio, p.proxy.IsClient(src), buf.Bytes())
+	p.dumpPacket(p.proxy.IsClient(src), buf.Bytes())
 }
 
 func NewPacketCapturer() *utils.ProxyHandler {
@@ -61,8 +59,8 @@ func NewPacketCapturer() *utils.ProxyHandler {
 		AddressAndName: p.AddressAndName,
 		PacketFunc:     p.PacketFunc,
 		OnEnd: func() {
-			dumpLock.Lock()
-			defer dumpLock.Unlock()
+			p.dumpLock.Lock()
+			defer p.dumpLock.Unlock()
 			p.fio.Close()
 		},
 	}

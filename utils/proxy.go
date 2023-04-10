@@ -95,6 +95,7 @@ type ProxyContext struct {
 func NewProxy() (*ProxyContext, error) {
 	p := &ProxyContext{
 		commands:         make(map[string]IngameCommand),
+		AlwaysGetPacks:   false,
 		WithClient:       true,
 		IgnoreDisconnect: false,
 	}
@@ -286,6 +287,10 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress, name string) (err
 	if Options.Debug || Options.ExtraDebug {
 		p.AddHandler(NewDebugLogger(Options.ExtraDebug))
 	}
+	p.AddHandler(&ProxyHandler{
+		Name:     "Commands",
+		PacketCB: p.CommandHandlerPacketCB,
+	})
 
 	for _, handler := range p.handlers {
 		if handler.AddressAndName != nil {
@@ -408,12 +413,6 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress, name string) (err
 			return errors.New("Cancelled")
 		}
 	}
-
-	// append self to handlers for commands
-	p.handlers = append(p.handlers, &ProxyHandler{
-		Name:     "Commands",
-		PacketCB: p.CommandHandlerPacketCB,
-	})
 
 	wg := sync.WaitGroup{}
 	// server to client
