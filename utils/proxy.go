@@ -53,12 +53,12 @@ type (
 
 type ProxyHandler struct {
 	Name     string
-	ProxyRef func(*ProxyContext)
+	ProxyRef func(pc *ProxyContext)
 	//
 	AddressAndName func(address, hostname string) error
 
 	// called to change game data
-	GameDataModifier func(*minecraft.GameData)
+	GameDataModifier func(gd *minecraft.GameData)
 
 	// called for every packet
 	PacketFunc func(header packet.Header, payload []byte, src, dst net.Addr)
@@ -210,9 +210,9 @@ func (p *ProxyContext) AddHandler(handler *ProxyHandler) {
 }
 
 func (p *ProxyContext) CommandHandlerPacketCB(pk packet.Packet, toServer bool, _ time.Time) (packet.Packet, error) {
-	switch _pk := pk.(type) {
+	switch pk := pk.(type) {
 	case *packet.CommandRequest:
-		cmd := strings.Split(_pk.CommandLine, " ")
+		cmd := strings.Split(pk.CommandLine, " ")
 		name := cmd[0][1:]
 		if h, ok := p.commands[name]; ok {
 			if h.Exec(cmd[1:]) {
@@ -220,13 +220,13 @@ func (p *ProxyContext) CommandHandlerPacketCB(pk packet.Packet, toServer bool, _
 			}
 		}
 	case *packet.AvailableCommands:
-		cmds := make([]protocol.Command, len(p.commands))
+		cmds := make([]protocol.Command, 0, len(p.commands))
 		for _, ic := range p.commands {
 			cmds = append(cmds, ic.Cmd)
 		}
 		pk = &packet.AvailableCommands{
-			Constraints: _pk.Constraints,
-			Commands:    append(_pk.Commands, cmds...),
+			Constraints: pk.Constraints,
+			Commands:    append(pk.Commands, cmds...),
 		}
 	}
 	return pk, nil
@@ -321,9 +321,9 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress, name string) (err
 			logrus.Infof(locale.Locm("pack_count_loaded", locale.Strmap{"Count": len(packs)}, len(packs)))
 		}
 
-		_status := minecraft.NewStatusProvider("Server")
+		status := minecraft.NewStatusProvider(fmt.Sprintf("%s Proxy", name))
 		p.Listener, err = minecraft.ListenConfig{
-			StatusProvider:    _status,
+			StatusProvider:    status,
 			ResourcePacks:     packs,
 			AcceptedProtocols: []minecraft.Protocol{
 				//dummyProto{id: 567, ver: "1.19.60"},

@@ -22,7 +22,7 @@ import (
 const ViewMapID = 0x424242
 
 // MapItemPacket tells the client that it has a map with id 0x424242 in the offhand
-var MapItemPacket packet.InventoryContent = packet.InventoryContent{
+var MapItemPacket = packet.InventoryContent{
 	WindowID: 119,
 	Content: []protocol.ItemInstance{
 		{
@@ -112,9 +112,6 @@ func (m *MapUI) Start() {
 		MapID:          ViewMapID,
 		Scale:          4,
 		MapsIncludedIn: []int64{ViewMapID},
-		Width:          0,
-		Height:         0,
-		Pixels:         nil,
 		UpdateFlags:    packet.MapUpdateFlagInitialisation,
 	})
 	if err != nil {
@@ -248,7 +245,7 @@ func (m *MapUI) ToImage() *image.RGBA {
 	chunksX := int(max[0] - min[0] + 1) // how many chunk lengths is x coordinate
 	chunksY := int(max[1] - min[1] + 1)
 
-	img2 := image.NewRGBA(image.Rect(0, 0, chunksX*16, chunksY*16))
+	img := image.NewRGBA(image.Rect(0, 0, chunksX*16, chunksY*16))
 
 	m.l.RLock()
 	for pos, tile := range m.renderedChunks {
@@ -256,13 +253,13 @@ func (m *MapUI) ToImage() *image.RGBA {
 			int((pos.X()-min.X())*16),
 			int((pos.Z()-min.Z())*16),
 		)
-		draw.Draw(img2, image.Rect(
+		draw.Draw(img, image.Rect(
 			px.X, px.Y,
 			px.X+16, px.Y+16,
 		), tile, image.Point{}, draw.Src)
 	}
 	m.l.RUnlock()
-	return img2
+	return img
 }
 
 func (m *MapUI) SetChunk(pos protocol.ChunkPos, ch *chunk.Chunk, complete bool) {

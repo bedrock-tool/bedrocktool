@@ -231,6 +231,7 @@ func NewDebugLogger(extraVerbose bool) *utils.ProxyHandler {
 			}
 		},
 		OnEnd: func() {
+			dmpLock.Lock()
 			if packetsLogF != nil {
 				packetsLogF.Flush()
 			}
@@ -243,6 +244,7 @@ func NewDebugLogger(extraVerbose bool) *utils.ProxyHandler {
 			if logCrypt != nil {
 				logCrypt.Close()
 			}
+			dmpLock.Unlock()
 		},
 	}
 }

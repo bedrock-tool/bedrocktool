@@ -21,7 +21,7 @@ func loadPng(path string) (*image.RGBA, error) {
 	if err != nil {
 		return nil, err
 	}
-	return (*image.RGBA)(img.(*image.NRGBA)), err
+	return (*image.RGBA)(img.(*image.NRGBA)), nil
 }
 
 // LERP is a linear interpolation function

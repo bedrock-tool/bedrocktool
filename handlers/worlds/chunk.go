@@ -11,12 +11,7 @@ import (
 )
 
 func (w *worldsHandler) processChangeDimension(pk *packet.ChangeDimension) {
-	if len(w.worldState.chunks) > 0 {
-		w.SaveAndReset()
-	} else {
-		logrus.Info(locale.Loc("not_saving_empty", nil))
-		w.Reset(w.CurrentName())
-	}
+	w.SaveAndReset()
 	dimensionID := pk.Dimension
 	if w.serverState.ispre118 && dimensionID == 0 {
 		dimensionID += 10
