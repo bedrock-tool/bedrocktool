@@ -76,7 +76,7 @@ func connectServer(ctx context.Context, address string, ClientData *login.Client
 	return serverConn, nil
 }
 
-func spawnConn(ctx context.Context, clientConn *minecraft.Conn, serverConn *minecraft.Conn, gd minecraft.GameData) error {
+func spawnConn(ctx context.Context, clientConn minecraft.IConn, serverConn minecraft.IConn, gd minecraft.GameData) error {
 	wg := sync.WaitGroup{}
 	errs := make(chan error, 2)
 	if clientConn != nil {

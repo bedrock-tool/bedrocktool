@@ -152,7 +152,7 @@ func (w *worldsHandler) ProcessChunkPackets(pk packet.Packet) packet.Packet {
 			if ok {
 				x, y, z := blockPosInChunk(pk.Position)
 				c.SetBlock(x, y, z, uint8(pk.Layer), pk.NewBlockRuntimeID)
-				w.mapUI.SetChunk(cp, w.worldState.chunks[cp], true)
+				w.mapUI.SetChunk(cp, c, true)
 			}
 		}
 	case *packet.UpdateSubChunkBlocks:
@@ -168,7 +168,7 @@ func (w *worldsHandler) ProcessChunkPackets(pk packet.Packet) packet.Packet {
 						c.SetBlock(x, y, z, 0, bce.BlockRuntimeID)
 					}
 				}
-				w.mapUI.SetChunk(cp, w.worldState.chunks[cp], true)
+				w.mapUI.SetChunk(cp, c, true)
 			}
 		}
 	}

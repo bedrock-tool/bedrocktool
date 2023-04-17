@@ -8,7 +8,6 @@ import (
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
-
 	"github.com/sandertv/gophertunnel/minecraft"
 )
 
@@ -43,7 +42,7 @@ func (c *SkinCMD) Execute(ctx context.Context, ui utils.UI) error {
 	}))
 	proxy.AddHandler(&utils.ProxyHandler{
 		Name: "Skin CMD",
-		OnClientConnect: func(conn *minecraft.Conn) {
+		OnClientConnect: func(conn minecraft.IConn) {
 			ui.Message(messages.SetUIState(messages.UIStateConnecting))
 		},
 	})

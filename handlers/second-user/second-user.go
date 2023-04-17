@@ -66,7 +66,7 @@ func NewSecondUser() *utils.ProxyHandler {
 			s.proxy = pc
 		},
 		SecondaryClientCB: s.SecondaryClientCB,
-		OnClientConnect: func(conn *minecraft.Conn) {
+		OnClientConnect: func(conn minecraft.IConn) {
 			id := conn.IdentityData()
 			s.mainPlayer = player.New(id.DisplayName, skin.New(64, 64), mgl64.Vec3{0, 00})
 			s.server.World().AddEntity(s.mainPlayer)
@@ -99,7 +99,7 @@ func NewSecondUser() *utils.ProxyHandler {
 	}
 }
 
-func (s *secondaryUser) SecondaryClientCB(conn *minecraft.Conn) {
+func (s *secondaryUser) SecondaryClientCB(conn minecraft.IConn) {
 	s.listener.Conn <- conn
 }
 

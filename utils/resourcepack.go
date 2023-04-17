@@ -60,7 +60,7 @@ var PackFromBase = func(pack *resource.Pack) Pack {
 	return b
 }
 
-func GetPacks(server *minecraft.Conn) (packs []Pack, err error) {
+func GetPacks(server minecraft.IConn) (packs []Pack, err error) {
 	for _, pack := range server.ResourcePacks() {
 		pack := PackFromBase(pack)
 		if pack.Encrypted() && pack.CanDecrypt() {

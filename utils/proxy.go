@@ -67,8 +67,8 @@ type ProxyHandler struct {
 	PacketCB func(pk packet.Packet, toServer bool, timeReceived time.Time) (packet.Packet, error)
 
 	// called after client connected
-	OnClientConnect   func(conn *minecraft.Conn)
-	SecondaryClientCB func(conn *minecraft.Conn)
+	OnClientConnect   func(conn minecraft.IConn)
+	SecondaryClientCB func(conn minecraft.IConn)
 
 	// called after game started
 	ConnectCB func(err error) bool
@@ -78,8 +78,8 @@ type ProxyHandler struct {
 }
 
 type ProxyContext struct {
-	Server     *minecraft.Conn
-	Client     *minecraft.Conn
+	Server     minecraft.IConn
+	Client     minecraft.IConn
 	clientAddr net.Addr
 	Listener   *minecraft.Listener
 
@@ -233,7 +233,7 @@ func (p *ProxyContext) CommandHandlerPacketCB(pk packet.Packet, toServer bool, _
 }
 
 func (p *ProxyContext) proxyLoop(ctx context.Context, toServer bool) error {
-	var c1, c2 *minecraft.Conn
+	var c1, c2 minecraft.IConn
 	if toServer {
 		c1 = p.Client
 		c2 = p.Server
@@ -283,6 +283,56 @@ func (p *ProxyContext) IsClient(addr net.Addr) bool {
 
 var NewDebugLogger func(bool) *ProxyHandler
 
+func (p *ProxyContext) connectClient(ctx context.Context, serverAddress string, cdpp **login.ClientData) (err error) {
+	GetTokenSource() // ask for login before listening
+
+	var packs []*resource.Pack
+	if Options.Preload {
+		logrus.Info(locale.Loc("preloading_packs", nil))
+		serverConn, err := connectServer(ctx, serverAddress, nil, true, func(header packet.Header, payload []byte, src, dst net.Addr) {})
+		if err != nil {
+			return fmt.Errorf(locale.Loc("failed_to_connect", locale.Strmap{"Address": serverAddress, "Err": err}))
+		}
+		serverConn.Close()
+		packs = serverConn.ResourcePacks()
+		logrus.Infof(locale.Locm("pack_count_loaded", locale.Strmap{"Count": len(packs)}, len(packs)))
+	}
+
+	status := minecraft.NewStatusProvider(fmt.Sprintf("%s Proxy", serverAddress))
+	p.Listener, err = minecraft.ListenConfig{
+		StatusProvider:    status,
+		ResourcePacks:     packs,
+		AcceptedProtocols: []minecraft.Protocol{
+			//dummyProto{id: 567, ver: "1.19.60"},
+		},
+	}.Listen("raknet", ":19132")
+	if err != nil {
+		return err
+	}
+
+	logrus.Infof(locale.Loc("listening_on", locale.Strmap{"Address": p.Listener.Addr()}))
+	logrus.Infof(locale.Loc("help_connect", nil))
+
+	go func() {
+		<-ctx.Done()
+		p.Listener.Close()
+	}()
+
+	c, err := p.Listener.Accept()
+	if err != nil {
+		return err
+	}
+	p.Client = c.(*minecraft.Conn)
+	cd := p.Client.ClientData()
+	*cdpp = &cd
+	return nil
+}
+
+func (p *ProxyContext) connectServer(ctx context.Context, serverAddress string, cdp *login.ClientData, packetFunc PacketFunc) (err error) {
+	p.Server, err = connectServer(ctx, serverAddress, cdp, p.AlwaysGetPacks, packetFunc)
+	return err
+}
+
 func (p *ProxyContext) Run(ctx context.Context, serverAddress, name string) (err error) {
 	if Options.Debug || Options.ExtraDebug {
 		p.AddHandler(NewDebugLogger(Options.ExtraDebug))
@@ -301,54 +351,38 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress, name string) (err
 		}
 	}
 
+	defer func() {
+		for _, handler := range p.handlers {
+			if handler.OnEnd != nil {
+				handler.OnEnd()
+			}
+		}
+	}()
+
+	isReplay := false
 	if strings.HasPrefix(serverAddress, "PCAP!") {
-		return createReplayConnection(ctx, serverAddress[5:], p)
+		isReplay = true
 	}
 
-	GetTokenSource() // ask for login before listening
-
 	var cdp *login.ClientData = nil
-	if p.WithClient {
-		var packs []*resource.Pack
-		if Options.Preload {
-			logrus.Info(locale.Loc("preloading_packs", nil))
-			serverConn, err := connectServer(ctx, serverAddress, nil, true, func(header packet.Header, payload []byte, src, dst net.Addr) {})
-			if err != nil {
-				return fmt.Errorf(locale.Loc("failed_to_connect", locale.Strmap{"Address": serverAddress, "Err": err}))
-			}
-			serverConn.Close()
-			packs = serverConn.ResourcePacks()
-			logrus.Infof(locale.Locm("pack_count_loaded", locale.Strmap{"Count": len(packs)}, len(packs)))
-		}
-
-		status := minecraft.NewStatusProvider(fmt.Sprintf("%s Proxy", name))
-		p.Listener, err = minecraft.ListenConfig{
-			StatusProvider:    status,
-			ResourcePacks:     packs,
-			AcceptedProtocols: []minecraft.Protocol{
-				//dummyProto{id: 567, ver: "1.19.60"},
-			},
-		}.Listen("raknet", ":19132")
+	if p.WithClient && !isReplay {
+		err = p.connectClient(ctx, serverAddress, &cdp)
 		if err != nil {
 			return err
 		}
+
 		defer func() {
-			if p.Client != nil {
-				p.Listener.Disconnect(p.Client, DisconnectReason)
+			if p.Listener != nil {
+				if p.Client != nil {
+					p.Listener.Disconnect(p.Client.(*minecraft.Conn), DisconnectReason)
+				}
+				p.Listener.Close()
 			}
-			p.Listener.Close()
 		}()
+	}
 
-		logrus.Infof(locale.Loc("listening_on", locale.Strmap{"Address": p.Listener.Addr()}))
-		logrus.Infof(locale.Loc("help_connect", nil))
-
-		c, err := p.Listener.Accept()
-		if err != nil {
-			return err
-		}
-		p.Client = c.(*minecraft.Conn)
-		cd := p.Client.ClientData()
-		cdp = &cd
+	if p.CustomClientData != nil {
+		cdp = p.CustomClientData
 	}
 
 	for _, handler := range p.handlers {
@@ -358,11 +392,7 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress, name string) (err
 		handler.OnClientConnect(p.Client)
 	}
 
-	if p.CustomClientData != nil {
-		cdp = p.CustomClientData
-	}
-
-	p.Server, err = connectServer(ctx, serverAddress, cdp, p.AlwaysGetPacks, func(header packet.Header, payload []byte, src, dst net.Addr) {
+	packetFunc := func(header packet.Header, payload []byte, src, dst net.Addr) {
 		if header.PacketID == packet.IDRequestNetworkSettings {
 			p.clientAddr = src
 		}
@@ -372,7 +402,16 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress, name string) (err
 			}
 			handler.PacketFunc(header, payload, src, dst)
 		}
-	})
+	}
+
+	if isReplay {
+		p.Server, err = createReplayConnector(serverAddress[5:], packetFunc)
+		if err != nil {
+			return err
+		}
+	} else {
+		err = p.connectServer(ctx, serverAddress, cdp, packetFunc)
+	}
 	if err != nil {
 		for _, handler := range p.handlers {
 			if handler.ConnectCB == nil {
@@ -415,26 +454,22 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress, name string) (err
 	}
 
 	wg := sync.WaitGroup{}
-	// server to client
-	wg.Add(1)
-	go func() {
+	doProxy := func(client bool) {
 		defer wg.Done()
-		if err := p.proxyLoop(ctx, false); err != nil {
+		if err := p.proxyLoop(ctx, client); err != nil {
 			logrus.Error(err)
 			return
 		}
-	}()
+	}
+
+	// server to client
+	wg.Add(1)
+	go doProxy(false)
 
 	// client to server
 	if p.Client != nil {
 		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if err := p.proxyLoop(ctx, true); err != nil {
-				logrus.Error(err)
-				return
-			}
-		}()
+		go doProxy(true)
 	}
 
 	wantSecondary := fp.Filter(func(handler *ProxyHandler) bool {
@@ -458,11 +493,5 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress, name string) (err
 	}
 
 	wg.Wait()
-
-	for _, handler := range p.handlers {
-		if handler.OnEnd != nil {
-			handler.OnEnd()
-		}
-	}
 	return err
 }

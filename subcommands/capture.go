@@ -33,6 +33,7 @@ func (c *CaptureCMD) Execute(ctx context.Context, ui utils.UI) error {
 	if err != nil {
 		return err
 	}
+	proxy.AlwaysGetPacks = true
 	proxy.AddHandler(handlers.NewPacketCapturer())
 	return proxy.Run(ctx, address, hostname)
 }

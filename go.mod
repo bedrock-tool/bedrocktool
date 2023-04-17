@@ -3,7 +3,7 @@ module github.com/bedrock-tool/bedrocktool
 go 1.20
 
 //replace github.com/sandertv/gophertunnel => ./gophertunnel
-replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.28.1-1
+replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.28.1-2
 
 //replace github.com/df-mc/dragonfly => ./dragonfly
 replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.9.4-9
@@ -51,6 +51,7 @@ require (
 	github.com/cloudfoundry/jibber_jabber v0.0.0-20151120183258-bcc4c8345a21 // indirect
 	github.com/df-mc/atomic v1.10.0 // indirect
 	github.com/df-mc/worldupgrader v1.0.3 // indirect
+	github.com/dlclark/regexp2 v1.9.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-text/typesetting v0.0.0-20221214153724-0399769901d5 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect

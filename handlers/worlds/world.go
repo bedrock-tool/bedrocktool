@@ -139,7 +139,7 @@ func NewWorldsHandler(ctx context.Context, ui utils.UI, settings WorldSettings) 
 			w.serverState.Name = hostname
 			return nil
 		},
-		OnClientConnect: func(conn *minecraft.Conn) {
+		OnClientConnect: func(conn minecraft.IConn) {
 			w.gui.Message(messages.SetUIState(messages.UIStateConnecting))
 		},
 		GameDataModifier: func(gd *minecraft.GameData) {
