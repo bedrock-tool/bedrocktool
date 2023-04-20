@@ -65,3 +65,7 @@ func NewPacketCapturer() *utils.ProxyHandler {
 		},
 	}
 }
+
+func init() {
+	utils.NewPacketCapturer = NewPacketCapturer
+}

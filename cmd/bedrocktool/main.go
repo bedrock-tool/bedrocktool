@@ -99,11 +99,11 @@ func main() {
 	flag.BoolVar(&utils.Options.ExtraDebug, "extra-debug", false, locale.Loc("extra_debug", nil))
 	flag.StringVar(&utils.Options.PathCustomUserData, "userdata", "", locale.Loc("custom_user_data", nil))
 	flag.String("lang", "", "lang")
-	flag.BoolVar(&utils.Options.EnableDNS, "dns", false, locale.Loc("enable_dns", nil))
+	flag.BoolVar(&utils.Options.Capture, "capture", false, "Capture Packet log")
 
 	subcommands.Register(subcommands.HelpCommand(), "")
 	subcommands.ImportantFlag("debug")
-	subcommands.ImportantFlag("dns")
+	subcommands.ImportantFlag("capture")
 	subcommands.ImportantFlag("preload")
 	subcommands.HelpCommand()
 

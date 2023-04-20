@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 
-	"github.com/bedrock-tool/bedrocktool/handlers"
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
 )
@@ -34,6 +33,6 @@ func (c *CaptureCMD) Execute(ctx context.Context, ui utils.UI) error {
 		return err
 	}
 	proxy.AlwaysGetPacks = true
-	proxy.AddHandler(handlers.NewPacketCapturer())
+	utils.Options.Capture = true
 	return proxy.Run(ctx, address, hostname)
 }

@@ -30,7 +30,7 @@ var Options struct {
 	Preload            bool
 	IsInteractive      bool
 	ExtraDebug         bool
-	EnableDNS          bool
+	Capture            bool
 	PathCustomUserData string
 }
 

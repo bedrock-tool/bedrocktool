@@ -282,6 +282,7 @@ func (p *ProxyContext) IsClient(addr net.Addr) bool {
 }
 
 var NewDebugLogger func(bool) *ProxyHandler
+var NewPacketCapturer func() *ProxyHandler
 
 func (p *ProxyContext) connectClient(ctx context.Context, serverAddress string, cdpp **login.ClientData) (err error) {
 	GetTokenSource() // ask for login before listening
@@ -336,6 +337,9 @@ func (p *ProxyContext) connectServer(ctx context.Context, serverAddress string, 
 func (p *ProxyContext) Run(ctx context.Context, serverAddress, name string) (err error) {
 	if Options.Debug || Options.ExtraDebug {
 		p.AddHandler(NewDebugLogger(Options.ExtraDebug))
+	}
+	if Options.Capture {
+		p.AddHandler(NewPacketCapturer())
 	}
 	p.AddHandler(&ProxyHandler{
 		Name:     "Commands",
