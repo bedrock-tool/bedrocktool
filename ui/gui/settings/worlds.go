@@ -14,6 +14,7 @@ type worldSettings struct {
 	withPacks     widget.Bool
 	voidGen       widget.Bool
 	saveImage     widget.Bool
+	PacketCapture widget.Bool
 	serverAddress widget.Editor
 }
 
@@ -21,6 +22,7 @@ func (s *worldSettings) Init() {
 	s.worlds = utils.ValidCMDs["worlds"].(*world.WorldCMD)
 	s.serverAddress.SingleLine = true
 	s.voidGen.Value = true
+	s.PacketCapture.Value = false
 }
 
 func (s *worldSettings) Apply() {
@@ -37,6 +39,7 @@ func (s *worldSettings) Layout(gtx layout.Context, th *material.Theme) layout.Di
 		layout.Rigid(material.CheckBox(th, &s.withPacks, "with Packs").Layout),
 		layout.Rigid(material.CheckBox(th, &s.voidGen, "void Generator").Layout),
 		layout.Rigid(material.CheckBox(th, &s.saveImage, "save image").Layout),
+		layout.Rigid(material.CheckBox(th, &s.PacketCapture, "packet capture").Layout),
 		layout.Rigid(material.Editor(th, &s.serverAddress, "server Address").Layout),
 	)
 }
