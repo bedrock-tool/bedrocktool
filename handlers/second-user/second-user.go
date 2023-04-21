@@ -26,7 +26,7 @@ type secondaryUser struct {
 	hasCustomBlocks bool
 
 	chunks    map[world.ChunkPos]*chunk.Chunk
-	blockNBT  map[protocol.SubChunkPos][]map[string]any
+	blockNBTs map[protocol.BlockPos][]map[string]any
 	dimension world.Dimension
 	entities  map[int64]*serverEntity
 
@@ -40,7 +40,7 @@ func NewSecondUser() *utils.ProxyHandler {
 		},
 
 		chunks:    make(map[world.ChunkPos]*chunk.Chunk),
-		blockNBT:  make(map[protocol.SubChunkPos][]map[string]any),
+		blockNBTs: make(map[protocol.BlockPos][]map[string]any),
 		dimension: world.Overworld,
 		entities:  make(map[int64]*serverEntity),
 	}

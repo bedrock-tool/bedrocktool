@@ -41,11 +41,13 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 		logrus.Error(err)
 		return
 	}
-	if blockNBTs != nil {
-		w.worldState.blockNBT[protocol.SubChunkPos{
-			pk.Position.X(), 0, pk.Position.Z(),
-		}] = blockNBTs
+	for _, blockNBT := range blockNBTs {
+		x := blockNBT["x"].(int32)
+		y := blockNBT["y"].(int32)
+		z := blockNBT["z"].(int32)
+		w.worldState.blockNBTs[protocol.BlockPos{x, y, z}] = blockNBT
 	}
+
 	w.worldState.chunks[pk.Position] = ch
 
 	max := w.worldState.dimension.Range().Height() / 16
@@ -84,23 +86,25 @@ func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) {
 
 	for _, sub := range pk.SubChunkEntries {
 		var (
-			absX   = pk.Position[0] + int32(sub.Offset[0])
-			absY   = pk.Position[1] + int32(sub.Offset[1])
-			absZ   = pk.Position[2] + int32(sub.Offset[2])
-			subPos = protocol.SubChunkPos{absX, absY, absZ}
-			pos    = protocol.ChunkPos{absX, absZ}
+			absX = pk.Position[0] + int32(sub.Offset[0])
+			absY = pk.Position[1] + int32(sub.Offset[1])
+			absZ = pk.Position[2] + int32(sub.Offset[2])
+			pos  = protocol.ChunkPos{absX, absZ}
 		)
 		ch, ok := w.worldState.chunks[pos]
 		if !ok {
 			logrus.Error(locale.Loc("subchunk_before_chunk", nil))
 			continue
 		}
-		blockNBT, err := ch.ApplySubChunkEntry(uint8(absY), &sub)
+		blockNBTs, err := ch.ApplySubChunkEntry(uint8(absY), &sub)
 		if err != nil {
 			logrus.Error(err)
 		}
-		if blockNBT != nil {
-			w.worldState.blockNBT[subPos] = blockNBT
+		for _, blockNBT := range blockNBTs {
+			x := blockNBT["x"].(int32)
+			y := blockNBT["y"].(int32)
+			z := blockNBT["z"].(int32)
+			w.worldState.blockNBTs[protocol.BlockPos{x, y, z}] = blockNBT
 		}
 
 		posToRedraw[pos] = true
@@ -131,19 +135,7 @@ func (w *worldsHandler) ProcessChunkPackets(pk packet.Packet) packet.Packet {
 		w.processSubChunk(pk)
 	case *packet.BlockActorData:
 		if w.settings.BlockUpdates {
-			sp := protocol.SubChunkPos{pk.Position.X() << 4, 0, pk.Position.Z() << 4}
-			b, ok := w.worldState.blockNBT[sp]
-			if !ok {
-				w.worldState.blockNBT[sp] = []map[string]any{pk.NBTData}
-			} else {
-				for i, v := range b {
-					x, y, z := v["x"].(int32), v["y"].(int32), v["z"].(int32)
-					if x == pk.Position.X() && y == pk.Position.Y() && z == pk.Position.Z() {
-						b[i] = pk.NBTData
-						break
-					}
-				}
-			}
+			w.worldState.blockNBTs[pk.Position] = pk.NBTData
 		}
 	case *packet.UpdateBlock:
 		if w.settings.BlockUpdates {

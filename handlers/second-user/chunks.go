@@ -11,7 +11,7 @@ import (
 
 func (s *secondaryUser) ResetWorld() {
 	s.chunks = make(map[world.ChunkPos]*chunk.Chunk)
-	s.blockNBT = make(map[protocol.SubChunkPos][]map[string]any)
+	s.blockNBTs = make(map[protocol.BlockPos][]map[string]any)
 }
 
 func (s *secondaryUser) processChangeDimension(pk *packet.ChangeDimension) {
@@ -26,7 +26,6 @@ func (s *secondaryUser) processChangeDimension(pk *packet.ChangeDimension) {
 func (s *secondaryUser) processLevelChunk(pk *packet.LevelChunk) {
 	// ignore empty chunks THANKS WEIRD SERVER SOFTWARE DEVS
 	if len(pk.RawPayload) == 0 {
-		logrus.Info(locale.Loc("empty_chunk", nil))
 		return
 	}
 
@@ -45,11 +44,14 @@ func (s *secondaryUser) processLevelChunk(pk *packet.LevelChunk) {
 		logrus.Error(err)
 		return
 	}
-	if blockNBTs != nil {
-		s.blockNBT[protocol.SubChunkPos{
-			pk.Position.X(), 0, pk.Position.Z(),
-		}] = blockNBTs
+
+	for _, blockNBT := range blockNBTs {
+		x := blockNBT["x"].(int32)
+		y := blockNBT["y"].(int32)
+		z := blockNBT["z"].(int32)
+		s.blockNBTs[protocol.BlockPos{x, y, z}] = blockNBTs
 	}
+
 	s.chunks[world.ChunkPos(pk.Position)] = ch
 
 	for _, p := range s.server.Players() {
@@ -83,11 +85,10 @@ func (s *secondaryUser) processSubChunk(pk *packet.SubChunk) {
 	offsets := make(map[world.ChunkPos]bool, len(pk.SubChunkEntries))
 	for _, sub := range pk.SubChunkEntries {
 		var (
-			absX   = pk.Position[0] + int32(sub.Offset[0])
-			absY   = pk.Position[1] + int32(sub.Offset[1])
-			absZ   = pk.Position[2] + int32(sub.Offset[2])
-			subPos = protocol.SubChunkPos{absX, absY, absZ}
-			pos    = world.ChunkPos{absX, absZ}
+			absX = pk.Position[0] + int32(sub.Offset[0])
+			absY = pk.Position[1] + int32(sub.Offset[1])
+			absZ = pk.Position[2] + int32(sub.Offset[2])
+			pos  = world.ChunkPos{absX, absZ}
 		)
 		offsets[pos] = true
 		ch, ok := s.chunks[pos]
@@ -95,12 +96,15 @@ func (s *secondaryUser) processSubChunk(pk *packet.SubChunk) {
 			logrus.Error(locale.Loc("subchunk_before_chunk", nil))
 			continue
 		}
-		blockNBT, err := ch.ApplySubChunkEntry(uint8(absY), &sub)
+		blockNBTs, err := ch.ApplySubChunkEntry(uint8(absY), &sub)
 		if err != nil {
 			logrus.Error(err)
 		}
-		if blockNBT != nil {
-			s.blockNBT[subPos] = blockNBT
+		for _, blockNBT := range blockNBTs {
+			x := blockNBT["x"].(int32)
+			y := blockNBT["y"].(int32)
+			z := blockNBT["z"].(int32)
+			s.blockNBTs[protocol.BlockPos{x, y, z}] = blockNBTs
 		}
 
 		chunk.LightArea([]*chunk.Chunk{ch}, 0, 0).Fill()

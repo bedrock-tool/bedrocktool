@@ -84,9 +84,6 @@ func (w *worldsHandler) processItemPacketsServer(pk packet.Packet) packet.Packet
 				break
 			}
 
-			pos := existing.OpenPacket.ContainerPosition
-			cp := protocol.SubChunkPos{pos.X() << 4, pos.Z() << 4}
-
 			// create inventory
 			inv := inventory.New(len(existing.Content.Content), nil)
 			for i, c := range existing.Content.Content {
@@ -95,13 +92,9 @@ func (w *worldsHandler) processItemPacketsServer(pk packet.Packet) packet.Packet
 			}
 
 			// put into subchunk
-			nbts := w.worldState.blockNBT[cp]
-			for i, v := range nbts {
-				NBTPos := protocol.BlockPos{v["x"].(int32), v["y"].(int32), v["z"].(int32)}
-				if NBTPos == pos {
-					w.worldState.blockNBT[cp][i]["Items"] = nbtconv.InvToNBT(inv)
-					break
-				}
+			nbt, ok := w.worldState.blockNBTs[existing.OpenPacket.ContainerPosition]
+			if ok {
+				nbt["Items"] = nbtconv.InvToNBT(inv)
 			}
 
 			w.proxy.SendMessage(locale.Loc("saved_block_inv", nil))

@@ -55,7 +55,7 @@ type WorldSettings struct {
 type worldState struct {
 	dimension          world.Dimension
 	chunks             map[protocol.ChunkPos]*chunk.Chunk
-	blockNBT           map[protocol.SubChunkPos][]map[string]any
+	blockNBTs          map[protocol.BlockPos]map[string]any
 	entities           map[uint64]*entityState
 	openItemContainers map[byte]*itemContainer
 	Name               string
@@ -219,7 +219,7 @@ func (w *worldsHandler) Reset() {
 	w.worldState = worldState{
 		dimension:          w.worldState.dimension,
 		chunks:             make(map[protocol.ChunkPos]*chunk.Chunk),
-		blockNBT:           make(map[protocol.SubChunkPos][]map[string]any),
+		blockNBTs:          make(map[protocol.BlockPos]map[string]any),
 		entities:           make(map[uint64]*entityState),
 		openItemContainers: make(map[byte]*itemContainer),
 		Name:               w.currentName(),
@@ -256,13 +256,13 @@ func (w *worldState) Save(folder string) (*mcdb.DB, error) {
 	}
 
 	// save block nbt data
-	blockNBT := make(map[world.ChunkPos][]map[string]any)
-	for scp, v := range w.blockNBT { // 3d to 2d
-		cp := world.ChunkPos{scp.X(), scp.Z()}
-		blockNBT[cp] = append(blockNBT[cp], v...)
+	chunkBlockNBT := make(map[world.ChunkPos][]map[string]any)
+	for bp, blockNBT := range w.blockNBTs { // 3d to 2d
+		cp := world.ChunkPos{bp.X() >> 4, bp.Z() >> 4}
+		chunkBlockNBT[cp] = append(chunkBlockNBT[cp], blockNBT)
 	}
-	for cp, v := range blockNBT {
-		err = provider.SaveBlockNBT(cp, v, w.dimension)
+	for cp, blockNBT := range chunkBlockNBT {
+		err = provider.SaveBlockNBT(cp, blockNBT, w.dimension)
 		if err != nil {
 			logrus.Error(err)
 		}
