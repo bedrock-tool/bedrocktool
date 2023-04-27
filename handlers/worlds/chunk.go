@@ -134,9 +134,7 @@ func (w *worldsHandler) ProcessChunkPackets(pk packet.Packet) packet.Packet {
 	case *packet.SubChunk:
 		w.processSubChunk(pk)
 	case *packet.BlockActorData:
-		if w.settings.BlockUpdates {
-			w.worldState.blockNBTs[pk.Position] = pk.NBTData
-		}
+		w.worldState.blockNBTs[pk.Position] = pk.NBTData
 	case *packet.UpdateBlock:
 		if w.settings.BlockUpdates {
 			cp := protocol.ChunkPos{pk.Position.X() >> 4, pk.Position.Z() >> 4}

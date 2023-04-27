@@ -14,6 +14,7 @@ import (
 	"gioui.org/widget/material"
 	"gioui.org/x/pref/theme"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages"
+	"github.com/bedrock-tool/bedrocktool/ui/gui/pages/packs"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages/settings"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages/skins"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages/worlds"
@@ -73,6 +74,7 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelFunc) (err error) 
 	g.router.Register("Settings", settings.New(&g.router))
 	g.router.Register("worlds", worlds.New(&g.router))
 	g.router.Register("skins", skins.New(&g.router))
+	g.router.Register("packs", packs.New(&g.router))
 
 	g.router.SwitchTo("Settings")
 

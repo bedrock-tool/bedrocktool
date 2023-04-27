@@ -277,6 +277,28 @@ func (p *ProxyContext) proxyLoop(ctx context.Context, toServer bool) error {
 	}
 }
 
+// Disconnect disconnects both the client and server
+func (p *ProxyContext) Disconnect() {
+	p.DisconnectClient()
+	p.DisconnectServer()
+}
+
+// Disconnect disconnects the client
+func (p *ProxyContext) DisconnectClient() {
+	if p.Client == nil {
+		return
+	}
+	p.Client.Close()
+}
+
+// Disconnect disconnects from the server
+func (p *ProxyContext) DisconnectServer() {
+	if p.Server == nil {
+		return
+	}
+	p.Server.Close()
+}
+
 func (p *ProxyContext) IsClient(addr net.Addr) bool {
 	return p.clientAddr.String() == addr.String()
 }
@@ -458,7 +480,7 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress, name string) (err
 	}
 
 	wg := sync.WaitGroup{}
-	doProxy := func(client bool) {
+	doProxy := func(client bool, onErr func()) {
 		defer wg.Done()
 		if err := p.proxyLoop(ctx, client); err != nil {
 			logrus.Error(err)
@@ -468,12 +490,16 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress, name string) (err
 
 	// server to client
 	wg.Add(1)
-	go doProxy(false)
+	go doProxy(false, func() {
+		p.DisconnectClient()
+	})
 
 	// client to server
 	if p.Client != nil {
 		wg.Add(1)
-		go doProxy(true)
+		go doProxy(true, func() {
+			p.DisconnectServer()
+		})
 	}
 
 	wantSecondary := fp.Filter(func(handler *ProxyHandler) bool {

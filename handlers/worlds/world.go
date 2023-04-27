@@ -245,7 +245,7 @@ func (w *worldState) Save(folder string) (*mcdb.DB, error) {
 	provider, err := mcdb.Config{
 		Log:         logrus.StandardLogger(),
 		Compression: opt.DefaultCompression,
-	}.New(folder)
+	}.Open(folder)
 	if err != nil {
 		return nil, err
 	}

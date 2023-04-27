@@ -8,9 +8,13 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
+	"os/exec"
 	"path"
+	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"sync"
 
@@ -157,4 +161,32 @@ func CfbDecrypt(data []byte, key []byte) []byte {
 		shiftRegister = shiftRegister[1:]
 	}
 	return data
+}
+
+func abs(n float32) float32 {
+	if n < 0 {
+		n = -n
+	}
+	return n
+}
+
+func SizeofFmt(num float32) string {
+	for _, unit := range []string{"", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"} {
+		if abs(num) < 1024.0 {
+			return fmt.Sprintf("%3.1f%sB", num, unit)
+		}
+		num /= 1024.0
+	}
+	return fmt.Sprintf("%.1fYiB", num)
+}
+
+func ShowFile(path string) {
+	path, _ = filepath.Abs(path)
+	if runtime.GOOS == "windows" {
+		exec.Command(`explorer`, `/select,`, path)
+		return
+	}
+	if runtime.GOOS == "linux" {
+
+	}
 }

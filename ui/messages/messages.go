@@ -68,3 +68,15 @@ type SavingWorld struct {
 }
 
 type CanShowImages struct{}
+
+type DownloadedPack struct {
+	Name string
+	Path string
+	Size int
+	Icon image.Image
+	Err  error
+}
+
+type FinishedDownloadingPacks struct {
+	Packs []*DownloadedPack
+}
