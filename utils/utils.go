@@ -183,7 +183,8 @@ func SizeofFmt(num float32) string {
 func ShowFile(path string) {
 	path, _ = filepath.Abs(path)
 	if runtime.GOOS == "windows" {
-		exec.Command(`explorer`, `/select,`, path)
+		cmd := exec.Command(`explorer`, "/select,", path)
+		cmd.Start()
 		return
 	}
 	if runtime.GOOS == "linux" {
