@@ -5,7 +5,6 @@ import (
 
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"
-	"github.com/df-mc/dragonfly/server/world/chunk"
 	"github.com/google/uuid"
 )
 
@@ -38,27 +37,12 @@ func (p *provider) SavePlayerSpawnPosition(uuid uuid.UUID, pos cube.Pos) error {
 	return nil
 }
 
-func (p *provider) LoadChunk(position world.ChunkPos, dim world.Dimension) (c *chunk.Chunk, exists bool, err error) {
-	c, ok := p.s.chunks[position]
-	return c, ok, nil
+func (p *provider) LoadColumn(pos world.ChunkPos, dim world.Dimension) (*world.Column, error) {
+	return &world.Column{
+		Chunk: p.s.chunks[pos],
+	}, nil
 }
 
-func (p *provider) SaveChunk(position world.ChunkPos, c *chunk.Chunk, dim world.Dimension) error {
-	return nil
-}
-
-func (p *provider) LoadEntities(position world.ChunkPos, dim world.Dimension, reg world.EntityRegistry) ([]world.Entity, error) {
-	return nil, nil
-}
-
-func (p *provider) SaveEntities(position world.ChunkPos, entities []world.Entity, dim world.Dimension) error {
-	return nil
-}
-
-func (p *provider) LoadBlockNBT(position world.ChunkPos, dim world.Dimension) ([]map[string]any, error) {
-	return nil, nil
-}
-
-func (p *provider) SaveBlockNBT(position world.ChunkPos, data []map[string]any, dim world.Dimension) error {
+func (p *provider) StoreColumn(pos world.ChunkPos, dim world.Dimension, col *world.Column) error {
 	return nil
 }

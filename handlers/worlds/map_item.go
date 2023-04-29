@@ -13,6 +13,7 @@ import (
 	"github.com/go-gl/mathgl/mgl32"
 	"golang.design/x/lockfree"
 
+	"github.com/df-mc/dragonfly/server/world"
 	"github.com/df-mc/dragonfly/server/world/chunk"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
@@ -262,8 +263,8 @@ func (m *MapUI) ToImage() *image.RGBA {
 	return img
 }
 
-func (m *MapUI) SetChunk(pos protocol.ChunkPos, ch *chunk.Chunk, complete bool) {
-	m.renderQueue.Enqueue(&RenderElem{pos, ch})
+func (m *MapUI) SetChunk(pos world.ChunkPos, ch *chunk.Chunk, complete bool) {
+	m.renderQueue.Enqueue(&RenderElem{(protocol.ChunkPos)(pos), ch})
 	m.SchedRedraw()
 }
 

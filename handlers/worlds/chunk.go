@@ -48,7 +48,7 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 		w.worldState.blockNBTs[protocol.BlockPos{x, y, z}] = blockNBT
 	}
 
-	w.worldState.chunks[pk.Position] = ch
+	w.worldState.chunks[(world.ChunkPos)(pk.Position)] = ch
 
 	max := w.worldState.dimension.Range().Height() / 16
 	switch pk.SubChunkCount {
@@ -76,20 +76,20 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 			return sub.Empty()
 		})(ch.Sub())
 		if !empty {
-			w.mapUI.SetChunk(pk.Position, ch, true)
+			w.mapUI.SetChunk((world.ChunkPos)(pk.Position), ch, true)
 		}
 	}
 }
 
 func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) {
-	posToRedraw := make(map[protocol.ChunkPos]bool)
+	posToRedraw := make(map[world.ChunkPos]bool)
 
 	for _, sub := range pk.SubChunkEntries {
 		var (
 			absX = pk.Position[0] + int32(sub.Offset[0])
 			absY = pk.Position[1] + int32(sub.Offset[1])
 			absZ = pk.Position[2] + int32(sub.Offset[2])
-			pos  = protocol.ChunkPos{absX, absZ}
+			pos  = world.ChunkPos{absX, absZ}
 		)
 		ch, ok := w.worldState.chunks[pos]
 		if !ok {
@@ -137,7 +137,7 @@ func (w *worldsHandler) ProcessChunkPackets(pk packet.Packet) packet.Packet {
 		w.worldState.blockNBTs[pk.Position] = pk.NBTData
 	case *packet.UpdateBlock:
 		if w.settings.BlockUpdates {
-			cp := protocol.ChunkPos{pk.Position.X() >> 4, pk.Position.Z() >> 4}
+			cp := world.ChunkPos{pk.Position.X() >> 4, pk.Position.Z() >> 4}
 			c, ok := w.worldState.chunks[cp]
 			if ok {
 				x, y, z := blockPosInChunk(pk.Position)
@@ -147,7 +147,7 @@ func (w *worldsHandler) ProcessChunkPackets(pk packet.Packet) packet.Packet {
 		}
 	case *packet.UpdateSubChunkBlocks:
 		if w.settings.BlockUpdates {
-			cp := protocol.ChunkPos{pk.Position.X(), pk.Position.Z()}
+			cp := world.ChunkPos{pk.Position.X(), pk.Position.Z()}
 			c, ok := w.worldState.chunks[cp]
 			if ok {
 				for _, bce := range pk.Blocks {
