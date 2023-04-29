@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"bufio"
-	"bytes"
 	"io"
 	"net"
 	"os"
@@ -12,7 +11,6 @@ import (
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/crypt"
 	"github.com/fatih/color"
-	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
@@ -79,19 +77,10 @@ func NewDebugLogger(extraVerbose bool) *utils.ProxyHandler {
 			proxy = pc
 		},
 		PacketFunc: func(header packet.Header, payload []byte, src, dst net.Addr) {
-			var pk packet.Packet
-			if pkFunc, ok := pool[header.PacketID]; ok {
-				pk = pkFunc()
-			} else {
-				pk = &packet.Unknown{PacketID: header.PacketID, Payload: payload}
+			pk := utils.DecodePacket(header, payload)
+			if pk == nil {
+				return
 			}
-
-			defer func() {
-				if recoveredErr := recover(); recoveredErr != nil {
-					logrus.Errorf("%T: %s", pk, recoveredErr.(error))
-				}
-			}()
-			pk.Marshal(protocol.NewReader(bytes.NewBuffer(payload), 0))
 
 			if packetsLogF != nil {
 				dmpLock.Lock()

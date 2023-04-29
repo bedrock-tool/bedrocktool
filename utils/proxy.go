@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -70,6 +71,8 @@ type ProxyHandler struct {
 	OnClientConnect   func(conn minecraft.IConn)
 	SecondaryClientCB func(conn minecraft.IConn)
 
+	// called after server connected & downloaded resource packs
+	OnServerConnect func() (cancel bool)
 	// called after game started
 	ConnectCB func(err error) bool
 
@@ -351,11 +354,6 @@ func (p *ProxyContext) connectClient(ctx context.Context, serverAddress string, 
 	return nil
 }
 
-func (p *ProxyContext) connectServer(ctx context.Context, serverAddress string, cdp *login.ClientData, packetFunc PacketFunc) (err error) {
-	p.Server, err = connectServer(ctx, serverAddress, cdp, p.AlwaysGetPacks, packetFunc)
-	return err
-}
-
 func (p *ProxyContext) Run(ctx context.Context, serverAddress, name string) (err error) {
 	if Options.Debug || Options.ExtraDebug {
 		p.AddHandler(NewDebugLogger(Options.ExtraDebug))
@@ -436,7 +434,7 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress, name string) (err
 			return err
 		}
 	} else {
-		err = p.connectServer(ctx, serverAddress, cdp, packetFunc)
+		p.Server, err = connectServer(ctx, serverAddress, cdp, p.AlwaysGetPacks, packetFunc)
 	}
 	if err != nil {
 		for _, handler := range p.handlers {
@@ -457,6 +455,16 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress, name string) (err
 	}
 	defer p.Server.Close()
 
+	for _, handler := range p.handlers {
+		if handler.OnServerConnect == nil {
+			continue
+		}
+		cancel := handler.OnServerConnect()
+		if cancel {
+			return nil
+		}
+	}
+
 	gd := p.Server.GameData()
 	for _, handler := range p.handlers {
 		if handler.GameDataModifier != nil {
@@ -475,7 +483,8 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress, name string) (err
 			continue
 		}
 		if !handler.ConnectCB(nil) {
-			return errors.New("Cancelled")
+			logrus.Info("Disconnecting")
+			return nil
 		}
 	}
 
@@ -524,4 +533,23 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress, name string) (err
 
 	wg.Wait()
 	return err
+}
+
+var pool = packet.NewPool()
+
+func DecodePacket(header packet.Header, payload []byte) packet.Packet {
+	var pk packet.Packet
+	if pkFunc, ok := pool[header.PacketID]; ok {
+		pk = pkFunc()
+	} else {
+		pk = &packet.Unknown{PacketID: header.PacketID, Payload: payload}
+	}
+
+	defer func() {
+		if recoveredErr := recover(); recoveredErr != nil {
+			logrus.Errorf("%T: %s", pk, recoveredErr.(error))
+		}
+	}()
+	pk.Marshal(protocol.NewReader(bytes.NewBuffer(payload), 0))
+	return pk
 }

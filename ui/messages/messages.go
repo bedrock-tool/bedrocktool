@@ -69,7 +69,17 @@ type SavingWorld struct {
 
 type CanShowImages struct{}
 
+type InitialPacksInfo struct {
+	Packs []protocol.TexturePackInfo
+}
+
+type PackDownloadProgress struct {
+	UUID      string
+	LoadedAdd uint64
+}
+
 type DownloadedPack struct {
+	UUID string
 	Name string
 	Path string
 	Size int

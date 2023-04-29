@@ -1,8 +1,10 @@
 package packs
 
 import (
+	"fmt"
 	"image"
 	"image/color"
+	"sort"
 	"sync"
 
 	"gioui.org/f32"
@@ -29,16 +31,21 @@ type Page struct {
 	State     messages.UIState
 	packsList widget.List
 	l         sync.Mutex
-	Packs     []*packEntry
+	Packs     map[string]*packEntry
 }
 
 type packEntry struct {
+	IsFinished bool
+	UUID       string
+
 	HasIcon bool
 	Icon    paint.ImageOp
-	Size    string
-	Name    string
-	Path    string
-	Err     error
+
+	Size   uint64
+	Loaded uint64
+	Name   string
+	Path   string
+	Err    error
 }
 
 func New(router *pages.Router) *Page {
@@ -49,6 +56,7 @@ func New(router *pages.Router) *Page {
 				Axis: layout.Vertical,
 			},
 		},
+		Packs: make(map[string]*packEntry),
 	}
 }
 
@@ -80,7 +88,25 @@ func drawPackIcon(ops *op.Ops, imageOp paint.ImageOp, bounds image.Point) {
 	paint.PaintOp{}.Add(ops)
 }
 
+func MulAlpha(c color.NRGBA, alpha uint8) color.NRGBA {
+	c.A = uint8(uint32(c.A) * uint32(alpha) / 0xFF)
+	return c
+}
+
 func drawPackEntry(gtx C, th *material.Theme, entry *packEntry) D {
+	var size = ""
+	var colorSize = th.Palette.Fg
+	if entry.IsFinished {
+		size = utils.SizeofFmt(float32(entry.Size))
+	} else {
+		size = fmt.Sprintf("%s / %s  %.02f%%",
+			utils.SizeofFmt(float32(entry.Size)),
+			utils.SizeofFmt(float32(entry.Size)),
+			float32(entry.Loaded)/float32(entry.Size)*100,
+		)
+		colorSize = color.NRGBA{0x00, 0xc9, 0xc9, 0xff}
+	}
+
 	return layout.UniformInset(5).Layout(gtx, func(gtx C) D {
 		return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 			layout.Rigid(func(gtx C) D {
@@ -93,7 +119,13 @@ func drawPackEntry(gtx C, th *material.Theme, entry *packEntry) D {
 			layout.Flexed(1, func(gtx C) D {
 				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 					layout.Rigid(material.Label(th, th.TextSize, entry.Name).Layout),
-					layout.Rigid(material.Label(th, th.TextSize, entry.Size).Layout),
+					layout.Rigid(material.LabelStyle{
+						Text:           size,
+						Color:          colorSize,
+						SelectionColor: MulAlpha(th.Palette.ContrastBg, 0x60),
+						TextSize:       th.TextSize,
+						Shaper:         th.Shaper,
+					}.Layout),
 					layout.Rigid(func(gtx C) D {
 						if entry.Err != nil {
 							return material.LabelStyle{
@@ -118,8 +150,15 @@ func (p *Page) layoutFinished(gtx C, th *material.Theme) D {
 			layout.Flexed(1, func(gtx C) D {
 				p.l.Lock()
 				defer p.l.Unlock()
-				return material.List(th, &p.packsList).Layout(gtx, len(p.Packs), func(gtx C, index int) D {
-					entry := p.Packs[len(p.Packs)-index-1]
+
+				keys := make([]string, 0, len(p.Packs))
+				for k := range p.Packs {
+					keys = append(keys, k)
+				}
+				sort.Strings(keys)
+
+				return material.List(th, &p.packsList).Layout(gtx, len(keys), func(gtx C, index int) D {
+					entry := p.Packs[keys[index]]
 					return drawPackEntry(gtx, th, entry)
 				})
 			}),
@@ -137,7 +176,7 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 
 	return margin.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		switch p.State {
-		case messages.UIStateFinished:
+		case messages.UIStateMain:
 			return p.layoutFinished(gtx, th)
 		}
 		return layout.Dimensions{}
@@ -155,19 +194,44 @@ func (p *Page) Handler(data interface{}) messages.MessageResponse {
 		p.State = m
 		p.Router.Invalidate()
 		r.Ok = true
-	case messages.FinishedDownloadingPacks:
-		p.State = messages.UIStateFinished
+
+	case messages.InitialPacksInfo:
+		p.State = messages.UIStateMain
+		p.l.Lock()
 		for _, dp := range m.Packs {
 			e := &packEntry{
-				Name: dp.Name,
-				Size: utils.SizeofFmt(float32(dp.Size)),
+				IsFinished: false,
+				UUID:       dp.UUID,
+				Name:       dp.SubPackName + "v" + dp.Version,
+				Size:       dp.Size,
 			}
+			p.Packs[e.UUID] = e
+		}
+		p.l.Unlock()
+		p.Router.Invalidate()
+
+	case messages.PackDownloadProgress:
+		p.l.Lock()
+		e := p.Packs[m.UUID]
+		e.Loaded += m.LoadedAdd
+		if e.Loaded == e.Size {
+			e.IsFinished = true
+		}
+		p.l.Unlock()
+		p.Router.Invalidate()
+
+	case messages.FinishedDownloadingPacks:
+		p.l.Lock()
+		for _, dp := range m.Packs {
+			e := p.Packs[dp.UUID]
 			if dp.Icon != nil {
 				e.Icon = paint.NewImageOpFilter(dp.Icon, paint.FilterNearest)
 				e.HasIcon = true
 			}
-			p.Packs = append(p.Packs, e)
+			e.Err = dp.Err
+			e.IsFinished = true
 		}
+		p.l.Unlock()
 		p.Router.Invalidate()
 		r.Ok = true
 	}
