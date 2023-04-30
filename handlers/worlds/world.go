@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"image"
+	"image/color"
 	"image/png"
 	"math/rand"
 	"os"
@@ -55,7 +56,7 @@ type WorldSettings struct {
 type worldState struct {
 	dimension          world.Dimension
 	chunks             map[world.ChunkPos]*chunk.Chunk
-	blockNBTs          map[protocol.BlockPos]map[string]any
+	blockNBTs          map[cube.Pos]map[string]any
 	entities           map[uint64]*entityState
 	openItemContainers map[byte]*itemContainer
 	Name               string
@@ -219,7 +220,7 @@ func (w *worldsHandler) Reset() {
 	w.worldState = worldState{
 		dimension:          w.worldState.dimension,
 		chunks:             make(map[world.ChunkPos]*chunk.Chunk),
-		blockNBTs:          make(map[protocol.BlockPos]map[string]any),
+		blockNBTs:          make(map[cube.Pos]map[string]any),
 		entities:           make(map[uint64]*entityState),
 		openItemContainers: make(map[byte]*itemContainer),
 		Name:               w.currentName(),
@@ -241,6 +242,35 @@ func (w *worldState) cullChunks() {
 	}
 }
 
+type dummyBlock struct {
+	id  string
+	nbt map[string]any
+}
+
+func (d *dummyBlock) EncodeBlock() (string, map[string]any) {
+	return d.id, d.nbt
+}
+
+func (d *dummyBlock) Hash() uint64 {
+	return 0
+}
+
+func (d *dummyBlock) Model() world.BlockModel {
+	return nil
+}
+
+func (d *dummyBlock) Color() color.RGBA {
+	return color.RGBA{0, 0, 0, 0}
+}
+
+func (d *dummyBlock) DecodeNBT(data map[string]any) any {
+	return nil
+}
+
+func (d *dummyBlock) EncodeNBT() map[string]any {
+	return d.nbt
+}
+
 func (w *worldState) Save(folder string) (*mcdb.DB, error) {
 	provider, err := mcdb.Config{
 		Log:         logrus.StandardLogger(),
@@ -250,10 +280,16 @@ func (w *worldState) Save(folder string) (*mcdb.DB, error) {
 		return nil, err
 	}
 
-	chunkBlockNBT := make(map[world.ChunkPos][]map[string]any)
+	chunkBlockNBT := make(map[world.ChunkPos]map[cube.Pos]world.Block)
 	for bp, blockNBT := range w.blockNBTs { // 3d to 2d
-		cp := world.ChunkPos{bp.X() >> 4, bp.Z() >> 4}
-		chunkBlockNBT[cp] = append(chunkBlockNBT[cp], blockNBT)
+		cp := world.ChunkPos{int32(bp.X()) >> 4, int32(bp.Z()) >> 4}
+		m, ok := chunkBlockNBT[cp]
+		if !ok {
+			m = make(map[cube.Pos]world.Block)
+			chunkBlockNBT[cp] = m
+		}
+		id := blockNBT["id"].(string)
+		m[bp] = &dummyBlock{id, blockNBT}
 	}
 
 	chunkEntities := make(map[world.ChunkPos][]world.Entity)
@@ -265,8 +301,9 @@ func (w *worldState) Save(folder string) (*mcdb.DB, error) {
 	// save chunk data
 	for cp, c := range w.chunks {
 		column := &world.Column{
-			Chunk:    c,
-			Entities: chunkEntities[cp],
+			Chunk:         c,
+			BlockEntities: chunkBlockNBT[cp],
+			Entities:      chunkEntities[cp],
 		}
 		err = provider.StoreColumn(cp, w.dimension, column)
 		if err != nil {

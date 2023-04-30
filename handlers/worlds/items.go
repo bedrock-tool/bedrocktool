@@ -4,6 +4,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils/nbtconv"
 	"github.com/df-mc/dragonfly/server/block"
+	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/item"
 	"github.com/df-mc/dragonfly/server/item/inventory"
 	"github.com/df-mc/dragonfly/server/world"
@@ -92,7 +93,8 @@ func (w *worldsHandler) processItemPacketsServer(pk packet.Packet) packet.Packet
 			}
 
 			// put into subchunk
-			nbt, ok := w.worldState.blockNBTs[existing.OpenPacket.ContainerPosition]
+			p := existing.OpenPacket.ContainerPosition
+			nbt, ok := w.worldState.blockNBTs[cube.Pos{int(p.X()), int(p.Y()), int(p.Z())}]
 			if ok {
 				nbt["Items"] = nbtconv.InvToNBT(inv)
 			}

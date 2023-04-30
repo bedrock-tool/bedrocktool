@@ -2,6 +2,7 @@ package worlds
 
 import (
 	"github.com/bedrock-tool/bedrocktool/locale"
+	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/df-mc/dragonfly/server/world/chunk"
 	"github.com/repeale/fp-go"
@@ -42,10 +43,10 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 		return
 	}
 	for _, blockNBT := range blockNBTs {
-		x := blockNBT["x"].(int32)
-		y := blockNBT["y"].(int32)
-		z := blockNBT["z"].(int32)
-		w.worldState.blockNBTs[protocol.BlockPos{x, y, z}] = blockNBT
+		x := int(blockNBT["x"].(int32))
+		y := int(blockNBT["y"].(int32))
+		z := int(blockNBT["z"].(int32))
+		w.worldState.blockNBTs[cube.Pos{x, y, z}] = blockNBT
 	}
 
 	w.worldState.chunks[(world.ChunkPos)(pk.Position)] = ch
@@ -101,10 +102,10 @@ func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) {
 			logrus.Error(err)
 		}
 		for _, blockNBT := range blockNBTs {
-			x := blockNBT["x"].(int32)
-			y := blockNBT["y"].(int32)
-			z := blockNBT["z"].(int32)
-			w.worldState.blockNBTs[protocol.BlockPos{x, y, z}] = blockNBT
+			x := int(blockNBT["x"].(int32))
+			y := int(blockNBT["y"].(int32))
+			z := int(blockNBT["z"].(int32))
+			w.worldState.blockNBTs[cube.Pos{x, y, z}] = blockNBT
 		}
 
 		posToRedraw[pos] = true
@@ -134,7 +135,8 @@ func (w *worldsHandler) ProcessChunkPackets(pk packet.Packet) packet.Packet {
 	case *packet.SubChunk:
 		w.processSubChunk(pk)
 	case *packet.BlockActorData:
-		w.worldState.blockNBTs[pk.Position] = pk.NBTData
+		p := pk.Position
+		w.worldState.blockNBTs[cube.Pos{int(p.X()), int(p.Y()), int(p.Z())}] = pk.NBTData
 	case *packet.UpdateBlock:
 		if w.settings.BlockUpdates {
 			cp := world.ChunkPos{pk.Position.X() >> 4, pk.Position.Z() >> 4}

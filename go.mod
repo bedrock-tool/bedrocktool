@@ -6,7 +6,7 @@ go 1.20
 replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.29.0-1
 
 //replace github.com/df-mc/dragonfly => ./dragonfly
-replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.9.4-12
+replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.9.4-13
 
 //replace gioui.org => ./gio
 replace gioui.org => github.com/olebeck/gio v0.0.0-20230427194143-c9c9d8bc704d
@@ -28,7 +28,7 @@ require (
 	github.com/repeale/fp-go v0.11.1
 	github.com/sanbornm/go-selfupdate v0.0.0-20210106163404-c9b625feac49
 	github.com/sandertv/go-raknet v1.12.0
-	github.com/sandertv/gophertunnel v1.28.2
+	github.com/sandertv/gophertunnel v1.29.0
 	github.com/shirou/gopsutil/v3 v3.23.3
 	github.com/sirupsen/logrus v1.9.0
 	golang.design/x/lockfree v0.0.1
