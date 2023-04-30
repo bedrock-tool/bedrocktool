@@ -63,8 +63,14 @@ type NewSkin struct {
 }
 
 type SavingWorld struct {
+	World *SavedWorld
+}
+
+type SavedWorld struct {
 	Name   string
+	Path   string
 	Chunks int
+	Image  image.Image
 }
 
 type CanShowImages struct{}

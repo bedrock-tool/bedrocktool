@@ -331,6 +331,9 @@ func (w *worldsHandler) SaveAndReset() {
 		img = w.mapUI.ToImage()
 	}
 
+	folder := fmt.Sprintf("worlds/%s/%s", w.serverState.Name, worldStateCopy.Name)
+	filename := folder + ".mcworld"
+
 	w.serverState.worldCounter += 1
 	w.Reset()
 	w.wg.Add(1)
@@ -338,12 +341,14 @@ func (w *worldsHandler) SaveAndReset() {
 		defer w.wg.Done()
 		logrus.Infof(locale.Loc("saving_world", locale.Strmap{"Name": worldStateCopy.Name, "Count": len(worldStateCopy.chunks)}))
 		w.gui.Message(messages.SavingWorld{
-			Name:   w.worldState.Name,
-			Chunks: len(w.worldState.chunks),
+			World: &messages.SavedWorld{
+				Name:   worldStateCopy.Name,
+				Path:   filename,
+				Chunks: len(worldStateCopy.chunks),
+			},
 		})
 
 		// open world
-		folder := fmt.Sprintf("worlds/%s/%s", w.serverState.Name, worldStateCopy.Name)
 		os.RemoveAll(folder)
 		os.MkdirAll(folder, 0o777)
 		provider, err := worldStateCopy.Save(folder)
@@ -469,7 +474,6 @@ func (w *worldsHandler) SaveAndReset() {
 		w.AddPacks(folder)
 
 		// zip it
-		filename := folder + ".mcworld"
 		err = utils.ZipFolder(filename, folder)
 		if err != nil {
 			logrus.Error(err)
@@ -563,6 +567,9 @@ func (w *worldsHandler) AddPacks(folder string) {
 }
 
 func (w *worldsHandler) OnConnect(err error) bool {
+	w.gui.Message(messages.SetWorldName{
+		WorldName: w.worldState.Name,
+	})
 	w.gui.Message(messages.SetUIState(messages.UIStateMain))
 	if err != nil {
 		return false

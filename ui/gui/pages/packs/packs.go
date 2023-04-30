@@ -111,7 +111,7 @@ func drawPackEntry(gtx C, th *material.Theme, entry *packEntry, button *widget.C
 		size = utils.SizeofFmt(float32(entry.Size))
 	} else {
 		size = fmt.Sprintf("%s / %s  %.02f%%",
-			utils.SizeofFmt(float32(entry.Size)),
+			utils.SizeofFmt(float32(entry.Loaded)),
 			utils.SizeofFmt(float32(entry.Size)),
 			float32(entry.Loaded)/float32(entry.Size)*100,
 		)
@@ -206,6 +206,8 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 
 	return margin.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		switch p.State {
+		case messages.UIStateConnecting:
+			return layout.Center.Layout(gtx, material.Label(th, 100, "Connecting").Layout)
 		case messages.UIStateMain:
 			return p.layoutFinished(gtx, th)
 		}
