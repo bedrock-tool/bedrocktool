@@ -17,6 +17,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages/packs"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages/settings"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages/skins"
+	"github.com/bedrock-tool/bedrocktool/ui/gui/pages/update"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages/worlds"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
@@ -75,6 +76,7 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelFunc) (err error) 
 	g.router.Register("worlds", worlds.New(&g.router))
 	g.router.Register("skins", skins.New(&g.router))
 	g.router.Register("packs", packs.New(&g.router))
+	g.router.Register("update", update.New(&g.router))
 
 	g.router.SwitchTo("Settings")
 

@@ -15,6 +15,8 @@ import (
 var Version string
 var CmdName = "bedrocktool"
 
+var UpdateAvailable string
+
 const updateServer = "https://updates.yuv.pink/"
 
 type trequester struct {

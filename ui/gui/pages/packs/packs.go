@@ -96,7 +96,6 @@ func drawPackIcon(gtx C, hasImage bool, imageOp paint.ImageOp, bounds image.Poin
 		}
 		return D{Size: bounds}
 	})
-
 }
 
 func MulAlpha(c color.NRGBA, alpha uint8) color.NRGBA {

@@ -45,6 +45,10 @@ func (c *SkinCMD) Execute(ctx context.Context, ui utils.UI) error {
 		OnClientConnect: func(conn minecraft.IConn) {
 			ui.Message(messages.SetUIState(messages.UIStateConnecting))
 		},
+		OnServerConnect: func() (cancel bool) {
+			ui.Message(messages.SetUIState(messages.UIStateMain))
+			return false
+		},
 	})
 
 	if proxy.WithClient {

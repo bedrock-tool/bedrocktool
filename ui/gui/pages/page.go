@@ -8,9 +8,12 @@ import (
 
 	"gioui.org/layout"
 	"gioui.org/op/paint"
+	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
+	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/sirupsen/logrus"
 )
 
 type HandlerFunc = func(data interface{}) messages.MessageResponse
@@ -39,6 +42,8 @@ type Router struct {
 	*component.AppBar
 	*component.ModalLayer
 	NonModalDrawer, BottomBar bool
+
+	UpdateButton *widget.Clickable
 }
 
 func NewRouter(ctx context.Context, invalidate func(), th *material.Theme) Router {
@@ -63,6 +68,8 @@ func NewRouter(ctx context.Context, invalidate func(), th *material.Theme) Route
 		ModalNavDrawer: modalNav,
 		AppBar:         bar,
 		NavAnim:        na,
+
+		UpdateButton: &widget.Clickable{},
 	}
 }
 
@@ -90,6 +97,10 @@ func (r *Router) SwitchTo(tag string) {
 }
 
 func (r *Router) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
+	if r.UpdateButton.Clicked() {
+		r.SwitchTo("update")
+	}
+
 	for _, event := range r.AppBar.Events(gtx) {
 		switch event := event.(type) {
 		case component.AppBarNavigationClicked:
@@ -139,6 +150,18 @@ func (r *Router) Handler(data interface{}) messages.MessageResponse {
 		return page.Handler(data)
 	}
 	return messages.MessageResponse{}
+}
+
+func (r *Router) Execute(cmd utils.Command) {
+	r.Wg.Add(1)
+	go func() {
+		defer r.Wg.Done()
+
+		err := cmd.Execute(r.Ctx, utils.CurrentUI)
+		if err != nil {
+			logrus.Error(err)
+		}
+	}()
 }
 
 var Pages = map[string]func(*Router) Page{}

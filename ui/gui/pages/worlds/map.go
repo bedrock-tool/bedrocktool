@@ -41,7 +41,7 @@ func (m *Map) HandlePointerEvent(e pointer.Event) {
 	case pointer.Release:
 		m.grabbed = false
 	case pointer.Scroll:
-		scaleFactor := -float32(math.Pow(1.01, float64(e.Scroll.Y)))
+		scaleFactor := float32(math.Pow(1.01, float64(e.Scroll.Y)))
 		m.transform = m.transform.Scale(e.Position.Sub(m.center), f32.Pt(scaleFactor, scaleFactor))
 		m.scaleFactor *= scaleFactor
 	}
@@ -122,8 +122,7 @@ func (m *Map) Update(u *messages.UpdateMap) {
 		}
 	} else {
 		for _, pos := range u.UpdatedTiles {
-			tile := u.Tiles[pos]
-			drawTile(m.MapImage, m.BoundsMin, pos, tile)
+			drawTile(m.MapImage, m.BoundsMin, pos, u.Tiles[pos])
 		}
 	}
 

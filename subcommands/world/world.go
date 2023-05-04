@@ -55,7 +55,6 @@ func (c *WorldCMD) Execute(ctx context.Context, ui utils.UI) error {
 		SaveImage:       c.SaveImage,
 	}))
 
-	ui.Message(messages.SetUIState(messages.UIStateConnect))
 	err = proxy.Run(ctx, serverAddress, hostname)
 	if err != nil {
 		return err

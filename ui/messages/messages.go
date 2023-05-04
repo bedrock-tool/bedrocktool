@@ -96,3 +96,7 @@ type DownloadedPack struct {
 type FinishedDownloadingPacks struct {
 	Packs []*DownloadedPack
 }
+
+type UpdateAvailable struct {
+	Version string
+}

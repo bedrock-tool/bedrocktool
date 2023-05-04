@@ -91,9 +91,7 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 			return layout.Center.Layout(gtx, material.Label(th, 100, "Connecting").Layout)
 		case messages.UIStateMain:
 			// show the main ui
-			return layout.Flex{
-				Axis: layout.Vertical,
-			}.Layout(gtx,
+			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 				//layout.Rigid(material.Label(th, th.TextSize, p.worldName).Layout),
 				layout.Flexed(1, func(gtx C) D {
 					return layout.Center.Layout(gtx, p.worldMap.Layout)

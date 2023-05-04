@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
+	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/repeale/fp-go"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
@@ -390,6 +391,7 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress, name string) (err
 
 	var cdp *login.ClientData = nil
 	if p.WithClient && !isReplay {
+		CurrentUI.Message(messages.SetUIState(messages.UIStateConnect))
 		err = p.connectClient(ctx, serverAddress, &cdp)
 		if err != nil {
 			return err

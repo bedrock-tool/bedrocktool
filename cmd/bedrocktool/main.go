@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
+	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"gopkg.in/square/go-jose.v2/json"
 
@@ -80,17 +81,6 @@ func main() {
 		logrus.Infof(locale.Loc("bedrocktool_version", locale.Strmap{"Version": utils.Version}))
 	}
 
-	go func() {
-		newVersion, err := utils.Updater.UpdateAvailable()
-		if err != nil {
-			logrus.Error(err)
-		}
-
-		if newVersion != "" && utils.Version != "" {
-			logrus.Infof(locale.Loc("update_available", locale.Strmap{"Version": newVersion}))
-		}
-	}()
-
 	ctx, cancel := context.WithCancel(context.Background())
 
 	flag.StringVar(&utils.RealmsEnv, "realms-env", "", "realms env")
@@ -114,6 +104,23 @@ func main() {
 		utils.Options.IsInteractive = true
 	} else {
 		ui = &CLI{}
+	}
+
+	utils.CurrentUI = ui
+
+	if utils.Version != "" {
+		go func() {
+			newVersion, err := utils.Updater.UpdateAvailable()
+			if err != nil {
+				logrus.Error(err)
+			}
+
+			if newVersion != "" {
+				logrus.Infof(locale.Loc("update_available", locale.Strmap{"Version": newVersion}))
+				utils.UpdateAvailable = newVersion
+				ui.Message(messages.UpdateAvailable{Version: newVersion})
+			}
+		}()
 	}
 
 	// exit cleanup
