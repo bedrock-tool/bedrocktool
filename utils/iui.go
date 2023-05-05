@@ -63,7 +63,14 @@ func (c *InteractiveCLI) Start(ctx context.Context, cancel context.CancelFunc) e
 		}
 		fmt.Println(locale.Loc("use_to_run_command", nil))
 
-		cmd, cancelled := UserInput(ctx, locale.Loc("input_command", nil))
+		cmd, cancelled := UserInput(ctx, locale.Loc("input_command", nil), func(s string) bool {
+			for k := range ValidCMDs {
+				if s == k {
+					return true
+				}
+			}
+			return false
+		})
 		if cancelled {
 			cancel()
 			return nil

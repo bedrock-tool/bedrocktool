@@ -196,14 +196,12 @@ func (p *Page) layoutFinished(gtx C, th *material.Theme) D {
 }
 
 func (p *Page) Layout(gtx C, th *material.Theme) D {
-	margin := layout.Inset{
+	return layout.Inset{
 		Top:    unit.Dp(25),
 		Bottom: unit.Dp(25),
 		Right:  unit.Dp(35),
 		Left:   unit.Dp(35),
-	}
-
-	return margin.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+	}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		switch p.State {
 		case messages.UIStateConnecting:
 			return layout.Center.Layout(gtx, material.Label(th, 100, "Connecting").Layout)

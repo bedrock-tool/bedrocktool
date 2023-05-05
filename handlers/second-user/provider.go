@@ -1,8 +1,6 @@
 package seconduser
 
 import (
-	"sync"
-
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/google/uuid"
@@ -14,7 +12,6 @@ type provider struct {
 
 func (p *provider) Settings() *world.Settings {
 	return &world.Settings{
-		Mutex:           sync.Mutex{},
 		Name:            "world",
 		Spawn:           cube.Pos{0, 0, 0},
 		DefaultGameMode: world.GameModeCreative,

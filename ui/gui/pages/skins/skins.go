@@ -55,27 +55,24 @@ func (p *Page) NavItem() component.NavItem {
 }
 
 func (p *Page) Layout(gtx C, th *material.Theme) D {
-	margin := layout.Inset{
+	return layout.Inset{
 		Top:    unit.Dp(25),
 		Bottom: unit.Dp(25),
 		Right:  unit.Dp(35),
 		Left:   unit.Dp(35),
-	}
-
-	switch p.State {
-	case messages.UIStateConnect:
-		// display login page
-		return margin.Layout(gtx, material.Label(th, 100, "connect Client").Layout)
-	case messages.UIStateConnecting:
-		// display connecting to server
-		return margin.Layout(gtx, material.Label(th, 100, "Connecting").Layout)
-	case messages.UIStateMain:
-		// show the main ui
-		return margin.Layout(gtx, func(gtx C) D {
+	}.Layout(gtx, func(gtx C) D {
+		switch p.State {
+		case messages.UIStateConnect:
+			// display login page
+			return material.Label(th, 100, "connect Client").Layout(gtx)
+		case messages.UIStateConnecting:
+			// display connecting to server
+			return material.Label(th, 100, "Connecting").Layout(gtx)
+		case messages.UIStateMain:
+			// show the main ui
 			return layout.Flex{
 				Axis: layout.Vertical,
 			}.Layout(gtx,
-				layout.Rigid(material.Label(th, 20, "Skin Basic UI").Layout),
 				layout.Flexed(1, func(gtx C) D {
 					p.l.Lock()
 					defer p.l.Unlock()
@@ -89,10 +86,9 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 					})
 				}),
 			)
-		})
-	}
-
-	return layout.Flex{}.Layout(gtx)
+		}
+		return D{}
+	})
 }
 
 func (p *Page) Handler(data interface{}) messages.MessageResponse {

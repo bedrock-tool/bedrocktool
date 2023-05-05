@@ -1,4 +1,4 @@
-//go:build gui || android
+//go:build gui
 
 package ui
 
@@ -32,7 +32,6 @@ type GUI struct {
 }
 
 func (g *GUI) Init() bool {
-	utils.SetCurrentUI(g)
 	return true
 }
 
@@ -54,7 +53,7 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelFunc) (err error) 
 	g.cancel = cancel
 
 	w := app.NewWindow(
-		app.Title("Bedrocktool"),
+		app.Title("Bedrocktool " + utils.Version),
 	)
 
 	th := material.NewTheme(gofont.Collection())
@@ -71,7 +70,6 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelFunc) (err error) 
 	}
 
 	g.router = pages.NewRouter(ctx, w.Invalidate, th)
-
 	g.router.Register("Settings", settings.New(&g.router))
 	g.router.Register("worlds", worlds.New(&g.router))
 	g.router.Register("skins", skins.New(&g.router))
@@ -81,16 +79,10 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelFunc) (err error) 
 	g.router.SwitchTo("Settings")
 
 	go func() {
-		err = g.run(w)
-	}()
-
-	go func() {
 		app.Main()
 	}()
 
-	<-ctx.Done()
-
-	return err
+	return g.run(w)
 }
 
 func (g *GUI) run(w *app.Window) error {

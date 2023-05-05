@@ -1,26 +1,84 @@
 package utils
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"net"
 	"os"
 	"regexp"
 	"strings"
+	"sync/atomic"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/term"
 )
 
-func UserInput(ctx context.Context, q string) (string, bool) {
+func UserInput(ctx context.Context, q string, validator func(string) bool) (string, bool) {
 	c := make(chan string)
+	oldState, _ := term.MakeRaw(int(os.Stdin.Fd()))
+	defer term.Restore(int(os.Stdin.Fd()), oldState)
 	go func() {
 		fmt.Print(q)
-		reader := bufio.NewReader(os.Stdin)
-		answer, _ := reader.ReadString('\n')
-		r, _ := regexp.Compile(`[\n\r]`)
-		answer = string(r.ReplaceAll([]byte(answer), []byte("")))
+
+		var answerb []byte
+		var b [1]byte
+
+		var valid bool
+		var validatorRunning atomic.Bool
+		var validatorQueued atomic.Bool
+
+		for {
+			os.Stdin.Read(b[:])
+
+			done := false
+			switch b[0] {
+			case 0x3:
+				c <- ""
+				return
+			case 0xA:
+				fallthrough
+			case 0xD:
+				done = true
+			case 0x8:
+				fallthrough
+			case 0x7F:
+				if len(answerb) > 0 {
+					answerb = answerb[:len(answerb)-1]
+				}
+			default:
+				if b[0] >= 0x20 {
+					answerb = append(answerb, b[0])
+				}
+			}
+
+			if done {
+				break
+			}
+
+			fmt.Printf("\r%s%s\033[K", q, string(answerb))
+
+			if validator != nil {
+				validatorQueued.Store(true)
+				if validatorRunning.CompareAndSwap(false, true) {
+					go func() {
+						for validatorQueued.Load() {
+							validatorQueued.Store(false)
+							valid = validator(string(answerb))
+							validatorRunning.Store(false)
+							var st = "❌"
+							if valid {
+								st = "✅"
+							}
+							fmt.Printf("\r%s%s  %s\033[K\033[%dD", q, string(answerb), st, 4)
+						}
+					}()
+				}
+			}
+		}
+
+		print("\n\r")
+		answer := string(answerb)
 		c <- answer
 	}()
 
@@ -28,6 +86,9 @@ func UserInput(ctx context.Context, q string) (string, bool) {
 	case <-ctx.Done():
 		return "", true
 	case a := <-c:
+		if a == "" {
+			return a, true
+		}
 		return a, false
 	}
 }
@@ -60,7 +121,7 @@ func ServerInput(ctx context.Context, server string) (string, string, error) {
 	// no arg provided, interactive input
 	if server == "" {
 		var cancelled bool
-		server, cancelled = UserInput(ctx, locale.Loc("enter_server", nil))
+		server, cancelled = UserInput(ctx, locale.Loc("enter_server", nil), ValidateServerInput)
 		if cancelled {
 			return "", "", context.Canceled
 		}
@@ -93,4 +154,32 @@ func ServerInput(ctx context.Context, server string) (string, string, error) {
 		server += ":19132"
 	}
 	return server, serverGetHostname(server), nil
+}
+
+func ValidateServerInput(server string) bool {
+	if pcapRegex.MatchString(server) {
+		return true
+	}
+
+	if realmRegex.MatchString(server) {
+		return true // todo
+	}
+
+	host, _, err := net.SplitHostPort(server)
+	if err != nil {
+		if strings.Contains(err.Error(), "missing port in address") {
+			host = server
+		}
+	}
+
+	ip := net.ParseIP(host)
+	if ip != nil {
+		return true
+	}
+
+	ips, err := net.LookupIP(host)
+	if len(ips) > 0 {
+		return true
+	}
+	return false
 }
