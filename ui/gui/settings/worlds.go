@@ -32,6 +32,7 @@ func (s *worldSettings) Apply() {
 	s.worlds.ServerAddress = s.serverAddress.Text()
 	s.worlds.SaveEntities = true
 	s.worlds.SaveInventories = true
+	utils.Options.Capture = s.PacketCapture.Value
 }
 
 func (s *worldSettings) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {

@@ -54,17 +54,16 @@ func (bp *BehaviourPack) AddEntity(entity EntityIn) {
 	}
 
 	for _, av := range entity.Attr {
-		switch av.Name {
-		case "minecraft:health":
-			entry.MinecraftEntity.Components["minecraft:health"] = map[string]int{
-				"value": int(av.Value),
-				"max":   int(av.Max),
-			}
-		case "minecraft:movement":
-			entry.MinecraftEntity.Components["minecraft:movement"] = map[string]any{
-				"value": av.Value,
-			}
+		m := map[string]int{
+			"value": int(av.Value),
+			"min":   int(av.Min),
 		}
+
+		if av.Max > 0 && av.Max < 0xffffff {
+			m["max"] = int(av.Max)
+		}
+
+		entry.MinecraftEntity.Components[av.Name] = m
 	}
 
 	if scale, ok := entity.Meta[protocol.EntityDataKeyScale].(float32); ok {
@@ -86,8 +85,7 @@ func (bp *BehaviourPack) AddEntity(entity EntityIn) {
 		AlwaysShowName := entity.Meta.Flag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagAlwaysShowName)
 		if AlwaysShowName {
 			entry.MinecraftEntity.Components["minecraft:nameable"] = map[string]any{
-				"always_show":             true,
-				"allow_name_tag_renaming": false,
+				"always_show": true,
 			}
 		}
 	}
