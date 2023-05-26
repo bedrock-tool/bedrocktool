@@ -205,14 +205,23 @@ func (s *entityState) ToServerEntity() serverEntity {
 	}
 	entityMetadataToNBT(s.Metadata, e.EntityType.NBT)
 
-	if s.Helmet != nil || s.Chestplate != nil || s.Leggings != nil || s.Boots != nil {
-		e.EntityType.NBT["Armor"] = []map[string]any{
-			nbtconv.WriteItem(stackToItem(s.Helmet.Stack), true),
-			nbtconv.WriteItem(stackToItem(s.Chestplate.Stack), true),
-			nbtconv.WriteItem(stackToItem(s.Leggings.Stack), true),
-			nbtconv.WriteItem(stackToItem(s.Boots.Stack), true),
+	if false {
+		armor := make([]map[string]any, 4)
+		if s.Helmet != nil {
+			armor[0] = nbtconv.WriteItem(stackToItem(s.Helmet.Stack), true)
 		}
+		if s.Chestplate != nil {
+			armor[1] = nbtconv.WriteItem(stackToItem(s.Chestplate.Stack), true)
+		}
+		if s.Leggings != nil {
+			armor[2] = nbtconv.WriteItem(stackToItem(s.Leggings.Stack), true)
+		}
+		if s.Boots != nil {
+			armor[3] = nbtconv.WriteItem(stackToItem(s.Boots.Stack), true)
+		}
+		e.EntityType.NBT["Armor"] = armor
 	}
+
 	return e
 }
 

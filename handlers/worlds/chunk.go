@@ -37,7 +37,7 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 		subChunkCount = int(pk.SubChunkCount)
 	}
 
-	ch, blockNBTs, err := chunk.NetworkDecode(world.AirRID(), pk.RawPayload, subChunkCount, w.worldState.dimension.Range(), w.serverState.ispre118, w.bp.HasBlocks())
+	ch, blockNBTs, err := chunk.NetworkDecode(world.AirRID(), pk.RawPayload, subChunkCount, w.serverState.ispre118, w.worldState.dimension.Range())
 	if err != nil {
 		logrus.Error(err)
 		return
