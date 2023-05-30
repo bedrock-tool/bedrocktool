@@ -22,9 +22,7 @@ type secondaryUser struct {
 	server   *server.Server
 	proxy    *utils.ProxyContext
 
-	ispre118        bool
-	hasCustomBlocks bool
-
+	ispre118  bool
 	chunks    map[world.ChunkPos]*chunk.Chunk
 	blockNBTs map[protocol.BlockPos][]map[string]any
 	dimension world.Dimension

@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 
-	seconduser "github.com/bedrock-tool/bedrocktool/handlers/second-user"
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
 )
@@ -31,7 +30,6 @@ func (c *DebugProxyCMD) Execute(ctx context.Context, ui utils.UI) error {
 	if err != nil {
 		return err
 	}
-	proxy.AddHandler(seconduser.NewSecondUser())
 	return proxy.Run(ctx, address, hostname)
 }
 
