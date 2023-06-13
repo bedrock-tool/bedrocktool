@@ -177,9 +177,6 @@ func ValidateServerInput(server string) bool {
 		return true
 	}
 
-	ips, err := net.LookupIP(host)
-	if len(ips) > 0 {
-		return true
-	}
-	return false
+	ips, _ := net.LookupIP(host)
+	return len(ips) > 0
 }

@@ -103,8 +103,8 @@ func (s *SkinPack) Save(fpath, serverName string) error {
 		if s2.skin.HaveGeometry() {
 			geometry, geometryName, err := s2.skin.getGeometry()
 			if err != nil {
-				logrus.Warnf("failed to decode geometry %s", skinName)
-			} else {
+				logrus.Warnf("failed to decode geometry %s %v", skinName, err)
+			} else if geometry != nil {
 				geometryJson[geometryName] = *geometry
 				entry.Geometry = geometryName
 			}

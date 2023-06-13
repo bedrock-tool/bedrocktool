@@ -41,6 +41,10 @@ func (skin *Skin) getGeometry() (*SkinGeometry, string, error) {
 		return nil, "", err
 	}
 
+	if len(data) == 0 {
+		return nil, "", nil
+	}
+
 	arr, ok := data["minecraft:geometry"].([]any)
 	if !ok {
 		return nil, "", errors.New("invalid geometry")
