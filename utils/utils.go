@@ -22,6 +22,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/oauth2"
 
 	//"github.com/sandertv/gophertunnel/minecraft/gatherings"
 
@@ -57,7 +58,7 @@ func CleanupName(name string) string {
 
 // connections
 
-func connectServer(ctx context.Context, address string, ClientData *login.ClientData, wantPacks bool, packetFunc PacketFunc) (serverConn *minecraft.Conn, err error) {
+func connectServer(ctx context.Context, address string, ClientData *login.ClientData, wantPacks bool, packetFunc PacketFunc, tokenSource oauth2.TokenSource) (serverConn *minecraft.Conn, err error) {
 	cd := login.ClientData{}
 	if ClientData != nil {
 		cd = *ClientData
@@ -65,7 +66,7 @@ func connectServer(ctx context.Context, address string, ClientData *login.Client
 
 	logrus.Info(locale.Loc("connecting", locale.Strmap{"Address": address}))
 	serverConn, err = minecraft.Dialer{
-		TokenSource: GetTokenSource(),
+		TokenSource: tokenSource,
 		ClientData:  cd,
 		PacketFunc:  packetFunc,
 		DownloadResourcePack: func(id uuid.UUID, version string, current int, total int) bool {
@@ -188,6 +189,6 @@ func ShowFile(path string) {
 		return
 	}
 	if runtime.GOOS == "linux" {
-
+		println(path)
 	}
 }

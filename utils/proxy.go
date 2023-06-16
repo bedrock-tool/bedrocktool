@@ -23,6 +23,7 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/oauth2"
 )
 
 var DisconnectReason = "Connection lost"
@@ -310,13 +311,11 @@ func (p *ProxyContext) IsClient(addr net.Addr) bool {
 var NewDebugLogger func(bool) *ProxyHandler
 var NewPacketCapturer func() *ProxyHandler
 
-func (p *ProxyContext) connectClient(ctx context.Context, serverAddress string, cdpp **login.ClientData) (err error) {
-	GetTokenSource() // ask for login before listening
-
+func (p *ProxyContext) connectClient(ctx context.Context, serverAddress string, cdpp **login.ClientData, tokenSource oauth2.TokenSource) (err error) {
 	var packs []*resource.Pack
 	if Options.Preload {
 		logrus.Info(locale.Loc("preloading_packs", nil))
-		serverConn, err := connectServer(ctx, serverAddress, nil, true, func(header packet.Header, payload []byte, src, dst net.Addr) {})
+		serverConn, err := connectServer(ctx, serverAddress, nil, true, nil, tokenSource)
 		if err != nil {
 			return fmt.Errorf(locale.Loc("failed_to_connect", locale.Strmap{"Address": serverAddress, "Err": err}))
 		}
@@ -389,10 +388,19 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress, name string) (err
 		isReplay = true
 	}
 
+	var tokenSource oauth2.TokenSource
+	if !isReplay {
+		// ask for login before listening
+		tokenSource, err = Auth.GetTokenSource()
+		if err != nil {
+			return err
+		}
+	}
+
 	var cdp *login.ClientData = nil
 	if p.WithClient && !isReplay {
 		CurrentUI.Message(messages.SetUIState(messages.UIStateConnect))
-		err = p.connectClient(ctx, serverAddress, &cdp)
+		err = p.connectClient(ctx, serverAddress, &cdp, tokenSource)
 		if err != nil {
 			return err
 		}
@@ -436,7 +444,7 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress, name string) (err
 			return err
 		}
 	} else {
-		p.Server, err = connectServer(ctx, serverAddress, cdp, p.AlwaysGetPacks, packetFunc)
+		p.Server, err = connectServer(ctx, serverAddress, cdp, p.AlwaysGetPacks, packetFunc, tokenSource)
 	}
 	if err != nil {
 		for _, handler := range p.handlers {

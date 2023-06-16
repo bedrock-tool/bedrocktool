@@ -5,6 +5,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"runtime/debug"
@@ -31,8 +32,30 @@ type CLI struct {
 
 func (c *CLI) Init() bool {
 	utils.SetCurrentUI(c)
+	utils.Auth.LoginWithMicrosoftCallback = func(r io.Reader) {
+		io.Copy(os.Stdout, r)
+	}
 	return true
 }
+
+/*
+var m = &worlds.Map{}
+
+func (c *CLI) Message(data interface{}) messages.MessageResponse {
+
+	switch me := data.(type) {
+	case messages.CanShowImages:
+		return messages.MessageResponse{Ok: true}
+	case messages.UpdateMap:
+		m.Update(&me)
+	}
+
+	return messages.MessageResponse{
+		Ok:   false,
+		Data: nil,
+	}
+}
+*/
 
 func (c *CLI) Start(ctx context.Context, cancel context.CancelFunc) error {
 	flag.Parse()
@@ -162,7 +185,7 @@ func (c *TransCMD) Execute(_ context.Context, ui utils.UI) error {
 		Reset   = "\033[0m"
 	)
 	if c.auth {
-		utils.GetTokenSource()
+		utils.Auth.GetTokenSource()
 	}
 	fmt.Println(BlackFg + Bold + Blue + " Trans " + Pink + " Rights " + White + " Are " + Pink + " Human " + Blue + " Rights " + Reset)
 	return nil

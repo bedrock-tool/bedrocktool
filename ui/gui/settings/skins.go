@@ -14,12 +14,12 @@ type skinsSettings struct {
 
 	Filter        widget.Editor
 	Proxy         widget.Bool
-	serverAddress widget.Editor
+	serverAddress *addressInput
 }
 
 func (s *skinsSettings) Init() {
 	s.skins = utils.ValidCMDs["skins"].(*skins.SkinCMD)
-	s.serverAddress.SingleLine = true
+	s.serverAddress = AddressInput
 	s.Filter.SingleLine = true
 	s.Proxy.Value = true
 }
@@ -27,7 +27,7 @@ func (s *skinsSettings) Init() {
 func (s *skinsSettings) Apply() {
 	s.skins.Filter = s.Filter.Text()
 	s.skins.NoProxy = !s.Proxy.Value
-	s.skins.ServerAddress = s.serverAddress.Text()
+	s.skins.ServerAddress = s.serverAddress.Value()
 }
 
 func (s *skinsSettings) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
@@ -35,7 +35,7 @@ func (s *skinsSettings) Layout(gtx layout.Context, th *material.Theme) layout.Di
 		layout.Rigid(material.CheckBox(th, &s.Proxy, "Enable Proxy").Layout),
 		layout.Rigid(material.Editor(th, &s.Filter, "Player name filter").Layout),
 		layout.Rigid(layout.Spacer{Height: unit.Dp(15)}.Layout),
-		layout.Rigid(material.Editor(th, &s.serverAddress, "server Address").Layout),
+		layout.Rigid(s.serverAddress.Layout(th)),
 	)
 }
 

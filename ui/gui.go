@@ -1,10 +1,12 @@
-//go:build gui
+//go:builda gui
 
 package ui
 
 import (
+	"bufio"
 	"context"
 	"image/color"
+	"io"
 
 	"gioui.org/app"
 	"gioui.org/font/gofont"
@@ -27,11 +29,14 @@ import (
 type GUI struct {
 	utils.BaseUI
 
-	router pages.Router
-	cancel context.CancelFunc
+	router        pages.Router
+	cancel        context.CancelFunc
+	authPopup     bool
+	authPopupText string
 }
 
 func (g *GUI) Init() bool {
+	utils.Auth.LoginWithMicrosoftCallback = g.LoginWithMicrosoftCallback
 	return true
 }
 
@@ -98,7 +103,20 @@ func (g *GUI) run(w *app.Window) error {
 				return e.Err
 			case system.FrameEvent:
 				gtx := layout.NewContext(&ops, e)
-				g.router.Layout(gtx, g.router.Theme)
+				layout.Stack{
+					Alignment: layout.Center,
+				}.Layout(gtx,
+					layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+						return g.router.Layout(gtx, g.router.Theme)
+					}),
+					layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+						if g.authPopup {
+							return g.AuthPopup(gtx)
+						}
+						return layout.Dimensions{}
+					}),
+				)
+
 				e.Frame(gtx.Ops)
 			}
 		case <-g.router.Ctx.Done():
@@ -127,6 +145,29 @@ func (g *GUI) Message(data interface{}) messages.MessageResponse {
 	}
 
 	return r
+}
+
+func (g *GUI) AuthPopup(gtx layout.Context) layout.Dimensions {
+	gtx.Constraints.Max = gtx.Constraints.Max.Div(2)
+	return layout.Center.Layout(gtx, material.Body1(g.router.Theme, g.authPopupText).Layout)
+}
+
+func (g *GUI) LoginWithMicrosoftCallback(r io.Reader) {
+	g.authPopup = true
+	b := bufio.NewReader(r)
+	for {
+		line, _, err := b.ReadLine()
+		if err != nil {
+			panic(err)
+		}
+		println(string(line))
+		g.authPopupText += string(line) + "\n"
+		g.router.Invalidate()
+		if string(line) == "Authentication successful." {
+			break
+		}
+	}
+	g.authPopup = false
 }
 
 func init() {
