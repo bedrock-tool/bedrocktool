@@ -105,6 +105,20 @@ func (s *SkinPack) Save(fpath, serverName string) error {
 			if err != nil {
 				logrus.Warnf("failed to decode geometry %s %v", skinName, err)
 			} else if geometry != nil {
+				f, err := os.Create(path.Join(fpath, fmt.Sprintf("geometry-%s.json", geometryName)))
+				if err != nil {
+					return err
+				}
+				e := json.NewEncoder(f)
+				e.SetIndent("", "\t")
+				if err := e.Encode(map[string]any{
+					"format_version":     "1.12.0",
+					"minecraft:geometry": geometry,
+				}); err != nil {
+					f.Close()
+					return err
+				}
+				f.Close()
 				geometryJson[geometryName] = *geometry
 				entry.Geometry = geometryName
 			}
@@ -120,8 +134,10 @@ func (s *SkinPack) Save(fpath, serverName string) error {
 		e := json.NewEncoder(f)
 		e.SetIndent("", "\t")
 		if err := e.Encode(geometryJson); err != nil {
+			f.Close()
 			return err
 		}
+		f.Close()
 	}
 
 	{ // skins.json
@@ -132,8 +148,10 @@ func (s *SkinPack) Save(fpath, serverName string) error {
 		e := json.NewEncoder(f)
 		e.SetIndent("", "\t")
 		if err := e.Encode(skinsJson); err != nil {
+			f.Close()
 			return err
 		}
+		f.Close()
 	}
 
 	{ // manifest.json

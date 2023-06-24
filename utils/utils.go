@@ -142,6 +142,7 @@ func WriteManifest(manifest *resource.Manifest, fpath string) error {
 	if err != nil {
 		return err
 	}
+	defer w.Close()
 	e := json.NewEncoder(w)
 	e.SetIndent("", "\t")
 	if err = e.Encode(manifest); err != nil {
