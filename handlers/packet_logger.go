@@ -46,7 +46,6 @@ var MutedPackets = []string{
 
 var dirS2C = color.GreenString("S") + "->" + color.CyanString("C")
 var dirC2S = color.CyanString("C") + "->" + color.GreenString("S")
-var pool = packet.NewPool()
 
 func NewDebugLogger(extraVerbose bool) *utils.ProxyHandler {
 	var logPlain, logCrypt, logCryptEnc io.WriteCloser
@@ -77,7 +76,7 @@ func NewDebugLogger(extraVerbose bool) *utils.ProxyHandler {
 			proxy = pc
 		},
 		PacketFunc: func(header packet.Header, payload []byte, src, dst net.Addr) {
-			pk := utils.DecodePacket(header, payload)
+			pk := utils.DecodePacket(proxy.Server.Pool(), header, payload)
 			if pk == nil {
 				return
 			}

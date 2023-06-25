@@ -285,7 +285,7 @@ func (r *replayConnector) loop() {
 
 func createReplayConnector(filename string, packetFunc PacketFunc) (r *replayConnector, err error) {
 	r = &replayConnector{
-		pool:             packet.NewPool(),
+		pool:             minecraft.DefaultProtocol.Packets(true),
 		proto:            minecraft.DefaultProtocol,
 		packetFunc:       packetFunc,
 		spawn:            make(chan struct{}),
@@ -313,6 +313,14 @@ func createReplayConnector(filename string, packetFunc PacketFunc) (r *replayCon
 
 	go r.loop()
 	return r, nil
+}
+
+func (r *replayConnector) DisconnectOnInvalidPacket() bool {
+	return false
+}
+
+func (r *replayConnector) DisconnectOnUnknownPacket() bool {
+	return false
 }
 
 func (r *replayConnector) Close() error {

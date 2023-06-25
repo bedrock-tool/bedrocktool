@@ -545,9 +545,7 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress, name string) (err
 	return err
 }
 
-var pool = packet.NewPool()
-
-func DecodePacket(header packet.Header, payload []byte) packet.Packet {
+func DecodePacket(pool packet.Pool, header packet.Header, payload []byte) packet.Packet {
 	var pk packet.Packet
 	if pkFunc, ok := pool[header.PacketID]; ok {
 		pk = pkFunc()
@@ -560,6 +558,6 @@ func DecodePacket(header packet.Header, payload []byte) packet.Packet {
 			logrus.Errorf("%T: %s", pk, recoveredErr.(error))
 		}
 	}()
-	pk.Marshal(protocol.NewReader(bytes.NewBuffer(payload), 0))
+	pk.Marshal(protocol.NewReader(bytes.NewBuffer(payload), 0, false))
 	return pk
 }
