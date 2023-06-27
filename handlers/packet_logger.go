@@ -70,13 +70,23 @@ func NewDebugLogger(extraVerbose bool) *utils.ProxyHandler {
 
 	var proxy *utils.ProxyContext
 
+	serverPool := packet.NewServerPool()
+	clientPool := packet.NewClientPool()
+	pool := make(packet.Pool)
+	for k, v := range serverPool {
+		pool[k] = v
+	}
+	for k, v := range clientPool {
+		pool[k] = v
+	}
+
 	return &utils.ProxyHandler{
 		Name: "Debug",
 		ProxyRef: func(pc *utils.ProxyContext) {
 			proxy = pc
 		},
 		PacketFunc: func(header packet.Header, payload []byte, src, dst net.Addr) {
-			pk := utils.DecodePacket(proxy.Server.Pool(), header, payload)
+			pk := utils.DecodePacket(pool, header, payload)
 			if pk == nil {
 				return
 			}
