@@ -113,13 +113,16 @@ func (s *SkinPack) Save(fpath, serverName string) error {
 				e.SetIndent("", "\t")
 				if err := e.Encode(map[string]any{
 					"format_version":     "1.12.0",
-					"minecraft:geometry": geometry,
+					"minecraft:geometry": []*SkinGeometry_1_12{geometry},
 				}); err != nil {
 					f.Close()
 					return err
 				}
 				f.Close()
-				geometryJson[geometryName] = *geometry
+				geometryJson[geometryName] = SkinGeometry{
+					SkinGeometryDescription: geometry.Description,
+					Bones:                   geometry.Bones,
+				}
 				entry.Geometry = geometryName
 			}
 		}

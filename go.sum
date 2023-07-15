@@ -96,6 +96,10 @@ github.com/olebeck/gophertunnel v1.30.0-2 h1:JbkADJTfpCfC7nL9O08LON0k8OBahfmOdBy
 github.com/olebeck/gophertunnel v1.30.0-2/go.mod h1:HxQfl/8mZzvjzhekEH8RO6xLAgan9i/wIyrQzw0tIPY=
 github.com/olebeck/gophertunnel v1.30.0-3 h1:D3PP7ttzZWgyHmacVMiPslWsTj3UNeRvO1x+5kA97wE=
 github.com/olebeck/gophertunnel v1.30.0-3/go.mod h1:HxQfl/8mZzvjzhekEH8RO6xLAgan9i/wIyrQzw0tIPY=
+github.com/olebeck/gophertunnel v1.31.0-1 h1:MeBwKKFT9SAe8FoeAT8o53TgrkPRJL5uAxLqWY3at5A=
+github.com/olebeck/gophertunnel v1.31.0-1/go.mod h1:HxQfl/8mZzvjzhekEH8RO6xLAgan9i/wIyrQzw0tIPY=
+github.com/olebeck/gophertunnel v1.31.0-2 h1:m/rUr/gjMTs/pSS5jPKlSxBJlC1WVjnxu8MHrVWfdkc=
+github.com/olebeck/gophertunnel v1.31.0-2/go.mod h1:HxQfl/8mZzvjzhekEH8RO6xLAgan9i/wIyrQzw0tIPY=
 github.com/onsi/ginkgo v1.6.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=
 github.com/onsi/ginkgo v1.7.0 h1:WSHQ+IS43OoUrWtD1/bbclrwK8TTH5hzp+umCiuxHgs=
 github.com/onsi/ginkgo v1.7.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=
@@ -114,6 +118,8 @@ github.com/sanbornm/go-selfupdate v0.0.0-20210106163404-c9b625feac49 h1:LuxslTBx
 github.com/sanbornm/go-selfupdate v0.0.0-20210106163404-c9b625feac49/go.mod h1:fY313ZGG810aWruFYcyq3coFpHDrWJVoMfSRI81y1r4=
 github.com/sandertv/go-raknet v1.12.0 h1:olUzZlIJyX/pgj/mrsLCZYjKLNDsYiWdvQ4NIm3z0DA=
 github.com/sandertv/go-raknet v1.12.0/go.mod h1:Gx+WgZBMQ0V2UoouGoJ8Wj6CDrMBQ4SB2F/ggpl5/+Y=
+github.com/segmentio/fasthash v1.0.3 h1:EI9+KE1EwvMLBWwjpRDc+fEM+prwxDYbslddQGtrmhM=
+github.com/segmentio/fasthash v1.0.3/go.mod h1:waKX8l2N8yckOgmSsXJi7x1ZfdKZ4x7KRMzBtS3oedY=
 github.com/shirou/gopsutil/v3 v3.23.5 h1:5SgDCeQ0KW0S4N0znjeM/eFHXXOKyv2dVNgRq/c9P6Y=
 github.com/shirou/gopsutil/v3 v3.23.5/go.mod h1:Ng3Maa27Q2KARVJ0SPZF5NdrQSC3XHKP8IIWrHgMeLY=
 github.com/shoenig/go-m1cpu v0.1.6 h1:nxdKQNcEB6vzgA2E2bvzKIYRuNj7XNJ4S/aRSwKzFtM=

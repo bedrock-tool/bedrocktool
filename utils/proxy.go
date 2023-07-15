@@ -16,7 +16,6 @@ import (
 
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
-	"github.com/repeale/fp-go"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/login"
@@ -95,6 +94,8 @@ type ProxyContext struct {
 
 	commands map[string]IngameCommand
 	handlers []*ProxyHandler
+
+	reconnectHandler *ProxyHandler
 }
 
 func NewProxy() (*ProxyContext, error) {
@@ -103,6 +104,7 @@ func NewProxy() (*ProxyContext, error) {
 		AlwaysGetPacks:   false,
 		WithClient:       true,
 		IgnoreDisconnect: false,
+		reconnectHandler: NewTransferHandler(),
 	}
 	if Options.PathCustomUserData != "" {
 		if err := p.LoadCustomUserData(Options.PathCustomUserData); err != nil {
@@ -247,6 +249,8 @@ func (p *ProxyContext) proxyLoop(ctx context.Context, toServer bool) error {
 		c2 = p.Client
 	}
 
+	var transferingErr error = nil
+
 	for {
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -262,7 +266,12 @@ func (p *ProxyContext) proxyLoop(ctx context.Context, toServer bool) error {
 			if handler.PacketCB != nil {
 				pk, err = handler.PacketCB(pk, toServer, time.Now())
 				if err != nil {
-					return err
+					if errors.Is(err, transferingErr) {
+						transferingErr = err
+						err = nil
+					} else {
+						return err
+					}
 				}
 				if pk == nil {
 					logrus.Tracef("Dropped Packet: %s", pkName)
@@ -278,6 +287,10 @@ func (p *ProxyContext) proxyLoop(ctx context.Context, toServer bool) error {
 				}
 				return err
 			}
+		}
+
+		if transferingErr != nil {
+			return transferingErr
 		}
 	}
 }
@@ -354,27 +367,19 @@ func (p *ProxyContext) connectClient(ctx context.Context, serverAddress string, 
 	return nil
 }
 
-func (p *ProxyContext) Run(ctx context.Context, serverAddress, name string) (err error) {
-	if Options.Debug || Options.ExtraDebug {
-		p.AddHandler(NewDebugLogger(Options.ExtraDebug))
+func (p *ProxyContext) packetFunc(header packet.Header, payload []byte, src, dst net.Addr) {
+	if header.PacketID == packet.IDRequestNetworkSettings {
+		p.clientAddr = src
 	}
-	if Options.Capture {
-		p.AddHandler(NewPacketCapturer())
-	}
-	p.AddHandler(&ProxyHandler{
-		Name:     "Commands",
-		PacketCB: p.CommandHandlerPacketCB,
-	})
-
 	for _, handler := range p.handlers {
-		if handler.AddressAndName != nil {
-			handler.AddressAndName(serverAddress, name)
+		if handler.PacketFunc == nil {
+			continue
 		}
-		if handler.ProxyRef != nil {
-			handler.ProxyRef(p)
-		}
+		handler.PacketFunc(header, payload, src, dst)
 	}
+}
 
+func (p *ProxyContext) connect(ctx context.Context, serverAddress string) (err error) {
 	defer func() {
 		for _, handler := range p.handlers {
 			if handler.OnEnd != nil {
@@ -410,7 +415,6 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress, name string) (err
 				if p.Client != nil {
 					p.Listener.Disconnect(p.Client.(*minecraft.Conn), DisconnectReason)
 				}
-				p.Listener.Close()
 			}
 		}()
 	}
@@ -426,25 +430,13 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress, name string) (err
 		handler.OnClientConnect(p.Client)
 	}
 
-	packetFunc := func(header packet.Header, payload []byte, src, dst net.Addr) {
-		if header.PacketID == packet.IDRequestNetworkSettings {
-			p.clientAddr = src
-		}
-		for _, handler := range p.handlers {
-			if handler.PacketFunc == nil {
-				continue
-			}
-			handler.PacketFunc(header, payload, src, dst)
-		}
-	}
-
 	if isReplay {
-		p.Server, err = createReplayConnector(serverAddress[5:], packetFunc)
+		p.Server, err = createReplayConnector(serverAddress[5:], p.packetFunc)
 		if err != nil {
 			return err
 		}
 	} else {
-		p.Server, err = connectServer(ctx, serverAddress, cdp, p.AlwaysGetPacks, packetFunc, tokenSource)
+		p.Server, err = connectServer(ctx, serverAddress, cdp, p.AlwaysGetPacks, p.packetFunc, tokenSource)
 	}
 	if err != nil {
 		for _, handler := range p.handlers {
@@ -498,51 +490,92 @@ func (p *ProxyContext) Run(ctx context.Context, serverAddress, name string) (err
 		}
 	}
 
+	ctx2, cancel := context.WithCancelCause(ctx)
+
 	wg := sync.WaitGroup{}
-	doProxy := func(client bool, onErr func()) {
+	doProxy := func(client bool) {
 		defer wg.Done()
-		if err := p.proxyLoop(ctx, client); err != nil {
-			logrus.Error(err)
+		if err := p.proxyLoop(ctx2, client); err != nil {
+			cancel(err)
 			return
 		}
 	}
 
 	// server to client
 	wg.Add(1)
-	go doProxy(false, func() {
-		p.DisconnectClient()
-	})
+	go doProxy(false)
 
 	// client to server
 	if p.Client != nil {
 		wg.Add(1)
-		go doProxy(true, func() {
-			p.DisconnectServer()
-		})
+		go doProxy(true)
+	}
+	go func() {
+		wg.Wait()
+		if ctx.Err() == nil {
+			cancel(nil)
+		}
+	}()
+
+	/*
+		wantSecondary := fp.Filter(func(handler *ProxyHandler) bool {
+			return handler.SecondaryClientCB != nil
+		})(p.handlers)
+
+		if len(wantSecondary) > 0 {
+			go func() {
+				for {
+					c, err := p.Listener.Accept()
+					if err != nil {
+						logrus.Error(err)
+						return
+					}
+
+					for _, handler := range wantSecondary {
+						go handler.SecondaryClientCB(c.(*minecraft.Conn))
+					}
+				}
+			}()
+		}
+	*/
+
+	<-ctx2.Done()
+	err = ctx2.Err()
+	if err, ok := err.(*transferingErr); ok {
+		logrus.Infof("Redirect to %s", err.To)
+		if p.Client != nil {
+			p.Listener.Disconnect(p.Client.(*minecraft.Conn), "please reconnect")
+		}
+		return p.connect(ctx, err.To)
 	}
 
-	wantSecondary := fp.Filter(func(handler *ProxyHandler) bool {
-		return handler.SecondaryClientCB != nil
-	})(p.handlers)
+	return nil
+}
 
-	if len(wantSecondary) > 0 {
-		go func() {
-			for {
-				c, err := p.Listener.Accept()
-				if err != nil {
-					logrus.Error(err)
-					return
-				}
+func (p *ProxyContext) Run(ctx context.Context, serverAddress, name string) (err error) {
+	if Options.Debug || Options.ExtraDebug {
+		p.AddHandler(NewDebugLogger(Options.ExtraDebug))
+	}
+	if Options.Capture {
+		p.AddHandler(NewPacketCapturer())
+	}
+	p.AddHandler(&ProxyHandler{
+		Name:     "Commands",
+		PacketCB: p.CommandHandlerPacketCB,
+	})
 
-				for _, handler := range wantSecondary {
-					go handler.SecondaryClientCB(c.(*minecraft.Conn))
-				}
-			}
-		}()
+	p.AddHandler(p.reconnectHandler)
+
+	for _, handler := range p.handlers {
+		if handler.AddressAndName != nil {
+			handler.AddressAndName(serverAddress, name)
+		}
+		if handler.ProxyRef != nil {
+			handler.ProxyRef(p)
+		}
 	}
 
-	wg.Wait()
-	return err
+	return p.connect(ctx, serverAddress)
 }
 
 func DecodePacket(pool packet.Pool, header packet.Header, payload []byte) packet.Packet {

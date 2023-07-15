@@ -3,7 +3,7 @@ module github.com/bedrock-tool/bedrocktool
 go 1.20
 
 //replace github.com/sandertv/gophertunnel => ./gophertunnel
-replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.30.0-3
+replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.31.0-2
 
 //replace github.com/df-mc/dragonfly => ./dragonfly
 replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.9.6-2
@@ -66,6 +66,7 @@ require (
 	github.com/muhammadmuzzammil1998/jsonc v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20221212215047-62379fc7944b // indirect
 	github.com/rogpeppe/go-internal v1.10.0 // indirect
+	github.com/segmentio/fasthash v1.0.3 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/tklauser/go-sysconf v0.3.11 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect

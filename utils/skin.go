@@ -18,12 +18,22 @@ type Skin struct {
 }
 
 type SkinGeometry struct {
+	SkinGeometryDescription
+	Bones []any `json:"bones"`
+}
+
+type SkinGeometryDescription struct {
+	Identifier          string    `json:"identifier,omitempty"`
 	Texturewidth        int       `json:"texturewidth"`
 	Textureheight       int       `json:"textureheight"`
 	VisibleBoundsWidth  float64   `json:"visible_bounds_width"`
 	VisibleBoundsHeight float64   `json:"visible_bounds_height"`
 	VisibleBoundsOffset []float64 `json:"visible_bounds_offset,omitempty"`
-	Bones               []any     `json:"bones"`
+}
+
+type SkinGeometry_1_12 struct {
+	Description SkinGeometryDescription `json:"description"`
+	Bones       []any                   `json:"bones"`
 }
 
 func (skin *Skin) Hash() uuid.UUID {
@@ -31,7 +41,7 @@ func (skin *Skin) Hash() uuid.UUID {
 	return uuid.NewSHA1(uuid.NameSpaceURL, h)
 }
 
-func (skin *Skin) getGeometry() (*SkinGeometry, string, error) {
+func (skin *Skin) getGeometry() (*SkinGeometry_1_12, string, error) {
 	if !skin.HaveGeometry() {
 		return nil, "", errors.New("no geometry")
 	}
@@ -65,13 +75,16 @@ func (skin *Skin) getGeometry() (*SkinGeometry, string, error) {
 	visible_bounds_height, _ := desc["visible_bounds_height"].(float64)
 	visibleOffset, _ := desc["visible_bounds_offset"].([]float64)
 
-	return &SkinGeometry{
-		Texturewidth:        int(texture_width),
-		Textureheight:       int(texture_height),
-		VisibleBoundsWidth:  visible_bounds_width,
-		VisibleBoundsHeight: visible_bounds_height,
-		VisibleBoundsOffset: visibleOffset,
-		Bones:               geom["bones"].([]any),
+	return &SkinGeometry_1_12{
+		Description: SkinGeometryDescription{
+			Identifier:          desc["identifier"].(string),
+			Texturewidth:        int(texture_width),
+			Textureheight:       int(texture_height),
+			VisibleBoundsWidth:  visible_bounds_width,
+			VisibleBoundsHeight: visible_bounds_height,
+			VisibleBoundsOffset: visibleOffset,
+		},
+		Bones: geom["bones"].([]any),
 	}, desc["identifier"].(string), nil
 }
 
