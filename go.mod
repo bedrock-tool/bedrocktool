@@ -3,10 +3,10 @@ module github.com/bedrock-tool/bedrocktool
 go 1.20
 
 //replace github.com/sandertv/gophertunnel => ./gophertunnel
-replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.30.0-3
+replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.31.0-2
 
 //replace github.com/df-mc/dragonfly => ./dragonfly
-replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.9.6-2
+replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.9.6-3
 
 //replace gioui.org => ./gio
 replace gioui.org => github.com/olebeck/gio v0.0.0-20230607184051-9ab60b08f083
