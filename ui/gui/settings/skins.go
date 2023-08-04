@@ -6,7 +6,7 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/bedrock-tool/bedrocktool/subcommands/skins"
-	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/commands"
 )
 
 type skinsSettings struct {
@@ -18,7 +18,7 @@ type skinsSettings struct {
 }
 
 func (s *skinsSettings) Init() {
-	s.skins = utils.ValidCMDs["skins"].(*skins.SkinCMD)
+	s.skins = commands.Registered["skins"].(*skins.SkinCMD)
 	s.serverAddress = AddressInput
 	s.Filter.SingleLine = true
 	s.Proxy.Value = true

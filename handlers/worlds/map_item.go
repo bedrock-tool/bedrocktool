@@ -91,7 +91,7 @@ func NewMapUI(w *worldsHandler) *MapUI {
 }
 
 func (m *MapUI) Start() {
-	r := m.w.gui.Message(messages.CanShowImages{})
+	r := m.w.ui.Message(messages.CanShowImages{})
 	if r.Ok {
 		m.showOnGui = true
 	}
@@ -224,7 +224,7 @@ func (m *MapUI) Redraw() {
 	}
 	if m.showOnGui {
 		min, max := m.GetBounds()
-		m.w.gui.Message(messages.UpdateMap{
+		m.w.ui.Message(messages.UpdateMap{
 			ChunkCount:    len(m.renderedChunks),
 			Rotation:      m.w.serverState.PlayerPos.Yaw,
 			UpdatedChunks: updatedChunks,

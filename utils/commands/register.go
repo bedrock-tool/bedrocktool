@@ -1,20 +1,21 @@
-package utils
+package commands
 
 import (
 	"context"
 	"flag"
 
+	"github.com/bedrock-tool/bedrocktool/ui"
 	"github.com/google/subcommands"
 	"github.com/sirupsen/logrus"
 )
 
-var ValidCMDs = make(map[string]Command, 0)
+var Registered = map[string]Command{}
 
 type Command interface {
 	Name() string
 	Synopsis() string
 	SetFlags(f *flag.FlagSet)
-	Execute(ctx context.Context, ui UI) error
+	Execute(ctx context.Context, ui ui.UI) error
 }
 
 type cmdWrap struct {
@@ -27,8 +28,8 @@ func (c *cmdWrap) Name() string             { return c.cmd.Name() }
 func (c *cmdWrap) Synopsis() string         { return c.cmd.Synopsis() }
 func (c *cmdWrap) SetFlags(f *flag.FlagSet) { c.cmd.SetFlags(f) }
 func (c *cmdWrap) Usage() string            { return c.Name() + ": " + c.Synopsis() }
-func (c *cmdWrap) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}) subcommands.ExitStatus {
-	err := c.cmd.Execute(ctx, CurrentUI)
+func (c *cmdWrap) Execute(ctx context.Context, f *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
+	err := c.cmd.Execute(ctx, args[0].(ui.UI))
 	if err != nil {
 		logrus.Error(err)
 		return 1
@@ -38,5 +39,5 @@ func (c *cmdWrap) Execute(ctx context.Context, f *flag.FlagSet, _ ...interface{}
 
 func RegisterCommand(sub Command) {
 	subcommands.Register(&cmdWrap{cmd: sub}, "")
-	ValidCMDs[sub.Name()] = sub
+	Registered[sub.Name()] = sub
 }

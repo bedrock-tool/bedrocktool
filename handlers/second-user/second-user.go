@@ -3,7 +3,7 @@ package seconduser
 import (
 	"time"
 
-	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/proxy"
 	"github.com/df-mc/dragonfly/server"
 	"github.com/df-mc/dragonfly/server/player"
 	"github.com/df-mc/dragonfly/server/player/skin"
@@ -20,7 +20,7 @@ import (
 type secondaryUser struct {
 	listener *fwdlistener
 	server   *server.Server
-	proxy    *utils.ProxyContext
+	proxy    *proxy.Context
 
 	ispre118  bool
 	chunks    map[world.ChunkPos]*chunk.Chunk
@@ -31,7 +31,7 @@ type secondaryUser struct {
 	mainPlayer *player.Player
 }
 
-func NewSecondUser() *utils.ProxyHandler {
+func NewSecondUser() *proxy.Handler {
 	s := &secondaryUser{
 		listener: &fwdlistener{
 			Conn: make(chan session.Conn),
@@ -58,9 +58,9 @@ func NewSecondUser() *utils.ProxyHandler {
 
 	go s.loop()
 
-	return &utils.ProxyHandler{
+	return &proxy.Handler{
 		Name: "Secondary User",
-		ProxyRef: func(pc *utils.ProxyContext) {
+		ProxyRef: func(pc *proxy.Context) {
 			s.proxy = pc
 		},
 		SecondaryClientCB: s.SecondaryClientCB,

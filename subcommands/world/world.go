@@ -6,13 +6,11 @@ import (
 
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds"
 	"github.com/bedrock-tool/bedrocktool/locale"
+	"github.com/bedrock-tool/bedrocktool/ui"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
-	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/commands"
+	"github.com/bedrock-tool/bedrocktool/utils/proxy"
 )
-
-func init() {
-	utils.RegisterCommand(&WorldCMD{})
-}
 
 type WorldCMD struct {
 	ServerAddress   string
@@ -35,13 +33,13 @@ func (c *WorldCMD) SetFlags(f *flag.FlagSet) {
 	f.BoolVar(&c.SaveInventories, "save-inventories", true, "Save Inventories")
 }
 
-func (c *WorldCMD) Execute(ctx context.Context, ui utils.UI) error {
+func (c *WorldCMD) Execute(ctx context.Context, ui ui.UI) error {
 	serverAddress, hostname, err := ui.ServerInput(ctx, c.ServerAddress)
 	if err != nil {
 		return err
 	}
 
-	proxy, err := utils.NewProxy()
+	proxy, err := proxy.New(ui)
 	if err != nil {
 		return err
 	}
@@ -61,4 +59,8 @@ func (c *WorldCMD) Execute(ctx context.Context, ui utils.UI) error {
 	}
 	ui.Message(messages.SetUIState(messages.UIStateFinished))
 	return nil
+}
+
+func init() {
+	commands.RegisterCommand(&WorldCMD{})
 }

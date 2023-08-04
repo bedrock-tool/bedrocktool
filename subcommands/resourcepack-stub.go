@@ -7,7 +7,8 @@ import (
 	"errors"
 	"flag"
 
-	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/ui"
+	"github.com/bedrock-tool/bedrocktool/utils/commands"
 )
 
 type ResourcePackCMD struct {
@@ -19,10 +20,10 @@ type ResourcePackCMD struct {
 func (*ResourcePackCMD) Name() string             { return "packs" }
 func (*ResourcePackCMD) Synopsis() string         { return "NOT COMPILED" }
 func (*ResourcePackCMD) SetFlags(f *flag.FlagSet) {}
-func (*ResourcePackCMD) Execute(ctx context.Context, ui utils.UI) error {
+func (*ResourcePackCMD) Execute(ctx context.Context, ui ui.UI) error {
 	return errors.New("not compiled")
 }
 
 func init() {
-	utils.RegisterCommand(&ResourcePackCMD{})
+	commands.RegisterCommand(&ResourcePackCMD{})
 }

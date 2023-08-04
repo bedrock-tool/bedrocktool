@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/proxy"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sirupsen/logrus"
 )
@@ -31,9 +31,9 @@ func (c *chatLogger) PacketCB(pk packet.Packet, toServer bool, t time.Time) (pac
 	return pk, nil
 }
 
-func NewChatLogger() *utils.ProxyHandler {
+func NewChatLogger() *proxy.Handler {
 	c := &chatLogger{}
-	return &utils.ProxyHandler{
+	return &proxy.Handler{
 		Name:     "Packet Capturer",
 		PacketCB: c.PacketCB,
 		AddressAndName: func(address, hostname string) error {

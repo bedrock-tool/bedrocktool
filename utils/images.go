@@ -12,7 +12,7 @@ func Img2rgba(img *image.RGBA) []color.RGBA {
 	return unsafe.Slice((*color.RGBA)(unsafe.Pointer(unsafe.SliceData(img.Pix))), len(img.Pix)/4)
 }
 
-func loadPng(path string) (*image.RGBA, error) {
+func LoadPng(path string) (*image.RGBA, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err

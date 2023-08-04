@@ -1,21 +1,20 @@
-package utils
+package proxy
 
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
-	"os"
 	"reflect"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
+	"github.com/bedrock-tool/bedrocktool/ui"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
+	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/login"
@@ -27,35 +26,17 @@ import (
 
 var DisconnectReason = "Connection lost"
 
-/*
-type dummyProto struct {
-	id  int32
-	ver string
-}
-
-func (p dummyProto) ID() int32            { return p.id }
-func (p dummyProto) Ver() string          { return p.ver }
-func (p dummyProto) Packets() packet.Pool { return packet.NewPool() }
-func (p dummyProto) ConvertToLatest(pk packet.Packet, _ *minecraft.Conn) []packet.Packet {
-	return []packet.Packet{pk}
-}
-
-func (p dummyProto) ConvertFromLatest(pk packet.Packet, _ *minecraft.Conn) []packet.Packet {
-	return []packet.Packet{pk}
-}
-*/
-
 type (
 	PacketFunc    func(header packet.Header, payload []byte, src, dst net.Addr)
-	IngameCommand struct {
+	ingameCommand struct {
 		Exec func(cmdline []string) bool
 		Cmd  protocol.Command
 	}
 )
 
-type ProxyHandler struct {
+type Handler struct {
 	Name     string
-	ProxyRef func(pc *ProxyContext)
+	ProxyRef func(pc *Context)
 	//
 	AddressAndName func(address, hostname string) error
 
@@ -81,7 +62,7 @@ type ProxyHandler struct {
 	OnEnd func()
 }
 
-type ProxyContext struct {
+type Context struct {
 	Server     minecraft.IConn
 	Client     minecraft.IConn
 	clientAddr net.Addr
@@ -92,131 +73,55 @@ type ProxyContext struct {
 	IgnoreDisconnect bool
 	CustomClientData *login.ClientData
 
-	commands map[string]IngameCommand
-	handlers []*ProxyHandler
+	commands map[string]ingameCommand
+	handlers []*Handler
 
-	reconnectHandler *ProxyHandler
+	reconnectHandler *Handler
+	ui               ui.UI
 }
 
-func NewProxy() (*ProxyContext, error) {
-	p := &ProxyContext{
-		commands:         make(map[string]IngameCommand),
+func New(ui ui.UI) (*Context, error) {
+	p := &Context{
+		commands:         make(map[string]ingameCommand),
 		AlwaysGetPacks:   false,
 		WithClient:       true,
 		IgnoreDisconnect: false,
 		reconnectHandler: NewTransferHandler(),
-	}
-	if Options.PathCustomUserData != "" {
-		if err := p.LoadCustomUserData(Options.PathCustomUserData); err != nil {
-			return nil, err
-		}
+		ui:               ui,
 	}
 	return p, nil
 }
 
-func (p *ProxyContext) AddCommand(cmd IngameCommand) {
-	p.commands[cmd.Cmd.Name] = cmd
+func (p *Context) AddCommand(exec func([]string) bool, cmd protocol.Command) {
+	p.commands[cmd.Name] = ingameCommand{exec, cmd}
 }
 
-type CustomClientData struct {
-	// skin things
-	CapeFilename         string
-	SkinFilename         string
-	SkinGeometryFilename string
-	SkinID               string
-	PlayFabID            string
-	PersonaSkin          bool
-	PremiumSkin          bool
-	TrustedSkin          bool
-	ArmSize              string
-	SkinColour           string
-
-	// misc
-	IsEditorMode bool
-	LanguageCode string
-	DeviceID     string
-}
-
-func (p *ProxyContext) LoadCustomUserData(path string) error {
-	f, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	var customData CustomClientData
-	err = json.NewDecoder(f).Decode(&customData)
-	if err != nil {
-		return err
-	}
-
-	p.CustomClientData = &login.ClientData{
-		SkinID:      customData.SkinID,
-		PlayFabID:   customData.PlayFabID,
-		PersonaSkin: customData.PersonaSkin,
-		PremiumSkin: customData.PremiumSkin,
-		TrustedSkin: customData.TrustedSkin,
-		ArmSize:     customData.ArmSize,
-		SkinColour:  customData.SkinColour,
-	}
-
-	if customData.SkinFilename != "" {
-		img, err := loadPng(customData.SkinFilename)
-		if err != nil {
-			return err
-		}
-		p.CustomClientData.SkinData = base64.RawStdEncoding.EncodeToString(img.Pix)
-		p.CustomClientData.SkinImageWidth = img.Rect.Dx()
-		p.CustomClientData.SkinImageHeight = img.Rect.Dy()
-	}
-
-	if customData.CapeFilename != "" {
-		img, err := loadPng(customData.CapeFilename)
-		if err != nil {
-			return err
-		}
-		p.CustomClientData.CapeData = base64.RawStdEncoding.EncodeToString(img.Pix)
-		p.CustomClientData.CapeImageWidth = img.Rect.Dx()
-		p.CustomClientData.CapeImageHeight = img.Rect.Dy()
-	}
-
-	if customData.SkinGeometryFilename != "" {
-		data, err := os.ReadFile(customData.SkinGeometryFilename)
-		if err != nil {
-			return err
-		}
-		p.CustomClientData.SkinGeometry = base64.RawStdEncoding.EncodeToString(data)
-	}
-
-	p.CustomClientData.DeviceID = customData.DeviceID
-
-	return nil
-}
-
-func (p *ProxyContext) ClientWritePacket(pk packet.Packet) error {
+func (p *Context) ClientWritePacket(pk packet.Packet) error {
 	if p.Client == nil {
 		return nil
 	}
 	return p.Client.WritePacket(pk)
 }
 
-func (p *ProxyContext) SendMessage(text string) {
+func (p *Context) SendMessage(text string) {
 	p.ClientWritePacket(&packet.Text{
 		TextType: packet.TextTypeSystem,
 		Message:  "§8[§bBedrocktool§8]§r " + text,
 	})
 }
 
-func (p *ProxyContext) SendPopup(text string) {
+func (p *Context) SendPopup(text string) {
 	p.ClientWritePacket(&packet.Text{
 		TextType: packet.TextTypePopup,
 		Message:  text,
 	})
 }
 
-func (p *ProxyContext) AddHandler(handler *ProxyHandler) {
+func (p *Context) AddHandler(handler *Handler) {
 	p.handlers = append(p.handlers, handler)
 }
 
-func (p *ProxyContext) CommandHandlerPacketCB(pk packet.Packet, toServer bool, _ time.Time) (packet.Packet, error) {
+func (p *Context) CommandHandlerPacketCB(pk packet.Packet, toServer bool, _ time.Time) (packet.Packet, error) {
 	switch pk := pk.(type) {
 	case *packet.CommandRequest:
 		cmd := strings.Split(pk.CommandLine, " ")
@@ -239,7 +144,7 @@ func (p *ProxyContext) CommandHandlerPacketCB(pk packet.Packet, toServer bool, _
 	return pk, nil
 }
 
-func (p *ProxyContext) proxyLoop(ctx context.Context, toServer bool) error {
+func (p *Context) proxyLoop(ctx context.Context, toServer bool) error {
 	var c1, c2 minecraft.IConn
 	if toServer {
 		c1 = p.Client
@@ -296,13 +201,13 @@ func (p *ProxyContext) proxyLoop(ctx context.Context, toServer bool) error {
 }
 
 // Disconnect disconnects both the client and server
-func (p *ProxyContext) Disconnect() {
+func (p *Context) Disconnect() {
 	p.DisconnectClient()
 	p.DisconnectServer()
 }
 
 // Disconnect disconnects the client
-func (p *ProxyContext) DisconnectClient() {
+func (p *Context) DisconnectClient() {
 	if p.Client == nil {
 		return
 	}
@@ -310,23 +215,23 @@ func (p *ProxyContext) DisconnectClient() {
 }
 
 // Disconnect disconnects from the server
-func (p *ProxyContext) DisconnectServer() {
+func (p *Context) DisconnectServer() {
 	if p.Server == nil {
 		return
 	}
 	p.Server.Close()
 }
 
-func (p *ProxyContext) IsClient(addr net.Addr) bool {
+func (p *Context) IsClient(addr net.Addr) bool {
 	return p.clientAddr.String() == addr.String()
 }
 
-var NewDebugLogger func(bool) *ProxyHandler
-var NewPacketCapturer func() *ProxyHandler
+var NewDebugLogger func(bool) *Handler
+var NewPacketCapturer func() *Handler
 
-func (p *ProxyContext) connectClient(ctx context.Context, serverAddress string, cdpp **login.ClientData, tokenSource oauth2.TokenSource) (err error) {
+func (p *Context) connectClient(ctx context.Context, serverAddress string, cdpp **login.ClientData, tokenSource oauth2.TokenSource) (err error) {
 	var packs []*resource.Pack
-	if Options.Preload {
+	if utils.Options.Preload {
 		logrus.Info(locale.Loc("preloading_packs", nil))
 		serverConn, err := connectServer(ctx, serverAddress, nil, true, nil, tokenSource)
 		if err != nil {
@@ -367,7 +272,7 @@ func (p *ProxyContext) connectClient(ctx context.Context, serverAddress string, 
 	return nil
 }
 
-func (p *ProxyContext) packetFunc(header packet.Header, payload []byte, src, dst net.Addr) {
+func (p *Context) packetFunc(header packet.Header, payload []byte, src, dst net.Addr) {
 	if header.PacketID == packet.IDRequestNetworkSettings {
 		p.clientAddr = src
 	}
@@ -379,7 +284,7 @@ func (p *ProxyContext) packetFunc(header packet.Header, payload []byte, src, dst
 	}
 }
 
-func (p *ProxyContext) connect(ctx context.Context, serverAddress string) (err error) {
+func (p *Context) connect(ctx context.Context, serverAddress string) (err error) {
 	defer func() {
 		for _, handler := range p.handlers {
 			if handler.OnEnd != nil {
@@ -396,7 +301,7 @@ func (p *ProxyContext) connect(ctx context.Context, serverAddress string) (err e
 	var tokenSource oauth2.TokenSource
 	if !isReplay {
 		// ask for login before listening
-		tokenSource, err = Auth.GetTokenSource()
+		tokenSource, err = utils.Auth.GetTokenSource()
 		if err != nil {
 			return err
 		}
@@ -404,7 +309,7 @@ func (p *ProxyContext) connect(ctx context.Context, serverAddress string) (err e
 
 	var cdp *login.ClientData = nil
 	if p.WithClient && !isReplay {
-		CurrentUI.Message(messages.SetUIState(messages.UIStateConnect))
+		p.ui.Message(messages.SetUIState(messages.UIStateConnect))
 		err = p.connectClient(ctx, serverAddress, &cdp, tokenSource)
 		if err != nil {
 			return err
@@ -552,14 +457,14 @@ func (p *ProxyContext) connect(ctx context.Context, serverAddress string) (err e
 	return nil
 }
 
-func (p *ProxyContext) Run(ctx context.Context, serverAddress, name string) (err error) {
-	if Options.Debug || Options.ExtraDebug {
-		p.AddHandler(NewDebugLogger(Options.ExtraDebug))
+func (p *Context) Run(ctx context.Context, serverAddress, name string) (err error) {
+	if utils.Options.Debug || utils.Options.ExtraDebug {
+		p.AddHandler(NewDebugLogger(utils.Options.ExtraDebug))
 	}
-	if Options.Capture {
+	if utils.Options.Capture {
 		p.AddHandler(NewPacketCapturer())
 	}
-	p.AddHandler(&ProxyHandler{
+	p.AddHandler(&Handler{
 		Name:     "Commands",
 		PacketCB: p.CommandHandlerPacketCB,
 	})

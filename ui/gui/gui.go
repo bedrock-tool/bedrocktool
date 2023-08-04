@@ -1,6 +1,4 @@
-//go:build gui
-
-package ui
+package gui
 
 import (
 	"bufio"
@@ -27,8 +25,6 @@ import (
 )
 
 type GUI struct {
-	utils.BaseUI
-
 	router        pages.Router
 	cancel        context.CancelFunc
 	authPopup     bool
@@ -75,6 +71,7 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelFunc) (err error) 
 	}
 
 	g.router = pages.NewRouter(ctx, w.Invalidate, th)
+	g.router.UI = g
 	g.router.Register("Settings", settings.New(&g.router))
 	g.router.Register("worlds", worlds.New(&g.router))
 	g.router.Register("skins", skins.New(&g.router))
@@ -147,6 +144,10 @@ func (g *GUI) Message(data interface{}) messages.MessageResponse {
 	return r
 }
 
+func (g *GUI) ServerInput(context.Context, string) (string, string, error) {
+	return "", "", nil
+}
+
 func (g *GUI) AuthPopup(gtx layout.Context) layout.Dimensions {
 	gtx.Constraints.Max = gtx.Constraints.Max.Div(2)
 	return layout.Center.Layout(gtx, material.Body1(g.router.Theme, g.authPopupText).Layout)
@@ -168,10 +169,4 @@ func (g *GUI) LoginWithMicrosoftCallback(r io.Reader) {
 		}
 	}
 	g.authPopup = false
-}
-
-func init() {
-	utils.MakeGui = func() utils.UI {
-		return &GUI{}
-	}
 }

@@ -6,7 +6,10 @@ import (
 
 	"github.com/bedrock-tool/bedrocktool/handlers"
 	"github.com/bedrock-tool/bedrocktool/locale"
+	"github.com/bedrock-tool/bedrocktool/ui"
 	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/commands"
+	"github.com/bedrock-tool/bedrocktool/utils/proxy"
 )
 
 type ChatLogCMD struct {
@@ -21,13 +24,13 @@ func (c *ChatLogCMD) SetFlags(f *flag.FlagSet) {
 	f.BoolVar(&c.Verbose, "v", false, "verbose")
 }
 
-func (c *ChatLogCMD) Execute(ctx context.Context, ui utils.UI) error {
+func (c *ChatLogCMD) Execute(ctx context.Context, ui ui.UI) error {
 	address, hostname, err := utils.ServerInput(ctx, c.ServerAddress)
 	if err != nil {
 		return err
 	}
 
-	proxy, err := utils.NewProxy()
+	proxy, err := proxy.New(ui)
 	if err != nil {
 		return err
 	}
@@ -36,5 +39,5 @@ func (c *ChatLogCMD) Execute(ctx context.Context, ui utils.UI) error {
 }
 
 func init() {
-	utils.RegisterCommand(&ChatLogCMD{})
+	commands.RegisterCommand(&ChatLogCMD{})
 }

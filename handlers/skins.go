@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/proxy"
 	"github.com/google/uuid"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
@@ -18,7 +19,7 @@ type SkinSaver struct {
 	PlayerNameFilter  string
 	OnlyIfHasGeometry bool
 	ServerName        string
-	Proxy             *utils.ProxyContext
+	Proxy             *proxy.Context
 	fpath             string
 
 	playerSkinPacks map[uuid.UUID]*utils.SkinPack
@@ -97,14 +98,14 @@ func (s *SkinSaver) ProcessPacket(pk packet.Packet) (out []SkinAdd) {
 	return out
 }
 
-func NewSkinSaver(skinCB func(SkinAdd)) *utils.ProxyHandler {
+func NewSkinSaver(skinCB func(SkinAdd)) *proxy.Handler {
 	s := &SkinSaver{
 		playerSkinPacks: make(map[uuid.UUID]*utils.SkinPack),
 		playerNames:     make(map[uuid.UUID]string),
 	}
-	return &utils.ProxyHandler{
+	return &proxy.Handler{
 		Name: "Skin Saver",
-		ProxyRef: func(pc *utils.ProxyContext) {
+		ProxyRef: func(pc *proxy.Context) {
 			s.Proxy = pc
 		},
 		AddressAndName: func(address, hostname string) error {

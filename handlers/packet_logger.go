@@ -10,6 +10,7 @@ import (
 
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/crypt"
+	"github.com/bedrock-tool/bedrocktool/utils/proxy"
 	"github.com/fatih/color"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sirupsen/logrus"
@@ -47,7 +48,7 @@ var MutedPackets = []string{
 var dirS2C = color.GreenString("S") + "->" + color.CyanString("C")
 var dirC2S = color.CyanString("C") + "->" + color.GreenString("S")
 
-func NewDebugLogger(extraVerbose bool) *utils.ProxyHandler {
+func NewDebugLogger(extraVerbose bool) *proxy.Handler {
 	var logPlain, logCrypt, logCryptEnc io.WriteCloser
 	var packetsLogF *bufio.Writer
 	var dmpLock sync.Mutex
@@ -68,8 +69,6 @@ func NewDebugLogger(extraVerbose bool) *utils.ProxyHandler {
 		}
 	}
 
-	var proxy *utils.ProxyContext
-
 	serverPool := packet.NewServerPool()
 	clientPool := packet.NewClientPool()
 	pool := make(packet.Pool)
@@ -79,14 +78,14 @@ func NewDebugLogger(extraVerbose bool) *utils.ProxyHandler {
 	for k, v := range clientPool {
 		pool[k] = v
 	}
-
-	return &utils.ProxyHandler{
+	var p *proxy.Context
+	return &proxy.Handler{
 		Name: "Debug",
-		ProxyRef: func(pc *utils.ProxyContext) {
-			proxy = pc
+		ProxyRef: func(pc *proxy.Context) {
+			p = pc
 		},
 		PacketFunc: func(header packet.Header, payload []byte, src, dst net.Addr) {
-			pk := utils.DecodePacket(pool, header, payload)
+			pk := proxy.DecodePacket(pool, header, payload)
 			if pk == nil {
 				return
 			}
@@ -100,7 +99,7 @@ func NewDebugLogger(extraVerbose bool) *utils.ProxyHandler {
 			pkName := reflect.TypeOf(pk).String()[1:]
 			if !slices.Contains(MutedPackets, pkName) {
 				var dir string = dirS2C
-				if proxy.IsClient(src) {
+				if p.IsClient(src) {
 					dir = dirC2S
 				}
 				logrus.Debugf("%s 0x%02x, %s", dir, pk.ID(), pkName)
@@ -126,6 +125,6 @@ func NewDebugLogger(extraVerbose bool) *utils.ProxyHandler {
 }
 
 func init() {
-	// hacky solution to allow proxy to add this
-	utils.NewDebugLogger = NewDebugLogger
+	// inject to proxy to avoid loop
+	proxy.NewDebugLogger = NewDebugLogger
 }

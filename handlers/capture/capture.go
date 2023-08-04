@@ -1,4 +1,4 @@
-package handlers
+package capture
 
 import (
 	"bytes"
@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/proxy"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 )
 
@@ -26,7 +26,7 @@ func (p *packetCapturer) dumpPacket(toServer bool, payload []byte) {
 }
 
 type packetCapturer struct {
-	proxy    *utils.ProxyContext
+	proxy    *proxy.Context
 	fio      *os.File
 	dumpLock sync.Mutex
 }
@@ -37,7 +37,7 @@ func (p *packetCapturer) AddressAndName(address, hostname string) error {
 	if err != nil {
 		return err
 	}
-	utils.WriteReplayHeader(fio)
+	proxy.WriteReplayHeader(fio)
 	p.fio = fio
 	return nil
 }
@@ -49,11 +49,11 @@ func (p *packetCapturer) PacketFunc(header packet.Header, payload []byte, src, d
 	p.dumpPacket(p.proxy.IsClient(src), buf.Bytes())
 }
 
-func NewPacketCapturer() *utils.ProxyHandler {
+func NewPacketCapturer() *proxy.Handler {
 	p := &packetCapturer{}
-	return &utils.ProxyHandler{
+	return &proxy.Handler{
 		Name: "Packet Capturer",
-		ProxyRef: func(pc *utils.ProxyContext) {
+		ProxyRef: func(pc *proxy.Context) {
 			p.proxy = pc
 		},
 		AddressAndName: p.AddressAndName,
@@ -67,5 +67,5 @@ func NewPacketCapturer() *utils.ProxyHandler {
 }
 
 func init() {
-	utils.NewPacketCapturer = NewPacketCapturer
+	proxy.NewPacketCapturer = NewPacketCapturer
 }

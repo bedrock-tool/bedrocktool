@@ -1,4 +1,4 @@
-package utils
+package proxy
 
 import (
 	"fmt"
@@ -18,14 +18,14 @@ func (transferingErr) Error() string {
 }
 
 type transferHandler struct {
-	p *ProxyContext
+	p *Context
 }
 
-func NewTransferHandler() *ProxyHandler {
+func NewTransferHandler() *Handler {
 	t := &transferHandler{}
-	return &ProxyHandler{
+	return &Handler{
 		Name: "transfer",
-		ProxyRef: func(pc *ProxyContext) {
+		ProxyRef: func(pc *Context) {
 			t.p = pc
 		},
 		PacketCB: t.packetCB,

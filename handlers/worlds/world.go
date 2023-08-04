@@ -16,9 +16,11 @@ import (
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
+	"github.com/bedrock-tool/bedrocktool/ui"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/behaviourpack"
+	"github.com/bedrock-tool/bedrocktool/utils/proxy"
 	"github.com/flytam/filenamify"
 
 	"github.com/df-mc/dragonfly/server/block/cube"
@@ -78,9 +80,9 @@ type serverState struct {
 type worldsHandler struct {
 	ctx   context.Context
 	wg    sync.WaitGroup
-	proxy *utils.ProxyContext
+	proxy *proxy.Context
 	mapUI *MapUI
-	gui   utils.UI
+	ui    ui.UI
 	bp    *behaviourpack.BehaviourPack
 
 	worldState   worldState
@@ -89,10 +91,10 @@ type worldsHandler struct {
 	customBlocks []protocol.BlockEntry
 }
 
-func NewWorldsHandler(ctx context.Context, ui utils.UI, settings WorldSettings) *utils.ProxyHandler {
+func NewWorldsHandler(ctx context.Context, ui ui.UI, settings WorldSettings) *proxy.Handler {
 	w := &worldsHandler{
 		ctx: ctx,
-		gui: ui,
+		ui:  ui,
 
 		serverState: serverState{
 			ispre118:     false,
@@ -106,36 +108,30 @@ func NewWorldsHandler(ctx context.Context, ui utils.UI, settings WorldSettings) 
 	w.mapUI = NewMapUI(w)
 	w.Reset()
 
-	return &utils.ProxyHandler{
+	return &proxy.Handler{
 		Name: "Worlds",
-		ProxyRef: func(pc *utils.ProxyContext) {
+		ProxyRef: func(pc *proxy.Context) {
 			w.proxy = pc
 
-			w.proxy.AddCommand(utils.IngameCommand{
-				Exec: func(cmdline []string) bool {
-					return w.setWorldName(strings.Join(cmdline, " "), false)
-				},
-				Cmd: protocol.Command{
-					Name:        "setname",
-					Description: locale.Loc("setname_desc", nil),
-					Overloads: []protocol.CommandOverload{{
-						Parameters: []protocol.CommandParameter{{
-							Name:     "name",
-							Type:     protocol.CommandArgTypeString,
-							Optional: false,
-						}},
+			w.proxy.AddCommand(func(cmdline []string) bool {
+				return w.setWorldName(strings.Join(cmdline, " "), false)
+			}, protocol.Command{
+				Name:        "setname",
+				Description: locale.Loc("setname_desc", nil),
+				Overloads: []protocol.CommandOverload{{
+					Parameters: []protocol.CommandParameter{{
+						Name:     "name",
+						Type:     protocol.CommandArgTypeString,
+						Optional: false,
 					}},
-				},
+				}},
 			})
 
-			w.proxy.AddCommand(utils.IngameCommand{
-				Exec: func(cmdline []string) bool {
-					return w.setVoidGen(!w.settings.VoidGen, false)
-				},
-				Cmd: protocol.Command{
-					Name:        "void",
-					Description: locale.Loc("void_desc", nil),
-				},
+			w.proxy.AddCommand(func(cmdline []string) bool {
+				return w.setVoidGen(!w.settings.VoidGen, false)
+			}, protocol.Command{
+				Name:        "void",
+				Description: locale.Loc("void_desc", nil),
 			})
 		},
 		AddressAndName: func(address, hostname string) error {
@@ -144,7 +140,7 @@ func NewWorldsHandler(ctx context.Context, ui utils.UI, settings WorldSettings) 
 			return nil
 		},
 		OnClientConnect: func(conn minecraft.IConn) {
-			w.gui.Message(messages.SetUIState(messages.UIStateConnecting))
+			w.ui.Message(messages.SetUIState(messages.UIStateConnecting))
 		},
 		GameDataModifier: func(gd *minecraft.GameData) {
 			gd.ClientSideGeneration = false
@@ -195,7 +191,7 @@ func (w *worldsHandler) setVoidGen(val bool, fromUI bool) bool {
 	w.proxy.SendMessage(s)
 
 	if !fromUI {
-		w.gui.Message(messages.SetVoidGen{
+		w.ui.Message(messages.SetVoidGen{
 			Value: w.settings.VoidGen,
 		})
 	}
@@ -208,7 +204,7 @@ func (w *worldsHandler) setWorldName(val string, fromUI bool) bool {
 	w.proxy.SendMessage(locale.Loc("worldname_set", locale.Strmap{"Name": w.worldState.Name}))
 
 	if !fromUI {
-		w.gui.Message(messages.SetWorldName{
+		w.ui.Message(messages.SetWorldName{
 			WorldName: w.worldState.Name,
 		})
 	}
@@ -320,7 +316,7 @@ func (w *worldsHandler) SaveAndReset() {
 	go func() {
 		defer w.wg.Done()
 		logrus.Infof(locale.Loc("saving_world", locale.Strmap{"Name": worldStateCopy.Name, "Count": len(worldStateCopy.chunks)}))
-		w.gui.Message(messages.SavingWorld{
+		w.ui.Message(messages.SavingWorld{
 			World: &messages.SavedWorld{
 				Name:   worldStateCopy.Name,
 				Path:   filename,
@@ -468,7 +464,7 @@ func (w *worldsHandler) SaveAndReset() {
 		}
 		logrus.Info(locale.Loc("saved", locale.Strmap{"Name": filename}))
 		//os.RemoveAll(folder)
-		w.gui.Message(messages.SetUIState(messages.UIStateMain))
+		w.ui.Message(messages.SetUIState(messages.UIStateMain))
 	}()
 }
 
@@ -554,10 +550,10 @@ func (w *worldsHandler) AddPacks(folder string) {
 }
 
 func (w *worldsHandler) OnConnect(err error) bool {
-	w.gui.Message(messages.SetWorldName{
+	w.ui.Message(messages.SetWorldName{
 		WorldName: w.worldState.Name,
 	})
-	w.gui.Message(messages.SetUIState(messages.UIStateMain))
+	w.ui.Message(messages.SetUIState(messages.UIStateMain))
 	if err != nil {
 		return false
 	}

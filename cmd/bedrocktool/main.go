@@ -5,77 +5,58 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"os/signal"
 	"runtime/debug"
 	"syscall"
-	"time"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
+	"github.com/bedrock-tool/bedrocktool/ui"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/commands"
+	"github.com/bedrock-tool/bedrocktool/utils/proxy"
 	"gopkg.in/square/go-jose.v2/json"
 
 	_ "github.com/bedrock-tool/bedrocktool/subcommands"
 	_ "github.com/bedrock-tool/bedrocktool/subcommands/skins"
 	_ "github.com/bedrock-tool/bedrocktool/subcommands/world"
-	_ "github.com/bedrock-tool/bedrocktool/ui"
 
 	"github.com/google/subcommands"
 	"github.com/sirupsen/logrus"
 )
 
-type CLI struct {
-	utils.BaseUI
+var uis = map[string]ui.UI{}
+
+func selectUI() ui.UI {
+	var ui ui.UI
+	if len(os.Args) < 2 {
+		var ok bool
+		ui, ok = uis["gui"]
+		if !ok {
+			ui = uis["tui"]
+		}
+		utils.Options.IsInteractive = true
+	} else {
+		ui = uis["cli"]
+	}
+	return ui
 }
 
-func (c *CLI) Init() bool {
-	utils.SetCurrentUI(c)
-	utils.Auth.LoginWithMicrosoftCallback = func(r io.Reader) {
-		io.Copy(os.Stdout, r)
-	}
-	return true
-}
-
-/*
-var m = &worlds.Map{}
-
-func (c *CLI) Message(data interface{}) messages.MessageResponse {
-
-	switch me := data.(type) {
-	case messages.CanShowImages:
-		return messages.MessageResponse{Ok: true}
-	case messages.UpdateMap:
-		m.Update(&me)
+func updateCheck(ui ui.UI) {
+	newVersion, err := utils.Updater.UpdateAvailable()
+	if err != nil {
+		logrus.Error(err)
 	}
 
-	return messages.MessageResponse{
-		Ok:   false,
-		Data: nil,
+	if newVersion != "" {
+		logrus.Infof(locale.Loc("update_available", locale.Strmap{"Version": newVersion}))
+		utils.UpdateAvailable = newVersion
+		ui.Message(messages.UpdateAvailable{Version: newVersion})
 	}
-}
-*/
-
-func (c *CLI) Start(ctx context.Context, cancel context.CancelFunc) error {
-	flag.Parse()
-	subcommands.Execute(ctx)
-	time.Sleep(50 * time.Millisecond)
-	cancel()
-	time.Sleep(50 * time.Millisecond)
-	return nil
 }
 
 func main() {
-	/*
-		cf, _ := os.Create("cpu.pprof")
-		err := pprof.StartCPUProfile(cf)
-		if err != nil {
-			logrus.Error(err)
-		}
-		defer pprof.StopCPUProfile()
-	*/
-
 	defer func() {
 		if err := recover(); err != nil {
 			logrus.Errorf(locale.Loc("fatal_error", nil))
@@ -120,30 +101,10 @@ func main() {
 	subcommands.ImportantFlag("preload")
 	subcommands.HelpCommand()
 
-	var ui utils.UI
-
-	if len(os.Args) < 2 {
-		ui = utils.MakeGui()
-		utils.Options.IsInteractive = true
-	} else {
-		ui = &CLI{}
-	}
-
-	utils.CurrentUI = ui
+	ui := selectUI()
 
 	if utils.Version != "" {
-		go func() {
-			newVersion, err := utils.Updater.UpdateAvailable()
-			if err != nil {
-				logrus.Error(err)
-			}
-
-			if newVersion != "" {
-				logrus.Infof(locale.Loc("update_available", locale.Strmap{"Version": newVersion}))
-				utils.UpdateAvailable = newVersion
-				ui.Message(messages.UpdateAvailable{Version: newVersion})
-			}
-		}()
+		go updateCheck(ui)
 	}
 
 	// exit cleanup
@@ -175,7 +136,7 @@ func (*TransCMD) Synopsis() string { return "" }
 func (c *TransCMD) SetFlags(f *flag.FlagSet) {
 	f.BoolVar(&c.auth, "auth", false, locale.Loc("should_login_xbox", nil))
 }
-func (c *TransCMD) Execute(_ context.Context, ui utils.UI) error {
+func (c *TransCMD) Execute(_ context.Context, ui ui.UI) error {
 	const (
 		BlackFg = "\033[30m"
 		Bold    = "\033[1m"
@@ -202,8 +163,8 @@ func (c *CreateCustomDataCMD) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.path, "path", "customdata.json", "where to save")
 }
 
-func (c *CreateCustomDataCMD) Execute(_ context.Context, ui utils.UI) error {
-	var data utils.CustomClientData
+func (c *CreateCustomDataCMD) Execute(_ context.Context, ui ui.UI) error {
+	var data proxy.CustomClientData
 	fio, err := os.Create(c.path)
 	if err == nil {
 		defer fio.Close()
@@ -218,6 +179,6 @@ func (c *CreateCustomDataCMD) Execute(_ context.Context, ui utils.UI) error {
 }
 
 func init() {
-	utils.RegisterCommand(&TransCMD{})
-	utils.RegisterCommand(&CreateCustomDataCMD{})
+	commands.RegisterCommand(&TransCMD{})
+	commands.RegisterCommand(&CreateCustomDataCMD{})
 }

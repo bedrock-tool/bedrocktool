@@ -8,7 +8,8 @@ import (
 
 	"github.com/bedrock-tool/bedrocktool/locale"
 	resourcepackd "github.com/bedrock-tool/bedrocktool/subcommands/resourcepack-d"
-	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/ui"
+	"github.com/bedrock-tool/bedrocktool/utils/commands"
 )
 
 type ResourcePackCMD struct {
@@ -26,11 +27,10 @@ func (c *ResourcePackCMD) SetFlags(f *flag.FlagSet) {
 	f.BoolVar(&c.OnlyKeys, "only-keys", false, locale.Loc("only_keys", nil))
 }
 
-func (c *ResourcePackCMD) Execute(ctx context.Context, ui utils.UI) error {
-	return resourcepackd.Execute_cmd(ctx, c.ServerAddress, c.OnlyKeys, c.SaveEncrypted)
+func (c *ResourcePackCMD) Execute(ctx context.Context, ui ui.UI) error {
+	return resourcepackd.Execute_cmd(ctx, c.ServerAddress, c.OnlyKeys, c.SaveEncrypted, ui)
 }
 
 func init() {
-	utils.RegisterCommand(&ResourcePackCMD{})
-
+	commands.RegisterCommand(&ResourcePackCMD{})
 }

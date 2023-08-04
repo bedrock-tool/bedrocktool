@@ -4,7 +4,7 @@ import (
 	"gioui.org/layout"
 	"gioui.org/widget/material"
 	"github.com/bedrock-tool/bedrocktool/subcommands"
-	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/commands"
 )
 
 type packsSettings struct {
@@ -14,7 +14,7 @@ type packsSettings struct {
 }
 
 func (s *packsSettings) Init() {
-	s.packs = utils.ValidCMDs["packs"].(*subcommands.ResourcePackCMD)
+	s.packs = commands.Registered["packs"].(*subcommands.ResourcePackCMD)
 	s.serverAddress = AddressInput
 }
 

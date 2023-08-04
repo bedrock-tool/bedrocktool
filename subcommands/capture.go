@@ -5,12 +5,11 @@ import (
 	"flag"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
+	"github.com/bedrock-tool/bedrocktool/ui"
 	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/commands"
+	"github.com/bedrock-tool/bedrocktool/utils/proxy"
 )
-
-func init() {
-	utils.RegisterCommand(&CaptureCMD{})
-}
 
 type CaptureCMD struct {
 	ServerAddress string
@@ -22,17 +21,20 @@ func (c *CaptureCMD) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.ServerAddress, "address", "", "remote server address")
 }
 
-func (c *CaptureCMD) Execute(ctx context.Context, ui utils.UI) error {
+func (c *CaptureCMD) Execute(ctx context.Context, ui ui.UI) error {
 	address, hostname, err := utils.ServerInput(ctx, c.ServerAddress)
 	if err != nil {
 		return err
 	}
 
-	proxy, err := utils.NewProxy()
+	proxy, err := proxy.New(ui)
 	if err != nil {
 		return err
 	}
 	proxy.AlwaysGetPacks = true
 	utils.Options.Capture = true
 	return proxy.Run(ctx, address, hostname)
+}
+func init() {
+	commands.RegisterCommand(&CaptureCMD{})
 }

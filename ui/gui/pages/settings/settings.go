@@ -13,7 +13,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/settings"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
-	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/sirupsen/logrus"
 )
 
@@ -45,13 +45,13 @@ func New(router *pages.Router) *Page {
 	}
 
 	cmdNames := []string{}
-	for k := range utils.ValidCMDs {
+	for k := range commands.Registered {
 		cmdNames = append(cmdNames, k)
 	}
 	sort.Strings(cmdNames)
 
-	p.cmdMenu.items = make(map[string]*widget.Clickable, len(utils.ValidCMDs))
-	options := make([]func(layout.Context) layout.Dimensions, 0, len(utils.ValidCMDs))
+	p.cmdMenu.items = make(map[string]*widget.Clickable, len(commands.Registered))
+	options := make([]func(layout.Context) layout.Dimensions, 0, len(commands.Registered))
 	for _, name := range cmdNames {
 		if _, ok := settings.Settings[name]; !ok {
 			continue
@@ -94,7 +94,7 @@ func (p *Page) NavItem() component.NavItem {
 func (p *Page) Layout(gtx C, th *material.Theme) D {
 	if p.startButton.Clicked() {
 		if p.cmdMenu.selected != "" {
-			cmd, ok := utils.ValidCMDs[p.cmdMenu.selected]
+			cmd, ok := commands.Registered[p.cmdMenu.selected]
 			if !ok {
 				logrus.Errorf("Cmd %s not found", p.cmdMenu.selected)
 			}

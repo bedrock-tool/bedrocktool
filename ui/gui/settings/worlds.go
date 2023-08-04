@@ -6,6 +6,7 @@ import (
 	"gioui.org/widget/material"
 	"github.com/bedrock-tool/bedrocktool/subcommands/world"
 	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/commands"
 )
 
 type worldSettings struct {
@@ -19,7 +20,7 @@ type worldSettings struct {
 }
 
 func (s *worldSettings) Init() {
-	s.worlds = utils.ValidCMDs["worlds"].(*world.WorldCMD)
+	s.worlds = commands.Registered["worlds"].(*world.WorldCMD)
 	s.serverAddress = AddressInput
 	s.voidGen.Value = true
 	s.PacketCapture.Value = false

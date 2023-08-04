@@ -6,7 +6,9 @@ import (
 	"fmt"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
+	"github.com/bedrock-tool/bedrocktool/ui"
 	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/commands"
 )
 
 type RealmListCMD struct{}
@@ -14,7 +16,7 @@ type RealmListCMD struct{}
 func (*RealmListCMD) Name() string               { return "list-realms" }
 func (*RealmListCMD) Synopsis() string           { return locale.Loc("list_realms_synopsis", nil) }
 func (c *RealmListCMD) SetFlags(f *flag.FlagSet) {}
-func (c *RealmListCMD) Execute(ctx context.Context, ui utils.UI) error {
+func (c *RealmListCMD) Execute(ctx context.Context, ui ui.UI) error {
 	realms, err := utils.GetRealmsAPI().Realms(ctx)
 	if err != nil {
 		return err
@@ -26,5 +28,5 @@ func (c *RealmListCMD) Execute(ctx context.Context, ui utils.UI) error {
 }
 
 func init() {
-	utils.RegisterCommand(&RealmListCMD{})
+	commands.RegisterCommand(&RealmListCMD{})
 }

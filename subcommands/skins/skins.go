@@ -6,8 +6,11 @@ import (
 
 	"github.com/bedrock-tool/bedrocktool/handlers"
 	"github.com/bedrock-tool/bedrocktool/locale"
+	"github.com/bedrock-tool/bedrocktool/ui"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/commands"
+	"github.com/bedrock-tool/bedrocktool/utils/proxy"
 	"github.com/sandertv/gophertunnel/minecraft"
 )
 
@@ -26,21 +29,21 @@ func (c *SkinCMD) SetFlags(f *flag.FlagSet) {
 	f.BoolVar(&c.NoProxy, "no-proxy", false, "use headless version")
 }
 
-func (c *SkinCMD) Execute(ctx context.Context, ui utils.UI) error {
+func (c *SkinCMD) Execute(ctx context.Context, ui ui.UI) error {
 	address, hostname, err := utils.ServerInput(ctx, c.ServerAddress)
 	if err != nil {
 		return err
 	}
 
-	proxy, _ := utils.NewProxy()
-	proxy.WithClient = !c.NoProxy
-	proxy.AddHandler(handlers.NewSkinSaver(func(sa handlers.SkinAdd) {
+	p, _ := proxy.New(ui)
+	p.WithClient = !c.NoProxy
+	p.AddHandler(handlers.NewSkinSaver(func(sa handlers.SkinAdd) {
 		ui.Message(messages.NewSkin{
 			PlayerName: sa.PlayerName,
 			Skin:       sa.Skin,
 		})
 	}))
-	proxy.AddHandler(&utils.ProxyHandler{
+	p.AddHandler(&proxy.Handler{
 		Name: "Skin CMD",
 		OnClientConnect: func(conn minecraft.IConn) {
 			ui.Message(messages.SetUIState(messages.UIStateConnecting))
@@ -51,15 +54,15 @@ func (c *SkinCMD) Execute(ctx context.Context, ui utils.UI) error {
 		},
 	})
 
-	if proxy.WithClient {
+	if p.WithClient {
 		ui.Message(messages.SetUIState(messages.UIStateConnect))
 	} else {
 		ui.Message(messages.SetUIState(messages.UIStateConnecting))
 	}
-	err = proxy.Run(ctx, address, hostname)
+	err = p.Run(ctx, address, hostname)
 	return err
 }
 
 func init() {
-	utils.RegisterCommand(&SkinCMD{})
+	commands.RegisterCommand(&SkinCMD{})
 }

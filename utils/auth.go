@@ -114,3 +114,9 @@ func GetRealmsAPI() *realms.Client {
 	}
 	return gRealmsAPI
 }
+
+func init() {
+	Auth.LoginWithMicrosoftCallback = func(r io.Reader) {
+		io.Copy(os.Stdout, r)
+	}
+}
