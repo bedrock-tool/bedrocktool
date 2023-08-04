@@ -11,6 +11,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/go-gl/mathgl/mgl32"
+	"github.com/thomaso-mirodin/intmath/i32"
 	"golang.design/x/lockfree"
 
 	"github.com/df-mc/dragonfly/server/world"
@@ -44,30 +45,16 @@ var MapItemPacket = packet.InventoryContent{
 	},
 }
 
-func imin(a, b int32) int32 {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func imax(a, b int32) int32 {
-	if a > b {
-		return a
-	}
-	return b
-}
-
 func (m *MapUI) GetBounds() (min, max protocol.ChunkPos) {
 	if len(m.renderedChunks) == 0 {
 		return
 	}
 	min = protocol.ChunkPos{math.MaxInt32, math.MaxInt32}
 	for chunk := range m.renderedChunks {
-		min[0] = imin(min[0], chunk[0])
-		min[1] = imin(min[1], chunk[1])
-		max[0] = imax(max[0], chunk[0])
-		max[1] = imax(max[1], chunk[1])
+		min[0] = i32.Min(min[0], chunk[0])
+		min[1] = i32.Min(min[1], chunk[1])
+		max[0] = i32.Max(max[0], chunk[0])
+		max[1] = i32.Max(max[1], chunk[1])
 	}
 	return
 }

@@ -5,8 +5,8 @@ import (
 	"errors"
 	"image/color"
 	"image/png"
-	"io"
 	"io/fs"
+	"os"
 	"strings"
 
 	"github.com/bedrock-tool/bedrocktool/utils"
@@ -45,7 +45,7 @@ func getTexturePaths(entries []protocol.BlockEntry) map[string]string {
 func readBlocksJson(fs fs.FS) (map[string]string, error) {
 	f, err := fs.Open("blocks.json")
 	if err != nil {
-		if errors.Is(err, io.EOF) {
+		if errors.Is(err, os.ErrNotExist) {
 			return nil, nil
 		}
 		return nil, err
@@ -100,13 +100,10 @@ func getBlockColor(fs fs.FS, path string) (c color.RGBA, err error) {
 	dy := img.Bounds().Dy()
 	for x := 0; x < dx; x++ {
 		for y := 0; y < dy; y++ {
-			r, g, b, a := img.At(x, y).RGBA()
-			if a < 128 {
-				continue
-			}
-			rt += r * r
-			gt += g * g
-			bt += b * b
+			r, g, b, _ := img.At(x, y).RGBA()
+			rt += r / 0xff * r / 0xff
+			gt += g / 0xff * g / 0xff
+			bt += b / 0xff * b / 0xff
 		}
 	}
 

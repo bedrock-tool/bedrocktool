@@ -83,8 +83,7 @@ var PackFromBase = func(pack *resource.Pack) Pack {
 
 func GetPacks(server minecraft.IConn) (packs []Pack) {
 	for _, pack := range server.ResourcePacks() {
-		pack := PackFromBase(pack)
-		packs = append(packs, pack)
+		packs = append(packs, PackFromBase(pack))
 	}
 	return
 }

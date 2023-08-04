@@ -43,7 +43,7 @@ func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.R
 		}
 
 		// blend that blocks color with water depending on depth
-		waterColor.A = uint8(Clamp(int(150+depth*7), 255))
+		waterColor.A = uint8(int(150 + depth*7))
 		blockColor = BlendColors(blockColor, waterColor)
 		blockColor.R -= uint8(depth * 2)
 		blockColor.G -= uint8(depth * 2)

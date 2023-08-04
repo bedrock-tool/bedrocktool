@@ -123,16 +123,6 @@ func SplitExt(filename string) (name, ext string) {
 	return
 }
 
-func Clamp(a, b int) int {
-	if a > b {
-		return b
-	}
-	if a < 0 {
-		return 0
-	}
-	return a
-}
-
 func RandSeededUUID(str string) string {
 	h := sha256.Sum256([]byte(str))
 	id, _ := uuid.NewRandomFromReader(bytes.NewBuffer(h[:]))
@@ -174,7 +164,7 @@ type Cfb8 struct {
 	iv            []byte
 }
 
-func NewCfb8(r io.Reader, key []byte) *Cfb8 {
+func NewCfb8(r io.Reader, key []byte) io.Reader {
 	c := &Cfb8{
 		r: r,
 	}
@@ -188,13 +178,12 @@ func NewCfb8(r io.Reader, key []byte) *Cfb8 {
 func (c *Cfb8) Read(dst []byte) (n int, err error) {
 	n, err = c.r.Read(dst)
 	if n > 0 {
-		shiftRegister := append(c.shiftRegister, dst[:n]...)
+		c.shiftRegister = append(c.shiftRegister, dst[:n]...)
 		for off := 0; off < n; off += 1 {
-			c.cipher.Encrypt(c.iv, shiftRegister)
+			c.cipher.Encrypt(c.iv, c.shiftRegister)
 			dst[off] ^= c.iv[0]
-			shiftRegister = shiftRegister[1:]
+			c.shiftRegister = c.shiftRegister[1:]
 		}
-		c.shiftRegister = shiftRegister
 	}
 	return
 }
