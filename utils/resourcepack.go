@@ -1,8 +1,11 @@
 package utils
 
 import (
+	"archive/zip"
 	"errors"
 	"io"
+	"io/fs"
+	"sort"
 
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
@@ -11,7 +14,6 @@ import (
 type Pack interface {
 	io.ReaderAt
 	ReadAll() ([]byte, error)
-	Decrypt() ([]byte, error)
 	Encrypted() bool
 	CanDecrypt() bool
 	UUID() string
@@ -21,10 +23,12 @@ type Pack interface {
 	Len() int
 	Manifest() resource.Manifest
 	Base() *resource.Pack
+	FS() (fs.FS, []string, error)
 }
 
 type Packb struct {
 	*resource.Pack
+	d bool
 }
 
 func (p *Packb) ReadAll() ([]byte, error) {
@@ -47,8 +51,25 @@ func (p *Packb) CanDecrypt() bool {
 	return false
 }
 
-func (p *Packb) Decrypt() ([]byte, error) {
-	return nil, errors.New("no_decrypt")
+func (p *Packb) SetD() {
+	p.d = true
+}
+
+func (p *Packb) FS() (fs.FS, []string, error) {
+	if p.Encrypted() && !p.d {
+		return nil, nil, errors.New("encrypted")
+	}
+	r, err := zip.NewReader(p, int64(p.Len()))
+	var names []string
+	for _, f := range r.File {
+		if f.FileInfo().IsDir() {
+			continue
+		}
+		names = append(names, f.Name)
+	}
+	sort.Strings(names)
+
+	return r, names, err
 }
 
 func (p *Packb) Base() *resource.Pack {
@@ -56,26 +77,14 @@ func (p *Packb) Base() *resource.Pack {
 }
 
 var PackFromBase = func(pack *resource.Pack) Pack {
-	b := &Packb{pack}
+	b := &Packb{pack, false}
 	return b
 }
 
-func GetPacks(server minecraft.IConn) (packs []Pack, err error) {
+func GetPacks(server minecraft.IConn) (packs []Pack) {
 	for _, pack := range server.ResourcePacks() {
 		pack := PackFromBase(pack)
-		if pack.Encrypted() && pack.CanDecrypt() {
-			data, err := pack.Decrypt()
-			if err != nil {
-				return nil, err
-			}
-			pack2, err := resource.FromBytes(data)
-			if err != nil {
-				return nil, err
-			}
-			packs = append(packs, &Packb{pack2})
-		} else {
-			packs = append(packs, pack)
-		}
+		packs = append(packs, pack)
 	}
 	return
 }

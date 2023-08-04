@@ -5,10 +5,12 @@ import (
 	"bytes"
 	"context"
 	"crypto/aes"
+	"crypto/cipher"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path"
@@ -152,7 +154,7 @@ func WriteManifest(manifest *resource.Manifest, fpath string) error {
 }
 
 func CfbDecrypt(data []byte, key []byte) []byte {
-	cipher, _ := aes.NewCipher([]byte(key))
+	cipher, _ := aes.NewCipher(key)
 
 	shiftRegister := append(key[:16], data...)
 	iv := make([]byte, 16)
@@ -163,6 +165,38 @@ func CfbDecrypt(data []byte, key []byte) []byte {
 		shiftRegister = shiftRegister[1:]
 	}
 	return data
+}
+
+type Cfb8 struct {
+	r             io.Reader
+	cipher        cipher.Block
+	shiftRegister []byte
+	iv            []byte
+}
+
+func NewCfb8(r io.Reader, key []byte) *Cfb8 {
+	c := &Cfb8{
+		r: r,
+	}
+	c.cipher, _ = aes.NewCipher(key)
+	c.shiftRegister = make([]byte, 16)
+	copy(c.shiftRegister, key[:16])
+	c.iv = make([]byte, 16)
+	return c
+}
+
+func (c *Cfb8) Read(dst []byte) (n int, err error) {
+	n, err = c.r.Read(dst)
+	if n > 0 {
+		shiftRegister := append(c.shiftRegister, dst[:n]...)
+		for off := 0; off < n; off += 1 {
+			c.cipher.Encrypt(c.iv, shiftRegister)
+			dst[off] ^= c.iv[0]
+			shiftRegister = shiftRegister[1:]
+		}
+		c.shiftRegister = shiftRegister
+	}
+	return
 }
 
 func abs(n float32) float32 {

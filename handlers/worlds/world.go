@@ -7,6 +7,7 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"io"
 	"math/rand"
 	"os"
 	"path"
@@ -27,7 +28,6 @@ import (
 	"github.com/df-mc/dragonfly/server/world/mcdb"
 	"github.com/df-mc/goleveldb/leveldb/opt"
 	"github.com/go-gl/mathgl/mgl32"
-	"github.com/repeale/fp-go"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
@@ -59,6 +59,8 @@ type worldState struct {
 	blockNBTs          map[cube.Pos]map[string]any
 	entities           map[uint64]*entityState
 	openItemContainers map[byte]*itemContainer
+	timeSync           time.Time
+	time               int
 	Name               string
 }
 
@@ -69,6 +71,7 @@ type serverState struct {
 
 	playerInventory []protocol.ItemInstance
 	PlayerPos       TPlayerPos
+	packs           []utils.Pack
 
 	Name string
 }
@@ -81,9 +84,10 @@ type worldsHandler struct {
 	gui   utils.UI
 	bp    *behaviourpack.BehaviourPack
 
-	worldState  worldState
-	serverState serverState
-	settings    WorldSettings
+	worldState   worldState
+	serverState  serverState
+	settings     WorldSettings
+	customBlocks []protocol.BlockEntry
 }
 
 func NewWorldsHandler(ctx context.Context, ui utils.UI, settings WorldSettings) *utils.ProxyHandler {
@@ -145,6 +149,8 @@ func NewWorldsHandler(ctx context.Context, ui utils.UI, settings WorldSettings) 
 		},
 		GameDataModifier: func(gd *minecraft.GameData) {
 			gd.ClientSideGeneration = false
+			w.worldState.timeSync = time.Now()
+			w.worldState.time = int(gd.Time)
 		},
 		ConnectCB: w.OnConnect,
 		PacketCB: func(pk packet.Packet, toServer bool, timeReceived time.Time) (packet.Packet, error) {
@@ -160,6 +166,9 @@ func NewWorldsHandler(ctx context.Context, ui utils.UI, settings WorldSettings) 
 				case *packet.ChunkRadiusUpdated:
 					w.serverState.ChunkRadius = int(pk.ChunkRadius)
 					pk.ChunkRadius = 80
+				case *packet.SetTime:
+					w.worldState.timeSync = time.Now()
+					w.worldState.time = int(pk.Time)
 				}
 				pk = w.processItemPacketsServer(pk)
 				pk = w.ProcessChunkPackets(pk)
@@ -229,16 +238,17 @@ func (w *worldsHandler) Reset() {
 }
 
 func (w *worldState) cullChunks() {
-	keys := make([]world.ChunkPos, 0, len(w.chunks))
-	for cp := range w.chunks {
-		keys = append(keys, cp)
-	}
-	for _, cp := range fp.Filter(func(cp world.ChunkPos) bool {
-		return !fp.Some(func(sc *chunk.SubChunk) bool {
-			return !sc.Empty()
-		})(w.chunks[cp].Sub())
-	})(keys) {
-		delete(w.chunks, cp)
+	for key, ch := range w.chunks {
+		var empty = true
+		for _, sub := range ch.Sub() {
+			if !sub.Empty() {
+				empty = false
+				break
+			}
+		}
+		if empty {
+			delete(w.chunks, key)
+		}
 	}
 }
 
@@ -447,7 +457,14 @@ func (w *worldsHandler) SaveAndReset() {
 		}
 
 		ld.RandomTickSpeed = 0
-		s.CurrentTick = 0
+		s.CurrentTick = gd.Time
+
+		ticksSince := int64(time.Since(worldStateCopy.timeSync)/time.Millisecond) / 50
+		s.Time = int64(worldStateCopy.time)
+		if ld.DoDayLightCycle {
+			s.Time += ticksSince
+			s.TimeCycle = true
+		}
 
 		if w.bp.HasContent() {
 			if ld.Experiments == nil {
@@ -528,42 +545,68 @@ func (w *worldsHandler) AddPacks(folder string) {
 
 	// add resource packs
 	if w.settings.WithPacks {
-		packs, err := utils.GetPacks(w.proxy.Server)
-		if err != nil {
-			logrus.Error(err)
-		} else {
-			packNames := make(map[string]int)
-			for _, pack := range packs {
-				packNames[pack.Name()] += 1
-			}
+		packNames := make(map[string]int)
+		for _, pack := range w.serverState.packs {
+			packNames[pack.Name()] += 1
+		}
 
-			var rdeps []dep
-			for _, pack := range packs {
-				if pack.Encrypted() && !pack.CanDecrypt() {
+		var rdeps []dep
+		for _, pack := range w.serverState.packs {
+			if pack.Encrypted() {
+				if !pack.CanDecrypt() {
 					logrus.Warnf("Cant add %s, it is encrypted", pack.Name())
 					continue
 				}
-				logrus.Infof(locale.Loc("adding_pack", locale.Strmap{"Name": pack.Name()}))
-
-				packName := pack.Name()
-				if packNames[packName] > 1 {
-					packName += "_" + pack.UUID()
-				}
-				packName, _ = filenamify.FilenamifyV2(packName)
-				packFolder := path.Join(folder, "resource_packs", packName)
-				os.MkdirAll(packFolder, 0o755)
-				utils.UnpackZip(pack, int64(pack.Len()), packFolder)
-
-				rdeps = append(rdeps, dep{
-					PackID:  pack.Manifest().Header.UUID,
-					Version: pack.Manifest().Header.Version,
-				})
 			}
-			if len(rdeps) > 0 {
-				addPacksJSON("world_resource_packs.json", rdeps)
+			logrus.Infof(locale.Loc("adding_pack", locale.Strmap{"Name": pack.Name()}))
+
+			packName := pack.Name()
+			if packNames[packName] > 1 {
+				packName += "_" + pack.UUID()
 			}
+			packName, _ = filenamify.FilenamifyV2(packName)
+			packFolder := path.Join(folder, "resource_packs", packName)
+			os.MkdirAll(packFolder, 0o755)
+			err := extractPack(pack, packFolder)
+			if err != nil {
+				logrus.Error(err)
+			}
+
+			rdeps = append(rdeps, dep{
+				PackID:  pack.Manifest().Header.UUID,
+				Version: pack.Manifest().Header.Version,
+			})
+		}
+		if len(rdeps) > 0 {
+			addPacksJSON("world_resource_packs.json", rdeps)
 		}
 	}
+}
+
+func extractPack(p utils.Pack, folder string) error {
+	fs, names, err := p.FS()
+	if err != nil {
+		return err
+	}
+	for _, name := range names {
+		f, err := fs.Open(name)
+		if err != nil {
+			logrus.Error(err)
+			continue
+		}
+		outPath := path.Join(folder, name)
+		os.MkdirAll(path.Dir(outPath), 0777)
+		w, err := os.Create(outPath)
+		if err != nil {
+			f.Close()
+			logrus.Error(err)
+			continue
+		}
+		io.Copy(w, f)
+		f.Close()
+		w.Close()
+	}
+	return nil
 }
 
 func (w *worldsHandler) OnConnect(err error) bool {
@@ -591,6 +634,8 @@ func (w *worldsHandler) OnConnect(err error) bool {
 		MapItemPacket.Content[0].StackNetworkID = 0xffff + rand.Int31n(0xfff)
 	}
 
+	w.serverState.packs = utils.GetPacks(w.proxy.Server)
+
 	if len(gd.CustomBlocks) > 0 {
 		logrus.Info(locale.Loc("using_customblocks", nil))
 		for _, be := range gd.CustomBlocks {
@@ -598,6 +643,7 @@ func (w *worldsHandler) OnConnect(err error) bool {
 		}
 		// telling the chunk code what custom blocks there are so it can generate offsets
 		world.InsertCustomBlocks(gd.CustomBlocks)
+		w.customBlocks = gd.CustomBlocks
 	}
 
 	{ // check game version

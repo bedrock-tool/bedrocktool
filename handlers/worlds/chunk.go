@@ -5,7 +5,6 @@ import (
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/df-mc/dragonfly/server/world/chunk"
-	"github.com/repeale/fp-go"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sirupsen/logrus"
@@ -21,7 +20,6 @@ func (w *worldsHandler) processChangeDimension(pk *packet.ChangeDimension) {
 }
 
 func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
-	// ignore empty chunks THANKS WEIRD SERVER SOFTWARE DEVS
 	if len(pk.RawPayload) == 0 {
 		logrus.Info(locale.Loc("empty_chunk", nil))
 		return
@@ -73,9 +71,13 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 		})
 	default:
 		// legacy
-		empty := fp.Every(func(sub *chunk.SubChunk) bool {
-			return sub.Empty()
-		})(ch.Sub())
+		var empty = true
+		for _, sub := range ch.Sub() {
+			if !sub.Empty() {
+				empty = false
+				break
+			}
+		}
 		if !empty {
 			w.mapUI.SetChunk((world.ChunkPos)(pk.Position), ch, true)
 		}

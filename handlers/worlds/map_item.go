@@ -88,6 +88,7 @@ type MapUI struct {
 
 	ticker *time.Ticker
 	w      *worldsHandler
+	wg     sync.WaitGroup
 }
 
 func NewMapUI(w *worldsHandler) *MapUI {
@@ -121,7 +122,10 @@ func (m *MapUI) Start() {
 	}
 
 	m.ticker = time.NewTicker(33 * time.Millisecond)
+	m.wg.Add(1)
+	go m.resolveColors(m.w.customBlocks)
 	go func() {
+
 		for range m.ticker.C {
 			if m.needRedraw {
 				m.needRedraw = false
@@ -184,8 +188,8 @@ func (m *MapUI) SchedRedraw() {
 	m.needRedraw = true
 }
 
-// Redraw draws chunk images to the map image
-func (m *MapUI) Redraw() {
+func (m *MapUI) processQueue() []protocol.ChunkPos {
+	m.wg.Wait()
 	m.l.Lock()
 	updatedChunks := make([]protocol.ChunkPos, 0, m.renderQueue.Length())
 	for {
@@ -199,7 +203,12 @@ func (m *MapUI) Redraw() {
 		updatedChunks = append(updatedChunks, r.pos)
 	}
 	m.l.Unlock()
+	return updatedChunks
+}
 
+// Redraw draws chunk images to the map image
+func (m *MapUI) Redraw() {
+	updatedChunks := m.processQueue()
 	middle := protocol.ChunkPos{
 		int32(m.w.serverState.PlayerPos.Position.X()),
 		int32(m.w.serverState.PlayerPos.Position.Z()),
@@ -229,18 +238,19 @@ func (m *MapUI) Redraw() {
 	if m.showOnGui {
 		min, max := m.GetBounds()
 		m.w.gui.Message(messages.UpdateMap{
-			ChunkCount:   len(m.renderedChunks),
-			Rotation:     m.w.serverState.PlayerPos.Yaw,
-			UpdatedTiles: updatedChunks,
-			Tiles:        m.renderedChunks,
-			BoundsMin:    min,
-			BoundsMax:    max,
+			ChunkCount:    len(m.renderedChunks),
+			Rotation:      m.w.serverState.PlayerPos.Yaw,
+			UpdatedChunks: updatedChunks,
+			Chunks:        m.renderedChunks,
+			BoundsMin:     min,
+			BoundsMax:     max,
 		})
 	}
 	m.l.RUnlock()
 }
 
 func (m *MapUI) ToImage() *image.RGBA {
+	m.processQueue()
 	// get the chunk coord bounds
 	min, max := m.GetBounds()
 	chunksX := int(max[0] - min[0] + 1) // how many chunk lengths is x coordinate

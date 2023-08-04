@@ -55,7 +55,9 @@ type replayConnector struct {
 
 	packetFunc PacketFunc
 
-	downloadingPacks map[string]*downloadingPack
+	packMu           sync.Mutex
+	downloadingPacks map[string]downloadingPack
+	awaitingPacks    map[string]*downloadingPack
 	resourcePacks    []*resource.Pack
 }
 
@@ -67,6 +69,7 @@ type downloadingPack struct {
 	expectedIndex uint32
 	newFrag       chan []byte
 	contentKey    string
+	loaded        uint64
 }
 
 func (r *replayConnector) readHeader() error {
@@ -164,7 +167,7 @@ func (r *replayConnector) handleLoginSequence(pk packet.Packet) (bool, error) {
 
 	case *packet.ResourcePacksInfo:
 		for _, pack := range pk.TexturePacks {
-			r.downloadingPacks[pack.UUID] = &downloadingPack{
+			r.downloadingPacks[pack.UUID] = downloadingPack{
 				size:       pack.Size,
 				buf:        bytes.NewBuffer(make([]byte, 0, pack.Size)),
 				newFrag:    make(chan []byte),
@@ -173,69 +176,20 @@ func (r *replayConnector) handleLoginSequence(pk packet.Packet) (bool, error) {
 		}
 
 	case *packet.ResourcePackDataInfo:
-		pack, ok := r.downloadingPacks[pk.UUID]
-		if !ok {
-			// We either already downloaded the pack or we got sent an invalid UUID, that did not match any pack
-			// sent in the ResourcePacksInfo packet.
-			return false, fmt.Errorf("unknown pack to download with UUID %v", pk.UUID)
+		err := r.handleResourcePackDataInfo(pk)
+		if err != nil {
+			return false, err
 		}
-		if pack.size != pk.Size {
-			// Size mismatch: The ResourcePacksInfo packet had a size for the pack that did not match with the
-			// size sent here.
-			logrus.Printf("pack %v had a different size in the ResourcePacksInfo packet than the ResourcePackDataInfo packet\n", pk.UUID)
-			pack.size = pk.Size
-		}
-		pack.chunkSize = pk.DataChunkSize
-
-		chunkCount := uint32(pk.Size / uint64(pk.DataChunkSize))
-		if pk.Size%uint64(pk.DataChunkSize) != 0 {
-			chunkCount++
-		}
-
-		go func() {
-			for i := uint32(0); i < chunkCount; i++ {
-				select {
-				case <-r.close:
-					return
-				case frag := <-pack.newFrag:
-					// Write the fragment to the full buffer of the downloading resource pack.
-					_, _ = pack.buf.Write(frag)
-				}
-			}
-
-			if pack.buf.Len() != int(pack.size) {
-				logrus.Printf("incorrect resource pack size: expected %v, but got %v\n", pack.size, pack.buf.Len())
-				return
-			}
-
-			// First parse the resource pack from the total byte buffer we obtained.
-			newPack, err := resource.FromBytes(pack.buf.Bytes())
-			if err != nil {
-				logrus.Printf("invalid full resource pack data for UUID %v: %v\n", pk.UUID, err)
-				return
-			}
-
-			r.resourcePacks = append(r.resourcePacks, newPack.WithContentKey(pack.contentKey))
-		}()
-
 	case *packet.ResourcePackChunkData:
-		pack, ok := r.downloadingPacks[pk.UUID]
-		if !ok {
-			// We haven't received a ResourcePackDataInfo packet from the server, so we can't use this data to
-			// download a resource pack.
-			return false, fmt.Errorf("resource pack chunk data for resource pack that was not being downloaded")
+		err := r.handleResourcePackChunkData(pk)
+		if err != nil {
+			return false, err
 		}
-		lastData := pack.buf.Len()+int(pack.chunkSize) >= int(pack.size)
-		if !lastData && uint32(len(pk.Data)) != pack.chunkSize {
-			// The chunk data didn't have the full size and wasn't the last data to be sent for the resource pack,
-			// meaning we got too little data.
-			return false, fmt.Errorf("resource pack chunk data had a length of %v, but expected %v", len(pk.Data), pack.chunkSize)
+	case *packet.ResourcePackStack:
+		err := r.handleResourcePackStack(pk)
+		if err != nil {
+			return false, err
 		}
-		if pk.ChunkIndex != pack.expectedIndex {
-			return false, fmt.Errorf("resource pack chunk data had chunk index %v, but expected %v", pk.ChunkIndex, pack.expectedIndex)
-		}
-		pack.expectedIndex++
-		pack.newFrag <- pk.Data
 
 	case *packet.SetLocalPlayerAsInitialised:
 		if pk.EntityRuntimeID != r.gameData.EntityRuntimeID {
@@ -275,7 +229,11 @@ func (r *replayConnector) loop() {
 		}
 		for _, pk := range pks {
 			if !gameStarted {
-				gameStarted, _ = r.handleLoginSequence(pk)
+				gameStarted, err = r.handleLoginSequence(pk)
+				if err != nil {
+					logrus.Error(err)
+					return
+				}
 			} else {
 				r.packets <- pk
 			}
@@ -291,7 +249,8 @@ func createReplayConnector(filename string, packetFunc PacketFunc) (r *replayCon
 		spawn:            make(chan struct{}),
 		close:            make(chan struct{}),
 		packets:          make(chan packet.Packet),
-		downloadingPacks: make(map[string]*downloadingPack),
+		downloadingPacks: make(map[string]downloadingPack),
+		awaitingPacks:    make(map[string]*downloadingPack),
 	}
 
 	logrus.Infof("Reading replay %s", filename)

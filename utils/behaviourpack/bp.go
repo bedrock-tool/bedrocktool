@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/bedrock-tool/bedrocktool/utils"
-	"github.com/repeale/fp-go"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 	"github.com/sirupsen/logrus"
 )
@@ -74,16 +73,22 @@ func (bp *BehaviourPack) CheckAddLink(pack utils.Pack) {
 
 	hasEntitiesFolder := false
 	if bp.HasEntities() {
-		hasEntitiesFolder = fp.Some(func(f *zip.File) bool {
-			return f.Name == "entity" && f.FileInfo().IsDir()
-		})(z.File)
+		for _, f := range z.File {
+			if f.Name == "entity" && f.FileInfo().IsDir() {
+				hasEntitiesFolder = true
+				break
+			}
+		}
 	}
 
 	hasItemsFolder := false
 	if bp.HasItems() {
-		hasItemsFolder = fp.Some(func(f *zip.File) bool {
-			return f.Name == "items" && f.FileInfo().IsDir()
-		})(z.File)
+		for _, f := range z.File {
+			if f.Name == "items" && f.FileInfo().IsDir() {
+				hasItemsFolder = true
+				break
+			}
+		}
 	}
 
 	// has no assets needed

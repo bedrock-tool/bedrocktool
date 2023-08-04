@@ -47,12 +47,12 @@ type Init struct {
 //
 
 type UpdateMap struct {
-	ChunkCount   int
-	Rotation     float32
-	UpdatedTiles []protocol.ChunkPos
-	Tiles        map[protocol.ChunkPos]*image.RGBA
-	BoundsMin    protocol.ChunkPos
-	BoundsMax    protocol.ChunkPos
+	ChunkCount    int
+	Rotation      float32
+	UpdatedChunks []protocol.ChunkPos
+	Chunks        map[protocol.ChunkPos]*image.RGBA
+	BoundsMin     protocol.ChunkPos
+	BoundsMax     protocol.ChunkPos
 }
 
 //

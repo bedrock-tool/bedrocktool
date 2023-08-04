@@ -117,12 +117,12 @@ func (m *Map) Update(u *messages.UpdateMap) {
 		chunksX := int(m.BoundsMax[0] - m.BoundsMin[0] + 1) // how many chunk lengths is x coordinate
 		chunksY := int(m.BoundsMax[1] - m.BoundsMin[1] + 1)
 		m.MapImage = image.NewRGBA(image.Rect(0, 0, chunksX*16, chunksY*16))
-		for pos, tile := range u.Tiles {
+		for pos, tile := range u.Chunks {
 			drawTile(m.MapImage, m.BoundsMin, pos, tile)
 		}
 	} else {
-		for _, pos := range u.UpdatedTiles {
-			drawTile(m.MapImage, m.BoundsMin, pos, u.Tiles[pos])
+		for _, pos := range u.UpdatedChunks {
+			drawTile(m.MapImage, m.BoundsMin, pos, u.Chunks[pos])
 		}
 	}
 

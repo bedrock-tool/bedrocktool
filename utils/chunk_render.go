@@ -16,6 +16,10 @@ func isBlockLightblocking(b world.Block) bool {
 	return !noDiffuse
 }
 
+var unknownColor = color.RGBA{255, 0, 255, 255}
+
+var CustomBlockColors = map[string]color.RGBA{}
+
 func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.RGBA) {
 	if y <= int16(c.Range().Min()) {
 		return color.RGBA{0, 0, 0, 0}
@@ -47,17 +51,20 @@ func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.R
 		return blockColor
 	} else {
 		col := b.Color()
+		if col == unknownColor {
+			name, _ := b.EncodeBlock()
+			col2, ok := CustomBlockColors[name]
+			if !ok {
+				//name, nbt := b.EncodeBlock()
+				//fmt.Printf("unknown color %d  %s %s %s\n", rid, reflect.TypeOf(b), name, nbt)
+			} else {
+				col = col2
+			}
+		}
+
 		if col.A != 255 {
 			col = BlendColors(blockColorAt(c, x, y-1, z), col)
 		}
-
-		/*
-			a := color.RGBA{255, 0, 255, 255}
-			if col == a {
-				name, nbt := b.EncodeBlock()
-				fmt.Printf("unknown color %d  %s %s %s\n", rid, reflect.TypeOf(b), name, nbt)
-			}
-		*/
 
 		return col
 	}

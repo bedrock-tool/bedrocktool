@@ -25,12 +25,12 @@ require (
 	github.com/jinzhu/copier v0.3.5
 	github.com/miekg/dns v1.1.54
 	github.com/nicksnyder/go-i18n/v2 v2.2.1
-	github.com/repeale/fp-go v0.11.1
 	github.com/sanbornm/go-selfupdate v0.0.0-20210106163404-c9b625feac49
 	github.com/sandertv/go-raknet v1.12.0
 	github.com/sandertv/gophertunnel v1.30.0
 	github.com/shirou/gopsutil/v3 v3.23.5
 	github.com/sirupsen/logrus v1.9.3
+	github.com/thomaso-mirodin/intmath v0.0.0-20160323211736-5dc6d854e46e
 	golang.design/x/lockfree v0.0.1
 	golang.org/x/crypto v0.9.0
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
