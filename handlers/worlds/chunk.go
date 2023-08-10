@@ -124,7 +124,7 @@ func blockPosInChunk(pos protocol.BlockPos) (uint8, int16, uint8) {
 	return uint8(pos.X() & 0x0f), int16(pos.Y() & 0x0f), uint8(pos.Z() & 0x0f)
 }
 
-func (w *worldsHandler) ProcessChunkPackets(pk packet.Packet) packet.Packet {
+func (w *worldsHandler) handleChunkPackets(pk packet.Packet) packet.Packet {
 	switch pk := pk.(type) {
 	case *packet.ChangeDimension:
 		w.processChangeDimension(pk)

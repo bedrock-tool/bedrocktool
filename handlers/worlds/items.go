@@ -18,12 +18,50 @@ type itemContainer struct {
 	Content    *packet.InventoryContent
 }
 
-func (w *worldsHandler) processItemPacketsServer(pk packet.Packet) packet.Packet {
-	if !w.settings.SaveInventories {
-		return pk
-	}
-
+func (w *worldsHandler) handleItemPackets(pk packet.Packet, forward *bool) packet.Packet {
 	switch pk := pk.(type) {
+	case *packet.ItemStackRequest:
+		var requests []protocol.ItemStackRequest
+		for _, isr := range pk.Requests {
+			for _, sra := range isr.Actions {
+				if sra, ok := sra.(*protocol.TakeStackRequestAction); ok {
+					if sra.Source.StackNetworkID == MapItemPacket.Content[0].StackNetworkID {
+						continue
+					}
+				}
+				if sra, ok := sra.(*protocol.DropStackRequestAction); ok {
+					if sra.Source.StackNetworkID == MapItemPacket.Content[0].StackNetworkID {
+						continue
+					}
+				}
+				if sra, ok := sra.(*protocol.DestroyStackRequestAction); ok {
+					if sra.Source.StackNetworkID == MapItemPacket.Content[0].StackNetworkID {
+						continue
+					}
+				}
+				if sra, ok := sra.(*protocol.PlaceInContainerStackRequestAction); ok {
+					if sra.Source.StackNetworkID == MapItemPacket.Content[0].StackNetworkID {
+						continue
+					}
+				}
+				if sra, ok := sra.(*protocol.TakeOutContainerStackRequestAction); ok {
+					if sra.Source.StackNetworkID == MapItemPacket.Content[0].StackNetworkID {
+						continue
+					}
+				}
+				if sra, ok := sra.(*protocol.DestroyStackRequestAction); ok {
+					if sra.Source.StackNetworkID == MapItemPacket.Content[0].StackNetworkID {
+						continue
+					}
+				}
+			}
+			requests = append(requests, isr)
+		}
+		pk.Requests = requests
+	case *packet.MobEquipment:
+		if pk.NewItem.Stack.NBTData["map_uuid"] == int64(ViewMapID) {
+			*forward = false
+		}
 	case *packet.ContainerOpen:
 		// add to open containers
 		existing, ok := w.worldState.openItemContainers[pk.WindowID]
@@ -103,57 +141,6 @@ func (w *worldsHandler) processItemPacketsServer(pk packet.Packet) packet.Packet
 
 			// remove it again
 			delete(w.worldState.openItemContainers, byte(pk.WindowID))
-		}
-
-	case *packet.ItemComponent:
-		w.bp.ApplyComponentEntries(pk.Items)
-	}
-	return pk
-}
-
-func (w *worldsHandler) processItemPacketsClient(pk packet.Packet, forward *bool) packet.Packet {
-	switch pk := pk.(type) {
-	case *packet.ItemStackRequest:
-		var requests []protocol.ItemStackRequest
-		for _, isr := range pk.Requests {
-			for _, sra := range isr.Actions {
-				if sra, ok := sra.(*protocol.TakeStackRequestAction); ok {
-					if sra.Source.StackNetworkID == MapItemPacket.Content[0].StackNetworkID {
-						continue
-					}
-				}
-				if sra, ok := sra.(*protocol.DropStackRequestAction); ok {
-					if sra.Source.StackNetworkID == MapItemPacket.Content[0].StackNetworkID {
-						continue
-					}
-				}
-				if sra, ok := sra.(*protocol.DestroyStackRequestAction); ok {
-					if sra.Source.StackNetworkID == MapItemPacket.Content[0].StackNetworkID {
-						continue
-					}
-				}
-				if sra, ok := sra.(*protocol.PlaceInContainerStackRequestAction); ok {
-					if sra.Source.StackNetworkID == MapItemPacket.Content[0].StackNetworkID {
-						continue
-					}
-				}
-				if sra, ok := sra.(*protocol.TakeOutContainerStackRequestAction); ok {
-					if sra.Source.StackNetworkID == MapItemPacket.Content[0].StackNetworkID {
-						continue
-					}
-				}
-				if sra, ok := sra.(*protocol.DestroyStackRequestAction); ok {
-					if sra.Source.StackNetworkID == MapItemPacket.Content[0].StackNetworkID {
-						continue
-					}
-				}
-			}
-			requests = append(requests, isr)
-		}
-		pk.Requests = requests
-	case *packet.MobEquipment:
-		if pk.NewItem.Stack.NBTData["map_uuid"] == int64(ViewMapID) {
-			*forward = false
 		}
 	}
 	return pk

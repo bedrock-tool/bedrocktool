@@ -69,7 +69,7 @@ func NewSecondUser() *proxy.Handler {
 			s.mainPlayer = player.New(id.DisplayName, skin.New(64, 64), mgl64.Vec3{0, 00})
 			s.server.World().AddEntity(s.mainPlayer)
 		},
-		PacketCB: func(pk packet.Packet, toServer bool, timeReceived time.Time) (packet.Packet, error) {
+		PacketCB: func(pk packet.Packet, toServer bool, timeReceived time.Time, _ bool) (packet.Packet, error) {
 
 			switch pk := pk.(type) {
 			case *packet.LevelChunk:

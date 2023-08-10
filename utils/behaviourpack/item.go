@@ -24,7 +24,7 @@ func (bp *BehaviourPack) AddItem(item protocol.ItemEntry) {
 		return
 	}
 
-	entry := itemBehaviour{
+	bp.items[item.Name] = &itemBehaviour{
 		FormatVersion: bp.formatVersion,
 		MinecraftItem: minecraftItem{
 			Description: itemDescription{
@@ -34,7 +34,6 @@ func (bp *BehaviourPack) AddItem(item protocol.ItemEntry) {
 			Components: make(map[string]any),
 		},
 	}
-	bp.items[item.Name] = entry
 }
 
 func (bp *BehaviourPack) ApplyComponentEntries(entries []protocol.ItemComponentEntry) {
@@ -43,6 +42,9 @@ func (bp *BehaviourPack) ApplyComponentEntries(entries []protocol.ItemComponentE
 		if !ok {
 			continue
 		}
-		item.MinecraftItem.Components = ice.Data
+		if components, ok := ice.Data["components"].(map[string]any); ok {
+			item.MinecraftItem.Components = components
+		}
+		println()
 	}
 }

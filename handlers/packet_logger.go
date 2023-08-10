@@ -3,10 +3,10 @@ package handlers
 import (
 	"bufio"
 	"io"
-	"net"
 	"os"
 	"reflect"
 	"sync"
+	"time"
 
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/crypt"
@@ -69,27 +69,9 @@ func NewDebugLogger(extraVerbose bool) *proxy.Handler {
 		}
 	}
 
-	serverPool := packet.NewServerPool()
-	clientPool := packet.NewClientPool()
-	pool := make(packet.Pool)
-	for k, v := range serverPool {
-		pool[k] = v
-	}
-	for k, v := range clientPool {
-		pool[k] = v
-	}
-	var p *proxy.Context
 	return &proxy.Handler{
 		Name: "Debug",
-		ProxyRef: func(pc *proxy.Context) {
-			p = pc
-		},
-		PacketFunc: func(header packet.Header, payload []byte, src, dst net.Addr) {
-			pk := proxy.DecodePacket(pool, header, payload)
-			if pk == nil {
-				return
-			}
-
+		PacketCB: func(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
 			if packetsLogF != nil {
 				dmpLock.Lock()
 				packetsLogF.Write([]byte(utils.DumpStruct(0, pk, true, false) + "\n\n\n"))
@@ -99,11 +81,12 @@ func NewDebugLogger(extraVerbose bool) *proxy.Handler {
 			pkName := reflect.TypeOf(pk).String()[1:]
 			if !slices.Contains(MutedPackets, pkName) {
 				var dir string = dirS2C
-				if p.IsClient(src) {
+				if toServer {
 					dir = dirC2S
 				}
 				logrus.Debugf("%s 0x%02x, %s", dir, pk.ID(), pkName)
 			}
+			return pk, nil
 		},
 		OnEnd: func() {
 			dmpLock.Lock()

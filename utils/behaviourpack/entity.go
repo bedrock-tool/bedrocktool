@@ -37,7 +37,7 @@ func (bp *BehaviourPack) AddEntity(entity EntityIn) {
 
 	entry, ok := bp.entities[entity.Identifier]
 	if !ok {
-		entry = entityBehaviour{
+		entry = &entityBehaviour{
 			FormatVersion: bp.formatVersion,
 			MinecraftEntity: MinecraftEntity{
 				Description: EntityDescription{

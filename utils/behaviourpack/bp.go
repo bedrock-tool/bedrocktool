@@ -16,8 +16,8 @@ type BehaviourPack struct {
 	formatVersion string
 	Manifest      *resource.Manifest
 	blocks        []blockBehaviour
-	items         map[string]itemBehaviour
-	entities      map[string]entityBehaviour
+	items         map[string]*itemBehaviour
+	entities      map[string]*entityBehaviour
 }
 
 func New(name string) *BehaviourPack {
@@ -44,8 +44,8 @@ func New(name string) *BehaviourPack {
 			Capabilities: []resource.Capability{},
 		},
 		blocks:   []blockBehaviour{},
-		items:    make(map[string]itemBehaviour),
-		entities: make(map[string]entityBehaviour),
+		items:    make(map[string]*itemBehaviour),
+		entities: make(map[string]*entityBehaviour),
 	}
 }
 

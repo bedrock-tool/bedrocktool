@@ -41,13 +41,13 @@ type Handler struct {
 	AddressAndName func(address, hostname string) error
 
 	// called to change game data
-	GameDataModifier func(gd *minecraft.GameData)
+	ToClientGameDataModifier func(gd *minecraft.GameData)
 
-	// called for every packet
-	PacketFunc func(header packet.Header, payload []byte, src, dst net.Addr)
+	// Called with raw packet data
+	PacketRaw func(header packet.Header, payload []byte, src, dst net.Addr)
 
 	// called on every packet after login
-	PacketCB func(pk packet.Packet, toServer bool, timeReceived time.Time) (packet.Packet, error)
+	PacketCB func(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error)
 
 	// called after client connected
 	OnClientConnect   func(conn minecraft.IConn)
@@ -66,6 +66,7 @@ type Context struct {
 	Server     minecraft.IConn
 	Client     minecraft.IConn
 	clientAddr net.Addr
+	spawned    bool
 	Listener   *minecraft.Listener
 
 	AlwaysGetPacks   bool
@@ -121,7 +122,7 @@ func (p *Context) AddHandler(handler *Handler) {
 	p.handlers = append(p.handlers, handler)
 }
 
-func (p *Context) CommandHandlerPacketCB(pk packet.Packet, toServer bool, _ time.Time) (packet.Packet, error) {
+func (p *Context) CommandHandlerPacketCB(pk packet.Packet, toServer bool, _ time.Time, _ bool) (packet.Packet, error) {
 	switch pk := pk.(type) {
 	case *packet.CommandRequest:
 		cmd := strings.Split(pk.CommandLine, " ")
@@ -169,7 +170,7 @@ func (p *Context) proxyLoop(ctx context.Context, toServer bool) error {
 		pkName := reflect.TypeOf(pk).String()
 		for _, handler := range p.handlers {
 			if handler.PacketCB != nil {
-				pk, err = handler.PacketCB(pk, toServer, time.Now())
+				pk, err = handler.PacketCB(pk, toServer, time.Now(), false)
 				if err != nil {
 					if errors.Is(err, transferingErr) {
 						transferingErr = err
@@ -276,11 +277,32 @@ func (p *Context) packetFunc(header packet.Header, payload []byte, src, dst net.
 	if header.PacketID == packet.IDRequestNetworkSettings {
 		p.clientAddr = src
 	}
-	for _, handler := range p.handlers {
-		if handler.PacketFunc == nil {
-			continue
+	if header.PacketID == packet.IDSetLocalPlayerAsInitialised {
+		p.spawned = true
+	}
+
+	for _, h := range p.handlers {
+		if h.PacketRaw != nil {
+			h.PacketRaw(header, payload, src, dst)
 		}
-		handler.PacketFunc(header, payload, src, dst)
+	}
+
+	pk, ok := decodePacket(header, payload)
+	if !ok {
+		return
+	}
+
+	if !p.spawned {
+		var err error
+		toServer := p.IsClient(src)
+		for _, handler := range p.handlers {
+			if handler.PacketCB != nil {
+				pk, err = handler.PacketCB(pk, toServer, time.Now(), !p.spawned)
+				if err != nil {
+					logrus.Error(err)
+				}
+			}
+		}
 	}
 }
 
@@ -374,8 +396,8 @@ func (p *Context) connect(ctx context.Context, serverAddress string) (err error)
 
 	gd := p.Server.GameData()
 	for _, handler := range p.handlers {
-		if handler.GameDataModifier != nil {
-			handler.GameDataModifier(&gd)
+		if handler.ToClientGameDataModifier != nil {
+			handler.ToClientGameDataModifier(&gd)
 		}
 	}
 
@@ -422,28 +444,6 @@ func (p *Context) connect(ctx context.Context, serverAddress string) (err error)
 		}
 	}()
 
-	/*
-		wantSecondary := fp.Filter(func(handler *ProxyHandler) bool {
-			return handler.SecondaryClientCB != nil
-		})(p.handlers)
-
-		if len(wantSecondary) > 0 {
-			go func() {
-				for {
-					c, err := p.Listener.Accept()
-					if err != nil {
-						logrus.Error(err)
-						return
-					}
-
-					for _, handler := range wantSecondary {
-						go handler.SecondaryClientCB(c.(*minecraft.Conn))
-					}
-				}
-			}()
-		}
-	*/
-
 	<-ctx2.Done()
 	err = ctx2.Err()
 	if err, ok := err.(*transferingErr); ok {
@@ -483,19 +483,29 @@ func (p *Context) Run(ctx context.Context, serverAddress, name string) (err erro
 	return p.connect(ctx, serverAddress)
 }
 
-func DecodePacket(pool packet.Pool, header packet.Header, payload []byte) packet.Packet {
+var serverPool = packet.NewServerPool()
+var clientPool = packet.NewClientPool()
+
+func decodePacket(header packet.Header, payload []byte) (packet.Packet, bool) {
 	var pk packet.Packet
-	if pkFunc, ok := pool[header.PacketID]; ok {
+
+	pkFunc, ok := serverPool[header.PacketID]
+	if !ok {
+		pkFunc, ok = clientPool[header.PacketID]
+	}
+	if ok {
 		pk = pkFunc()
 	} else {
 		pk = &packet.Unknown{PacketID: header.PacketID, Payload: payload}
 	}
 
+	var success = true
 	defer func() {
 		if recoveredErr := recover(); recoveredErr != nil {
 			logrus.Errorf("%T: %s", pk, recoveredErr.(error))
+			success = false
 		}
 	}()
 	pk.Marshal(protocol.NewReader(bytes.NewBuffer(payload), 0, false))
-	return pk
+	return pk, success
 }

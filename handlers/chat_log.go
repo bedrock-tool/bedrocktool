@@ -15,7 +15,7 @@ type chatLogger struct {
 	fio     *os.File
 }
 
-func (c *chatLogger) PacketCB(pk packet.Packet, toServer bool, t time.Time) (packet.Packet, error) {
+func (c *chatLogger) PacketCB(pk packet.Packet, toServer bool, t time.Time, _ bool) (packet.Packet, error) {
 	if text, ok := pk.(*packet.Text); ok {
 		logLine := text.Message
 		if c.Verbose {

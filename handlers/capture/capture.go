@@ -57,7 +57,7 @@ func NewPacketCapturer() *proxy.Handler {
 			p.proxy = pc
 		},
 		AddressAndName: p.AddressAndName,
-		PacketFunc:     p.PacketFunc,
+		PacketRaw:      p.PacketFunc,
 		OnEnd: func() {
 			p.dumpLock.Lock()
 			defer p.dumpLock.Unlock()

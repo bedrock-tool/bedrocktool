@@ -32,7 +32,7 @@ func NewTransferHandler() *Handler {
 	}
 }
 
-func (t *transferHandler) packetCB(pk packet.Packet, toServer bool, timeReceived time.Time) (packet.Packet, error) {
+func (t *transferHandler) packetCB(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
 	switch pk := pk.(type) {
 	case *packet.Transfer:
 		var pk2 packet.Packet = nil

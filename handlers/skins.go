@@ -114,12 +114,10 @@ func NewSkinSaver(skinCB func(SkinAdd)) *proxy.Handler {
 			s.fpath = outPathBase
 			return nil
 		},
-		PacketCB: func(pk packet.Packet, toServer bool, timeReceived time.Time) (packet.Packet, error) {
-			if !toServer {
-				for _, s := range s.ProcessPacket(pk) {
-					if skinCB != nil {
-						skinCB(s)
-					}
+		PacketCB: func(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
+			for _, s := range s.ProcessPacket(pk) {
+				if skinCB != nil {
+					skinCB(s)
 				}
 			}
 			return pk, nil

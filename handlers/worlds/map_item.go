@@ -273,21 +273,21 @@ func (w *worldsHandler) ProcessAnimate(pk *packet.Animate) {
 }
 
 func (w *worldsHandler) SetPlayerPos(Position mgl32.Vec3, Pitch, Yaw, HeadYaw float32) {
-	last := w.serverState.PlayerPos
-	current := TPlayerPos{
+	old := w.serverState.PlayerPos
+	new := playerPos{
 		Position: Position,
 		Pitch:    Pitch,
 		Yaw:      Yaw,
 		HeadYaw:  HeadYaw,
 	}
-	w.serverState.PlayerPos = current
+	w.serverState.PlayerPos = new
 
-	if int(last.Position.X()) != int(current.Position.X()) || int(last.Position.Z()) != int(current.Position.Z()) {
+	if int(old.Position.X()) != int(new.Position.X()) || int(old.Position.Z()) != int(new.Position.Z()) {
 		w.mapUI.SchedRedraw()
 	}
 }
 
-func (w *worldsHandler) processMapPacketsClient(pk packet.Packet, forward *bool) packet.Packet {
+func (w *worldsHandler) handleMapPackets(pk packet.Packet, forward *bool) packet.Packet {
 	switch pk := pk.(type) {
 	case *packet.MovePlayer:
 		w.SetPlayerPos(pk.Position, pk.Pitch, pk.Yaw, pk.HeadYaw)

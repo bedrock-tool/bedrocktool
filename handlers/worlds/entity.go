@@ -230,7 +230,7 @@ func (w *worldsHandler) getEntity(id uint64) (*entityState, bool) {
 	return e, ok
 }
 
-func (w *worldsHandler) ProcessEntityPackets(pk packet.Packet) packet.Packet {
+func (w *worldsHandler) handleEntityPackets(pk packet.Packet) packet.Packet {
 	if !w.settings.SaveEntities {
 		return pk
 	}
