@@ -142,6 +142,38 @@ func NewWorldsHandler(ctx context.Context, ui ui.UI, settings WorldSettings) *pr
 				for _, ie := range pk.Items {
 					w.bp.AddItem(ie)
 				}
+				if len(pk.Blocks) > 0 {
+					logrus.Info(locale.Loc("using_customblocks", nil))
+					for _, be := range pk.Blocks {
+						w.bp.AddBlock(be)
+					}
+					// telling the chunk code what custom blocks there are so it can generate offsets
+					world.InsertCustomBlocks(pk.Blocks)
+					w.customBlocks = pk.Blocks
+				}
+
+				{ // check game version
+					gv := strings.Split(pk.BaseGameVersion, ".")
+					var err error
+					if len(gv) > 1 {
+						var ver int
+						ver, err = strconv.Atoi(gv[1])
+						w.serverState.ispre118 = ver < 18
+					}
+					if err != nil || len(gv) <= 1 {
+						logrus.Info(locale.Loc("guessing_version", nil))
+					}
+
+					dimensionID := pk.Dimension
+					if w.serverState.ispre118 {
+						logrus.Info(locale.Loc("using_under_118", nil))
+						if dimensionID == 0 {
+							dimensionID += 10
+						}
+					}
+					w.worldState.dimension, _ = world.DimensionByID(int(dimensionID))
+				}
+
 			case *packet.ItemComponent:
 				w.bp.ApplyComponentEntries(pk.Items)
 			}
@@ -185,38 +217,6 @@ func (w *worldsHandler) OnConnect(err error) bool {
 	}
 
 	w.serverState.packs = utils.GetPacks(w.proxy.Server)
-
-	if len(gd.CustomBlocks) > 0 {
-		logrus.Info(locale.Loc("using_customblocks", nil))
-		for _, be := range gd.CustomBlocks {
-			w.bp.AddBlock(be)
-		}
-		// telling the chunk code what custom blocks there are so it can generate offsets
-		world.InsertCustomBlocks(gd.CustomBlocks)
-		w.customBlocks = gd.CustomBlocks
-	}
-
-	{ // check game version
-		gv := strings.Split(gd.BaseGameVersion, ".")
-		var err error
-		if len(gv) > 1 {
-			var ver int
-			ver, err = strconv.Atoi(gv[1])
-			w.serverState.ispre118 = ver < 18
-		}
-		if err != nil || len(gv) <= 1 {
-			logrus.Info(locale.Loc("guessing_version", nil))
-		}
-
-		dimensionID := gd.Dimension
-		if w.serverState.ispre118 {
-			logrus.Info(locale.Loc("using_under_118", nil))
-			if dimensionID == 0 {
-				dimensionID += 10
-			}
-		}
-		w.worldState.dimension, _ = world.DimensionByID(int(dimensionID))
-	}
 
 	w.proxy.SendMessage(locale.Loc("use_setname", nil))
 	w.mapUI.Start()
