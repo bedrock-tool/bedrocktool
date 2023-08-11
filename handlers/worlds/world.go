@@ -148,7 +148,7 @@ func NewWorldsHandler(ctx context.Context, ui ui.UI, settings WorldSettings) *pr
 
 			forward := true
 			pk = w.handleItemPackets(pk, &forward)
-			pk = w.handleMapPackets(pk, &forward)
+			pk = w.handleMapPackets(pk, &forward, toServer)
 			pk = w.handleChunkPackets(pk)
 			pk = w.handleEntityPackets(pk)
 
@@ -267,6 +267,7 @@ func (w *worldsHandler) Reset() {
 		dim = w.worldState.dimension
 	}
 	w.worldState = newWorldState(w.defaultName(), dim)
+	w.worldState.VoidGen = w.settings.VoidGen
 	w.mapUI.Reset()
 }
 

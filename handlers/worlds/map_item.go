@@ -287,7 +287,7 @@ func (w *worldsHandler) SetPlayerPos(Position mgl32.Vec3, Pitch, Yaw, HeadYaw fl
 	}
 }
 
-func (w *worldsHandler) handleMapPackets(pk packet.Packet, forward *bool) packet.Packet {
+func (w *worldsHandler) handleMapPackets(pk packet.Packet, forward *bool, toServer bool) packet.Packet {
 	switch pk := pk.(type) {
 	case *packet.MovePlayer:
 		w.SetPlayerPos(pk.Position, pk.Pitch, pk.Yaw, pk.HeadYaw)
@@ -299,7 +299,9 @@ func (w *worldsHandler) handleMapPackets(pk packet.Packet, forward *bool) packet
 			*forward = false
 		}
 	case *packet.Animate:
-		w.ProcessAnimate(pk)
+		if toServer {
+			w.ProcessAnimate(pk)
+		}
 	}
 	return pk
 }

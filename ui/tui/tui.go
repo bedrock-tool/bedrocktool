@@ -52,7 +52,7 @@ func (c *TUI) Start(ctx context.Context, cancel context.CancelFunc) error {
 		os.Args = append(os.Args, _cmd...)
 	}
 	flag.Parse()
-	subcommands.Execute(ctx)
+	subcommands.Execute(ctx, c)
 
 	logrus.Info(locale.Loc("enter_to_exit", nil))
 	input := bufio.NewScanner(os.Stdin)

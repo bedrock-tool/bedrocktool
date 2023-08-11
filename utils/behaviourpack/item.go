@@ -45,6 +45,5 @@ func (bp *BehaviourPack) ApplyComponentEntries(entries []protocol.ItemComponentE
 		if components, ok := ice.Data["components"].(map[string]any); ok {
 			item.MinecraftItem.Components = components
 		}
-		println()
 	}
 }
