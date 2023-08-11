@@ -1,4 +1,4 @@
-package capture
+package handlers
 
 import (
 	"bytes"
