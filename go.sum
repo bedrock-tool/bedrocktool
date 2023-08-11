@@ -82,8 +82,8 @@ github.com/muhammadmuzzammil1998/jsonc v1.0.0 h1:8o5gBQn4ZA3NBA9DlTujCj2a4w0tqWr
 github.com/muhammadmuzzammil1998/jsonc v1.0.0/go.mod h1:saF2fIVw4banK0H4+/EuqfFLpRnoy5S+ECwTOCcRcSU=
 github.com/nicksnyder/go-i18n/v2 v2.2.1 h1:aOzRCdwsJuoExfZhoiXHy4bjruwCMdt5otbYojM/PaA=
 github.com/nicksnyder/go-i18n/v2 v2.2.1/go.mod h1:fF2++lPHlo+/kPaj3nB0uxtPwzlPm+BlgwGX7MkeGj0=
-github.com/olebeck/dragonfly v0.9.6-4 h1:m57eX7FSvf4QH1NxYRG+EFE7aDD3dnTZ375QmQh20RQ=
-github.com/olebeck/dragonfly v0.9.6-4/go.mod h1:/7gZ5k2LteID3BDdODcSNRA+nSm+SAlbr4UVV6Xq7dY=
+github.com/olebeck/dragonfly v0.9.6-5 h1:VxO4lcRwjUUV/6wafk1WPNItO5yzFh9Y3R/2YI5PgBU=
+github.com/olebeck/dragonfly v0.9.6-5/go.mod h1:/7gZ5k2LteID3BDdODcSNRA+nSm+SAlbr4UVV6Xq7dY=
 github.com/olebeck/gio v0.0.0-20230607184051-9ab60b08f083 h1:ZnL97gNzNlVxNj7X3fhBqi70OALUVRbw1qw97vpYyso=
 github.com/olebeck/gio v0.0.0-20230607184051-9ab60b08f083/go.mod h1:8CFQM/4LurRd9G3NUYdacFb9j2pK0LrAyVO2mAZo4mw=
 github.com/olebeck/gophertunnel v1.31.0-2 h1:m/rUr/gjMTs/pSS5jPKlSxBJlC1WVjnxu8MHrVWfdkc=
