@@ -116,6 +116,13 @@ func ParseBlock(block protocol.BlockEntry) MinecraftBlock {
 				}
 			}
 		}
+
+		if friction, ok := comps["minecraft:friction"].(float32); ok {
+			if friction == 0.4 {
+				delete(comps, "minecraft:friction")
+			}
+		}
+
 		entry.Components = comps
 	}
 
