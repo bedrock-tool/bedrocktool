@@ -129,6 +129,7 @@ func ParseBlock(block protocol.BlockEntry) MinecraftBlock {
 	if menu, ok := block.Properties["menu_category"].(map[string]any); ok {
 		entry.Description.MenuCategory = menu_category_from_map(menu)
 	}
+
 	if props, ok := block.Properties["properties"].([]any); ok {
 		entry.Description.Properties = make(map[string]any)
 		for _, v := range props {
@@ -139,8 +140,11 @@ func ParseBlock(block protocol.BlockEntry) MinecraftBlock {
 				entry.Description.Properties[name] = a
 			case []bool:
 				entry.Description.Properties[name] = a
+			case []any:
+				entry.Description.Properties[name] = a
 			}
 		}
 	}
+
 	return entry
 }
