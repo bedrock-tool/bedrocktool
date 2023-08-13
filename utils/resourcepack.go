@@ -13,7 +13,8 @@ import (
 
 type Pack interface {
 	io.ReaderAt
-	ReadAll() ([]byte, error)
+	io.WriterTo
+	io.Seeker
 	Encrypted() bool
 	CanDecrypt() bool
 	UUID() string
@@ -31,22 +32,6 @@ type Packb struct {
 	d bool
 }
 
-func (p *Packb) ReadAll() ([]byte, error) {
-	buf := make([]byte, p.Len())
-	off := 0
-	for {
-		n, err := p.ReadAt(buf[off:], int64(off))
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return nil, err
-		}
-		off += n
-	}
-	return buf, nil
-}
-
 func (p *Packb) CanDecrypt() bool {
 	return false
 }
@@ -60,6 +45,9 @@ func (p *Packb) FS() (fs.FS, []string, error) {
 		return nil, nil, errors.New("encrypted")
 	}
 	r, err := zip.NewReader(p, int64(p.Len()))
+	if err != nil {
+		return nil, nil, err
+	}
 	var names []string
 	for _, f := range r.File {
 		if f.FileInfo().IsDir() {

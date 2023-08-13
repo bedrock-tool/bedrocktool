@@ -93,7 +93,6 @@ func New(ui ui.UI) (*Context, error) {
 		WithClient:       true,
 		IgnoreDisconnect: false,
 		ui:               ui,
-		rpHandler:        &rpHandler{},
 	}
 	return p, nil
 }

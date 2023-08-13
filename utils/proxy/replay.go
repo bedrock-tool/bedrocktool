@@ -55,21 +55,7 @@ type replayConnector struct {
 
 	packetFunc PacketFunc
 
-	packMu           sync.Mutex
-	downloadingPacks map[string]downloadingPack
-	awaitingPacks    map[string]*downloadingPack
-	resourcePacks    []*resource.Pack
-}
-
-// downloadingPack is a resource pack that is being downloaded by a client connection.
-type downloadingPack struct {
-	buf           *bytes.Buffer
-	chunkSize     uint32
-	size          uint64
-	expectedIndex uint32
-	newFrag       chan []byte
-	contentKey    string
-	loaded        uint64
+	resourcePackHandler *rpHandler
 }
 
 func (r *replayConnector) readHeader() error {
@@ -166,30 +152,13 @@ func (r *replayConnector) handleLoginSequence(pk packet.Packet) (bool, error) {
 		})
 
 	case *packet.ResourcePacksInfo:
-		for _, pack := range pk.TexturePacks {
-			r.downloadingPacks[pack.UUID] = downloadingPack{
-				size:       pack.Size,
-				buf:        bytes.NewBuffer(make([]byte, 0, pack.Size)),
-				newFrag:    make(chan []byte),
-				contentKey: pack.ContentKey,
-			}
-		}
-
+		return false, r.resourcePackHandler.OnResourcePacksInfo(pk)
 	case *packet.ResourcePackDataInfo:
-		err := r.handleResourcePackDataInfo(pk)
-		if err != nil {
-			return false, err
-		}
+		return false, r.resourcePackHandler.OnResourcePackDataInfo(pk)
 	case *packet.ResourcePackChunkData:
-		err := r.handleResourcePackChunkData(pk)
-		if err != nil {
-			return false, err
-		}
+		return false, r.resourcePackHandler.OnResourcePackChunkData(pk)
 	case *packet.ResourcePackStack:
-		err := r.handleResourcePackStack(pk)
-		if err != nil {
-			return false, err
-		}
+		return false, r.resourcePackHandler.OnResourcePackStack(pk)
 
 	case *packet.SetLocalPlayerAsInitialised:
 		if pk.EntityRuntimeID != r.gameData.EntityRuntimeID {
@@ -243,15 +212,15 @@ func (r *replayConnector) loop() {
 
 func createReplayConnector(filename string, packetFunc PacketFunc) (r *replayConnector, err error) {
 	r = &replayConnector{
-		pool:             minecraft.DefaultProtocol.Packets(true),
-		proto:            minecraft.DefaultProtocol,
-		packetFunc:       packetFunc,
-		spawn:            make(chan struct{}),
-		close:            make(chan struct{}),
-		packets:          make(chan packet.Packet),
-		downloadingPacks: make(map[string]downloadingPack),
-		awaitingPacks:    make(map[string]*downloadingPack),
+		pool:       minecraft.DefaultProtocol.Packets(true),
+		proto:      minecraft.DefaultProtocol,
+		packetFunc: packetFunc,
+		spawn:      make(chan struct{}),
+		close:      make(chan struct{}),
+		packets:    make(chan packet.Packet),
 	}
+	r.resourcePackHandler = NewRpHandler(r, nil)
+	r.resourcePackHandler.cache.Ignore = true
 
 	logrus.Infof("Reading replay %s", filename)
 
@@ -280,6 +249,17 @@ func (r *replayConnector) DisconnectOnInvalidPacket() bool {
 
 func (r *replayConnector) DisconnectOnUnknownPacket() bool {
 	return false
+}
+
+func (r *replayConnector) OnDisconnect() <-chan struct{} {
+	return r.close
+}
+
+func (r *replayConnector) Expect(...uint32) {
+}
+
+func (r *replayConnector) SetLoggedIn() {
+
 }
 
 func (r *replayConnector) Close() error {
@@ -381,7 +361,7 @@ func (r *replayConnector) RemoteAddr() net.Addr {
 }
 
 func (r *replayConnector) ResourcePacks() []*resource.Pack {
-	return r.resourcePacks
+	return r.resourcePackHandler.ResourcePacks()
 }
 
 func (r *replayConnector) SetGameData(data minecraft.GameData) {

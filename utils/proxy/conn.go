@@ -21,8 +21,12 @@ func (p *Context) connectServer(ctx context.Context) (err error) {
 		TokenSource: p.tokenSource,
 		PacketFunc:  p.packetFunc,
 		EarlyConnHandler: func(c *minecraft.Conn) {
-			//c.ResourcePackHandler = p.rpHandler
-			p.rpHandler.Server = c
+			if p.WithClient {
+				p.rpHandler.Server = c
+			} else {
+				p.rpHandler = NewRpHandler(c, nil)
+			}
+			c.ResourcePackHandler = p.rpHandler
 		},
 	}.DialContext(ctx, "raknet", p.serverAddress)
 	if err != nil {
@@ -38,9 +42,9 @@ func (p *Context) connectClient(ctx context.Context, serverAddress string, cdpp 
 		StatusProvider: minecraft.NewStatusProvider(fmt.Sprintf("%s Proxy", serverAddress)),
 		//PacketFunc:     p.packetFunc,
 		EarlyConnHandler: func(c *minecraft.Conn) {
-			//c.ResourcePackHandler = p.rpHandler
+			p.rpHandler = NewRpHandler(nil, c)
+			c.ResourcePackHandler = p.rpHandler
 			close(p.clientConnecting)
-			p.rpHandler.Client = c
 		},
 	}.Listen("raknet", ":19132")
 	if err != nil {
