@@ -13,15 +13,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/ui"
-	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/login"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
-	"github.com/sandertv/gophertunnel/minecraft/resource"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
 )
@@ -65,11 +62,13 @@ type Handler struct {
 }
 
 type Context struct {
-	Server     minecraft.IConn
-	Client     minecraft.IConn
-	Listener   *minecraft.Listener
-	clientAddr net.Addr
-	spawned    bool
+	Server           minecraft.IConn
+	Client           minecraft.IConn
+	Listener         *minecraft.Listener
+	tokenSource      oauth2.TokenSource
+	clientConnecting chan bool
+	clientAddr       net.Addr
+	spawned          bool
 
 	AlwaysGetPacks   bool
 	WithClient       bool
@@ -83,7 +82,7 @@ type Context struct {
 	handlers []*Handler
 
 	transfer  *packet.Transfer
-	rpHandler rpHandler
+	rpHandler *rpHandler
 	ui        ui.UI
 }
 
@@ -94,7 +93,7 @@ func New(ui ui.UI) (*Context, error) {
 		WithClient:       true,
 		IgnoreDisconnect: false,
 		ui:               ui,
-		rpHandler:        rpHandler{},
+		rpHandler:        &rpHandler{},
 	}
 	return p, nil
 }
@@ -163,7 +162,7 @@ func (p *Context) proxyLoop(ctx context.Context, toServer bool) error {
 
 	for {
 		if ctx.Err() != nil {
-			return ctx.Err()
+			return context.Cause(ctx)
 		}
 
 		pk, err := c1.ReadPacket()
@@ -248,51 +247,20 @@ func (p *Context) IsClient(addr net.Addr) bool {
 
 var NewDebugLogger func(bool) *Handler
 var NewPacketCapturer func() *Handler
-
-func (p *Context) connectClient(ctx context.Context, serverAddress string, cdpp **login.ClientData, tokenSource oauth2.TokenSource) (err error) {
-	var packs []*resource.Pack
-	if utils.Options.Preload {
-		logrus.Info(locale.Loc("preloading_packs", nil))
-		serverConn, err := connectServer(ctx, serverAddress, nil, true, nil, tokenSource)
-		if err != nil {
-			return fmt.Errorf(locale.Loc("failed_to_connect", locale.Strmap{"Address": serverAddress, "Err": err}))
-		}
-		serverConn.Close()
-		packs = serverConn.ResourcePacks()
-		logrus.Infof(locale.Locm("pack_count_loaded", locale.Strmap{"Count": len(packs)}, len(packs)))
-	}
-
-	status := minecraft.NewStatusProvider(fmt.Sprintf("%s Proxy", serverAddress))
-	p.Listener, err = minecraft.ListenConfig{
-		StatusProvider: status,
-		ResourcePacks:  packs,
-		/*
-			EarlyConnHandler: func(c *minecraft.Conn) {
-				c.ResourcePackHandler = minecraft.ResourcePackHandler{
-					OnClientResponse: p.rpHandler.OnClientResponse,
-					OnChunkRequest:   p.rpHandler.OnChunkRequest,
-				}
-			},
-		*/
-	}.Listen("raknet", ":19132")
-	if err != nil {
-		return err
-	}
-
-	logrus.Infof(locale.Loc("listening_on", locale.Strmap{"Address": p.Listener.Addr()}))
-	logrus.Infof(locale.Loc("help_connect", nil))
-
-	c, err := p.Listener.Accept()
-	if err != nil {
-		return err
-	}
-	p.Client = c.(*minecraft.Conn)
-	cd := p.Client.ClientData()
-	*cdpp = &cd
-	return nil
-}
+var d *Handler
 
 func (p *Context) packetFunc(header packet.Header, payload []byte, src, dst net.Addr) {
+	/* for logging the to client packets
+	if dst.String() == "[::]:19132" || src.String() == "[::]:19132" {
+		pk, ok := decodePacket(header, payload)
+		if !ok {
+			return
+		}
+		d.PacketCB(pk, dst.String() == "[::]:19132", time.Now(), true)
+		return
+	}
+	*/
+
 	if header.PacketID == packet.IDRequestNetworkSettings {
 		p.clientAddr = src
 	}
@@ -325,6 +293,21 @@ func (p *Context) packetFunc(header packet.Header, payload []byte, src, dst net.
 	}
 }
 
+var errCancelConnect = fmt.Errorf("cancelled connecting")
+
+func (p *Context) onServerConnect() error {
+	for _, handler := range p.handlers {
+		if handler.OnServerConnect == nil {
+			continue
+		}
+		disconnect := handler.OnServerConnect()
+		if disconnect {
+			return errCancelConnect
+		}
+	}
+	return nil
+}
+
 func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc) (err error) {
 	defer func() {
 		for _, handler := range p.handlers {
@@ -345,77 +328,72 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 		isReplay = true
 	}
 
-	var cdp *login.ClientData = nil
-	var tokenSource oauth2.TokenSource
-	{ // client connect
-		if !isReplay {
-			// ask for login before listening
-			tokenSource, err = utils.Auth.GetTokenSource()
-			if err != nil {
-				return err
-			}
-		}
-
-		if p.WithClient && !isReplay {
-			p.ui.Message(messages.SetUIState(messages.UIStateConnect))
-			err = p.connectClient(ctx, p.serverAddress, &cdp, tokenSource)
-			if err != nil {
-				return err
-			}
-
-			defer func() {
-				p.Listener.Disconnect(p.Client.(*minecraft.Conn), DisconnectReason)
-				p.Listener.Close()
-			}()
-		}
-
-		for _, handler := range p.handlers {
-			if handler.OnClientConnect == nil {
-				continue
-			}
-			handler.OnClientConnect(p.Client)
+	if !isReplay {
+		// ask for login before listening
+		p.tokenSource, err = utils.Auth.GetTokenSource()
+		if err != nil {
+			return err
 		}
 	}
 
-	{ // connect to server
-		if isReplay {
-			p.Server, err = createReplayConnector(p.serverAddress[5:], p.packetFunc)
-			if err != nil {
-				return err
-			}
-		} else {
-			if p.CustomClientData != nil {
-				cdp = p.CustomClientData
-			}
-			p.Server, err = connectServer(ctx, p.serverAddress, cdp, p.AlwaysGetPacks, p.packetFunc, tokenSource)
-		}
+	// setup Client and Server Connections
+	wg := sync.WaitGroup{}
+	var cdp *login.ClientData = nil
+	if isReplay {
+		p.Server, err = createReplayConnector(p.serverAddress[5:], p.packetFunc)
 		if err != nil {
-			for _, handler := range p.handlers {
-				if handler.ConnectCB == nil {
-					continue
-				}
-				ignore := handler.ConnectCB(err)
-				if ignore {
-					err = nil
-					break
-				}
-			}
-
-			if err != nil {
-				err = fmt.Errorf(locale.Loc("failed_to_connect", locale.Strmap{"Address": p.serverAddress, "Err": err}))
-			}
 			return err
 		}
-		defer p.Server.Close()
-
-		for _, handler := range p.handlers {
-			if handler.OnServerConnect != nil {
-				cancel := handler.OnServerConnect()
-				if cancel {
-					return nil
+	} else {
+		if p.WithClient {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				err = p.connectClient(ctx, p.serverAddress, &cdp)
+				if err != nil {
+					cancel(err)
+					return
 				}
-			}
+
+				for _, handler := range p.handlers {
+					if handler.OnClientConnect == nil {
+						continue
+					}
+					handler.OnClientConnect(p.Client)
+				}
+			}()
 		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err = p.connectServer(ctx)
+			if err != nil {
+				cancel(err)
+				return
+			}
+			err = p.onServerConnect()
+			if err != nil {
+				cancel(err)
+				return
+			}
+		}()
+	}
+
+	wg.Wait()
+	defer p.Server.Close()
+	if p.Listener != nil {
+		defer func() {
+			p.Listener.Disconnect(p.Client.(*minecraft.Conn), DisconnectReason)
+			p.Listener.Close()
+		}()
+	}
+
+	if ctx.Err() != nil {
+		err = context.Cause(ctx)
+		if errors.Is(err, errCancelConnect) {
+			err = nil
+		}
+		return err
 	}
 
 	{ // spawn
@@ -426,9 +404,31 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 			}
 		}
 
-		// spawn and start the game
-		if err = spawnConn(ctx, p.Client, p.Server, gd); err != nil {
-			err = fmt.Errorf(locale.Loc("failed_to_spawn", locale.Strmap{"Err": err}))
+		if p.Client != nil {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				err := p.Client.StartGameContext(ctx, gd)
+				if err != nil {
+					cancel(err)
+					return
+				}
+			}()
+		}
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			err := p.Server.DoSpawnContext(ctx)
+			if err != nil {
+				cancel(err)
+				return
+			}
+		}()
+
+		wg.Wait()
+		err = context.Cause(ctx)
+		if err != nil {
 			return err
 		}
 
@@ -436,7 +436,7 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 			if handler.ConnectCB == nil {
 				continue
 			}
-			if !handler.ConnectCB(nil) {
+			if handler.ConnectCB(nil) {
 				logrus.Info("Disconnecting")
 				return nil
 			}
@@ -444,7 +444,6 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 	}
 
 	{ // packet loop
-		wg := sync.WaitGroup{}
 		doProxy := func(client bool) {
 			defer wg.Done()
 			if err := p.proxyLoop(ctx, client); err != nil {
@@ -471,9 +470,9 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 		if ctx.Err() != nil {
 			err = context.Cause(ctx)
 		}
-		return err
 	}
 
+	return err
 }
 
 func (p *Context) connect(ctx context.Context) (err error) {
@@ -481,6 +480,7 @@ func (p *Context) connect(ctx context.Context) (err error) {
 	p.clientAddr = nil
 	p.transfer = nil
 	p.Client = nil
+	p.clientConnecting = make(chan bool)
 	ctx2, cancel := context.WithCancelCause(ctx)
 	err = p.doSession(ctx2, cancel)
 
@@ -490,7 +490,7 @@ func (p *Context) connect(ctx context.Context) (err error) {
 		return p.connect(ctx)
 	}
 
-	return nil
+	return err
 }
 
 func (p *Context) Run(ctx context.Context, serverAddress, name string) (err error) {
@@ -500,7 +500,8 @@ func (p *Context) Run(ctx context.Context, serverAddress, name string) (err erro
 	utils.Auth.Ctx = ctx
 
 	if utils.Options.Debug || utils.Options.ExtraDebug {
-		p.AddHandler(NewDebugLogger(utils.Options.ExtraDebug))
+		d = NewDebugLogger(utils.Options.ExtraDebug)
+		p.AddHandler(d)
 	}
 	if utils.Options.Capture {
 		p.AddHandler(NewPacketCapturer())

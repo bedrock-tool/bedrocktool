@@ -29,7 +29,9 @@ keys.db
 packets.log.gpg
 customdata.json
 /other-projects/
-__pycache__/entityflags.cpython-310.pyc
+__pycache__/
 gathering.py
 *.ipynb
 entityflags.py
+*.ignore
+

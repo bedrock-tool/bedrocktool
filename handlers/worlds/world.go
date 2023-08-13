@@ -123,13 +123,14 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 		},
 
 		ConnectCB: func(err error) bool {
+			if err != nil {
+				return true
+			}
+
 			w.ui.Message(messages.SetWorldName{
 				WorldName: w.worldState.Name,
 			})
 			w.ui.Message(messages.SetUIState(messages.UIStateMain))
-			if err != nil {
-				return false
-			}
 
 			w.proxy.ClientWritePacket(&packet.ChunkRadiusUpdated{
 				ChunkRadius: 80,
@@ -146,7 +147,7 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 
 			w.proxy.SendMessage(locale.Loc("use_setname", nil))
 			w.mapUI.Start()
-			return true
+			return false
 		},
 
 		PacketCB: func(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {

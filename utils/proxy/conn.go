@@ -2,67 +2,68 @@ package proxy
 
 import (
 	"context"
-	"errors"
-	"sync"
+	"fmt"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
-	"github.com/google/uuid"
+	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/login"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/oauth2"
 )
 
-func connectServer(ctx context.Context, address string, ClientData *login.ClientData, wantPacks bool, packetFunc PacketFunc, tokenSource oauth2.TokenSource) (serverConn *minecraft.Conn, err error) {
-	cd := login.ClientData{}
-	if ClientData != nil {
-		cd = *ClientData
+func (p *Context) connectServer(ctx context.Context) (err error) {
+	if p.WithClient {
+		<-p.clientConnecting
 	}
 
-	logrus.Info(locale.Loc("connecting", locale.Strmap{"Address": address}))
-	serverConn, err = minecraft.Dialer{
-		TokenSource: tokenSource,
-		ClientData:  cd,
-		PacketFunc:  packetFunc,
-		DownloadResourcePack: func(id uuid.UUID, version string, current int, total int) bool {
-			return wantPacks
+	logrus.Info(locale.Loc("connecting", locale.Strmap{"Address": p.serverAddress}))
+	p.Server, err = minecraft.Dialer{
+		TokenSource: p.tokenSource,
+		PacketFunc:  p.packetFunc,
+		EarlyConnHandler: func(c *minecraft.Conn) {
+			//c.ResourcePackHandler = p.rpHandler
+			p.rpHandler.Server = c
 		},
-	}.DialContext(ctx, "raknet", address)
+	}.DialContext(ctx, "raknet", p.serverAddress)
 	if err != nil {
-		return serverConn, err
+		return err
 	}
 
 	logrus.Debug(locale.Loc("connected", nil))
-	return serverConn, nil
+	return nil
 }
 
-func spawnConn(ctx context.Context, clientConn minecraft.IConn, serverConn minecraft.IConn, gd minecraft.GameData) error {
-	wg := sync.WaitGroup{}
-	errs := make(chan error, 2)
-	if clientConn != nil {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			errs <- clientConn.StartGame(gd)
-		}()
+func (p *Context) connectClient(ctx context.Context, serverAddress string, cdpp **login.ClientData) (err error) {
+	p.Listener, err = minecraft.ListenConfig{
+		StatusProvider: minecraft.NewStatusProvider(fmt.Sprintf("%s Proxy", serverAddress)),
+		//PacketFunc:     p.packetFunc,
+		EarlyConnHandler: func(c *minecraft.Conn) {
+			//c.ResourcePackHandler = p.rpHandler
+			close(p.clientConnecting)
+			p.rpHandler.Client = c
+		},
+	}.Listen("raknet", ":19132")
+	if err != nil {
+		return err
 	}
-	wg.Add(1)
+
+	p.ui.Message(messages.SetUIState(messages.UIStateConnect))
+	logrus.Infof(locale.Loc("listening_on", locale.Strmap{"Address": p.Listener.Addr()}))
+	logrus.Infof(locale.Loc("help_connect", nil))
+
 	go func() {
-		defer wg.Done()
-		errs <- serverConn.DoSpawn()
+		<-ctx.Done()
+		if p.Client == nil {
+			p.Listener.Close()
+		}
 	}()
 
-	wg.Wait()
-	for i := 0; i < 2; i++ {
-		select {
-		case err := <-errs:
-			if err != nil {
-				return errors.New(locale.Loc("failed_start_game", locale.Strmap{"Err": err}))
-			}
-		case <-ctx.Done():
-			return errors.New(locale.Loc("connection_cancelled", nil))
-		default:
-		}
+	c, err := p.Listener.Accept()
+	if err != nil {
+		return err
 	}
+	p.Client = c.(*minecraft.Conn)
+	cd := p.Client.ClientData()
+	*cdpp = &cd
 	return nil
 }
