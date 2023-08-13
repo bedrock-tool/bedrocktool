@@ -82,8 +82,9 @@ type Context struct {
 	commands map[string]ingameCommand
 	handlers []*Handler
 
-	transfer *packet.Transfer
-	ui       ui.UI
+	transfer  *packet.Transfer
+	rpHandler rpHandler
+	ui        ui.UI
 }
 
 func New(ui ui.UI) (*Context, error) {
@@ -93,6 +94,7 @@ func New(ui ui.UI) (*Context, error) {
 		WithClient:       true,
 		IgnoreDisconnect: false,
 		ui:               ui,
+		rpHandler:        rpHandler{},
 	}
 	return p, nil
 }
@@ -264,6 +266,14 @@ func (p *Context) connectClient(ctx context.Context, serverAddress string, cdpp 
 	p.Listener, err = minecraft.ListenConfig{
 		StatusProvider: status,
 		ResourcePacks:  packs,
+		/*
+			EarlyConnHandler: func(c *minecraft.Conn) {
+				c.ResourcePackHandler = minecraft.ResourcePackHandler{
+					OnClientResponse: p.rpHandler.OnClientResponse,
+					OnChunkRequest:   p.rpHandler.OnChunkRequest,
+				}
+			},
+		*/
 	}.Listen("raknet", ":19132")
 	if err != nil {
 		return err
@@ -326,7 +336,7 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 
 	for _, handler := range p.handlers {
 		if handler.AddressAndName != nil {
-			handler.AddressAndName(p.serverAddress, p.serverAddress)
+			handler.AddressAndName(p.serverAddress, p.serverName)
 		}
 	}
 
