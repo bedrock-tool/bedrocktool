@@ -24,7 +24,6 @@ import (
 
 var Options struct {
 	Debug              bool
-	Preload            bool
 	IsInteractive      bool
 	ExtraDebug         bool
 	Capture            bool

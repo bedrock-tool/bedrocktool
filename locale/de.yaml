@@ -26,8 +26,6 @@ should_login_xbox:
   other: "ob es sich bei Xbox anmelden soll"
 enable_dns:
   other: "DNS-Server für Konsolen aktivieren"
-preload_packs:
-  other: "Vorladen von Ressourcenpacks für den Proxy"
 debug_mode:
   other: "Debug-Modus"
 refreshed_token:
@@ -48,8 +46,6 @@ enter_server:
   other: "Serveradresse eingeben: "
 disconnect:
   other: "Verbindung trennen {{.Pk}}"
-preloading_packs:
-  other: "Ressourcenpacks werden vorgeladen"
 failed_to_connect:
   other: "Verbindung zu {{.Address}} fehlgeschlagen: {{.Err}}"
 listening_on:

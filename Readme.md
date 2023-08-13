@@ -32,5 +32,4 @@ Subcommands:
 Top-level flags (use "bedrocktool flags" for a full list):
   -debug=false: debug mode (enables extra logging useful for finding bugs)
   -dns=false: enable dns server for consoles (use this if you need to connect on a console)
-  -preload=false: preload resourcepacks for proxy (use this if you need server resourcepacks while using the proxy)
 ```

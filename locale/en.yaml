@@ -26,8 +26,6 @@ should_login_xbox:
   other: "if it should login to xbox"
 enable_dns:
   other: "enable dns server for consoles"
-preload_packs:
-  other: "preload resourcepacks for proxy"
 debug_mode:
   other: "debug mode"
 refreshed_token:
@@ -48,8 +46,6 @@ enter_server:
   other: "Enter Server: "
 disconnect:
   other: "Disconnect {{.Pk}}"
-preloading_packs:
-  other: "Preloading Resourcepacks"
 failed_to_connect:
   other: "failed to connect to {{.Address}}: {{.Err}}"
 listening_on:

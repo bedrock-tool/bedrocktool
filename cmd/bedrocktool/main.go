@@ -89,7 +89,6 @@ func main() {
 
 	flag.StringVar(&utils.RealmsEnv, "realms-env", "", "realms env")
 	flag.BoolVar(&utils.Options.Debug, "debug", false, locale.Loc("debug_mode", nil))
-	flag.BoolVar(&utils.Options.Preload, "preload", false, locale.Loc("preload_packs", nil))
 	flag.BoolVar(&utils.Options.ExtraDebug, "extra-debug", false, locale.Loc("extra_debug", nil))
 	flag.StringVar(&utils.Options.PathCustomUserData, "userdata", "", locale.Loc("custom_user_data", nil))
 	flag.String("lang", "", "lang")
@@ -98,7 +97,6 @@ func main() {
 	subcommands.Register(subcommands.HelpCommand(), "")
 	subcommands.ImportantFlag("debug")
 	subcommands.ImportantFlag("capture")
-	subcommands.ImportantFlag("preload")
 	subcommands.HelpCommand()
 
 	ui := selectUI()

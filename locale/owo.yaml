@@ -26,8 +26,6 @@ should_login_xbox:
   other: "if it should login to xbox"
 enable_dns:
   other: "enable dns sewvew for consoles"
-preload_packs:
-  other: "pwewoad wewesouwcepacks for pwoxy"
 debug_mode:
   other: "debug mode"
 refreshed_token:
@@ -48,8 +46,6 @@ enter_server:
   other: "Entew Sewvew: "
 disconnect:
   other: "Discownect {{.Pk}}"
-preloading_packs:
-  other: "Pwewoading Wewesouwcepacks"
 failed_to_connect:
   other: "failed to connect to {{.Address}}: {{.Err}}"
 listening_on:
