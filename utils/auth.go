@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,6 +17,7 @@ const TokenFile = "token.json"
 type authsrv struct {
 	t   *oauth2.Token
 	src oauth2.TokenSource
+	Ctx context.Context
 
 	LoginWithMicrosoftCallback func(io.Reader)
 }
@@ -66,7 +68,7 @@ func (a *authsrv) GetTokenSource() (src oauth2.TokenSource, err error) {
 		// request a new token
 		r, w := io.Pipe()
 		go a.LoginWithMicrosoftCallback(r)
-		a.t, err = auth.RequestLiveTokenWriter(w)
+		a.t, err = auth.RequestLiveTokenWriterCtx(a.Ctx, w)
 		if err != nil {
 			return nil, err
 		}

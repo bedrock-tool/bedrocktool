@@ -1,7 +1,6 @@
 package worlds
 
 import (
-	"context"
 	"fmt"
 	"image/png"
 	"math/rand"
@@ -58,7 +57,6 @@ type serverState struct {
 }
 
 type worldsHandler struct {
-	ctx   context.Context
 	wg    sync.WaitGroup
 	proxy *proxy.Context
 	mapUI *MapUI
@@ -71,11 +69,9 @@ type worldsHandler struct {
 	customBlocks []protocol.BlockEntry
 }
 
-func NewWorldsHandler(ctx context.Context, ui ui.UI, settings WorldSettings) *proxy.Handler {
+func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 	w := &worldsHandler{
-		ctx: ctx,
-		ui:  ui,
-
+		ui: ui,
 		serverState: serverState{
 			ispre118:     false,
 			worldCounter: 0,
@@ -85,7 +81,7 @@ func NewWorldsHandler(ctx context.Context, ui ui.UI, settings WorldSettings) *pr
 		settings: settings,
 	}
 	w.mapUI = NewMapUI(w)
-	w.Reset()
+	w.reset()
 
 	return &proxy.Handler{
 		Name: "Worlds",
@@ -126,7 +122,33 @@ func NewWorldsHandler(ctx context.Context, ui ui.UI, settings WorldSettings) *pr
 			gd.ClientSideGeneration = false
 		},
 
-		ConnectCB: w.OnConnect,
+		ConnectCB: func(err error) bool {
+			w.ui.Message(messages.SetWorldName{
+				WorldName: w.worldState.Name,
+			})
+			w.ui.Message(messages.SetUIState(messages.UIStateMain))
+			if err != nil {
+				return false
+			}
+
+			w.proxy.ClientWritePacket(&packet.ChunkRadiusUpdated{
+				ChunkRadius: 80,
+			})
+
+			gd := w.proxy.Server.GameData()
+			mapItemID, _ := world.ItemRidByName("minecraft:filled_map")
+			MapItemPacket.Content[0].Stack.ItemType.NetworkID = mapItemID
+			if gd.ServerAuthoritativeInventory {
+				MapItemPacket.Content[0].StackNetworkID = 0xffff + rand.Int31n(0xfff)
+			}
+
+			w.serverState.packs = utils.GetPacks(w.proxy.Server)
+
+			w.proxy.SendMessage(locale.Loc("use_setname", nil))
+			w.mapUI.Start()
+			return true
+		},
+
 		PacketCB: func(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
 			switch pk := pk.(type) {
 			case *packet.ChunkRadiusUpdated:
@@ -196,33 +218,6 @@ func NewWorldsHandler(ctx context.Context, ui ui.UI, settings WorldSettings) *pr
 	}
 }
 
-func (w *worldsHandler) OnConnect(err error) bool {
-	w.ui.Message(messages.SetWorldName{
-		WorldName: w.worldState.Name,
-	})
-	w.ui.Message(messages.SetUIState(messages.UIStateMain))
-	if err != nil {
-		return false
-	}
-
-	w.proxy.ClientWritePacket(&packet.ChunkRadiusUpdated{
-		ChunkRadius: 80,
-	})
-
-	gd := w.proxy.Server.GameData()
-	mapItemID, _ := world.ItemRidByName("minecraft:filled_map")
-	MapItemPacket.Content[0].Stack.ItemType.NetworkID = mapItemID
-	if gd.ServerAuthoritativeInventory {
-		MapItemPacket.Content[0].StackNetworkID = 0xffff + rand.Int31n(0xfff)
-	}
-
-	w.serverState.packs = utils.GetPacks(w.proxy.Server)
-
-	w.proxy.SendMessage(locale.Loc("use_setname", nil))
-	w.mapUI.Start()
-	return true
-}
-
 func (w *worldsHandler) setVoidGen(val bool, fromUI bool) bool {
 	w.worldState.VoidGen = val
 	var s = locale.Loc("void_generator_false", nil)
@@ -261,20 +256,10 @@ func (w *worldsHandler) defaultName() string {
 	return worldName
 }
 
-func (w *worldsHandler) Reset() {
-	var dim world.Dimension
-	if w.worldState != nil {
-		dim = w.worldState.dimension
-	}
-	w.worldState = newWorldState(w.defaultName(), dim)
-	w.worldState.VoidGen = w.settings.VoidGen
-	w.mapUI.Reset()
-}
-
 func (w *worldsHandler) SaveAndReset() {
 	w.worldState.cullChunks()
 	if len(w.worldState.chunks) == 0 {
-		w.Reset()
+		w.reset()
 		return
 	}
 
@@ -322,5 +307,15 @@ func (w *worldsHandler) SaveAndReset() {
 	}()
 
 	w.serverState.worldCounter += 1
-	w.Reset()
+	w.reset()
+}
+
+func (w *worldsHandler) reset() {
+	var dim world.Dimension
+	if w.worldState != nil {
+		dim = w.worldState.dimension
+	}
+	w.worldState = newWorldState(w.defaultName(), dim)
+	w.worldState.VoidGen = w.settings.VoidGen
+	w.mapUI.Reset()
 }

@@ -80,6 +80,7 @@ func UserInput(ctx context.Context, q string, validator func(string) bool) (stri
 		print("\n\r")
 		answer := string(answerb)
 		c <- answer
+		validatorQueued.Store(false)
 	}()
 
 	select {

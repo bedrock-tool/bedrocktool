@@ -112,7 +112,6 @@ func (m *MapUI) Start() {
 	m.wg.Add(1)
 	go m.resolveColors(m.w.customBlocks)
 	go func() {
-
 		for range m.ticker.C {
 			if m.needRedraw {
 				m.needRedraw = false
@@ -135,7 +134,7 @@ func (m *MapUI) Start() {
 	go func() { // send map item
 		t := time.NewTicker(1 * time.Second)
 		for range t.C {
-			if m.w.ctx.Err() != nil {
+			if m.w.proxy.Client == nil {
 				return
 			}
 			err := m.w.proxy.ClientWritePacket(&MapItemPacket)

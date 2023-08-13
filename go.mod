@@ -3,10 +3,10 @@ module github.com/bedrock-tool/bedrocktool
 go 1.20
 
 //replace github.com/sandertv/gophertunnel => ./gophertunnel
-replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.31.0-2
+replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.31.0-3
 
 //replace github.com/df-mc/dragonfly => ./dragonfly
-replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.9.6-5
+replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.9.8-1
 
 //replace gioui.org => ./gio
 replace gioui.org => github.com/olebeck/gio v0.0.0-20230607184051-9ab60b08f083
@@ -25,7 +25,7 @@ require (
 	github.com/nicksnyder/go-i18n/v2 v2.2.1
 	github.com/sanbornm/go-selfupdate v0.0.0-20210106163404-c9b625feac49
 	github.com/sandertv/go-raknet v1.12.0
-	github.com/sandertv/gophertunnel v1.30.0
+	github.com/sandertv/gophertunnel v1.31.0
 	github.com/shirou/gopsutil/v3 v3.23.5
 	github.com/sirupsen/logrus v1.9.3
 	github.com/thomaso-mirodin/intmath v0.0.0-20160323211736-5dc6d854e46e
@@ -49,7 +49,7 @@ require (
 	github.com/changkun/lockfree v0.0.1 // indirect
 	github.com/cloudfoundry/jibber_jabber v0.0.0-20151120183258-bcc4c8345a21 // indirect
 	github.com/df-mc/atomic v1.10.0 // indirect
-	github.com/df-mc/worldupgrader v1.0.7 // indirect
+	github.com/df-mc/worldupgrader v1.0.8 // indirect
 	github.com/dlclark/regexp2 v1.10.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-text/typesetting v0.0.0-20230606200221-26abc51a6c27 // indirect

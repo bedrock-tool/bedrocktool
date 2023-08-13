@@ -45,7 +45,7 @@ func (c *WorldCMD) Execute(ctx context.Context, ui ui.UI) error {
 	}
 
 	proxy.AlwaysGetPacks = true
-	proxy.AddHandler(worlds.NewWorldsHandler(ctx, ui, worlds.WorldSettings{
+	proxy.AddHandler(worlds.NewWorldsHandler(ui, worlds.WorldSettings{
 		VoidGen:         c.EnableVoid,
 		WithPacks:       c.Packs,
 		SaveEntities:    c.SaveEntities,
