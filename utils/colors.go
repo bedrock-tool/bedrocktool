@@ -119,6 +119,38 @@ func loadFlipbooks(f fs.FS) (map[string]string, error) {
 	return o, nil
 }
 
+func loadTerrainTexture(f fs.FS) (map[string]string, error) {
+	terrainContent, err := fs.ReadFile(f, "textures/terrain_texture.json")
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	terrainContent, err = hujson.Standardize(terrainContent)
+	if err != nil {
+		return nil, err
+	}
+	var m struct {
+		Data map[string]struct {
+			Textures any `json:"textures"`
+		} `json:"texture_data"`
+	}
+	err = json.Unmarshal(terrainContent, &m)
+	if err != nil {
+		return nil, err
+	}
+
+	o := make(map[string]string)
+	for k, v := range m.Data {
+		if tex, ok := v.Textures.(string); ok {
+			o[k] = tex
+		}
+	}
+
+	return o, nil
+}
+
 func calculateMeanAverageColour(img image.Image) (c color.RGBA) {
 	imgSize := img.Bounds().Size()
 
@@ -149,8 +181,8 @@ func calculateMeanAverageColour(img image.Image) (c color.RGBA) {
 	return
 }
 
-func toTexturePath(name, ext string) string {
-	return "textures/blocks/" + strings.Replace(name, ":", "/", 1) + ext
+func toTexturePath(name string) string {
+	return "textures/blocks/" + strings.Replace(name, ":", "/", 1)
 }
 
 func ResolveColors(entries []protocol.BlockEntry, packs []Pack) map[string]color.RGBA {
@@ -179,18 +211,33 @@ func ResolveColors(entries []protocol.BlockEntry, packs []Pack) map[string]color
 			continue
 		}
 
+		terrainTextures, err := loadTerrainTexture(fs)
+		if err != nil {
+			logrus.Error(err)
+			continue
+		}
+
 		for block, texture_name := range texture_names {
 			flipbook_texture, ok := flipbooks[texture_name]
 			if ok {
-				texture_name = filepath.Base(flipbook_texture)
+				texture_name = flipbook_texture
+			} else {
+				var terrain_texture string
+				terrain_texture, ok = terrainTextures[texture_name]
+				if ok {
+					texture_name = terrain_texture
+				}
 			}
-			texturePath := toTexturePath(texture_name, ".png")
+			if !ok {
+				texture_name = toTexturePath(texture_name)
+			}
+
+			texturePath := texture_name + ".png"
 			_, hasFile := slices.BinarySearch(names, texturePath)
 			if !hasFile {
-				texturePath = toTexturePath(texture_name, ".tga")
+				texturePath = texture_name + ".tga"
 				_, hasFile := slices.BinarySearch(names, texturePath)
 				if !hasFile {
-
 					continue
 				}
 			}

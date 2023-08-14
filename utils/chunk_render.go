@@ -61,6 +61,12 @@ func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.R
 			blockColor = b.Color()
 		}
 
+		/*
+			if blockColor.R == 0xff && blockColor.B == 0xff {
+				println(b.EncodeBlock())
+			}
+		*/
+
 		if blockColor.A != 255 {
 			blockColor = BlendColors(blockColorAt(c, x, y-1, z), blockColor)
 		}
