@@ -17,32 +17,32 @@ import (
 	"golang.org/x/exp/slices"
 )
 
-var MutedPackets = []string{
-	"packet.UpdateBlock",
-	"packet.MoveActorAbsolute",
-	"packet.SetActorMotion",
-	"packet.SetTime",
-	"packet.RemoveActor",
-	"packet.AddActor",
-	"packet.UpdateAttributes",
-	"packet.Interact",
-	"packet.LevelEvent",
-	"packet.SetActorData",
-	"packet.MoveActorDelta",
-	"packet.MovePlayer",
-	"packet.BlockActorData",
-	"packet.PlayerAuthInput",
-	"packet.LevelChunk",
-	"packet.LevelSoundEvent",
-	"packet.ActorEvent",
-	"packet.NetworkChunkPublisherUpdate",
-	"packet.UpdateSubChunkBlocks",
-	"packet.SubChunk",
-	"packet.SubChunkRequest",
-	"packet.Animate",
-	"packet.NetworkStackLatency",
-	"packet.InventoryTransaction",
-	"packet.PlaySound",
+var MutedPackets = []uint32{
+	packet.IDUpdateBlock,
+	packet.IDMoveActorAbsolute,
+	packet.IDSetActorMotion,
+	packet.IDSetTime,
+	packet.IDRemoveActor,
+	packet.IDAddActor,
+	packet.IDUpdateAttributes,
+	packet.IDInteract,
+	packet.IDLevelEvent,
+	packet.IDSetActorData,
+	packet.IDMoveActorDelta,
+	packet.IDMovePlayer,
+	packet.IDBlockActorData,
+	packet.IDPlayerAuthInput,
+	packet.IDLevelChunk,
+	packet.IDLevelSoundEvent,
+	packet.IDActorEvent,
+	packet.IDNetworkChunkPublisherUpdate,
+	packet.IDUpdateSubChunkBlocks,
+	packet.IDSubChunk,
+	packet.IDSubChunkRequest,
+	packet.IDAnimate,
+	packet.IDNetworkStackLatency,
+	packet.IDInventoryTransaction,
+	packet.IDPlaySound,
 }
 
 var dirS2C = color.GreenString("S") + "->" + color.CyanString("C")
@@ -78,17 +78,17 @@ func NewDebugLogger(extraVerbose bool) *proxy.Handler {
 				dmpLock.Unlock()
 			}
 
-			pkName := reflect.TypeOf(pk).String()[1:]
-			if !slices.Contains(MutedPackets, pkName) {
+			if !slices.Contains(MutedPackets, pk.ID()) {
 				var dir string = dirS2C
 				if toServer {
 					dir = dirC2S
 				}
+				pkName := reflect.TypeOf(pk).String()[1:]
 				logrus.Debugf("%s 0x%02x, %s", dir, pk.ID(), pkName)
 			}
 			return pk, nil
 		},
-		OnEnd: func() {
+		Deferred: func() {
 			dmpLock.Lock()
 			if packetsLogF != nil {
 				packetsLogF.Flush()

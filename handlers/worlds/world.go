@@ -215,6 +215,7 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 		OnEnd: func() {
 			w.SaveAndReset()
 			w.wg.Wait()
+			world.ResetStates()
 		},
 	}
 }
@@ -269,6 +270,7 @@ func (w *worldsHandler) SaveAndReset() {
 
 	folder := fmt.Sprintf("worlds/%s/%s", w.serverState.Name, w.worldState.Name)
 	filename := folder + ".mcworld"
+	os.MkdirAll(folder, 0777)
 
 	if w.settings.SaveImage {
 		f, _ := os.Create(folder + ".png")

@@ -25,6 +25,8 @@ github.com/cloudfoundry/jibber_jabber v0.0.0-20151120183258-bcc4c8345a21/go.mod 
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
+github.com/dblezek/tga v0.0.0-20150626111426-80720cbc1017 h1:awJfkE1xXsPK+yOi1JfFBYCrSBkZXWbOgEFL6dmYeUA=
+github.com/dblezek/tga v0.0.0-20150626111426-80720cbc1017/go.mod h1:47yJHzYP/+2SCHY45B0eyR1QaecoOhkTTpS7UasE0DY=
 github.com/df-mc/atomic v1.10.0 h1:0ZuxBKwR/hxcFGorKiHIp+hY7hgY+XBTzhCYD2NqSEg=
 github.com/df-mc/atomic v1.10.0/go.mod h1:Gw9rf+rPIbydMjA329Jn4yjd/O2c/qusw3iNp4tFGSc=
 github.com/df-mc/goleveldb v1.1.9 h1:ihdosZyy5jkQKrxucTQmN90jq/2lUwQnJZjIYIC/9YU=
@@ -88,6 +90,8 @@ github.com/olebeck/dragonfly v0.9.6-5 h1:VxO4lcRwjUUV/6wafk1WPNItO5yzFh9Y3R/2YI5
 github.com/olebeck/dragonfly v0.9.6-5/go.mod h1:/7gZ5k2LteID3BDdODcSNRA+nSm+SAlbr4UVV6Xq7dY=
 github.com/olebeck/dragonfly v0.9.8-1 h1:8GxbKmRGUExQWAQbAkRkC5RCxIdrcngbPOUdo/inoXU=
 github.com/olebeck/dragonfly v0.9.8-1/go.mod h1:CAbD/89LrxWmbryp9rTSPEtgUlGfDXbB8oKLzVbjvZg=
+github.com/olebeck/dragonfly v0.9.8-2 h1:ZJ4MyXYIFNHy5NUC5dDxEOPsc0hMCHZ0nS16VN7R/+c=
+github.com/olebeck/dragonfly v0.9.8-2/go.mod h1:CAbD/89LrxWmbryp9rTSPEtgUlGfDXbB8oKLzVbjvZg=
 github.com/olebeck/gio v0.0.0-20230607184051-9ab60b08f083 h1:ZnL97gNzNlVxNj7X3fhBqi70OALUVRbw1qw97vpYyso=
 github.com/olebeck/gio v0.0.0-20230607184051-9ab60b08f083/go.mod h1:8CFQM/4LurRd9G3NUYdacFb9j2pK0LrAyVO2mAZo4mw=
 github.com/olebeck/gophertunnel v1.31.0-3 h1:Clr2XHnxdD8mbru//yAv60WliimjtKYNfDtPyOwWpJc=
@@ -98,6 +102,8 @@ github.com/olebeck/gophertunnel v1.31.0-5 h1:9u2/hxRRLXEJz/c0jS2TthtCaCEg8Fmb1Pv
 github.com/olebeck/gophertunnel v1.31.0-5/go.mod h1:HxQfl/8mZzvjzhekEH8RO6xLAgan9i/wIyrQzw0tIPY=
 github.com/olebeck/gophertunnel v1.31.0-6 h1:3lJU8+6fx79z+KqVEcu4iD4H17/yTz3B9UGHdk3tuUs=
 github.com/olebeck/gophertunnel v1.31.0-6/go.mod h1:HxQfl/8mZzvjzhekEH8RO6xLAgan9i/wIyrQzw0tIPY=
+github.com/olebeck/gophertunnel v1.31.0-7 h1:zqHl7dKSuNIH9fHz4BN837DbuCbn3ud+uMAraY68RNk=
+github.com/olebeck/gophertunnel v1.31.0-7/go.mod h1:kzAmtOHw2FP8uTvolwHTZQ5rmKJhLLmAXw6Bz0JU+54=
 github.com/onsi/ginkgo v1.6.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=
 github.com/onsi/ginkgo v1.7.0 h1:WSHQ+IS43OoUrWtD1/bbclrwK8TTH5hzp+umCiuxHgs=
 github.com/onsi/ginkgo v1.7.0/go.mod h1:lLunBs/Ym6LB5Z9jYTR76FiuTmxDTDusOGeTQH+WWjE=
@@ -134,6 +140,8 @@ github.com/stretchr/testify v1.7.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/
 github.com/stretchr/testify v1.8.0/go.mod h1:yNjHg4UonilssWZ8iaSj1OCr/vHnekPRkoO+kdMU+MU=
 github.com/stretchr/testify v1.8.3 h1:RP3t2pwF7cMEbC1dqtB6poj3niw/9gnV4Cjg5oW5gtY=
 github.com/stretchr/testify v1.8.3/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
+github.com/tailscale/hujson v0.0.0-20221223112325-20486734a56a h1:SJy1Pu0eH1C29XwJucQo73FrleVK6t4kYz4NVhp34Yw=
+github.com/tailscale/hujson v0.0.0-20221223112325-20486734a56a/go.mod h1:DFSS3NAGHthKo1gTlmEcSBiZrRJXi28rLNd/1udP1c8=
 github.com/thomaso-mirodin/intmath v0.0.0-20160323211736-5dc6d854e46e h1:cR8/SYRgyQCt5cNCMniB/ZScMkhI9nk8U5C7SbISXjo=
 github.com/thomaso-mirodin/intmath v0.0.0-20160323211736-5dc6d854e46e/go.mod h1:Tu4lItkATkonrYuvtVjG0/rhy15qrNGNTjPdaphtZ/8=
 github.com/tklauser/go-sysconf v0.3.11 h1:89WgdJhk5SNwJfu+GKyYveZ4IaJ7xAkecBo+KdJV0CM=

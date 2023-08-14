@@ -57,8 +57,10 @@ type Handler struct {
 	// called after game started
 	ConnectCB func(err error) bool
 
-	// called when the proxy stops
+	// called when the proxy session stops or is reconnected
 	OnEnd func()
+	// called when the proxy ends
+	Deferred func()
 }
 
 type Context struct {
@@ -519,6 +521,14 @@ func (p *Context) Run(ctx context.Context, serverAddress, name string) (err erro
 			handler.ProxyRef(p)
 		}
 	}
+
+	defer func() {
+		for _, handler := range p.handlers {
+			if handler.Deferred != nil {
+				handler.Deferred()
+			}
+		}
+	}()
 
 	return p.connect(ctx)
 }

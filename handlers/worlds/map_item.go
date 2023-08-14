@@ -110,7 +110,11 @@ func (m *MapUI) Start() {
 
 	m.ticker = time.NewTicker(33 * time.Millisecond)
 	m.wg.Add(1)
-	go m.resolveColors(m.w.customBlocks)
+	go func() {
+		colors := utils.ResolveColors(m.w.customBlocks, m.w.serverState.packs)
+		utils.CustomBlockColors = colors
+		m.wg.Done()
+	}()
 	go func() {
 		for range m.ticker.C {
 			if m.needRedraw {

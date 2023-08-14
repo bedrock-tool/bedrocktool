@@ -3,10 +3,10 @@ module github.com/bedrock-tool/bedrocktool
 go 1.20
 
 //replace github.com/sandertv/gophertunnel => ./gophertunnel
-replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.31.0-6
+replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.31.0-7
 
 //replace github.com/df-mc/dragonfly => ./dragonfly
-replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.9.8-1
+replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.9.8-2
 
 //replace gioui.org => ./gio
 replace gioui.org => github.com/olebeck/gio v0.0.0-20230607184051-9ab60b08f083
@@ -15,6 +15,7 @@ require (
 	gioui.org v0.0.0-20230526230622-e3ef98dda382
 	gioui.org/x v0.0.0-20230523210033-8432ec5563bb
 	github.com/cloudfoundry-attic/jibber_jabber v0.0.0-20151120183258-bcc4c8345a21
+	github.com/dblezek/tga v0.0.0-20150626111426-80720cbc1017
 	github.com/df-mc/dragonfly v0.9.6
 	github.com/df-mc/goleveldb v1.1.9
 	github.com/fatih/color v1.15.0
@@ -28,6 +29,7 @@ require (
 	github.com/sandertv/gophertunnel v1.31.0
 	github.com/shirou/gopsutil/v3 v3.23.5
 	github.com/sirupsen/logrus v1.9.3
+	github.com/tailscale/hujson v0.0.0-20221223112325-20486734a56a
 	github.com/thomaso-mirodin/intmath v0.0.0-20160323211736-5dc6d854e46e
 	golang.design/x/lockfree v0.0.1
 	golang.org/x/crypto v0.9.0
