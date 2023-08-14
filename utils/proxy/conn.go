@@ -25,6 +25,7 @@ func (p *Context) connectServer(ctx context.Context) (err error) {
 		TokenSource: p.tokenSource,
 		PacketFunc:  p.packetFunc,
 		EarlyConnHandler: func(c *minecraft.Conn) {
+			p.Server = c
 			if p.WithClient {
 				p.rpHandler.Server = c
 			} else {
@@ -46,6 +47,7 @@ func (p *Context) connectClient(ctx context.Context, serverAddress string, cdpp 
 		StatusProvider: minecraft.NewStatusProvider(fmt.Sprintf("%s Proxy", serverAddress)),
 		//PacketFunc:     p.packetFunc,
 		EarlyConnHandler: func(c *minecraft.Conn) {
+			p.Client = c
 			p.rpHandler = NewRpHandler(nil, c)
 			c.ResourcePackHandler = p.rpHandler
 			close(p.clientConnecting)

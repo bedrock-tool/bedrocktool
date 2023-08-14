@@ -18,20 +18,21 @@ func UserInput(ctx context.Context, q string, validator func(string) bool) (stri
 	c := make(chan string)
 	oldState, _ := term.MakeRaw(int(os.Stdin.Fd()))
 	defer term.Restore(int(os.Stdin.Fd()), oldState)
+
 	go func() {
 		fmt.Print(q)
 
 		var answerb []byte
 		var b [1]byte
 
-		var valid bool
+		var done = false
 		var validatorRunning atomic.Bool
 		var validatorQueued atomic.Bool
 
 		for {
 			os.Stdin.Read(b[:])
 
-			done := false
+			done = false
 			switch b[0] {
 			case 0x3:
 				c <- ""
@@ -64,8 +65,11 @@ func UserInput(ctx context.Context, q string, validator func(string) bool) (stri
 					go func() {
 						for validatorQueued.Load() {
 							validatorQueued.Store(false)
-							valid = validator(string(answerb))
+							valid := validator(string(answerb))
 							validatorRunning.Store(false)
+							if done {
+								return
+							}
 							var st = "❌"
 							if valid {
 								st = "✅"
@@ -77,10 +81,11 @@ func UserInput(ctx context.Context, q string, validator func(string) bool) (stri
 			}
 		}
 
-		print("\n\r")
+		print("\r\n")
 		answer := string(answerb)
 		c <- answer
 		validatorQueued.Store(false)
+		done = true
 	}()
 
 	select {

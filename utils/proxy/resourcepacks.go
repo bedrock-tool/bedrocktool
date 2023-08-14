@@ -386,14 +386,14 @@ func (r *rpHandler) Request(packs []string) error {
 			for _, pack := range r.remotePacks.TexturePacks {
 				if pack.UUID+"_"+pack.Version == packUUID {
 					found = true
+					break
 				}
-				break
 			}
 			for _, pack := range r.remotePacks.BehaviourPacks {
 				if pack.UUID+"_"+pack.Version == packUUID {
 					found = true
+					break
 				}
-				break
 			}
 		}
 		if !found {

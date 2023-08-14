@@ -293,7 +293,7 @@ func (w *worldsHandler) SetPlayerPos(Position mgl32.Vec3, Pitch, Yaw, HeadYaw fl
 func (w *worldsHandler) handleMapPackets(pk packet.Packet, forward *bool, toServer bool) packet.Packet {
 	switch pk := pk.(type) {
 	case *packet.MovePlayer:
-		if pk.EntityRuntimeID == w.proxy.Server.GameData().EntityRuntimeID {
+		if w.proxy.Server != nil && pk.EntityRuntimeID == w.proxy.Server.GameData().EntityRuntimeID {
 			w.SetPlayerPos(pk.Position, pk.Pitch, pk.Yaw, pk.HeadYaw)
 		}
 	case *packet.PlayerAuthInput:
