@@ -5,10 +5,12 @@ import (
 	"path/filepath"
 
 	"github.com/sandertv/gophertunnel/minecraft/resource"
+	"github.com/sirupsen/logrus"
 )
 
 type packCache struct {
 	Ignore bool
+	commit chan struct{}
 }
 
 func (packCache) cachedPath(id string) string {
@@ -30,18 +32,20 @@ func (c *packCache) Has(id string) bool {
 	return err == nil
 }
 
-func (c *packCache) Put(pack *resource.Pack) error {
+func (c *packCache) Put(pack *resource.Pack) {
 	if c.Ignore {
-		return nil
+		return
 	}
-	p := c.cachedPath(pack.UUID() + "_" + pack.Version())
-	os.MkdirAll(filepath.Dir(p), 0777)
-	f, err := os.Create(p)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	_, err = pack.WriteTo(f)
-	pack.Seek(0, 0)
-	return err
+	go func() {
+		<-c.commit
+		p := c.cachedPath(pack.UUID() + "_" + pack.Version())
+		os.MkdirAll(filepath.Dir(p), 0777)
+		f, err := os.Create(p)
+		if err != nil {
+			logrus.Error(err)
+		}
+		defer f.Close()
+		pack.WriteTo(f)
+		pack.Seek(0, 0)
+	}()
 }

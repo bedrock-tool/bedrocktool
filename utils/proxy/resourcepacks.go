@@ -6,6 +6,7 @@ import (
 	"io"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
@@ -24,6 +25,7 @@ type rpHandler struct {
 	cache                packCache
 	queue                *resourcePackQueue
 	nextPack             chan *resource.Pack
+	clientDone           atomic.Bool
 	ignoredResourcePacks []exemptedResourcePack
 	remotePacks          *packet.ResourcePacksInfo
 	receivedRemotePacks  chan struct{}
@@ -41,6 +43,9 @@ func NewRpHandler(server, client minecraft.IConn) *rpHandler {
 			packsToDownload:  make(map[string]*resource.Pack),
 			downloadingPacks: make(map[string]downloadingPack),
 			awaitingPacks:    make(map[string]*downloadingPack),
+		},
+		cache: packCache{
+			commit: make(chan struct{}),
 		},
 		receivedRemotePacks: make(chan struct{}),
 		receivedRemoteStack: make(chan struct{}),
@@ -118,10 +123,9 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 			PacksToDownload: packsToDownload,
 		})
 		return nil
-	} else {
-		if r.nextPack != nil {
-			close(r.nextPack)
-		}
+	}
+	if r.nextPack != nil {
+		close(r.nextPack)
 	}
 	r.Server.Expect(packet.IDResourcePackStack)
 	_ = r.Server.WritePacket(&packet.ResourcePackClientResponse{Response: packet.PackResponseAllPacksDownloaded})
@@ -200,12 +204,8 @@ func (r *rpHandler) OnResourcePackDataInfo(pk *packet.ResourcePackDataInfo) erro
 		r.queue.serverPackAmount--
 		// Finally we add the resource to the resource packs slice.
 		r.resourcePacks = append(r.resourcePacks, newPack)
-		err = r.cache.Put(newPack)
-		if err != nil {
-			logrus.Warnf("failed to cache for UUID %v: %v\n", id, err)
-			return
-		}
-		if r.nextPack != nil {
+		r.cache.Put(newPack)
+		if r.nextPack != nil && !r.clientDone.Load() {
 			r.nextPack <- newPack
 		}
 		if r.queue.serverPackAmount == 0 {
@@ -266,17 +266,20 @@ func (r *rpHandler) OnResourcePackStack(pk *packet.ResourcePackStack) error {
 
 	r.Server.Expect(packet.IDStartGame)
 	_ = r.Server.WritePacket(&packet.ResourcePackClientResponse{Response: packet.PackResponseCompleted})
+	if r.Client == nil {
+		close(r.cache.commit)
+	}
 	return nil
 }
 
 // nextResourcePackDownload moves to the next resource pack to download and sends a resource pack data info
 // packet with information about it.
-func (r *rpHandler) nextResourcePackDownload() error {
+func (r *rpHandler) nextResourcePackDownload() (ok bool) {
 	pack, ok := <-r.nextPack
 	if !ok { // all remote packs received, send packs from cache
 		pack, ok = r.queue.NextPack()
 		if !ok {
-			return fmt.Errorf("no resource packs to download")
+			return false
 		}
 	}
 
@@ -298,19 +301,17 @@ func (r *rpHandler) nextResourcePackDownload() error {
 		packType = packet.ResourcePackTypeSkins
 	}
 
-	if err := r.Client.WritePacket(&packet.ResourcePackDataInfo{
+	r.Client.WritePacket(&packet.ResourcePackDataInfo{
 		UUID:          pack.UUID(),
 		DataChunkSize: packChunkSize,
 		ChunkCount:    uint32(pack.DataChunkCount(packChunkSize)),
 		Size:          uint64(pack.Len()),
 		Hash:          checksum[:],
 		PackType:      packType,
-	}); err != nil {
-		return fmt.Errorf("error sending resource pack data info packet: %v", err)
-	}
+	})
 	// Set the next expected packet to ResourcePackChunkRequest packets.
 	r.Client.Expect(packet.IDResourcePackChunkRequest)
-	return nil
+	return true
 }
 
 // from client
@@ -339,9 +340,7 @@ func (r *rpHandler) OnResourcePackChunkRequest(pk *packet.ResourcePackChunkReque
 		response.Data = response.Data[:n]
 
 		defer func() {
-			if !r.queue.AllDownloaded() {
-				_ = r.nextResourcePackDownload()
-			} else {
+			if !r.nextResourcePackDownload() {
 				r.Client.Expect(packet.IDResourcePackClientResponse)
 			}
 		}()
@@ -416,11 +415,11 @@ func (r *rpHandler) OnResourcePackClientResponse(pk *packet.ResourcePackClientRe
 		}
 		// Proceed with the first resource pack download. We run all downloads in sequence rather than in
 		// parallel, as it's less prone to packet loss.
-		if err := r.nextResourcePackDownload(); err != nil {
-			return err
-		}
+		r.nextResourcePackDownload()
 	case packet.PackResponseAllPacksDownloaded:
+		r.clientDone.Store(true)
 		<-r.receivedRemoteStack
+		close(r.cache.commit)
 		if err := r.Client.WritePacket(r.stack); err != nil {
 			return fmt.Errorf("error writing resource pack stack packet: %v", err)
 		}
