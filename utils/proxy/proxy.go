@@ -379,10 +379,14 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 	}
 
 	wg.Wait()
-	defer p.Server.Close()
+	if p.Server != nil {
+		defer p.Server.Close()
+	}
 	if p.Listener != nil {
 		defer func() {
-			p.Listener.Disconnect(p.Client.(*minecraft.Conn), DisconnectReason)
+			if p.Client != nil {
+				p.Listener.Disconnect(p.Client.(*minecraft.Conn), DisconnectReason)
+			}
 			p.Listener.Close()
 		}()
 	}

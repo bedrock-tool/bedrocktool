@@ -217,9 +217,6 @@ func (r *rpHandler) OnResourcePackDataInfo(pk *packet.ResourcePackDataInfo) erro
 		}
 	}()
 
-	if r.Client != nil {
-		return r.Client.WritePacket(pk)
-	}
 	return nil
 }
 

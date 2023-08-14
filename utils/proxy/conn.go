@@ -13,7 +13,11 @@ import (
 
 func (p *Context) connectServer(ctx context.Context) (err error) {
 	if p.WithClient {
-		<-p.clientConnecting
+		select {
+		case <-p.clientConnecting:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 	}
 
 	logrus.Info(locale.Loc("connecting", locale.Strmap{"Address": p.serverAddress}))
