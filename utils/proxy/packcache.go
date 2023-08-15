@@ -8,6 +8,13 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+type iPackCache interface {
+	Get(id string) *resource.Pack
+	Has(id string) bool
+	Put(pack *resource.Pack)
+	Close()
+}
+
 type packCache struct {
 	Ignore bool
 	commit chan struct{}
@@ -48,4 +55,8 @@ func (c *packCache) Put(pack *resource.Pack) {
 		pack.WriteTo(f)
 		pack.Seek(0, 0)
 	}()
+}
+
+func (c *packCache) Close() {
+	close(c.commit)
 }

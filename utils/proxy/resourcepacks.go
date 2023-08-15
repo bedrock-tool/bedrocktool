@@ -22,7 +22,7 @@ type exemptedResourcePack struct {
 type rpHandler struct {
 	Server               minecraft.IConn
 	Client               minecraft.IConn
-	cache                packCache
+	cache                iPackCache
 	queue                *resourcePackQueue
 	nextPack             chan *resource.Pack
 	clientDone           atomic.Bool
@@ -44,7 +44,7 @@ func NewRpHandler(server, client minecraft.IConn) *rpHandler {
 			downloadingPacks: make(map[string]downloadingPack),
 			awaitingPacks:    make(map[string]*downloadingPack),
 		},
-		cache: packCache{
+		cache: &packCache{
 			commit: make(chan struct{}),
 		},
 		receivedRemotePacks: make(chan struct{}),
@@ -269,7 +269,7 @@ func (r *rpHandler) OnResourcePackStack(pk *packet.ResourcePackStack) error {
 	r.Server.Expect(packet.IDStartGame)
 	_ = r.Server.WritePacket(&packet.ResourcePackClientResponse{Response: packet.PackResponseCompleted})
 	if r.Client == nil {
-		close(r.cache.commit)
+		r.cache.Close()
 	}
 	return nil
 }
@@ -421,7 +421,7 @@ func (r *rpHandler) OnResourcePackClientResponse(pk *packet.ResourcePackClientRe
 	case packet.PackResponseAllPacksDownloaded:
 		r.clientDone.Store(true)
 		<-r.receivedRemoteStack
-		close(r.cache.commit)
+		r.cache.Close()
 		if err := r.Client.WritePacket(r.stack); err != nil {
 			return fmt.Errorf("error writing resource pack stack packet: %v", err)
 		}
@@ -439,6 +439,7 @@ func (r *rpHandler) GetResourcePacksInfo(texturePacksRequired bool) *packet.Reso
 }
 
 func (r *rpHandler) ResourcePacks() []*resource.Pack {
+	<-r.receivedRemoteStack // wait for the whole receiving process to be done
 	return r.resourcePacks
 }
 

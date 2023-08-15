@@ -1,12 +1,13 @@
 package proxy
 
 import (
-	"bytes"
+	"archive/zip"
 	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"os"
 	"sync"
@@ -26,7 +27,7 @@ type replayHeader struct {
 var replayMagic = []byte("BTCP")
 
 const (
-	currentReplayVersion = 2
+	currentReplayVersion = 3
 )
 
 func WriteReplayHeader(f io.Writer) {
@@ -38,9 +39,10 @@ func WriteReplayHeader(f io.Writer) {
 }
 
 type replayConnector struct {
-	f         *os.File
-	totalSize int64
-	ver       int
+	f       *os.File
+	z       *zip.Reader
+	packetF fs.File
+	ver     uint32
 
 	packets chan packet.Packet
 	spawn   chan struct{}
@@ -58,49 +60,32 @@ type replayConnector struct {
 	resourcePackHandler *rpHandler
 }
 
-func (r *replayConnector) readHeader() error {
-	r.ver = 1
-
-	magic := make([]byte, 4)
-	io.ReadAtLeast(r.f, magic, 4)
-	if bytes.Equal(magic, replayMagic) {
-		var header replayHeader
-		if err := binary.Read(r.f, binary.LittleEndian, &header); err != nil {
-			return err
-		}
-		r.ver = int(header.Version)
-	} else {
-		logrus.Info("Version 1 capture assumed.")
-		r.f.Seek(-4, io.SeekCurrent)
-	}
-	return nil
-}
-
 func (r *replayConnector) readPacket() (payload []byte, toServer bool, err error) {
 	var magic uint32 = 0
 	var packetLength uint32 = 0
 	timeReceived := time.Now()
 
-	offset, _ := r.f.Seek(0, io.SeekCurrent)
-	if offset == r.totalSize {
-		logrus.Info("Reached End")
-		return nil, toServer, nil
+	err = binary.Read(r.packetF, binary.LittleEndian, &magic)
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			logrus.Info("Reached End")
+			return nil, false, nil
+		}
+		return nil, false, err
 	}
-
-	binary.Read(r.f, binary.LittleEndian, &magic)
 	if magic != 0xAAAAAAAA {
 		return nil, toServer, fmt.Errorf("wrong Magic")
 	}
-	binary.Read(r.f, binary.LittleEndian, &packetLength)
-	binary.Read(r.f, binary.LittleEndian, &toServer)
+	binary.Read(r.packetF, binary.LittleEndian, &packetLength)
+	binary.Read(r.packetF, binary.LittleEndian, &toServer)
 	if r.ver >= 2 {
 		var timeMs int64
-		binary.Read(r.f, binary.LittleEndian, &timeMs)
+		binary.Read(r.packetF, binary.LittleEndian, &timeMs)
 		timeReceived = time.UnixMilli(timeMs)
 	}
 
 	payload = make([]byte, packetLength)
-	n, err := r.f.Read(payload)
+	n, err := io.ReadFull(r.packetF, payload)
 	if err != nil {
 		return nil, toServer, err
 	}
@@ -109,7 +94,7 @@ func (r *replayConnector) readPacket() (payload []byte, toServer bool, err error
 	}
 
 	var magic2 uint32
-	binary.Read(r.f, binary.LittleEndian, &magic2)
+	binary.Read(r.packetF, binary.LittleEndian, &magic2)
 	if magic2 != 0xBBBBBBBB {
 		return nil, toServer, fmt.Errorf("wrong Magic2")
 	}
@@ -220,21 +205,39 @@ func createReplayConnector(filename string, packetFunc PacketFunc) (r *replayCon
 		packets:    make(chan packet.Packet),
 	}
 	r.resourcePackHandler = NewRpHandler(r, nil)
-	r.resourcePackHandler.cache.Ignore = true
+	cache := &replayCache{}
+	r.resourcePackHandler.cache = cache
 
 	logrus.Infof("Reading replay %s", filename)
 
+	// open zip
 	r.f, err = os.Open(filename)
 	if err != nil {
 		return nil, err
 	}
-	stat, err := r.f.Stat()
+	s, _ := r.f.Stat()
+	r.z, err = zip.NewReader(r.f, s.Size())
 	if err != nil {
 		return nil, err
 	}
-	r.totalSize = stat.Size()
 
-	err = r.readHeader()
+	f, err := r.z.Open("version")
+	if err != nil {
+		return nil, err
+	}
+	binary.Read(f, binary.LittleEndian, &r.ver)
+	if r.ver != 3 {
+		return nil, errors.New("wrong version")
+	}
+
+	// read all packs
+	err = cache.ReadFrom(r.z)
+	if err != nil {
+		return nil, err
+	}
+
+	// open packets bin
+	r.packetF, err = r.z.Open("packets.bin")
 	if err != nil {
 		return nil, err
 	}
