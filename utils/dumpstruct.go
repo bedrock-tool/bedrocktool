@@ -2,17 +2,23 @@ package utils
 
 import (
 	"fmt"
+	"io"
 	"reflect"
 	"strings"
 
 	"golang.org/x/exp/slices"
 )
 
-func DumpStruct(level int, inputStruct any, withType bool, isInList bool) (s string) {
+func DumpStruct(f io.StringWriter, inputStruct any) {
+	dumpStruct(f, 0, inputStruct, true, false)
+}
+
+func dumpStruct(f io.StringWriter, level int, inputStruct any, withType bool, isInList bool) {
 	tBase := strings.Repeat("\t", level)
 
 	if inputStruct == nil {
-		return "nil"
+		f.WriteString("nil")
+		return
 	}
 
 	ii := reflect.Indirect(reflect.ValueOf(inputStruct))
@@ -32,11 +38,11 @@ func DumpStruct(level int, inputStruct any, withType bool, isInList bool) (s str
 		v := ii.MethodByName("Value").Call(nil)
 		val, set := v[0], v[1]
 		if !set.Bool() {
-			s += typeName + " Not Set"
+			f.WriteString(typeName + " Not Set")
 		} else {
-			s += typeName + "{\n" + tBase + "\t"
-			s += DumpStruct(level+1, val.Interface(), false, false)
-			s += "\n" + tBase + "}"
+			f.WriteString(typeName + "{\n" + tBase + "\t")
+			dumpStruct(f, level+1, val.Interface(), false, false)
+			f.WriteString("\n" + tBase + "}")
 		}
 		return
 	}
@@ -44,25 +50,27 @@ func DumpStruct(level int, inputStruct any, withType bool, isInList bool) (s str
 	switch ii.Kind() {
 	case reflect.Struct:
 		if ii.NumField() == 0 {
-			s += typeName + "{}"
+			f.WriteString(typeName + "{}")
 		} else {
-			s += typeName + "{\n"
+			f.WriteString(typeName + "{\n")
 			for i := 0; i < ii.NumField(); i++ {
 				fieldType := ii.Type().Field(i)
 
 				if fieldType.IsExported() {
-					s += fmt.Sprintf("%s\t%s: %s,\n", tBase, fieldType.Name, DumpStruct(level+1, ii.Field(i).Interface(), true, false))
+					f.WriteString(fmt.Sprintf("%s\t%s: ", tBase, fieldType.Name))
+					dumpStruct(f, level+1, ii.Field(i).Interface(), true, false)
+					f.WriteString(",\n")
 				} else {
-					s += tBase + " " + fieldType.Name + " (unexported)"
+					f.WriteString(tBase + " " + fieldType.Name + " (unexported)")
 				}
 			}
-			s += tBase + "}"
+			f.WriteString(tBase + "}")
 		}
 	case reflect.Slice:
-		s += typeName + "{"
+		f.WriteString(typeName + "{")
 
 		if ii.Len() > 1000 {
-			s += "<slice too long>"
+			f.WriteString("<slice too long>")
 		} else if ii.Len() == 0 {
 		} else {
 			e := ii.Index(0)
@@ -70,26 +78,28 @@ func DumpStruct(level int, inputStruct any, withType bool, isInList bool) (s str
 			is_elem_struct := t.Kind() == reflect.Struct
 
 			if is_elem_struct {
-				s += "\n"
+				f.WriteString("\n")
 			}
 			for i := 0; i < ii.Len(); i++ {
 				if is_elem_struct {
-					s += tBase + "\t"
+					f.WriteString(tBase + "\t")
 				}
-				s += DumpStruct(level+1, ii.Index(i).Interface(), false, true) + ","
+				dumpStruct(f, level+1, ii.Index(i).Interface(), false, true)
 				if is_elem_struct {
-					s += "\n"
+					f.WriteString(",\n")
 				} else {
 					if i != ii.Len()-1 {
-						s += " "
+						f.WriteString(", ")
+					} else {
+						f.WriteString(",")
 					}
 				}
 			}
 			if is_elem_struct {
-				s += tBase
+				f.WriteString(tBase)
 			}
 		}
-		s += "}"
+		f.WriteString("}")
 	case reflect.Map:
 		it := reflect.TypeOf(inputStruct)
 		valType := it.Elem().String()
@@ -98,32 +108,33 @@ func DumpStruct(level int, inputStruct any, withType bool, isInList bool) (s str
 		}
 		keyType := it.Key().String()
 
-		s += fmt.Sprintf("map[%s]%s{", keyType, valType)
+		f.WriteString(fmt.Sprintf("map[%s]%s{", keyType, valType))
 		if ii.Len() > 0 {
-			s += "\n"
+			f.WriteString("\n")
 		}
 
 		iter := ii.MapRange()
 		for iter.Next() {
 			k := iter.Key()
 			v := iter.Value()
-			s += fmt.Sprintf("%s\t%#v: %s,\n", tBase, k.Interface(), DumpStruct(level+1, v.Interface(), true, false))
+			f.WriteString(fmt.Sprintf("%s\t%#v: ", tBase, k.Interface()))
+			dumpStruct(f, level+1, v.Interface(), true, false)
+			f.WriteString(",\n")
 		}
 
 		if ii.Len() > 0 {
-			s += tBase
+			f.WriteString(tBase)
 		}
-		s += "}"
+		f.WriteString("}")
 	default:
 		is_array := ii.Kind() == reflect.Array
 		add_type := !isInList && !is_array && len(typeString) > 0
 		if add_type {
-			s += typeString + "("
+			f.WriteString(typeString + "(")
 		}
-		s += fmt.Sprintf("%#v", ii.Interface())
+		f.WriteString(fmt.Sprintf("%#v", ii.Interface()))
 		if add_type {
-			s += ")"
+			f.WriteString(")")
 		}
 	}
-	return s
 }

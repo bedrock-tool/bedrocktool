@@ -74,7 +74,8 @@ func NewDebugLogger(extraVerbose bool) *proxy.Handler {
 		PacketCB: func(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
 			if packetsLogF != nil {
 				dmpLock.Lock()
-				packetsLogF.Write([]byte(utils.DumpStruct(0, pk, true, false) + "\n\n\n"))
+				utils.DumpStruct(packetsLogF, pk)
+				packetsLogF.Write([]byte("\n\n\n"))
 				dmpLock.Unlock()
 			}
 
