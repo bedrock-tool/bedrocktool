@@ -28,6 +28,9 @@ type worldState struct {
 }
 
 func newWorldState(name string, dim world.Dimension) *worldState {
+	if dim == nil {
+		dim = world.Overworld
+	}
 	return &worldState{
 		dimension:          dim,
 		chunks:             make(map[world.ChunkPos]*chunk.Chunk),
