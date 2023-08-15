@@ -68,7 +68,10 @@ func (p *packetCapturer) OnServerConnect() bool {
 	packs := p.proxy.Server.ResourcePacks()
 	for _, pack := range packs {
 		logrus.Debugf("Writing %s to capture", pack.Name())
-		f, err := p.z.Create(filepath.Join("packcache", pack.UUID()+"_"+pack.Version()+".zip"))
+		f, err := p.z.CreateHeader(&zip.FileHeader{
+			Name:   filepath.Join("packcache", pack.UUID()+"_"+pack.Version()+".zip"),
+			Method: zip.Store,
+		})
 		if err != nil {
 			panic(err)
 		}
