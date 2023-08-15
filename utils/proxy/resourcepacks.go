@@ -205,6 +205,8 @@ func (r *rpHandler) OnResourcePackDataInfo(pk *packet.ResourcePackDataInfo) erro
 		// Finally we add the resource to the resource packs slice.
 		r.resourcePacks = append(r.resourcePacks, newPack)
 		r.cache.Put(newPack)
+
+		// if theres a client and the client needs resource packs send it to its queue
 		if r.nextPack != nil && !r.clientDone.Load() {
 			r.nextPack <- newPack
 		}

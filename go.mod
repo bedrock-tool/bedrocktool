@@ -6,7 +6,7 @@ go 1.20
 replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.31.0-7
 
 //replace github.com/df-mc/dragonfly => ./dragonfly
-replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.9.8-4
+replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.9.8-5
 
 //replace gioui.org => ./gio
 replace gioui.org => github.com/olebeck/gio v0.0.0-20230607184051-9ab60b08f083
@@ -53,6 +53,7 @@ require (
 	github.com/df-mc/atomic v1.10.0 // indirect
 	github.com/df-mc/worldupgrader v1.0.8 // indirect
 	github.com/dlclark/regexp2 v1.10.0 // indirect
+	github.com/ftrvxmtrx/tga v0.0.0-20150524081124-bd8e8d5be13a // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-text/typesetting v0.0.0-20230606200221-26abc51a6c27 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect

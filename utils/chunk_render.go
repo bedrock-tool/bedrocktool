@@ -38,6 +38,8 @@ func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.R
 		depth := y - heightBlock
 		if depth > 0 {
 			blockColor = blockColorAt(c, x, heightBlock, z)
+		} else {
+			blockColor = color.RGBA{0, 0, 0, 0}
 		}
 
 		// blend that blocks color with water depending on depth

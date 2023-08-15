@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/signal"
 	"runtime/debug"
-	"runtime/pprof"
 	"syscall"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
@@ -58,12 +57,14 @@ func updateCheck(ui ui.UI) {
 }
 
 func main() {
-	f, err := os.Create("cpu.pprof")
-	if err != nil {
-		panic(err)
-	}
-	pprof.StartCPUProfile(f)
-	defer pprof.StopCPUProfile()
+	/*
+		f, err := os.Create("cpu.pprof")
+		if err != nil {
+			panic(err)
+		}
+		pprof.StartCPUProfile(f)
+		defer pprof.StopCPUProfile()
+	*/
 
 	defer func() {
 		if err := recover(); err != nil {
@@ -126,7 +127,7 @@ func main() {
 		logrus.Error("Failed to init UI!")
 		return
 	}
-	err = ui.Start(ctx, cancel)
+	err := ui.Start(ctx, cancel)
 	cancel()
 	if err != nil {
 		logrus.Error(err)
