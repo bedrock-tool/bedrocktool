@@ -1,13 +1,12 @@
 package behaviourpack
 
 import (
-	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 )
 
 type blockBehaviour struct {
-	FormatVersion  string               `json:"format_version"`
-	MinecraftBlock utils.MinecraftBlock `json:"minecraft:block"`
+	FormatVersion  string         `json:"format_version"`
+	MinecraftBlock MinecraftBlock `json:"minecraft:block"`
 }
 
 func (bp *BehaviourPack) AddBlock(block protocol.BlockEntry) {
@@ -17,7 +16,7 @@ func (bp *BehaviourPack) AddBlock(block protocol.BlockEntry) {
 	}
 	entry := blockBehaviour{
 		FormatVersion:  bp.formatVersion,
-		MinecraftBlock: utils.ParseBlock(block),
+		MinecraftBlock: parseBlock(block),
 	}
 
 	bp.blocks = append(bp.blocks, entry)

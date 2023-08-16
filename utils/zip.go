@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"github.com/sirupsen/logrus"
@@ -55,6 +56,7 @@ func ZipFolder(filename, folder string) error {
 		return closePutback{w}, nil
 	})
 
+	folder = strings.ReplaceAll(folder, "./", "")
 	err = filepath.WalkDir(folder, func(path string, d fs.DirEntry, err error) error {
 		if !d.Type().IsDir() {
 			rel := path[len(folder)+1:]

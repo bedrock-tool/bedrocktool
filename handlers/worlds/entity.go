@@ -114,6 +114,8 @@ var flagNames = map[uint8]string{
 }
 
 func entityMetadataToNBT(metadata protocol.EntityMetadata, nbt map[string]any) {
+	nbt["Persistent"] = true
+
 	if variant, ok := metadata[protocol.EntityDataKeyVariant]; ok {
 		nbt["Variant"] = variant
 	}
@@ -156,23 +158,39 @@ func entityMetadataToNBT(metadata protocol.EntityMetadata, nbt map[string]any) {
 
 		type effect struct {
 			Id                              byte
-			Amplifier                       byte
 			Duration                        int32
 			DurationEasy                    int32
 			DurationNormal                  int32
 			DurationHard                    int32
-			Ambient                         bool
+			FactorCalculationData           map[string]any
 			ShowParticles                   bool
+			Ambient                         bool
+			Amplifier                       byte
 			DisplayOnScreenTextureAnimation bool
 		}
 
 		activeEffects := []effect{}
 		addEffect := func(id int, showParticles bool) {
 			activeEffects = append(activeEffects, effect{
-				Id:            byte(id),
-				Amplifier:     1,
-				Duration:      10000000,
-				ShowParticles: false,
+				Id:             byte(id),
+				Duration:       1000,
+				DurationEasy:   1000,
+				DurationNormal: 1000,
+				DurationHard:   1000,
+				FactorCalculationData: map[string]any{
+					"change_timestamp": int32(0),
+					"factor_current":   float32(0),
+					"factor_previous":  float32(0),
+					"factor_start":     float32(0),
+					"factor_target":    float32(1),
+					"had_applied":      uint8(0x1),
+					"had_last_tick":    uint8(0x0),
+					"padding_duration": int32(0),
+				},
+				ShowParticles:                   false,
+				Ambient:                         false,
+				Amplifier:                       1,
+				DisplayOnScreenTextureAnimation: false,
 			})
 		}
 

@@ -226,9 +226,7 @@ func createReplayConnector(filename string, packetFunc PacketFunc) (r *replayCon
 		return nil, err
 	}
 	binary.Read(f, binary.LittleEndian, &r.ver)
-	if r.ver != 3 {
-		return nil, errors.New("wrong version")
-	}
+	//r.ver = 1
 
 	// read all packs
 	err = cache.ReadFrom(r.z)

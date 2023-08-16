@@ -75,7 +75,7 @@ func dumpStruct(f io.StringWriter, level int, inputStruct any, withType bool, is
 		} else {
 			e := ii.Index(0)
 			t := reflect.TypeOf(e.Interface())
-			is_elem_struct := t.Kind() == reflect.Struct
+			is_elem_struct := t.Kind() == reflect.Struct || t.Kind() == reflect.Map
 
 			if is_elem_struct {
 				f.WriteString("\n")

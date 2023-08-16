@@ -140,6 +140,9 @@ func (r *rpHandler) OnResourcePackDataInfo(pk *packet.ResourcePackDataInfo) erro
 	if !ok {
 		// We either already downloaded the pack or we got sent an invalid UUID, that did not match any pack
 		// sent in the ResourcePacksInfo packet.
+		if _, ok := r.cache.(*replayCache); ok {
+			return nil
+		}
 		return fmt.Errorf("unknown pack to download with UUID %v", id)
 	}
 	if pack.size != pk.Size {
@@ -227,6 +230,9 @@ func (r *rpHandler) OnResourcePackChunkData(pk *packet.ResourcePackChunkData) er
 	pk.UUID = strings.Split(pk.UUID, "_")[0]
 	pack, ok := r.queue.awaitingPacks[pk.UUID]
 	if !ok {
+		if _, ok := r.cache.(*replayCache); ok {
+			return nil
+		}
 		// We haven't received a ResourcePackDataInfo packet from the server, so we can't use this data to
 		// download a resource pack.
 		return fmt.Errorf("resource pack chunk data for resource pack that was not being downloaded")
@@ -254,7 +260,12 @@ func (r *rpHandler) OnResourcePackStack(pk *packet.ResourcePackStack) error {
 			}
 		}
 		if !r.hasPack(pack.UUID, pack.Version, false) {
-			return fmt.Errorf("texture pack {uuid=%v, version=%v} not downloaded", pack.UUID, pack.Version)
+			m := fmt.Errorf("texture pack {uuid=%v, version=%v} not downloaded", pack.UUID, pack.Version)
+			if _, ok := r.cache.(*replayCache); ok {
+				logrus.Warn(m)
+			} else {
+				return m
+			}
 		}
 	}
 	for _, pack := range pk.BehaviourPacks {

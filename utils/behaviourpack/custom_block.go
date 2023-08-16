@@ -1,4 +1,4 @@
-package utils
+package behaviourpack
 
 import "github.com/sandertv/gophertunnel/minecraft/protocol"
 
@@ -40,7 +40,7 @@ type MinecraftBlock struct {
 	Permutations []permutation  `json:"permutations,omitempty"`
 }
 
-func ParseBlock(block protocol.BlockEntry) MinecraftBlock {
+func parseBlock(block protocol.BlockEntry) MinecraftBlock {
 	entry := MinecraftBlock{
 		Description: description{
 			Identifier:             block.Name,
@@ -96,10 +96,7 @@ func ParseBlock(block protocol.BlockEntry) MinecraftBlock {
 				if v, ok := v["lightLevel"]; ok {
 					comps[k] = v
 				}
-				// fix {"triggerType": "name"} -> "name"
-				if v, ok := v["triggerType"]; ok {
-					comps[k] = v
-				}
+
 				// fix missing * instance
 				if k == "minecraft:material_instances" {
 					if m, ok := v["materials"].(map[string]any); ok {
@@ -113,6 +110,12 @@ func ParseBlock(block protocol.BlockEntry) MinecraftBlock {
 				// fix {"emission": "name"} -> "name"
 				if v, ok := v["emission"]; ok {
 					comps[k] = v
+				}
+
+				if k == "minecraft:on_player_placing" {
+					comps[k] = map[string]any{
+						"event": v["triggerType"].(string),
+					}
 				}
 			}
 		}

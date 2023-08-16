@@ -120,6 +120,7 @@ func (w *worldState) Save(folder string, playerData map[string]any, spawn cube.P
 
 	// set gamerules
 	ld := provider.LevelDat()
+	ld.CheatsEnabled = true
 	ld.RandomSeed = int64(gd.WorldSeed)
 	for _, gr := range gd.GameRules {
 		switch gr.Name {
@@ -128,7 +129,7 @@ func (w *worldState) Save(folder string, playerData map[string]any, spawn cube.P
 		case "maxcommandchainlength":
 			ld.MaxCommandChainLength = int32(gr.Value.(uint32))
 		case "commandblocksenabled":
-			ld.CommandsEnabled = gr.Value.(bool)
+			//ld.CommandsEnabled = gr.Value.(bool)
 		case "dodaylightcycle":
 			ld.DoDayLightCycle = gr.Value.(bool)
 		case "doentitydrops":
