@@ -237,8 +237,8 @@ func (r *rpHandler) OnResourcePackDataInfo(pk *packet.ResourcePackDataInfo) erro
 		r.cache.Put(newPack)
 
 		// if theres a client and the client needs resource packs send it to its queue
-		if r.nextPack != nil && slices.Contains(r.packsRequestedFromServer, idCopy) {
-			logrus.Debugf("sending pack %s from server to client", idCopy)
+		if r.nextPack != nil && slices.Contains(r.packsRequestedFromServer, id) {
+			logrus.Debugf("sending pack %s from server to client", id)
 			r.nextPack <- newPack
 		}
 		if r.queue.serverPackAmount == 0 {
@@ -459,6 +459,11 @@ func (r *rpHandler) Request(packs []string) error {
 			return fmt.Errorf("could not find resource pack %v", packUUID)
 		}
 	}
+
+	if len(r.packsFromCache)+len(r.packsRequestedFromServer) < len(packs) {
+		logrus.Errorf("BUG: not enough packs sent to client, client will stall %d + %d  %d", len(r.packsFromCache), len(r.packsRequestedFromServer), len(packs))
+	}
+
 	if len(r.packsRequestedFromServer) == 0 {
 		close(r.nextPack)
 		r.nextPack = nil
