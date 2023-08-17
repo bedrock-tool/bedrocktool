@@ -6,12 +6,13 @@ import (
 	"io"
 	"strings"
 	"sync"
-	"sync/atomic"
 
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 	"github.com/sirupsen/logrus"
+	"github.com/vbauerster/mpb"
+	"golang.org/x/exp/slices"
 )
 
 type exemptedResourcePack struct {
@@ -20,38 +21,47 @@ type exemptedResourcePack struct {
 }
 
 type rpHandler struct {
-	Server               minecraft.IConn
-	Client               minecraft.IConn
-	cache                iPackCache
-	queue                *resourcePackQueue
-	nextPack             chan *resource.Pack
-	clientDone           atomic.Bool
-	ignoredResourcePacks []exemptedResourcePack
-	remotePacks          *packet.ResourcePacksInfo
-	receivedRemotePacks  chan struct{}
-	receivedRemoteStack  chan struct{}
-	packMu               sync.Mutex
-	resourcePacks        []*resource.Pack
-	stack                *packet.ResourcePackStack
+	Server                       minecraft.IConn
+	Client                       minecraft.IConn
+	cache                        iPackCache
+	queue                        *resourcePackQueue
+	nextPack                     chan *resource.Pack
+	packsFromCache               []*resource.Pack
+	packsRequestedFromServer     []string
+	knowPacksRquestedFromservers chan struct{}
+	clientHasRequested           bool
+	ignoredResourcePacks         []exemptedResourcePack
+	remotePacks                  *packet.ResourcePacksInfo
+	receivedRemotePackInfo       chan struct{}
+	receivedRemoteStack          chan struct{}
+	packMu                       sync.Mutex
+	resourcePacks                []*resource.Pack
+	stack                        *packet.ResourcePackStack
+	remotePackIds                []string
+	p                            *mpb.Progress
 }
+
+var MutePlease bool
 
 func NewRpHandler(server, client minecraft.IConn) *rpHandler {
 	r := &rpHandler{
 		Server: server,
 		Client: client,
 		queue: &resourcePackQueue{
-			packsToDownload:  make(map[string]*resource.Pack),
 			downloadingPacks: make(map[string]downloadingPack),
 			awaitingPacks:    make(map[string]*downloadingPack),
+			NextPack:         make(chan *resource.Pack),
 		},
 		cache: &packCache{
 			commit: make(chan struct{}),
 		},
-		receivedRemotePacks: make(chan struct{}),
-		receivedRemoteStack: make(chan struct{}),
+		receivedRemotePackInfo: make(chan struct{}),
+		receivedRemoteStack:    make(chan struct{}),
+		p:                      mpb.New(),
 	}
 	if r.Client != nil {
 		r.nextPack = make(chan *resource.Pack)
+		r.knowPacksRquestedFromservers = make(chan struct{})
 	}
 	return r
 }
@@ -105,6 +115,7 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 		}
 		// This UUID_Version is a hack Mojang put in place.
 		packsToDownload = append(packsToDownload, pack.UUID+"_"+pack.Version)
+		r.remotePackIds = append(r.remotePackIds, pack.UUID)
 		r.queue.downloadingPacks[pack.UUID] = downloadingPack{
 			size:       pack.Size,
 			buf:        bytes.NewBuffer(make([]byte, 0, pack.Size)),
@@ -114,7 +125,9 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 	}
 
 	r.remotePacks = pk
-	close(r.receivedRemotePacks)
+	close(r.receivedRemotePackInfo)
+	logrus.Debug("received remote pack infos")
+	<-r.knowPacksRquestedFromservers
 
 	if len(packsToDownload) != 0 {
 		r.Server.Expect(packet.IDResourcePackDataInfo, packet.IDResourcePackChunkData)
@@ -148,14 +161,27 @@ func (r *rpHandler) OnResourcePackDataInfo(pk *packet.ResourcePackDataInfo) erro
 	if pack.size != pk.Size {
 		// Size mismatch: The ResourcePacksInfo packet had a size for the pack that did not match with the
 		// size sent here.
-		logrus.Warnf("pack %v had a different size in the ResourcePacksInfo packet than the ResourcePackDataInfo packet\n", pk.UUID)
+		//logrus.Warnf("pack %v had a different size in the ResourcePacksInfo packet than the ResourcePackDataInfo packet\n", pk.UUID)
 		pack.size = pk.Size
 	}
 
 	// Remove the resource pack from the downloading packs and add it to the awaiting packets.
 	delete(r.queue.downloadingPacks, id)
 	r.queue.awaitingPacks[id] = &pack
+	//MutePlease = true
 
+	/*
+		bar := r.p.AddBar(int64(pack.size),
+			mpb.PrependDecorators(
+				decor.CountersKiloByte("% .2f / % .2f"),
+			),
+			mpb.AppendDecorators(
+				decor.EwmaETA(decor.ET_STYLE_GO, 30),
+				decor.Name(" ] "),
+				decor.EwmaSpeed(decor.UnitKB, "% .2f", 30),
+			),
+		)
+	*/
 	pack.chunkSize = pk.DataChunkSize
 
 	// The client calculates the chunk count by itself: You could in theory send a chunk count of 0 even
@@ -187,6 +213,7 @@ func (r *rpHandler) OnResourcePackDataInfo(pk *packet.ResourcePackDataInfo) erro
 				}
 
 				_, _ = pack.buf.Write(frag)
+				//bar.IncrBy(len(frag))
 			}
 		}
 		close(pack.newFrag)
@@ -210,7 +237,8 @@ func (r *rpHandler) OnResourcePackDataInfo(pk *packet.ResourcePackDataInfo) erro
 		r.cache.Put(newPack)
 
 		// if theres a client and the client needs resource packs send it to its queue
-		if r.nextPack != nil && !r.clientDone.Load() {
+		if r.nextPack != nil && slices.Contains(r.packsRequestedFromServer, idCopy) {
+			logrus.Debugf("sending pack %s from server to client", idCopy)
 			r.nextPack <- newPack
 		}
 		if r.queue.serverPackAmount == 0 {
@@ -276,6 +304,9 @@ func (r *rpHandler) OnResourcePackStack(pk *packet.ResourcePackStack) error {
 
 	r.stack = pk
 	close(r.receivedRemoteStack)
+	logrus.Debug("received remote resourcepack stack, starting game")
+	r.p.Wait() // finished progress bars
+	MutePlease = false
 
 	r.Server.Expect(packet.IDStartGame)
 	_ = r.Server.WritePacket(&packet.ResourcePackClientResponse{Response: packet.PackResponseCompleted})
@@ -285,16 +316,29 @@ func (r *rpHandler) OnResourcePackStack(pk *packet.ResourcePackStack) error {
 	return nil
 }
 
+func (r *rpHandler) takeFromCache() (*resource.Pack, bool) {
+	if len(r.packsFromCache) == 0 {
+		return nil, false
+	}
+	pack := r.packsFromCache[len(r.packsFromCache)-1]
+	r.packsFromCache = r.packsFromCache[:len(r.packsFromCache)-1]
+	return pack, true
+}
+
 // nextResourcePackDownload moves to the next resource pack to download and sends a resource pack data info
 // packet with information about it.
 func (r *rpHandler) nextResourcePackDownload() (ok bool) {
-	pack, ok := <-r.nextPack
-	if !ok { // all remote packs received, send packs from cache
-		pack, ok = r.queue.NextPack()
-		if !ok {
-			return false
-		}
+	var pack *resource.Pack
+	pack, ok = <-r.nextPack
+	if !ok {
+		pack, ok = r.takeFromCache()
 	}
+	if !ok {
+		logrus.Info("finished sending client resource packs")
+		return false
+	}
+
+	logrus.Debug("next pack", pack.Name())
 
 	r.queue.currentPack = pack
 	r.queue.currentOffset = 0
@@ -366,12 +410,14 @@ func (r *rpHandler) OnResourcePackChunkRequest(pk *packet.ResourcePackChunkReque
 }
 
 func (r *rpHandler) Request(packs []string) error {
-	<-r.receivedRemotePacks
+	r.clientHasRequested = true
+	<-r.receivedRemotePackInfo
 
-	r.queue.packsToDownload = make(map[string]*resource.Pack)
 	for _, packUUID := range packs {
 		found := false
 		if r.cache.Has(packUUID) {
+			logrus.Debug("using", packUUID, "from cache")
+
 			pack := r.cache.Get(packUUID)
 			for _, pack2 := range r.remotePacks.TexturePacks {
 				if pack2.UUID+"_"+pack2.Version == packUUID {
@@ -392,7 +438,7 @@ func (r *rpHandler) Request(packs []string) error {
 				}
 			}
 
-			r.queue.packsToDownload[pack.UUID()] = pack
+			r.packsFromCache = append(r.packsFromCache, pack)
 			found = true
 		} else {
 			for _, pack := range r.remotePacks.TexturePacks {
@@ -407,11 +453,17 @@ func (r *rpHandler) Request(packs []string) error {
 					break
 				}
 			}
+			r.packsRequestedFromServer = append(r.packsRequestedFromServer, strings.Split(packUUID, "_")[0])
 		}
 		if !found {
 			return fmt.Errorf("could not find resource pack %v", packUUID)
 		}
 	}
+	if len(r.packsRequestedFromServer) == 0 {
+		close(r.nextPack)
+		r.nextPack = nil
+	}
+	close(r.knowPacksRquestedFromservers)
 	return nil
 }
 
@@ -430,7 +482,12 @@ func (r *rpHandler) OnResourcePackClientResponse(pk *packet.ResourcePackClientRe
 		// parallel, as it's less prone to packet loss.
 		r.nextResourcePackDownload()
 	case packet.PackResponseAllPacksDownloaded:
-		r.clientDone.Store(true)
+		if !r.clientHasRequested {
+			close(r.knowPacksRquestedFromservers)
+			close(r.nextPack)
+			r.nextPack = nil
+		}
+		logrus.Debug("waiting for remote stack")
 		<-r.receivedRemoteStack
 		r.cache.Close()
 		if err := r.Client.WritePacket(r.stack); err != nil {
@@ -445,7 +502,7 @@ func (r *rpHandler) OnResourcePackClientResponse(pk *packet.ResourcePackClientRe
 }
 
 func (r *rpHandler) GetResourcePacksInfo(texturePacksRequired bool) *packet.ResourcePacksInfo {
-	<-r.receivedRemotePacks
+	<-r.receivedRemotePackInfo
 	return r.remotePacks
 }
 

@@ -79,7 +79,7 @@ func NewDebugLogger(extraVerbose bool) *proxy.Handler {
 				dmpLock.Unlock()
 			}
 
-			if !slices.Contains(MutedPackets, pk.ID()) {
+			if !slices.Contains(MutedPackets, pk.ID()) && !proxy.MutePlease {
 				var dir string = dirS2C
 				if toServer {
 					dir = dirC2S

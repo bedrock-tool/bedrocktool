@@ -112,9 +112,9 @@ func parseBlock(block protocol.BlockEntry) MinecraftBlock {
 					comps[k] = v
 				}
 
-				if k == "minecraft:on_player_placing" {
+				if v, ok := v["triggerType"]; ok {
 					comps[k] = map[string]any{
-						"event": v["triggerType"].(string),
+						"event": v.(string),
 					}
 				}
 			}
