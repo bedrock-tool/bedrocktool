@@ -14,10 +14,8 @@ func (bp *BehaviourPack) AddBlock(block protocol.BlockEntry) {
 	if ns == "minecraft" {
 		return
 	}
-	entry := blockBehaviour{
+	bp.blocks[block.Name] = &blockBehaviour{
 		FormatVersion:  bp.formatVersion,
 		MinecraftBlock: parseBlock(block),
 	}
-
-	bp.blocks = append(bp.blocks, entry)
 }

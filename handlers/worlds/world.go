@@ -19,8 +19,10 @@ import (
 
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"
+	_ "github.com/df-mc/dragonfly/server/world/biome"
 	"github.com/go-gl/mathgl/mgl32"
 	"github.com/sandertv/gophertunnel/minecraft"
+	"github.com/sandertv/gophertunnel/minecraft/nbt"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sirupsen/logrus"
@@ -48,6 +50,8 @@ type WorldSettings struct {
 type serverState struct {
 	ispre118     bool
 	worldCounter int
+	WorldName    string
+	biomes       map[string]any
 
 	playerInventory []protocol.ItemInstance
 	PlayerPos       playerPos
@@ -175,6 +179,11 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 					w.customBlocks = pk.Blocks
 				}
 
+				w.serverState.WorldName = pk.WorldName
+				if pk.WorldName != "" {
+					w.worldState.Name = pk.WorldName
+				}
+
 				{ // check game version
 					gv := strings.Split(pk.BaseGameVersion, ".")
 					var err error
@@ -196,9 +205,25 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 					}
 					w.worldState.dimension, _ = world.DimensionByID(int(dimensionID))
 				}
-
 			case *packet.ItemComponent:
 				w.bp.ApplyComponentEntries(pk.Items)
+			case *packet.BiomeDefinitionList:
+				err := nbt.UnmarshalEncoding(pk.SerialisedBiomeDefinitions, &w.serverState.biomes, nbt.NetworkLittleEndian)
+				if err != nil {
+					logrus.Error(err)
+				}
+				for k, v := range w.serverState.biomes {
+					println(k)
+					_, ok := world.BiomeByName(k)
+					if !ok {
+						world.RegisterBiome(&customBiome{
+							name: k,
+							data: v.(map[string]any),
+						})
+					}
+				}
+
+				w.bp.AddBiomes(w.serverState.biomes)
 			}
 
 			forward := true
@@ -216,6 +241,7 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 			w.SaveAndReset()
 			w.wg.Wait()
 			world.ResetStates()
+			world.ResetBiomes()
 		},
 	}
 }
@@ -254,6 +280,8 @@ func (w *worldsHandler) defaultName() string {
 	worldName := "world"
 	if w.serverState.worldCounter > 0 {
 		worldName = fmt.Sprintf("world-%d", w.serverState.worldCounter)
+	} else if w.serverState.WorldName != "" {
+		worldName = w.serverState.WorldName
 	}
 	return worldName
 }

@@ -15,9 +15,10 @@ import (
 type BehaviourPack struct {
 	formatVersion string
 	Manifest      *resource.Manifest
-	blocks        []blockBehaviour
+	blocks        map[string]*blockBehaviour
 	items         map[string]*itemBehaviour
 	entities      map[string]*entityBehaviour
+	biomes        []biomeBehaviour
 }
 
 func New(name string) *BehaviourPack {
@@ -43,7 +44,7 @@ func New(name string) *BehaviourPack {
 			Dependencies: []resource.Dependency{},
 			Capabilities: []resource.Capability{},
 		},
-		blocks:   []blockBehaviour{},
+		blocks:   make(map[string]*blockBehaviour),
 		items:    make(map[string]*itemBehaviour),
 		entities: make(map[string]*entityBehaviour),
 	}
@@ -137,6 +138,13 @@ func (bp *BehaviourPack) Save(fpath string) error {
 		e := json.NewEncoder(w)
 		e.SetIndent("", "\t")
 		return e.Encode(thing)
+	}
+
+	for k := range bp.items {
+		_, ok := bp.blocks[k]
+		if ok {
+			delete(bp.items, k)
+		}
 	}
 
 	if bp.HasBlocks() { // blocks

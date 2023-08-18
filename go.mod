@@ -6,7 +6,7 @@ go 1.20
 replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.31.0-7
 
 //replace github.com/df-mc/dragonfly => ./dragonfly
-replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.9.8-5
+replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.9.8-6
 
 //replace gioui.org => ./gio
 replace gioui.org => github.com/olebeck/gio v0.0.0-20230607184051-9ab60b08f083
@@ -31,6 +31,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/tailscale/hujson v0.0.0-20221223112325-20486734a56a
 	github.com/thomaso-mirodin/intmath v0.0.0-20160323211736-5dc6d854e46e
+	github.com/vbauerster/mpb v3.4.0+incompatible
 	golang.design/x/lockfree v0.0.1
 	golang.org/x/crypto v0.9.0
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
@@ -46,6 +47,7 @@ require (
 	gioui.org/cpu v0.0.0-20220412190645-f1e9e8c3b1f7 // indirect
 	gioui.org/shader v1.0.6 // indirect
 	git.wow.st/gmp/jni v0.0.0-20210610011705-34026c7e22d0 // indirect
+	github.com/VividCortex/ewma v1.2.0 // indirect
 	github.com/brentp/intintmap v0.0.0-20190211203843-30dc0ade9af9 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/changkun/lockfree v0.0.1 // indirect
