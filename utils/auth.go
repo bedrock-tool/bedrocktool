@@ -9,6 +9,7 @@ import (
 
 	"github.com/sandertv/gophertunnel/minecraft/auth"
 	"github.com/sandertv/gophertunnel/minecraft/realms"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
 )
 
@@ -112,7 +113,11 @@ func GetRealmsAPI() *realms.Client {
 		if RealmsEnv != "" {
 			realms.RealmsAPIBase = fmt.Sprintf("https://pocket-%s.realms.minecraft.net/", RealmsEnv)
 		}
-		gRealmsAPI = realms.NewClient(Auth.src)
+		src, err := Auth.GetTokenSource()
+		if err != nil {
+			logrus.Fatal(err)
+		}
+		gRealmsAPI = realms.NewClient(src)
 	}
 	return gRealmsAPI
 }

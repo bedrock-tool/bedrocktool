@@ -87,6 +87,10 @@ func main() {
 	defer it.Release()
 	for it.Next() {
 		c := it.Column()
+		if err = it.Error(); err != nil {
+			logrus.Fatal(err)
+		}
+
 		for _, e := range c.Entities {
 			se := e.(*serverEntity)
 			fmt.Printf("%s\n", e.Type().EncodeEntity())

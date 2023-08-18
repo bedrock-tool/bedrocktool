@@ -13,6 +13,7 @@ import (
 	"github.com/df-mc/goleveldb/leveldb/opt"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/exp/maps"
 )
 
 type worldState struct {
@@ -20,6 +21,7 @@ type worldState struct {
 	chunks             map[world.ChunkPos]*chunk.Chunk
 	blockNBTs          map[cube.Pos]map[string]any
 	entities           map[uint64]*entityState
+	entityLinks        map[int64]map[int64]struct{}
 	openItemContainers map[byte]*itemContainer
 	VoidGen            bool
 	timeSync           time.Time
@@ -36,6 +38,7 @@ func newWorldState(name string, dim world.Dimension) *worldState {
 		chunks:             make(map[world.ChunkPos]*chunk.Chunk),
 		blockNBTs:          make(map[cube.Pos]map[string]any),
 		entities:           make(map[uint64]*entityState),
+		entityLinks:        make(map[int64]map[int64]struct{}),
 		openItemContainers: make(map[byte]*itemContainer),
 		Name:               name,
 	}
@@ -80,7 +83,8 @@ func (w *worldState) startSave(folder string) (*mcdb.DB, error) {
 	chunkEntities := make(map[world.ChunkPos][]world.Entity)
 	for _, es := range w.entities {
 		cp := world.ChunkPos{int32(es.Position.X()) >> 4, int32(es.Position.Z()) >> 4}
-		chunkEntities[cp] = append(chunkEntities[cp], es.ToServerEntity())
+		links := maps.Keys(w.entityLinks[es.UniqueID])
+		chunkEntities[cp] = append(chunkEntities[cp], es.ToServerEntity(links))
 	}
 
 	// save chunk data

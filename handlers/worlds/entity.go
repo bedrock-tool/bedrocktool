@@ -61,6 +61,20 @@ func (e serverEntity) Type() world.EntityType {
 	return e.EntityType
 }
 
+func (w *worldsHandler) addEntityLink(el protocol.EntityLink) {
+	switch el.Type {
+	case protocol.EntityLinkPassenger:
+		fallthrough
+	case protocol.EntityLinkRider:
+		if _, ok := w.worldState.entityLinks[el.RiddenEntityUniqueID]; !ok {
+			w.worldState.entityLinks[el.RiddenEntityUniqueID] = make(map[int64]struct{})
+		}
+		w.worldState.entityLinks[el.RiddenEntityUniqueID][el.RiderEntityUniqueID] = struct{}{}
+	case protocol.EntityLinkRemove:
+		delete(w.worldState.entityLinks[el.RiddenEntityUniqueID], el.RiderEntityUniqueID)
+	}
+}
+
 func (w *worldsHandler) processAddActor(pk *packet.AddActor) {
 	e, ok := w.getEntity(pk.EntityRuntimeID)
 	if !ok {
@@ -72,6 +86,9 @@ func (w *worldsHandler) processAddActor(pk *packet.AddActor) {
 			Metadata:   make(map[uint32]any),
 		}
 		w.worldState.entities[pk.EntityRuntimeID] = e
+		for _, el := range pk.EntityLinks {
+			w.addEntityLink(el)
+		}
 
 		w.bp.AddEntity(behaviourpack.EntityIn{
 			Identifier: pk.EntityType,
@@ -209,7 +226,7 @@ func vec3float32(x mgl32.Vec3) []float32 {
 	return []float32{float32(x[0]), float32(x[1]), float32(x[2])}
 }
 
-func (s *entityState) ToServerEntity() serverEntity {
+func (s *entityState) ToServerEntity(links []int64) serverEntity {
 	e := serverEntity{
 		EntityType: serverEntityType{
 			Encoded: s.EntityType,
@@ -222,6 +239,17 @@ func (s *entityState) ToServerEntity() serverEntity {
 		},
 	}
 	entityMetadataToNBT(s.Metadata, e.EntityType.NBT)
+
+	var linksTag []map[string]any
+	for i, el := range links {
+		linksTag = append(linksTag, map[string]any{
+			"entityID": el,
+			"linkID":   int32(i),
+		})
+	}
+	if len(linksTag) > 0 {
+		e.EntityType.NBT["LinksTag"] = linksTag
+	}
 
 	if false {
 		armor := make([]map[string]any, 4)
@@ -319,6 +347,8 @@ func (w *worldsHandler) handleEntityPackets(pk packet.Packet) packet.Packet {
 			e.Leggings = &pk.Chestplate
 			e.Boots = &pk.Boots
 		}
+	case *packet.SetActorLink:
+		w.addEntityLink(pk.EntityLink)
 	}
 	return pk
 }
