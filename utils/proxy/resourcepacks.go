@@ -127,7 +127,9 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 	r.remotePacks = pk
 	close(r.receivedRemotePackInfo)
 	logrus.Debug("received remote pack infos")
-	<-r.knowPacksRquestedFromservers
+	if r.Client != nil {
+		<-r.knowPacksRquestedFromservers
+	}
 
 	if len(packsToDownload) != 0 {
 		r.Server.Expect(packet.IDResourcePackDataInfo, packet.IDResourcePackChunkData)
