@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 )
@@ -144,7 +145,9 @@ func ShowFile(path string) {
 	path, _ = filepath.Abs(path)
 	if runtime.GOOS == "windows" {
 		cmd := exec.Command(`explorer`, "/select,", path)
-		cmd.Start()
+		if err := cmd.Start(); err != nil {
+			logrus.Error(err)
+		}
 		return
 	}
 	if runtime.GOOS == "linux" {

@@ -64,6 +64,23 @@ func (s *SkinPack) AddSkin(skin *Skin) bool {
 	return false
 }
 
+func write112Geometry(fpath, geometryName string, geometry *SkinGeometry_1_12) error {
+	f, err := os.Create(path.Join(fpath, fmt.Sprintf("geometry-%s.json", geometryName)))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	e := json.NewEncoder(f)
+	e.SetIndent("", "\t")
+	if err := e.Encode(map[string]any{
+		"format_version":     "1.12.0",
+		"minecraft:geometry": []*SkinGeometry_1_12{geometry},
+	}); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *SkinPack) Save(fpath string) error {
 	os.MkdirAll(fpath, 0o755)
 
@@ -105,20 +122,10 @@ func (s *SkinPack) Save(fpath string) error {
 			if err != nil {
 				logrus.Warnf("failed to decode geometry %s %v", skinName, err)
 			} else if geometry != nil {
-				f, err := os.Create(path.Join(fpath, fmt.Sprintf("geometry-%s.json", geometryName)))
+				err := write112Geometry(fpath, geometryName, geometry)
 				if err != nil {
-					return err
+					logrus.Warnf("failed to write geometry %s %v", skinName, err)
 				}
-				e := json.NewEncoder(f)
-				e.SetIndent("", "\t")
-				if err := e.Encode(map[string]any{
-					"format_version":     "1.12.0",
-					"minecraft:geometry": []*SkinGeometry_1_12{geometry},
-				}); err != nil {
-					f.Close()
-					return err
-				}
-				f.Close()
 				geometryJson[geometryName] = SkinGeometry{
 					SkinGeometryDescription: geometry.Description,
 					Bones:                   geometry.Bones,

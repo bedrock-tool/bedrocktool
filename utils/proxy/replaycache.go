@@ -34,7 +34,7 @@ func (r *replayCache) ReadFrom(z *zip.Reader) error {
 			if err != nil {
 				return err
 			}
-			f.Close()
+			_ = f.Close()
 			pack, err := resource.FromBytes(data)
 			if err != nil {
 				return err

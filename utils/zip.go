@@ -39,7 +39,7 @@ func (pool *DeflatePool) GetWriter(dst io.Writer) (writer *flate.Writer) {
 }
 
 func (pool *DeflatePool) ReturnWriter(writer *flate.Writer) {
-	writer.Close()
+	_ = writer.Close()
 	pool.pool.Put(writer)
 }
 
@@ -48,6 +48,7 @@ func ZipFolder(filename, folder string) error {
 	if err != nil {
 		return err
 	}
+	defer f.Close()
 	zw := zip.NewWriter(f)
 
 	// Register a custom Deflate compressor.
@@ -74,7 +75,6 @@ func ZipFolder(filename, folder string) error {
 		}
 		return nil
 	})
-	zw.Close()
-	f.Close()
-	return err
+
+	return zw.Close()
 }

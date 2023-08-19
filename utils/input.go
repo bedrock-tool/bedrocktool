@@ -30,7 +30,7 @@ func UserInput(ctx context.Context, q string, validator func(string) bool) (stri
 		var validatorQueued atomic.Bool
 
 		for {
-			os.Stdin.Read(b[:])
+			_, _ = os.Stdin.Read(b[:])
 
 			done = false
 			switch b[0] {

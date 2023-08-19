@@ -73,7 +73,7 @@ func (p *Context) ClientWritePacket(pk packet.Packet) error {
 
 // SendMessage sends a chat message to the client
 func (p *Context) SendMessage(text string) {
-	p.ClientWritePacket(&packet.Text{
+	_ = p.ClientWritePacket(&packet.Text{
 		TextType: packet.TextTypeSystem,
 		Message:  "§8[§bBedrocktool§8]§r " + text,
 	})
@@ -81,7 +81,7 @@ func (p *Context) SendMessage(text string) {
 
 // SendPopup sends a toolbar popup to the client
 func (p *Context) SendPopup(text string) {
-	p.ClientWritePacket(&packet.Text{
+	_ = p.ClientWritePacket(&packet.Text{
 		TextType: packet.TextTypePopup,
 		Message:  text,
 	})
@@ -195,7 +195,7 @@ func (p *Context) DisconnectClient() {
 	if p.Client == nil {
 		return
 	}
-	p.Client.Close()
+	_ = p.Client.Close()
 }
 
 // Disconnect disconnects from the server
@@ -203,7 +203,7 @@ func (p *Context) DisconnectServer() {
 	if p.Server == nil {
 		return
 	}
-	p.Server.Close()
+	_ = p.Server.Close()
 }
 
 func (p *Context) IsClient(addr net.Addr) bool {
@@ -345,9 +345,9 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 	if p.Listener != nil {
 		defer func() {
 			if p.Client != nil {
-				p.Listener.Disconnect(p.Client.(*minecraft.Conn), p.disconnectReason)
+				_ = p.Listener.Disconnect(p.Client.(*minecraft.Conn), p.disconnectReason)
 			}
-			p.Listener.Close()
+			_ = p.Listener.Close()
 		}()
 	}
 

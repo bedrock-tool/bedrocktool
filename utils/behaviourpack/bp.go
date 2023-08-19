@@ -120,7 +120,7 @@ func (bp *BehaviourPack) Save(fpath string) error {
 	_add_thing := func(base, identifier string, thing any) error {
 		ns, name := ns_name_split(identifier)
 		dir := filepath.Join(base, ns)
-		os.Mkdir(dir, 0o755)
+		_ = os.Mkdir(dir, 0o755)
 		w, err := os.Create(filepath.Join(dir, name+".json"))
 		if err != nil {
 			return err
@@ -139,7 +139,7 @@ func (bp *BehaviourPack) Save(fpath string) error {
 
 	if bp.HasBlocks() { // blocks
 		blocksDir := filepath.Join(fpath, "blocks")
-		os.Mkdir(blocksDir, 0o755)
+		_ = os.Mkdir(blocksDir, 0o755)
 		for _, be := range bp.blocks {
 			err := _add_thing(blocksDir, be.MinecraftBlock.Description.Identifier, be)
 			if err != nil {
@@ -149,7 +149,7 @@ func (bp *BehaviourPack) Save(fpath string) error {
 	}
 	if bp.HasItems() { // items
 		itemsDir := filepath.Join(fpath, "items")
-		os.Mkdir(itemsDir, 0o755)
+		_ = os.Mkdir(itemsDir, 0o755)
 		for _, ib := range bp.items {
 			err := _add_thing(itemsDir, ib.MinecraftItem.Description.Identifier, ib)
 			if err != nil {
@@ -159,7 +159,7 @@ func (bp *BehaviourPack) Save(fpath string) error {
 	}
 	if bp.HasEntities() { // entities
 		entitiesDir := filepath.Join(fpath, "entities")
-		os.Mkdir(entitiesDir, 0o755)
+		_ = os.Mkdir(entitiesDir, 0o755)
 		for _, eb := range bp.entities {
 			err := _add_thing(entitiesDir, eb.MinecraftEntity.Description.Identifier, eb)
 			if err != nil {

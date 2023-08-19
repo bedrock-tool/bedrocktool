@@ -338,7 +338,7 @@ func (r *rpHandler) nextResourcePackDownload() (ok bool) {
 		packType = packet.ResourcePackTypeSkins
 	}
 
-	r.Client.WritePacket(&packet.ResourcePackDataInfo{
+	_ = r.Client.WritePacket(&packet.ResourcePackDataInfo{
 		UUID:          pack.UUID(),
 		DataChunkSize: packChunkSize,
 		ChunkCount:    uint32(pack.DataChunkCount(packChunkSize)),

@@ -154,7 +154,11 @@ func (c *TransCMD) Execute(_ context.Context, ui ui.UI) error {
 		Reset   = "\033[0m"
 	)
 	if c.auth {
-		utils.Auth.GetTokenSource()
+		_, err := utils.Auth.GetTokenSource()
+		if err != nil {
+			logrus.Error(err)
+			return nil
+		}
 	}
 	fmt.Println(BlackFg + Bold + Blue + " Trans " + Pink + " Rights " + White + " Are " + Pink + " Human " + Blue + " Rights " + Reset)
 	return nil
@@ -174,13 +178,12 @@ func (c *CreateCustomDataCMD) SetFlags(f *flag.FlagSet) {
 func (c *CreateCustomDataCMD) Execute(_ context.Context, ui ui.UI) error {
 	var data proxy.CustomClientData
 	fio, err := os.Create(c.path)
-	if err == nil {
-		defer fio.Close()
-		var bdata []byte
-		bdata, err = json.MarshalIndent(&data, "", "\t")
-		fio.Write(bdata)
-	}
 	if err != nil {
+		return err
+	}
+	defer fio.Close()
+	e := json.NewEncoder(fio)
+	if err = e.Encode(data); err != nil {
 		return err
 	}
 	return nil

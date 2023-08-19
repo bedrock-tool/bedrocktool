@@ -46,14 +46,14 @@ func (c *packCache) Put(pack *resource.Pack) {
 	go func() {
 		<-c.commit
 		p := c.cachedPath(pack.UUID() + "_" + pack.Version())
-		os.MkdirAll(filepath.Dir(p), 0777)
+		_ = os.MkdirAll(filepath.Dir(p), 0777)
 		f, err := os.Create(p)
 		if err != nil {
 			logrus.Error(err)
 		}
 		defer f.Close()
-		pack.WriteTo(f)
-		pack.Seek(0, 0)
+		_, _ = pack.WriteTo(f)
+		_, _ = pack.Seek(0, 0)
 	}()
 }
 

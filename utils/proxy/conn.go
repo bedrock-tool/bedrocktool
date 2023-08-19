@@ -74,7 +74,7 @@ func (p *Context) connectClient(ctx context.Context, serverAddress string, cdpp 
 	go func() {
 		<-ctx.Done()
 		if p.Client == nil {
-			p.Listener.Close()
+			_ = p.Listener.Close()
 		}
 	}()
 
