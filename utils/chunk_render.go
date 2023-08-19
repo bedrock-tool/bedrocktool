@@ -16,7 +16,7 @@ func isBlockLightblocking(b world.Block) bool {
 	return !noDiffuse
 }
 
-var CustomBlockColors = map[string]color.RGBA{}
+var customBlockColors = map[string]color.RGBA{}
 
 func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.RGBA) {
 	if y <= int16(c.Range().Min()) {
@@ -52,7 +52,7 @@ func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.R
 	} else {
 		if b2, ok := b.(world.UnknownBlock); ok {
 			name, _ := b2.EncodeBlock()
-			blockColor, ok = CustomBlockColors[name]
+			blockColor, ok = customBlockColors[name]
 			if !ok {
 				if name == "minecraft:monster_egg" {
 					name = "minecraft:" + b2.Properties["monster_egg_stone_type"].(string)
@@ -63,11 +63,10 @@ func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.R
 			blockColor = b.Color()
 		}
 
-		/*
-			if blockColor.R == 0xff && blockColor.B == 0xff {
-				println(b.EncodeBlock())
-			}
-		*/
+		if blockColor.R == 0xff && blockColor.G == 0x0 && blockColor.B == 0xff {
+			println(b.EncodeBlock())
+			b.Color()
+		}
 
 		if blockColor.A != 255 {
 			blockColor = BlendColors(blockColorAt(c, x, y-1, z), blockColor)

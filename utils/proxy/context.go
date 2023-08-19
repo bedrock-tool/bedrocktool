@@ -36,6 +36,7 @@ type Context struct {
 	clientData       login.ClientData
 	clientAddr       net.Addr
 	spawned          bool
+	disconnectReason string
 	serverAddress    string
 	serverName       string
 
@@ -49,9 +50,10 @@ type Context struct {
 // New creates a new proxy context
 func New(ui ui.UI, withClient bool) (*Context, error) {
 	p := &Context{
-		commands:   make(map[string]ingameCommand),
-		WithClient: withClient,
-		ui:         ui,
+		commands:         make(map[string]ingameCommand),
+		WithClient:       withClient,
+		disconnectReason: "Connection Lost",
+		ui:               ui,
 	}
 	return p, nil
 }
@@ -167,7 +169,7 @@ func (p *Context) proxyLoop(ctx context.Context, toServer bool) error {
 		if pk != nil && c2 != nil {
 			if err := c2.WritePacket(pk); err != nil {
 				if disconnect, ok := errors.Unwrap(err).(minecraft.DisconnectError); ok {
-					DisconnectReason = disconnect.Error()
+					p.disconnectReason = disconnect.Error()
 				}
 				if errors.Is(err, io.EOF) {
 					err = nil
@@ -343,7 +345,7 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 	if p.Listener != nil {
 		defer func() {
 			if p.Client != nil {
-				p.Listener.Disconnect(p.Client.(*minecraft.Conn), DisconnectReason)
+				p.Listener.Disconnect(p.Client.(*minecraft.Conn), p.disconnectReason)
 			}
 			p.Listener.Close()
 		}()
@@ -354,6 +356,7 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 		if errors.Is(err, errCancelConnect) {
 			err = nil
 		}
+		p.disconnectReason = err.Error()
 		return err
 	}
 
@@ -390,6 +393,7 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 		wg.Wait()
 		err = context.Cause(ctx)
 		if err != nil {
+			p.disconnectReason = err.Error()
 			return err
 		}
 
@@ -428,8 +432,9 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 		}
 
 		wg.Wait()
-		if ctx.Err() != nil {
-			err = context.Cause(ctx)
+		err = context.Cause(ctx)
+		if err != nil {
+			p.disconnectReason = err.Error()
 		}
 	}
 

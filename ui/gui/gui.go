@@ -3,6 +3,7 @@ package gui
 import (
 	"bufio"
 	"context"
+	"errors"
 	"image/color"
 	"io"
 
@@ -26,7 +27,7 @@ import (
 
 type GUI struct {
 	router        pages.Router
-	cancel        context.CancelFunc
+	cancel        context.CancelCauseFunc
 	authPopup     bool
 	authPopupText string
 }
@@ -50,7 +51,7 @@ var paletteDark = material.Palette{
 	ContrastFg: color.NRGBA{0xff, 0xff, 0xff, 0xff},
 }
 
-func (g *GUI) Start(ctx context.Context, cancel context.CancelFunc) (err error) {
+func (g *GUI) Start(ctx context.Context, cancel context.CancelCauseFunc) (err error) {
 	g.cancel = cancel
 
 	w := app.NewWindow(
@@ -95,7 +96,7 @@ func (g *GUI) run(w *app.Window) error {
 			switch e := e.(type) {
 			case system.DestroyEvent:
 				logrus.Info("Closing")
-				g.cancel()
+				g.cancel(errors.New("Closing"))
 				g.router.Wg.Wait()
 				return e.Err
 			case system.FrameEvent:
@@ -118,7 +119,7 @@ func (g *GUI) run(w *app.Window) error {
 			}
 		case <-g.router.Ctx.Done():
 			logrus.Info("Closing")
-			g.cancel()
+			g.cancel(errors.New("Closing"))
 			g.router.Wg.Wait()
 			return nil
 		}

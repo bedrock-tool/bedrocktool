@@ -185,7 +185,7 @@ func toTexturePath(name string) string {
 	return "textures/blocks/" + strings.Replace(name, ":", "/", 1)
 }
 
-func ResolveColors(entries []protocol.BlockEntry, packs []Pack) map[string]color.RGBA {
+func ResolveColors(entries []protocol.BlockEntry, packs []Pack, addToBlocks bool) map[string]color.RGBA {
 	colors := make(map[string]color.RGBA)
 	texture_names := getTexturePaths(entries)
 	for _, p := range packs {
@@ -267,5 +267,8 @@ func ResolveColors(entries []protocol.BlockEntry, packs []Pack) map[string]color
 		}
 	}
 
+	if addToBlocks {
+		customBlockColors = colors
+	}
 	return colors
 }

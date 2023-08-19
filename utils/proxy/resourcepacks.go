@@ -39,9 +39,7 @@ type rpHandler struct {
 	remotePackIds                []string
 }
 
-var MutePlease bool
-
-func NewRpHandler(server, client minecraft.IConn) *rpHandler {
+func newRpHandler(server, client minecraft.IConn) *rpHandler {
 	r := &rpHandler{
 		Server: server,
 		Client: client,
@@ -167,7 +165,6 @@ func (r *rpHandler) OnResourcePackDataInfo(pk *packet.ResourcePackDataInfo) erro
 	// Remove the resource pack from the downloading packs and add it to the awaiting packets.
 	delete(r.queue.downloadingPacks, id)
 	r.queue.awaitingPacks[id] = &pack
-	//MutePlease = true
 	pack.chunkSize = pk.DataChunkSize
 
 	// The client calculates the chunk count by itself: You could in theory send a chunk count of 0 even
@@ -290,7 +287,6 @@ func (r *rpHandler) OnResourcePackStack(pk *packet.ResourcePackStack) error {
 	r.stack = pk
 	close(r.receivedRemoteStack)
 	logrus.Debug("received remote resourcepack stack, starting game")
-	MutePlease = false
 
 	r.Server.Expect(packet.IDStartGame)
 	_ = r.Server.WritePacket(&packet.ResourcePackClientResponse{Response: packet.PackResponseCompleted})

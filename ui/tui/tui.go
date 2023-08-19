@@ -3,6 +3,7 @@ package tui
 import (
 	"bufio"
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -25,7 +26,7 @@ func (c *TUI) Init() bool {
 	return true
 }
 
-func (c *TUI) Start(ctx context.Context, cancel context.CancelFunc) error {
+func (c *TUI) Start(ctx context.Context, cancel context.CancelCauseFunc) error {
 	select {
 	case <-ctx.Done():
 		return nil
@@ -45,7 +46,7 @@ func (c *TUI) Start(ctx context.Context, cancel context.CancelFunc) error {
 			return false
 		})
 		if cancelled {
-			cancel()
+			cancel(errors.New("cancelled input"))
 			return nil
 		}
 		_cmd := strings.Split(cmd, " ")

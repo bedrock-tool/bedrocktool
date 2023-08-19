@@ -1,4 +1,4 @@
-package handlers
+package proxy
 
 import (
 	"bufio"
@@ -10,14 +10,13 @@ import (
 
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/crypt"
-	"github.com/bedrock-tool/bedrocktool/utils/proxy"
 	"github.com/fatih/color"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
 )
 
-var MutedPackets = []uint32{
+var mutedPackets = []uint32{
 	packet.IDUpdateBlock,
 	packet.IDMoveActorAbsolute,
 	packet.IDSetActorMotion,
@@ -48,7 +47,7 @@ var MutedPackets = []uint32{
 var dirS2C = color.GreenString("S") + "->" + color.CyanString("C")
 var dirC2S = color.CyanString("C") + "->" + color.GreenString("S")
 
-func NewDebugLogger(extraVerbose bool) *proxy.Handler {
+func NewDebugLogger(extraVerbose bool) *Handler {
 	var logPlain, logCrypt, logCryptEnc io.WriteCloser
 	var packetsLogF *bufio.Writer
 	var dmpLock sync.Mutex
@@ -69,17 +68,18 @@ func NewDebugLogger(extraVerbose bool) *proxy.Handler {
 		}
 	}
 
-	return &proxy.Handler{
+	return &Handler{
 		Name: "Debug",
 		PacketCB: func(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
 			if packetsLogF != nil {
 				dmpLock.Lock()
 				utils.DumpStruct(packetsLogF, pk)
 				packetsLogF.Write([]byte("\n\n\n"))
+				packetsLogF.Flush()
 				dmpLock.Unlock()
 			}
 
-			if !slices.Contains(MutedPackets, pk.ID()) && !proxy.MutePlease {
+			if !slices.Contains(mutedPackets, pk.ID()) {
 				var dir string = dirS2C
 				if toServer {
 					dir = dirC2S
@@ -106,9 +106,4 @@ func NewDebugLogger(extraVerbose bool) *proxy.Handler {
 			dmpLock.Unlock()
 		},
 	}
-}
-
-func init() {
-	// inject to proxy to avoid loop
-	proxy.NewDebugLogger = NewDebugLogger
 }

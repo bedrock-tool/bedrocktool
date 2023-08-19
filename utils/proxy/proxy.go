@@ -12,8 +12,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var DisconnectReason = "Connection lost"
-
 type PacketFunc func(header packet.Header, payload []byte, src, dst net.Addr)
 type ingameCommand struct {
 	Exec func(cmdline []string) bool
@@ -50,7 +48,6 @@ type Handler struct {
 	Deferred func()
 }
 
-var NewDebugLogger func(bool) *Handler
 var NewPacketCapturer func() *Handler
 var d *Handler
 

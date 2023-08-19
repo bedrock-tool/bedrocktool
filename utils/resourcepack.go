@@ -15,22 +15,23 @@ type Pack interface {
 	CanDecrypt() bool
 	Base() *resource.Pack
 	FS() (fs.FS, []string, error)
+	SetD()
 }
 
-type Packb struct {
+type packBase struct {
 	*resource.Pack
 	d bool
 }
 
-func (p *Packb) CanDecrypt() bool {
+func (p *packBase) CanDecrypt() bool {
 	return false
 }
 
-func (p *Packb) SetD() {
+func (p *packBase) SetD() {
 	p.d = true
 }
 
-func (p *Packb) FS() (fs.FS, []string, error) {
+func (p *packBase) FS() (fs.FS, []string, error) {
 	if p.Encrypted() && !p.d {
 		return nil, nil, errors.New("encrypted")
 	}
@@ -50,12 +51,12 @@ func (p *Packb) FS() (fs.FS, []string, error) {
 	return r, names, err
 }
 
-func (p *Packb) Base() *resource.Pack {
+func (p *packBase) Base() *resource.Pack {
 	return p.Pack
 }
 
 var PackFromBase = func(pack *resource.Pack) Pack {
-	b := &Packb{pack, false}
+	b := &packBase{pack, false}
 	return b
 }
 

@@ -15,10 +15,10 @@ func (c *CLI) Init() bool {
 	return true
 }
 
-func (c *CLI) Start(ctx context.Context, cancel context.CancelFunc) error {
+func (c *CLI) Start(ctx context.Context, cancel context.CancelCauseFunc) error {
 	flag.Parse()
 	subcommands.Execute(ctx, c)
-	cancel()
+	cancel(nil)
 	return nil
 }
 

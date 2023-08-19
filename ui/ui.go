@@ -8,7 +8,7 @@ import (
 
 type UI interface {
 	Init() bool
-	Start(context.Context, context.CancelFunc) error
+	Start(context.Context, context.CancelCauseFunc) error
 	Message(data interface{}) messages.MessageResponse
 	ServerInput(context.Context, string) (string, string, error)
 }

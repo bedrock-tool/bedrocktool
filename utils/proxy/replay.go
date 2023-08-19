@@ -20,24 +20,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type replayHeader struct {
-	Version int32
-}
-
-var replayMagic = []byte("BTCP")
-
-const (
-	currentReplayVersion = 3
-)
-
-func WriteReplayHeader(f io.Writer) {
-	f.Write(replayMagic)
-	header := replayHeader{
-		Version: currentReplayVersion,
-	}
-	binary.Write(f, binary.LittleEndian, &header)
-}
-
 type replayConnector struct {
 	f       *os.File
 	z       *zip.Reader
@@ -204,7 +186,7 @@ func createReplayConnector(filename string, packetFunc PacketFunc) (r *replayCon
 		close:      make(chan struct{}),
 		packets:    make(chan packet.Packet),
 	}
-	r.resourcePackHandler = NewRpHandler(r, nil)
+	r.resourcePackHandler = newRpHandler(r, nil)
 	cache := &replayCache{}
 	r.resourcePackHandler.cache = cache
 
@@ -239,6 +221,8 @@ func createReplayConnector(filename string, packetFunc PacketFunc) (r *replayCon
 	if err != nil {
 		return nil, err
 	}
+
+	//io.CopyN(io.Discard, r.packetF, 8)
 
 	go r.loop()
 	return r, nil

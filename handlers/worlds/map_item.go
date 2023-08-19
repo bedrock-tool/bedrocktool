@@ -111,8 +111,7 @@ func (m *MapUI) Start() {
 	m.ticker = time.NewTicker(33 * time.Millisecond)
 	m.wg.Add(1)
 	go func() {
-		colors := utils.ResolveColors(m.w.customBlocks, m.w.serverState.packs)
-		utils.CustomBlockColors = colors
+		utils.ResolveColors(m.w.customBlocks, m.w.serverState.packs, true)
 		m.wg.Done()
 	}()
 	go func() {

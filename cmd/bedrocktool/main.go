@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -94,7 +95,7 @@ func main() {
 		logrus.Infof(locale.Loc("bedrocktool_version", locale.Strmap{"Version": utils.Version}))
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancelCause(context.Background())
 
 	flag.StringVar(&utils.RealmsEnv, "realms-env", "", "realms env")
 	flag.BoolVar(&utils.Options.Debug, "debug", false, locale.Loc("debug_mode", nil))
@@ -120,7 +121,7 @@ func main() {
 	go func() {
 		<-sigs
 		println("cancelling")
-		cancel()
+		cancel(errors.New("program closing"))
 	}()
 
 	if !ui.Init() {
@@ -128,7 +129,7 @@ func main() {
 		return
 	}
 	err := ui.Start(ctx, cancel)
-	cancel()
+	cancel(err)
 	if err != nil {
 		logrus.Error(err)
 	}
