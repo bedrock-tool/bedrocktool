@@ -2,13 +2,13 @@ package utils
 
 import (
 	"fmt"
+	"hash/crc32"
 	"io"
 	"net/http"
 	"os"
 	"runtime"
 
 	"github.com/sanbornm/go-selfupdate/selfupdate"
-	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/mem"
 )
 
@@ -29,14 +29,9 @@ func (httpRequester *trequester) Fetch(url string) (io.ReadCloser, error) {
 		return nil, err
 	}
 	// set user agent to know what versions are run
-	h, _ := os.Hostname()
-	v, _ := mem.VirtualMemory()
-	c, _ := cpu.Info()
-	var ct string
-	if len(c) > 0 {
-		ct = c[0].ModelName
-	}
-	req.Header.Add("User-Agent", fmt.Sprintf("%s '%s' '%s' %d %d '%s'", CmdName, Version, h, runtime.NumCPU(), v.Total, ct))
+	h, _ := os.Hostname()       // sent as crc32 hashed
+	v, _ := mem.VirtualMemory() // how much ram you have
+	req.Header.Add("User-Agent", fmt.Sprintf("%s '%s' %d %d %d", CmdName, Version, crc32.ChecksumIEEE([]byte(h)), runtime.NumCPU(), v.Total))
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

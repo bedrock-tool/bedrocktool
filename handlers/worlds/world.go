@@ -20,22 +20,12 @@ import (
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"
 	_ "github.com/df-mc/dragonfly/server/world/biome"
-	"github.com/go-gl/mathgl/mgl32"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/nbt"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sirupsen/logrus"
 )
-
-type playerPos struct {
-	Position mgl32.Vec3
-	Pitch    float32
-	Yaw      float32
-	HeadYaw  float32
-}
-
-// the state used for drawing and saving
 
 type WorldSettings struct {
 	// settings
@@ -48,13 +38,12 @@ type WorldSettings struct {
 }
 
 type serverState struct {
-	ispre118     bool
+	useOldBiomes bool
 	worldCounter int
 	WorldName    string
 	biomes       map[string]any
 
 	playerInventory []protocol.ItemInstance
-	PlayerPos       playerPos
 	packs           []utils.Pack
 
 	Name string
@@ -77,9 +66,8 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 	w := &worldsHandler{
 		ui: ui,
 		serverState: serverState{
-			ispre118:     false,
+			useOldBiomes: false,
 			worldCounter: 0,
-			PlayerPos:    playerPos{},
 		},
 
 		settings: settings,
@@ -190,14 +178,14 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 					if len(gv) > 1 {
 						var ver int
 						ver, err = strconv.Atoi(gv[1])
-						w.serverState.ispre118 = ver < 18
+						w.serverState.useOldBiomes = ver < 18
 					}
 					if err != nil || len(gv) <= 1 {
 						logrus.Info(locale.Loc("guessing_version", nil))
 					}
 
 					dimensionID := pk.Dimension
-					if w.serverState.ispre118 {
+					if w.serverState.useOldBiomes {
 						logrus.Info(locale.Loc("using_under_118", nil))
 						if dimensionID == 0 {
 							dimensionID += 10
@@ -213,7 +201,6 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 					logrus.Error(err)
 				}
 				for k, v := range w.serverState.biomes {
-					println(k)
 					_, ok := world.BiomeByName(k)
 					if !ok {
 						world.RegisterBiome(&customBiome{
@@ -293,7 +280,7 @@ func (w *worldsHandler) SaveAndReset() {
 		return
 	}
 
-	playerPos := w.serverState.PlayerPos.Position
+	playerPos := w.proxy.Player.Position
 	spawnPos := cube.Pos{int(playerPos.X()), int(playerPos.Y()), int(playerPos.Z())}
 
 	folder := fmt.Sprintf("worlds/%s/%s", w.serverState.Name, w.worldState.Name)

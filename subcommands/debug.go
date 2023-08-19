@@ -27,12 +27,11 @@ func (c *DebugProxyCMD) Execute(ctx context.Context, ui ui.UI) error {
 		return err
 	}
 
-	utils.Options.Debug = true
-
-	proxy, err := proxy.New(ui)
+	proxy, err := proxy.New(ui, true)
 	if err != nil {
 		return err
 	}
+	utils.Options.Debug = true
 	return proxy.Run(ctx, address, hostname)
 }
 

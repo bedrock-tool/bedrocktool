@@ -30,7 +30,7 @@ func (c *ChatLogCMD) Execute(ctx context.Context, ui ui.UI) error {
 		return err
 	}
 
-	proxy, err := proxy.New(ui)
+	proxy, err := proxy.New(ui, true)
 	if err != nil {
 		return err
 	}

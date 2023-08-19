@@ -21,19 +21,13 @@ import (
 )
 
 type SkinSaver struct {
-	Proxy             *proxy.Context
 	PlayerNameFilter  string
 	OnlyIfHasGeometry bool
 	ServerName        string
 	fpath             string
+	proxy             *proxy.Context
 
-	players  map[uuid.UUID]*skinPlayer
-	myPlayer struct {
-		RuntimeID uint64
-		Position  mgl32.Vec3
-		Pitch     float32
-		HeadYaw   float32
-	}
+	players map[uuid.UUID]*skinPlayer
 }
 
 type skinPlayer struct {
@@ -58,7 +52,7 @@ func (s *SkinSaver) AddPlayerSkin(playerID uuid.UUID, playerName string, skin *u
 	}
 	if p.SkinPack.AddSkin(skin) {
 		addedStr := fmt.Sprintf("Added a skin %s", playerName)
-		s.Proxy.SendPopup(addedStr)
+		s.proxy.SendPopup(addedStr)
 		logrus.Info(addedStr)
 		added = true
 	}
@@ -72,6 +66,7 @@ func (s *SkinSaver) AddSkin(playerName string, playerID uuid.UUID, playerSkin *p
 	p, ok := s.players[playerID]
 	if !ok {
 		p = &skinPlayer{}
+		s.players[playerID] = p
 	}
 	if playerName == "" {
 		if p.Name != "" {
@@ -102,27 +97,33 @@ type SkinAdd struct {
 
 func (s *SkinSaver) ProcessPacket(pk packet.Packet) (out []SkinAdd) {
 	switch pk := pk.(type) {
-	case *packet.StartGame:
-		s.myPlayer.RuntimeID = pk.EntityRuntimeID
 	case *packet.MovePlayer:
-		if pk.EntityRuntimeID == s.myPlayer.RuntimeID {
-			s.myPlayer.Position = pk.Position
-			s.myPlayer.Pitch = pk.Pitch
-			s.myPlayer.HeadYaw = pk.HeadYaw
-		} else {
-			var player *skinPlayer
-			for _, sp := range s.players {
-				if sp.RuntimeID == pk.EntityRuntimeID {
-					player = sp
-					break
-				}
-			}
-			if player == nil {
-				logrus.Debugf("Cant find Player %d", pk.EntityRuntimeID)
-			} else {
-				player.Position = pk.Position
+		var player *skinPlayer
+		for _, sp := range s.players {
+			if sp.RuntimeID == pk.EntityRuntimeID {
+				player = sp
+				break
 			}
 		}
+		if player == nil {
+			return
+		} else {
+			player.Position = pk.Position
+		}
+	case *packet.MoveActorAbsolute:
+		var player *skinPlayer
+		for _, sp := range s.players {
+			if sp.RuntimeID == pk.EntityRuntimeID {
+				player = sp
+				break
+			}
+		}
+		if player == nil {
+			return
+		} else {
+			player.Position = pk.Position
+		}
+
 	case *packet.PlayerList:
 		if pk.ActionType == packet.PlayerListActionRemove { // remove
 			return nil
@@ -144,12 +145,11 @@ func (s *SkinSaver) ProcessPacket(pk packet.Packet) (out []SkinAdd) {
 		if p.Name == "" {
 			p.Name = utils.CleanupName(pk.Username)
 		}
+		p.RuntimeID = pk.EntityRuntimeID
 	case *packet.Animate:
-		/*
-			if pk.ActionType == packet.AnimateActionSwingArm {
-				s.stealSkin()
-			}
-		*/
+		if pk.EntityRuntimeID == s.proxy.Player.RuntimeID && pk.ActionType == packet.AnimateActionSwingArm {
+			s.stealSkin()
+		}
 	}
 	return out
 }
@@ -161,7 +161,7 @@ func NewSkinSaver(skinCB func(SkinAdd)) *proxy.Handler {
 	return &proxy.Handler{
 		Name: "Skin Saver",
 		ProxyRef: func(pc *proxy.Context) {
-			s.Proxy = pc
+			s.proxy = pc
 		},
 		AddressAndName: func(address, hostname string) error {
 			outPathBase := fmt.Sprintf("skins/%s", hostname)
@@ -182,26 +182,41 @@ func NewSkinSaver(skinCB func(SkinAdd)) *proxy.Handler {
 
 var playerBBox = cube.Box(-0.3, 0, -0.3, 0.3, 1.8, 0.3)
 
+var rtTest = false
+
 func (s *SkinSaver) stealSkin() {
+	if !rtTest {
+		return
+	}
 	logrus.Debugf("%d", len(s.players))
 
 	var dist float64 = 4
-	xzLen := math.Cos(float64(s.myPlayer.Pitch))
-	dir := mgl64.Vec3{
-		dist * xzLen * math.Cos(float64(s.myPlayer.HeadYaw)),
-		dist * math.Sin(float64(s.myPlayer.Pitch)),
-		dist * xzLen * math.Sin(-float64(s.myPlayer.HeadYaw)),
-	}
-	myPos := mgl64.Vec3{float64(s.myPlayer.Position[0]), float64(s.myPlayer.Position[1]), float64(s.myPlayer.Position[2])}
 
-	fmt.Printf("%+#v\n", s.myPlayer)
-	fmt.Printf("p1: %#v p2: %#v\n", myPos, myPos.Add(dir))
+	pitch := mgl64.DegToRad(float64(s.proxy.Player.Pitch))
+	yaw := mgl64.DegToRad(float64(s.proxy.Player.HeadYaw + 90))
+
+	dir := mgl64.Vec3{
+		math.Cos(yaw) * math.Cos(pitch),
+		math.Sin(-pitch),
+		math.Sin(yaw) * math.Cos(pitch),
+	}.Normalize()
+
+	pos := s.proxy.Player.Position
+	traceStart := mgl64.Vec3{float64(pos[0]), float64(pos[1]), float64(pos[2])}
+	traceEnd := traceStart.Add(dir.Mul(dist))
+
+	s.proxy.ClientWritePacket(&packet.SpawnParticleEffect{
+		Dimension:      0,
+		EntityUniqueID: -1,
+		Position:       mgl32.Vec3{float32(traceEnd[0]), float32(traceEnd[1]), float32(traceEnd[2])},
+		ParticleName:   "hivehub:emote_confounded",
+	})
 
 	for _, sp := range s.players {
-		pos := mgl64.Vec3{float64(sp.Position[0]), float64(sp.Position[1]), float64(sp.Position[2])}
+		pos := mgl64.Vec3{float64(sp.Position[0]), float64(sp.Position[1]) - 1.8, float64(sp.Position[2])}
 		bb := playerBBox.Translate(pos)
 
-		res, ok := trace.BBoxIntercept(bb, myPos, myPos.Add(dir))
+		res, ok := trace.BBoxIntercept(bb, traceStart, traceEnd)
 		if ok {
 			fmt.Printf("res: %v\n", res.Position())
 			break

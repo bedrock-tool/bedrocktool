@@ -3,7 +3,6 @@ package utils
 import (
 	"archive/zip"
 	"errors"
-	"io"
 	"io/fs"
 	"sort"
 
@@ -12,17 +11,8 @@ import (
 )
 
 type Pack interface {
-	io.ReaderAt
-	io.WriterTo
-	io.Seeker
 	Encrypted() bool
 	CanDecrypt() bool
-	UUID() string
-	Name() string
-	Version() string
-	ContentKey() string
-	Len() int
-	Manifest() resource.Manifest
 	Base() *resource.Pack
 	FS() (fs.FS, []string, error)
 }

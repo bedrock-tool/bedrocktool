@@ -27,11 +27,10 @@ func (c *CaptureCMD) Execute(ctx context.Context, ui ui.UI) error {
 		return err
 	}
 
-	p, err := proxy.New(ui)
+	p, err := proxy.New(ui, true)
 	if err != nil {
 		return err
 	}
-	p.AlwaysGetPacks = true
 	utils.Options.Capture = true
 	return p.Run(ctx, address, hostname)
 }

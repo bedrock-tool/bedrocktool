@@ -181,7 +181,7 @@ func (w *worldsHandler) playerData() (ret map[string]any) {
 	ret["Tags"] = []string{}
 	ret["OnGround"] = true
 
-	spawn := w.serverState.PlayerPos.Position
+	spawn := w.proxy.Player.Position
 
 	ret["SpawnX"] = int32(spawn.X())
 	ret["SpawnY"] = int32(spawn.Y())
@@ -194,8 +194,8 @@ func (w *worldsHandler) playerData() (ret map[string]any) {
 	}
 
 	ret["Rotation"] = []float32{
-		w.serverState.PlayerPos.Pitch,
-		w.serverState.PlayerPos.Yaw,
+		w.proxy.Player.Pitch,
+		w.proxy.Player.Yaw,
 	}
 
 	return

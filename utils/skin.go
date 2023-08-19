@@ -46,16 +46,19 @@ func (skin *Skin) getGeometry() (*SkinGeometry_1_12, string, error) {
 		return nil, "", errors.New("no geometry")
 	}
 
-	var data map[string]any
+	var data any
 	if err := json.Unmarshal(skin.SkinGeometry, &data); err != nil {
 		return nil, "", err
 	}
-
-	if len(data) == 0 {
+	if data == nil {
+		return nil, "", nil
+	}
+	m, ok := data.(map[string]any)
+	if !ok {
 		return nil, "", nil
 	}
 
-	arr, ok := data["minecraft:geometry"].([]any)
+	arr, ok := m["minecraft:geometry"].([]any)
 	if !ok {
 		return nil, "", errors.New("invalid geometry")
 	}

@@ -13,7 +13,7 @@ import (
 func (w *worldsHandler) processChangeDimension(pk *packet.ChangeDimension) {
 	w.SaveAndReset()
 	dimensionID := pk.Dimension
-	if w.serverState.ispre118 && dimensionID == 0 {
+	if w.serverState.useOldBiomes && dimensionID == 0 {
 		dimensionID += 10
 	}
 	w.worldState.dimension, _ = world.DimensionByID(int(dimensionID))
@@ -35,7 +35,7 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 		subChunkCount = int(pk.SubChunkCount)
 	}
 
-	ch, blockNBTs, err := chunk.NetworkDecode(world.AirRID(), pk.RawPayload, subChunkCount, w.serverState.ispre118, w.worldState.dimension.Range())
+	ch, blockNBTs, err := chunk.NetworkDecode(world.AirRID(), pk.RawPayload, subChunkCount, w.serverState.useOldBiomes, w.worldState.dimension.Range())
 	if err != nil {
 		logrus.Error(err)
 		return

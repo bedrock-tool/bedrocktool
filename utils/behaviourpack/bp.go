@@ -1,15 +1,15 @@
 package behaviourpack
 
 import (
-	"archive/zip"
 	"encoding/json"
 	"os"
-	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/exp/slices"
 )
 
 type BehaviourPack struct {
@@ -58,38 +58,28 @@ func (bp *BehaviourPack) AddDependency(id string, ver [3]int) {
 }
 
 func (bp *BehaviourPack) CheckAddLink(pack utils.Pack) {
-	z, err := zip.NewReader(pack, int64(pack.Len()))
+	_, names, err := pack.FS()
 	if err != nil {
 		logrus.Error(err)
 		return
 	}
 
-	hasBlocksJson := false
+	var hasBlocksJson = false
 	if bp.HasBlocks() {
-		_, err = z.Open("blocks.json")
+		_, hasBlocksJson = slices.BinarySearch(names, "blocks.json")
 		if err == nil {
 			hasBlocksJson = true
 		}
 	}
 
-	hasEntitiesFolder := false
+	var hasEntitiesFolder = false
 	if bp.HasEntities() {
-		for _, f := range z.File {
-			if f.Name == "entity" && f.FileInfo().IsDir() {
-				hasEntitiesFolder = true
-				break
-			}
-		}
+		_, hasEntitiesFolder = slices.BinarySearch(names, "entity")
 	}
 
-	hasItemsFolder := false
+	var hasItemsFolder = false
 	if bp.HasItems() {
-		for _, f := range z.File {
-			if f.Name == "items" && f.FileInfo().IsDir() {
-				hasItemsFolder = true
-				break
-			}
-		}
+		_, hasItemsFolder = slices.BinarySearch(names, "items")
 	}
 
 	// has no assets needed
@@ -97,7 +87,7 @@ func (bp *BehaviourPack) CheckAddLink(pack utils.Pack) {
 		return
 	}
 
-	h := pack.Manifest().Header
+	h := pack.Base().Manifest().Header
 	bp.AddDependency(h.UUID, h.Version)
 }
 
@@ -129,9 +119,9 @@ func (bp *BehaviourPack) Save(fpath string) error {
 
 	_add_thing := func(base, identifier string, thing any) error {
 		ns, name := ns_name_split(identifier)
-		thing_dir := path.Join(base, ns)
-		os.Mkdir(thing_dir, 0o755)
-		w, err := os.Create(path.Join(thing_dir, name+".json"))
+		dir := filepath.Join(base, ns)
+		os.Mkdir(dir, 0o755)
+		w, err := os.Create(filepath.Join(dir, name+".json"))
 		if err != nil {
 			return err
 		}
@@ -148,30 +138,30 @@ func (bp *BehaviourPack) Save(fpath string) error {
 	}
 
 	if bp.HasBlocks() { // blocks
-		blocks_dir := path.Join(fpath, "blocks")
-		os.Mkdir(blocks_dir, 0o755)
+		blocksDir := filepath.Join(fpath, "blocks")
+		os.Mkdir(blocksDir, 0o755)
 		for _, be := range bp.blocks {
-			err := _add_thing(blocks_dir, be.MinecraftBlock.Description.Identifier, be)
+			err := _add_thing(blocksDir, be.MinecraftBlock.Description.Identifier, be)
 			if err != nil {
 				return err
 			}
 		}
 	}
 	if bp.HasItems() { // items
-		items_dir := path.Join(fpath, "items")
-		os.Mkdir(items_dir, 0o755)
+		itemsDir := filepath.Join(fpath, "items")
+		os.Mkdir(itemsDir, 0o755)
 		for _, ib := range bp.items {
-			err := _add_thing(items_dir, ib.MinecraftItem.Description.Identifier, ib)
+			err := _add_thing(itemsDir, ib.MinecraftItem.Description.Identifier, ib)
 			if err != nil {
 				return err
 			}
 		}
 	}
 	if bp.HasEntities() { // entities
-		items_dir := path.Join(fpath, "entities")
-		os.Mkdir(items_dir, 0o755)
+		entitiesDir := filepath.Join(fpath, "entities")
+		os.Mkdir(entitiesDir, 0o755)
 		for _, eb := range bp.entities {
-			err := _add_thing(items_dir, eb.MinecraftEntity.Description.Identifier, eb)
+			err := _add_thing(entitiesDir, eb.MinecraftEntity.Description.Identifier, eb)
 			if err != nil {
 				return err
 			}

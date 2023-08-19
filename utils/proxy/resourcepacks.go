@@ -11,7 +11,6 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 	"github.com/sirupsen/logrus"
-	"github.com/vbauerster/mpb"
 	"golang.org/x/exp/slices"
 )
 
@@ -28,7 +27,7 @@ type rpHandler struct {
 	nextPack                     chan *resource.Pack
 	packsFromCache               []*resource.Pack
 	packsRequestedFromServer     []string
-	knowPacksRquestedFromservers chan struct{}
+	knowPacksRequestedFromServer chan struct{}
 	clientHasRequested           bool
 	ignoredResourcePacks         []exemptedResourcePack
 	remotePacks                  *packet.ResourcePacksInfo
@@ -38,7 +37,6 @@ type rpHandler struct {
 	resourcePacks                []*resource.Pack
 	stack                        *packet.ResourcePackStack
 	remotePackIds                []string
-	p                            *mpb.Progress
 }
 
 var MutePlease bool
@@ -57,11 +55,10 @@ func NewRpHandler(server, client minecraft.IConn) *rpHandler {
 		},
 		receivedRemotePackInfo: make(chan struct{}),
 		receivedRemoteStack:    make(chan struct{}),
-		p:                      mpb.New(),
 	}
 	if r.Client != nil {
 		r.nextPack = make(chan *resource.Pack)
-		r.knowPacksRquestedFromservers = make(chan struct{})
+		r.knowPacksRequestedFromServer = make(chan struct{})
 	}
 	return r
 }
@@ -128,7 +125,7 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 	close(r.receivedRemotePackInfo)
 	logrus.Debug("received remote pack infos")
 	if r.Client != nil {
-		<-r.knowPacksRquestedFromservers
+		<-r.knowPacksRequestedFromServer
 	}
 
 	if len(packsToDownload) != 0 {
@@ -171,19 +168,6 @@ func (r *rpHandler) OnResourcePackDataInfo(pk *packet.ResourcePackDataInfo) erro
 	delete(r.queue.downloadingPacks, id)
 	r.queue.awaitingPacks[id] = &pack
 	//MutePlease = true
-
-	/*
-		bar := r.p.AddBar(int64(pack.size),
-			mpb.PrependDecorators(
-				decor.CountersKiloByte("% .2f / % .2f"),
-			),
-			mpb.AppendDecorators(
-				decor.EwmaETA(decor.ET_STYLE_GO, 30),
-				decor.Name(" ] "),
-				decor.EwmaSpeed(decor.UnitKB, "% .2f", 30),
-			),
-		)
-	*/
 	pack.chunkSize = pk.DataChunkSize
 
 	// The client calculates the chunk count by itself: You could in theory send a chunk count of 0 even
@@ -215,7 +199,6 @@ func (r *rpHandler) OnResourcePackDataInfo(pk *packet.ResourcePackDataInfo) erro
 				}
 
 				_, _ = pack.buf.Write(frag)
-				//bar.IncrBy(len(frag))
 			}
 		}
 		close(pack.newFrag)
@@ -307,7 +290,6 @@ func (r *rpHandler) OnResourcePackStack(pk *packet.ResourcePackStack) error {
 	r.stack = pk
 	close(r.receivedRemoteStack)
 	logrus.Debug("received remote resourcepack stack, starting game")
-	r.p.Wait() // finished progress bars
 	MutePlease = false
 
 	r.Server.Expect(packet.IDStartGame)
@@ -470,7 +452,7 @@ func (r *rpHandler) Request(packs []string) error {
 		close(r.nextPack)
 		r.nextPack = nil
 	}
-	close(r.knowPacksRquestedFromservers)
+	close(r.knowPacksRequestedFromServer)
 	return nil
 }
 
@@ -490,7 +472,7 @@ func (r *rpHandler) OnResourcePackClientResponse(pk *packet.ResourcePackClientRe
 		r.nextResourcePackDownload()
 	case packet.PackResponseAllPacksDownloaded:
 		if !r.clientHasRequested {
-			close(r.knowPacksRquestedFromservers)
+			close(r.knowPacksRequestedFromServer)
 			close(r.nextPack)
 			r.nextPack = nil
 		}

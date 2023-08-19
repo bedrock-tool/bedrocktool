@@ -116,7 +116,14 @@ func (m *MapUI) Start() {
 		m.wg.Done()
 	}()
 	go func() {
+		var oldPos mgl32.Vec3
 		for range m.ticker.C {
+			newPos := m.w.proxy.Player.Position
+			if int(oldPos.X()) != int(newPos.X()) || int(oldPos.Z()) != int(newPos.Z()) {
+				m.needRedraw = true
+				oldPos = newPos
+			}
+
 			if m.needRedraw {
 				m.needRedraw = false
 				m.Redraw()
@@ -200,8 +207,8 @@ func (m *MapUI) processQueue() []protocol.ChunkPos {
 func (m *MapUI) Redraw() {
 	updatedChunks := m.processQueue()
 	middle := protocol.ChunkPos{
-		int32(m.w.serverState.PlayerPos.Position.X()),
-		int32(m.w.serverState.PlayerPos.Position.Z()),
+		int32(m.w.proxy.Player.Position.X()),
+		int32(m.w.proxy.Player.Position.Z()),
 	}
 
 	chunksPerLine := float64(128 / m.zoomLevel)
@@ -229,7 +236,7 @@ func (m *MapUI) Redraw() {
 		min, max := m.GetBounds()
 		m.w.ui.Message(messages.UpdateMap{
 			ChunkCount:    len(m.renderedChunks),
-			Rotation:      m.w.serverState.PlayerPos.Yaw,
+			Rotation:      m.w.proxy.Player.Yaw,
 			UpdatedChunks: updatedChunks,
 			Chunks:        m.renderedChunks,
 			BoundsMin:     min,
@@ -275,29 +282,8 @@ func (w *worldsHandler) ProcessAnimate(pk *packet.Animate) {
 	}
 }
 
-func (w *worldsHandler) SetPlayerPos(Position mgl32.Vec3, Pitch, Yaw, HeadYaw float32) {
-	old := w.serverState.PlayerPos
-	new := playerPos{
-		Position: Position,
-		Pitch:    Pitch,
-		Yaw:      Yaw,
-		HeadYaw:  HeadYaw,
-	}
-	w.serverState.PlayerPos = new
-
-	if int(old.Position.X()) != int(new.Position.X()) || int(old.Position.Z()) != int(new.Position.Z()) {
-		w.mapUI.SchedRedraw()
-	}
-}
-
 func (w *worldsHandler) handleMapPackets(pk packet.Packet, forward *bool, toServer bool) packet.Packet {
 	switch pk := pk.(type) {
-	case *packet.MovePlayer:
-		if w.proxy.Server != nil && pk.EntityRuntimeID == w.proxy.Server.GameData().EntityRuntimeID {
-			w.SetPlayerPos(pk.Position, pk.Pitch, pk.Yaw, pk.HeadYaw)
-		}
-	case *packet.PlayerAuthInput:
-		w.SetPlayerPos(pk.Position, pk.Pitch, pk.Yaw, pk.HeadYaw)
 	case *packet.MapInfoRequest:
 		if pk.MapID == ViewMapID {
 			w.mapUI.SchedRedraw()

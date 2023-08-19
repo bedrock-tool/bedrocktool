@@ -58,22 +58,22 @@ func (w *worldsHandler) AddPacks(folder string) {
 	if w.settings.WithPacks {
 		packNames := make(map[string]int)
 		for _, pack := range w.serverState.packs {
-			packNames[pack.Name()] += 1
+			packNames[pack.Base().Name()] += 1
 		}
 
 		var rdeps []dep
 		for _, pack := range w.serverState.packs {
 			if pack.Encrypted() {
 				if !pack.CanDecrypt() {
-					logrus.Warnf("Cant add %s, it is encrypted", pack.Name())
+					logrus.Warnf("Cant add %s, it is encrypted", pack.Base().Name())
 					continue
 				}
 			}
-			logrus.Infof(locale.Loc("adding_pack", locale.Strmap{"Name": pack.Name()}))
+			logrus.Infof(locale.Loc("adding_pack", locale.Strmap{"Name": pack.Base().Name()}))
 
-			packName := pack.Name()
+			packName := pack.Base().Name()
 			if packNames[packName] > 1 {
-				packName += "_" + pack.UUID()
+				packName += "_" + pack.Base().UUID()
 			}
 			packName, _ = filenamify.FilenamifyV2(packName)
 			packFolder := path.Join(folder, "resource_packs", packName)
@@ -84,8 +84,8 @@ func (w *worldsHandler) AddPacks(folder string) {
 			}
 
 			rdeps = append(rdeps, dep{
-				PackID:  pack.Manifest().Header.UUID,
-				Version: pack.Manifest().Header.Version,
+				PackID:  pack.Base().Manifest().Header.UUID,
+				Version: pack.Base().Manifest().Header.Version,
 			})
 		}
 		if len(rdeps) > 0 {

@@ -39,12 +39,11 @@ func (c *WorldCMD) Execute(ctx context.Context, ui ui.UI) error {
 		return err
 	}
 
-	proxy, err := proxy.New(ui)
+	proxy, err := proxy.New(ui, true)
 	if err != nil {
 		return err
 	}
 
-	proxy.AlwaysGetPacks = true
 	proxy.AddHandler(worlds.NewWorldsHandler(ui, worlds.WorldSettings{
 		VoidGen:         c.EnableVoid,
 		WithPacks:       c.Packs,

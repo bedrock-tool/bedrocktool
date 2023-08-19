@@ -92,7 +92,7 @@ func CfbDecrypt(data []byte, key []byte) []byte {
 	return data
 }
 
-type Cfb8 struct {
+type cfb8 struct {
 	r             io.Reader
 	cipher        cipher.Block
 	shiftRegister []byte
@@ -100,7 +100,7 @@ type Cfb8 struct {
 }
 
 func NewCfb8(r io.Reader, key []byte) io.Reader {
-	c := &Cfb8{
+	c := &cfb8{
 		r: r,
 	}
 	c.cipher, _ = aes.NewCipher(key)
@@ -110,7 +110,7 @@ func NewCfb8(r io.Reader, key []byte) io.Reader {
 	return c
 }
 
-func (c *Cfb8) Read(dst []byte) (n int, err error) {
+func (c *cfb8) Read(dst []byte) (n int, err error) {
 	n, err = c.r.Read(dst)
 	if n > 0 {
 		c.shiftRegister = append(c.shiftRegister, dst[:n]...)
