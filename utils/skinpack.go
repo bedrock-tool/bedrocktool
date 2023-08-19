@@ -64,7 +64,7 @@ func (s *SkinPack) AddSkin(skin *Skin) bool {
 	return false
 }
 
-func (s *SkinPack) Save(fpath, serverName string) error {
+func (s *SkinPack) Save(fpath string) error {
 	os.MkdirAll(fpath, 0o755)
 
 	var skinsJson struct {
@@ -162,7 +162,7 @@ func (s *SkinPack) Save(fpath, serverName string) error {
 			FormatVersion: 2,
 			Header: resource.Header{
 				Name:               s.Name,
-				Description:        serverName + " " + s.Name,
+				Description:        s.Name,
 				UUID:               uuid.NewString(),
 				Version:            [3]int{1, 0, 0},
 				MinimumGameVersion: [3]int{1, 17, 0},

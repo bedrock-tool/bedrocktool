@@ -68,14 +68,15 @@ type Context struct {
 	Client           minecraft.IConn
 	Listener         *minecraft.Listener
 	tokenSource      oauth2.TokenSource
-	clientConnecting chan bool
+	clientConnecting chan struct{}
+	haveClientData   chan struct{}
 	clientAddr       net.Addr
 	spawned          bool
 
 	AlwaysGetPacks   bool
 	WithClient       bool
 	IgnoreDisconnect bool
-	CustomClientData *login.ClientData
+	clientData       login.ClientData
 
 	serverAddress string
 	serverName    string
@@ -485,7 +486,8 @@ func (p *Context) connect(ctx context.Context) (err error) {
 	p.clientAddr = nil
 	p.transfer = nil
 	p.Client = nil
-	p.clientConnecting = make(chan bool)
+	p.clientConnecting = make(chan struct{})
+	p.haveClientData = make(chan struct{})
 	ctx2, cancel := context.WithCancelCause(ctx)
 	err = p.doSession(ctx2, cancel)
 

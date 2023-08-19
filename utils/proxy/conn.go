@@ -24,6 +24,12 @@ func (p *Context) connectServer(ctx context.Context) (err error) {
 	p.Server, err = minecraft.Dialer{
 		TokenSource: p.tokenSource,
 		PacketFunc:  p.packetFunc,
+		GetClientData: func() login.ClientData {
+			if p.WithClient {
+				<-p.haveClientData
+			}
+			return p.clientData
+		},
 		EarlyConnHandler: func(c *minecraft.Conn) {
 			p.Server = c
 			if p.WithClient {
@@ -46,6 +52,10 @@ func (p *Context) connectClient(ctx context.Context, serverAddress string, cdpp 
 	p.Listener, err = minecraft.ListenConfig{
 		StatusProvider: minecraft.NewStatusProvider(fmt.Sprintf("%s Proxy", serverAddress)),
 		//PacketFunc:     p.packetFunc,
+		OnClientData: func(c *minecraft.Conn) {
+			p.clientData = c.ClientData()
+			close(p.haveClientData)
+		},
 		EarlyConnHandler: func(c *minecraft.Conn) {
 			p.Client = c
 			p.rpHandler = NewRpHandler(nil, c)

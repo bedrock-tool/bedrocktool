@@ -90,5 +90,17 @@ func (bp *BehaviourPack) AddEntity(entity EntityIn) {
 		}
 	}
 
+	entry.MinecraftEntity.Components["minecraft:pushable"] = map[string]any{
+		"is_pushable":           false,
+		"is_pushable_by_piston": false,
+	}
+	entry.MinecraftEntity.Components["minecraft:damage_sensor"] = map[string]any{
+		"triggers": map[string]any{
+			"deals_damage": false,
+		},
+	}
+	entry.MinecraftEntity.Components["minecraft:is_stackable"] = map[string]any{}
+	entry.MinecraftEntity.Components["minecraft:push_through"] = 1
+
 	bp.entities[entity.Identifier] = entry
 }

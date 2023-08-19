@@ -1,14 +1,5 @@
 package proxy
 
-import (
-	"encoding/base64"
-	"encoding/json"
-	"os"
-
-	"github.com/bedrock-tool/bedrocktool/utils"
-	"github.com/sandertv/gophertunnel/minecraft/protocol/login"
-)
-
 type CustomClientData struct {
 	// skin things
 	CapeFilename         string
@@ -28,6 +19,7 @@ type CustomClientData struct {
 	DeviceID     string
 }
 
+/*
 func (p *Context) LoadCustomUserData(path string) error {
 	f, err := os.Open(path)
 	if err != nil {
@@ -81,3 +73,4 @@ func (p *Context) LoadCustomUserData(path string) error {
 
 	return nil
 }
+*/
