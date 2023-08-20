@@ -64,9 +64,11 @@ func (m *Map) Layout(gtx layout.Context) layout.Dimensions {
 
 		// Draw the image at the correct position and scale.
 		defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
-		op.Affine(m.transform.Offset(m.center.Sub(size.Div(2)))).Add(gtx.Ops)
+		aff := op.Affine(m.transform.Offset(m.center.Sub(size.Div(2)))).Push(gtx.Ops)
 		m.imageOp.Add(gtx.Ops)
 		paint.PaintOp{}.Add(gtx.Ops)
+		aff.Pop()
+
 		if m.cursor.In(image.Rectangle(gtx.Constraints)) {
 			if m.grabbed {
 				pointer.CursorGrabbing.Add(gtx.Ops)

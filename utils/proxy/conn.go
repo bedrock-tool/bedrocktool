@@ -21,7 +21,7 @@ func (p *Context) connectServer(ctx context.Context) (err error) {
 	}
 
 	logrus.Info(locale.Loc("connecting", locale.Strmap{"Address": p.serverAddress}))
-	p.Server, err = minecraft.Dialer{
+	server, err := minecraft.Dialer{
 		TokenSource: p.tokenSource,
 		PacketFunc:  p.packetFunc,
 		GetClientData: func() login.ClientData {
@@ -44,6 +44,7 @@ func (p *Context) connectServer(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
+	p.Server = server
 
 	p.ui.Message(messages.ConnectState(messages.ConnectStateEstablished))
 	logrus.Debug(locale.Loc("connected", nil))

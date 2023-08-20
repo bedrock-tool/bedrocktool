@@ -35,7 +35,11 @@ func (c *SkinCMD) Execute(ctx context.Context, ui ui.UI) error {
 		return err
 	}
 
-	p, _ := proxy.New(ui, !c.NoProxy)
+	p, err := proxy.New(ui, !c.NoProxy)
+	if err != nil {
+		return err
+	}
+
 	p.AddHandler(handlers.NewSkinSaver(func(sa handlers.SkinAdd) {
 		ui.Message(messages.NewSkin{
 			PlayerName: sa.PlayerName,

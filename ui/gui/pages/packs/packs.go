@@ -246,10 +246,12 @@ func (p *Page) Handler(data interface{}) messages.MessageResponse {
 
 	case messages.PackDownloadProgress:
 		p.l.Lock()
-		e := p.Packs[m.UUID]
-		e.Loaded += m.LoadedAdd
-		if e.Loaded == e.Size {
-			e.IsFinished = true
+		e, ok := p.Packs[m.UUID]
+		if ok {
+			e.Loaded += m.LoadedAdd
+			if e.Loaded == e.Size {
+				e.IsFinished = true
+			}
 		}
 		p.l.Unlock()
 		p.Router.Invalidate()
@@ -257,7 +259,10 @@ func (p *Page) Handler(data interface{}) messages.MessageResponse {
 	case messages.FinishedDownloadingPacks:
 		p.l.Lock()
 		for _, dp := range m.Packs {
-			e := p.Packs[dp.UUID]
+			e, ok := p.Packs[dp.UUID]
+			if !ok {
+				continue
+			}
 			if dp.Icon != nil {
 				e.Icon = paint.NewImageOpFilter(dp.Icon, paint.FilterNearest)
 				e.HasIcon = true

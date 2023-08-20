@@ -125,6 +125,9 @@ func (p *Context) proxyLoop(ctx context.Context, toServer bool) error {
 		c1 = p.Server
 		c2 = p.Client
 	}
+	if c1 == nil || c2 == nil {
+		panic("nil conn")
+	}
 
 	for {
 		if ctx.Err() != nil {
@@ -300,10 +303,11 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 	wg := sync.WaitGroup{}
 	var cdp *login.ClientData = nil
 	if isReplay {
-		p.Server, err = createReplayConnector(p.serverAddress[5:], p.packetFunc)
+		server, err := createReplayConnector(p.serverAddress[5:], p.packetFunc)
 		if err != nil {
 			return err
 		}
+		p.Server = server
 	} else {
 		if p.WithClient {
 			wg.Add(1)
@@ -454,7 +458,7 @@ func (p *Context) connect(ctx context.Context) (err error) {
 	ctx2, cancel := context.WithCancelCause(ctx)
 	err = p.doSession(ctx2, cancel)
 
-	if _, ok := err.(errTransfer); ok {
+	if _, ok := err.(errTransfer); ok && p.transfer != nil {
 		p.serverAddress = fmt.Sprintf("%s:%d", p.transfer.Address, p.transfer.Port)
 		logrus.Infof("transferring to %s", p.serverAddress)
 		return p.connect(ctx)

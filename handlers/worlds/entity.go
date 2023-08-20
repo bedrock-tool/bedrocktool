@@ -96,6 +96,9 @@ func (w *worldsHandler) processAddActor(pk *packet.AddActor) {
 			Meta:       pk.EntityMetadata,
 		})
 	}
+	if e == nil {
+		panic("unreachable")
+	}
 
 	e.Position = pk.Position
 	e.Pitch = pk.Pitch

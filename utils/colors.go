@@ -263,6 +263,9 @@ func ResolveColors(entries []protocol.BlockEntry, packs []Pack, addToBlocks bool
 				logrus.Error(err)
 				continue
 			}
+			if img == nil {
+				continue
+			}
 
 			colors[block] = calculateMeanAverageColour(img)
 		}

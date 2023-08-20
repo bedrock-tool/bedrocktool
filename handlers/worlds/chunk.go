@@ -57,7 +57,7 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 	case protocol.SubChunkRequestModeLimitless:
 		var offsetTable []protocol.SubChunkOffset
 		r := w.worldState.dimension.Range()
-		for y := int8(r.Min() / 16); y < int8(r.Max()); y++ {
+		for y := int8(r.Min() / 16); y < int8(r.Max()/16); y++ {
 			offsetTable = append(offsetTable, protocol.SubChunkOffset{0, y, 0})
 		}
 

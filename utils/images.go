@@ -47,6 +47,9 @@ func BlendColors(c1, c2 color.RGBA) (ret color.RGBA) {
 
 // DrawImgScaledPos draws src onto dst at bottomLeft, scaled to size
 func DrawImgScaledPos(dst *image.RGBA, src *image.RGBA, bottomLeft image.Point, sizeScaled int) {
+	if src == nil || dst == nil {
+		panic("nil src or dst")
+	}
 	sbx := src.Bounds().Dx()
 	ratio := int(float64(sbx) / float64(sizeScaled))
 
