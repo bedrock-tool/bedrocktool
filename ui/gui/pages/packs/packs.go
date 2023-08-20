@@ -62,6 +62,10 @@ func New(router *pages.Router) *Page {
 	}
 }
 
+func (p *Page) ID() string {
+	return "packs"
+}
+
 var _ pages.Page = &Page{}
 
 func (p *Page) Actions() []component.AppBarAction {

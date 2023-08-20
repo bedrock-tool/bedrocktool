@@ -38,12 +38,14 @@ func (p *Context) connectServer(ctx context.Context) (err error) {
 				p.rpHandler = newRpHandler(c, nil)
 			}
 			c.ResourcePackHandler = p.rpHandler
+			p.ui.Message(messages.ConnectState(messages.ConnectStateServerConnecting))
 		},
 	}.DialContext(ctx, "raknet", p.serverAddress)
 	if err != nil {
 		return err
 	}
 
+	p.ui.Message(messages.ConnectState(messages.ConnectStateEstablished))
 	logrus.Debug(locale.Loc("connected", nil))
 	return nil
 }
@@ -61,13 +63,14 @@ func (p *Context) connectClient(ctx context.Context, serverAddress string, cdpp 
 			p.rpHandler = newRpHandler(nil, c)
 			c.ResourcePackHandler = p.rpHandler
 			close(p.clientConnecting)
+			p.ui.Message(messages.ConnectState(messages.ConnectStateClientConnecting))
 		},
 	}.Listen("raknet", ":19132")
 	if err != nil {
 		return err
 	}
 
-	p.ui.Message(messages.SetUIState(messages.UIStateConnect))
+	p.ui.Message(messages.ConnectState(messages.ConnectStateListening))
 	logrus.Infof(locale.Loc("listening_on", locale.Strmap{"Address": p.Listener.Addr()}))
 	logrus.Infof(locale.Loc("help_connect", nil))
 

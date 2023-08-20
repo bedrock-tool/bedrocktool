@@ -174,11 +174,12 @@ func calculateMeanAverageColour(img image.Image) (c color.RGBA) {
 
 	imgArea := float64(imgSize.X * imgSize.Y)
 
-	c.R = uint8(math.Round(math.Sqrt(redSum / imgArea)))
-	c.G = uint8(math.Round(math.Sqrt(greenSum / imgArea)))
-	c.B = uint8(math.Round(math.Sqrt(blueSum / imgArea)))
-	c.A = 0xff
-	return
+	return color.RGBA{
+		uint8(math.Round(math.Sqrt(redSum / imgArea))),
+		uint8(math.Round(math.Sqrt(greenSum / imgArea))),
+		uint8(math.Round(math.Sqrt(blueSum / imgArea))),
+		0xff,
+	}
 }
 
 func toTexturePath(name string) string {

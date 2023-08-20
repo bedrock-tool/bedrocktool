@@ -15,6 +15,7 @@ import (
 	"gioui.org/widget/material"
 	"gioui.org/x/pref/theme"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages"
+	_ "github.com/bedrock-tool/bedrocktool/ui/gui/pages/connect"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages/packs"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages/settings"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages/skins"
@@ -73,11 +74,11 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelCauseFunc) (err er
 
 	g.router = pages.NewRouter(ctx, w.Invalidate, th)
 	g.router.UI = g
-	g.router.Register("Settings", settings.New(&g.router))
-	g.router.Register("worlds", worlds.New(&g.router))
-	g.router.Register("skins", skins.New(&g.router))
-	g.router.Register("packs", packs.New(&g.router))
-	g.router.Register("update", update.New(&g.router))
+	g.router.Register(settings.New(&g.router))
+	g.router.Register(worlds.New(&g.router))
+	g.router.Register(skins.New(&g.router))
+	g.router.Register(packs.New(&g.router))
+	g.router.Register(update.New(&g.router))
 
 	g.router.SwitchTo("Settings")
 
@@ -145,8 +146,8 @@ func (g *GUI) Message(data interface{}) messages.MessageResponse {
 	return r
 }
 
-func (g *GUI) ServerInput(context.Context, string) (string, string, error) {
-	return "", "", nil
+func (g *GUI) ServerInput(ctx context.Context, address string) (string, string, error) {
+	return utils.ServerInput(ctx, address)
 }
 
 func (g *GUI) AuthPopup(gtx layout.Context) layout.Dimensions {

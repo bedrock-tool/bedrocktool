@@ -46,6 +46,10 @@ func New(router *pages.Router) *Page {
 
 var _ pages.Page = &Page{}
 
+func (p *Page) ID() string {
+	return "worlds"
+}
+
 func (p *Page) Actions() []component.AppBarAction {
 	return []component.AppBarAction{}
 }
@@ -84,11 +88,6 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 
 	margin.Layout(gtx, func(gtx C) D {
 		switch p.State {
-		case messages.UIStateConnect:
-			// display login page
-			return layout.Center.Layout(gtx, material.Label(th, 100, "connect Client").Layout)
-		case messages.UIStateConnecting:
-			return layout.Center.Layout(gtx, material.Label(th, 100, "Connecting").Layout)
 		case messages.UIStateMain:
 			// show the main ui
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,

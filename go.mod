@@ -31,7 +31,6 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/tailscale/hujson v0.0.0-20221223112325-20486734a56a
 	github.com/thomaso-mirodin/intmath v0.0.0-20160323211736-5dc6d854e46e
-	github.com/vbauerster/mpb v3.4.0+incompatible
 	golang.design/x/lockfree v0.0.1
 	golang.org/x/crypto v0.9.0
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
@@ -47,7 +46,6 @@ require (
 	gioui.org/cpu v0.0.0-20220412190645-f1e9e8c3b1f7 // indirect
 	gioui.org/shader v1.0.6 // indirect
 	git.wow.st/gmp/jni v0.0.0-20210610011705-34026c7e22d0 // indirect
-	github.com/VividCortex/ewma v1.2.0 // indirect
 	github.com/brentp/intintmap v0.0.0-20190211203843-30dc0ade9af9 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/changkun/lockfree v0.0.1 // indirect
@@ -70,7 +68,6 @@ require (
 	github.com/power-devops/perfstat v0.0.0-20221212215047-62379fc7944b // indirect
 	github.com/rogpeppe/go-internal v1.10.0 // indirect
 	github.com/segmentio/fasthash v1.0.3 // indirect
-	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/tklauser/go-sysconf v0.3.11 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
 	github.com/yusufpapurcu/wmi v1.2.3 // indirect

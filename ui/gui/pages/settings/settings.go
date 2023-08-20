@@ -9,7 +9,6 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
-	"github.com/bedrock-tool/bedrocktool/ui/gui/icons"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/settings"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
@@ -75,6 +74,10 @@ func New(router *pages.Router) *Page {
 }
 
 var _ pages.Page = &Page{}
+
+func (p *Page) ID() string {
+	return "settings"
+}
 
 func (p *Page) Actions() []component.AppBarAction {
 	return p.actions
@@ -172,16 +175,6 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 }
 
 func (p *Page) Handler(m any) messages.MessageResponse {
-	switch m.(type) {
-	case messages.UpdateAvailable:
-		p.actions = []component.AppBarAction{
-			component.SimpleIconAction(p.Router.UpdateButton, &icons.ActionUpdate, component.OverflowAction{}),
-		}
-
-		p.Router.AppBar.SetActions(p.actions, nil)
-		p.Router.Invalidate()
-	}
-
 	return messages.MessageResponse{
 		Ok:   false,
 		Data: nil,

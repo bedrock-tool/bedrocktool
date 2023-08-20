@@ -10,6 +10,7 @@ import (
 type HandlerFunc = func(data interface{}) messages.MessageResponse
 
 type Page interface {
+	ID() string
 	Actions() []component.AppBarAction
 	Overflow() []component.OverflowAction
 	Layout(gtx layout.Context, th *material.Theme) layout.Dimensions

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/ui"
+	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
@@ -408,6 +409,8 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 		}
 	}
 
+	p.ui.Message(messages.ConnectState(messages.ConnectStateDone))
+
 	{ // packet loop
 		doProxy := func(client bool) {
 			defer wg.Done()
@@ -497,6 +500,7 @@ func (p *Context) Run(ctx context.Context, serverAddress, name string) (err erro
 				handler.Deferred()
 			}
 		}
+		p.ui.Message(messages.SetUIState(messages.UIStateFinished))
 	}()
 
 	return p.connect(ctx)

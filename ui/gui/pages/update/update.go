@@ -36,6 +36,10 @@ func New(router *pages.Router) *Page {
 
 var _ pages.Page = &Page{}
 
+func (p *Page) ID() string {
+	return "update"
+}
+
 func (p *Page) Actions() []component.AppBarAction {
 	return []component.AppBarAction{}
 }
