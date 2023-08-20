@@ -11,7 +11,7 @@ func (w *worldsHandler) playerData() (ret map[string]any) {
 		"identifier":     "minecraft:player",
 	}
 
-	if len(w.serverState.playerInventory) > 0 {
+	if len(w.serverState.playerInventory) > 0 && w.settings.SaveInventories {
 		inv := inventory.New(len(w.serverState.playerInventory), nil)
 		for i, ii := range w.serverState.playerInventory {
 			inv.SetItem(i, stackToItem(ii.Stack))

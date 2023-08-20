@@ -38,10 +38,11 @@ type WorldSettings struct {
 }
 
 type serverState struct {
-	useOldBiomes bool
-	worldCounter int
-	WorldName    string
-	biomes       map[string]any
+	useOldBiomes  bool
+	useHashedRids bool
+	worldCounter  int
+	WorldName     string
+	biomes        map[string]any
 
 	playerInventory []protocol.ItemInstance
 	packs           []utils.Pack
@@ -153,6 +154,7 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 				w.worldState.timeSync = time.Now()
 				w.worldState.time = int(pk.Time)
 				w.worldState.dimension, _ = world.DimensionByID(int(pk.Dimension))
+				w.serverState.useHashedRids = pk.UseBlockNetworkIDHashes
 				world.InsertCustomItems(pk.Items)
 				for _, ie := range pk.Items {
 					w.bp.AddItem(ie)

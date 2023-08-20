@@ -25,7 +25,7 @@ type cmdWrap struct {
 }
 
 func (c *cmdWrap) Name() string             { return c.cmd.Name() }
-func (c *cmdWrap) Synopsis() string         { return c.cmd.Synopsis() }
+func (c *cmdWrap) Synopsis() string         { return c.cmd.Synopsis() + "\n" }
 func (c *cmdWrap) SetFlags(f *flag.FlagSet) { c.cmd.SetFlags(f) }
 func (c *cmdWrap) Usage() string            { return c.Name() + ": " + c.Synopsis() }
 func (c *cmdWrap) Execute(ctx context.Context, f *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {

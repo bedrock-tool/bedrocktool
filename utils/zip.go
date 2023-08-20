@@ -75,6 +75,9 @@ func ZipFolder(filename, folder string) error {
 		}
 		return nil
 	})
+	if err != nil {
+		return err
+	}
 
 	return zw.Close()
 }
