@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 
 	"github.com/sandertv/gophertunnel/minecraft/auth"
@@ -16,11 +15,10 @@ import (
 const TokenFile = "token.json"
 
 type authsrv struct {
-	t   *oauth2.Token
-	src oauth2.TokenSource
-	Ctx context.Context
-
-	LoginWithMicrosoftCallback func(io.Reader)
+	t         *oauth2.Token
+	src       oauth2.TokenSource
+	Ctx       context.Context
+	MSHandler auth.MSAuthHandler
 }
 
 var Auth authsrv
@@ -67,9 +65,7 @@ func (a *authsrv) GetTokenSource() (src oauth2.TokenSource, err error) {
 	}
 	if !a.HaveToken() {
 		// request a new token
-		r, w := io.Pipe()
-		go a.LoginWithMicrosoftCallback(r)
-		a.t, err = auth.RequestLiveTokenWriterCtx(a.Ctx, w)
+		a.t, err = auth.RequestLiveTokenWriter(a.Ctx, a.MSHandler)
 		if err != nil {
 			return nil, err
 		}
@@ -106,10 +102,10 @@ func (a *authsrv) GetTokenSource() (src oauth2.TokenSource, err error) {
 
 var RealmsEnv string
 
-var gRealmsAPI *realms.Client
+var realmsAPI *realms.Client
 
 func GetRealmsAPI() *realms.Client {
-	if gRealmsAPI == nil {
+	if realmsAPI == nil {
 		if RealmsEnv != "" {
 			realms.RealmsAPIBase = fmt.Sprintf("https://pocket-%s.realms.minecraft.net/", RealmsEnv)
 		}
@@ -117,13 +113,7 @@ func GetRealmsAPI() *realms.Client {
 		if err != nil {
 			logrus.Fatal(err)
 		}
-		gRealmsAPI = realms.NewClient(src)
+		realmsAPI = realms.NewClient(src)
 	}
-	return gRealmsAPI
-}
-
-func init() {
-	Auth.LoginWithMicrosoftCallback = func(r io.Reader) {
-		io.Copy(os.Stdout, r)
-	}
+	return realmsAPI
 }
