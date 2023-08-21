@@ -8,7 +8,6 @@ import (
 	"io"
 
 	"gioui.org/app"
-	"gioui.org/font/gofont"
 	"gioui.org/io/system"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -59,7 +58,7 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelCauseFunc) (err er
 		app.Title("Bedrocktool " + utils.Version),
 	)
 
-	th := material.NewTheme(gofont.Collection())
+	th := material.NewTheme()
 	dark, err := theme.IsDarkMode()
 	if err != nil {
 		logrus.Warn(err)
