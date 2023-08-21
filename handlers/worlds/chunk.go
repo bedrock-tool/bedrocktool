@@ -8,6 +8,7 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sirupsen/logrus"
+	"github.com/thomaso-mirodin/intmath/i32"
 )
 
 func (w *worldsHandler) processChangeDimension(pk *packet.ChangeDimension) {
@@ -49,15 +50,15 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 
 	w.worldState.chunks[(world.ChunkPos)(pk.Position)] = ch
 
-	max := w.worldState.dimension.Range().Height() / 16
+	max := uint16(w.worldState.dimension.Range().Height() / 16)
 	switch pk.SubChunkCount {
 	case protocol.SubChunkRequestModeLimited:
-		max = int(pk.HighestSubChunk)
+		max = uint16(pk.HighestSubChunk)
 		fallthrough
 	case protocol.SubChunkRequestModeLimitless:
 		var offsetTable []protocol.SubChunkOffset
 		r := w.worldState.dimension.Range()
-		for y := int8(r.Min() / 16); y < int8(r.Max()/16); y++ {
+		for y := int8(r.Min() / 16); y < int8(r.Max()/16)+1; y++ {
 			offsetTable = append(offsetTable, protocol.SubChunkOffset{0, y, 0})
 		}
 
@@ -67,7 +68,7 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 			Position: protocol.SubChunkPos{
 				pk.Position.X(), 0, pk.Position.Z(),
 			},
-			Offsets: offsetTable[:max],
+			Offsets: offsetTable[:i32.Min(int32(max+1), int32(len(offsetTable)))],
 		})
 	default:
 		// legacy
