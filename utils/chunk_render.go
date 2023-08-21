@@ -8,6 +8,7 @@ import (
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/df-mc/dragonfly/server/world/chunk"
+	"github.com/thomaso-mirodin/intmath/i32"
 )
 
 func isBlockLightblocking(b world.Block) bool {
@@ -43,7 +44,7 @@ func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.R
 		}
 
 		// blend that blocks color with water depending on depth
-		waterColor.A = uint8(int(150 + depth*7))
+		waterColor.A = uint8(i32.Min(int32(150+depth*7), 230))
 		blockColor = BlendColors(blockColor, waterColor)
 		blockColor.R -= uint8(depth * 2)
 		blockColor.G -= uint8(depth * 2)
@@ -56,6 +57,12 @@ func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.R
 			if !ok {
 				if name == "minecraft:monster_egg" {
 					name = "minecraft:" + b2.Properties["monster_egg_stone_type"].(string)
+				}
+				if name == "minecraft:suspicious_sand" {
+					name = "minecraft:sand"
+				}
+				if name == "minecraft:pointed_dripstone" {
+					name = "minecraft:dripstone_block"
 				}
 				blockColor = LookupColor(name)
 			}
