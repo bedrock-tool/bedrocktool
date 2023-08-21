@@ -2,15 +2,6 @@ module github.com/bedrock-tool/bedrocktool
 
 go 1.20
 
-//replace github.com/sandertv/gophertunnel => ./gophertunnel
-replace github.com/sandertv/gophertunnel => github.com/olebeck/gophertunnel v1.31.0-8
-
-//replace github.com/df-mc/dragonfly => ./dragonfly
-replace github.com/df-mc/dragonfly => github.com/olebeck/dragonfly v0.9.8-6
-
-//replace gioui.org => ./gio
-replace gioui.org => github.com/olebeck/gio v0.0.0-20230607184051-9ab60b08f083
-
 require (
 	gioui.org v0.0.0-20230526230622-e3ef98dda382
 	gioui.org/x v0.0.0-20230523210033-8432ec5563bb
@@ -52,7 +43,6 @@ require (
 	github.com/cloudfoundry/jibber_jabber v0.0.0-20151120183258-bcc4c8345a21 // indirect
 	github.com/df-mc/atomic v1.10.0 // indirect
 	github.com/df-mc/worldupgrader v1.0.8 // indirect
-	github.com/dlclark/regexp2 v1.10.0 // indirect
 	github.com/ftrvxmtrx/tga v0.0.0-20150524081124-bd8e8d5be13a // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-text/typesetting v0.0.0-20230606200221-26abc51a6c27 // indirect
@@ -67,7 +57,6 @@ require (
 	github.com/muhammadmuzzammil1998/jsonc v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20221212215047-62379fc7944b // indirect
 	github.com/rogpeppe/go-internal v1.10.0 // indirect
-	github.com/segmentio/fasthash v1.0.3 // indirect
 	github.com/tklauser/go-sysconf v0.3.11 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
 	github.com/yusufpapurcu/wmi v1.2.3 // indirect

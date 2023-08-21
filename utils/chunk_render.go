@@ -44,7 +44,7 @@ func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.R
 		}
 
 		// blend that blocks color with water depending on depth
-		waterColor.A = uint8(i32.Min(int32(150+depth*7), 230))
+		waterColor.A = uint8(i32.Min(150+int32(depth)*7, 230))
 		blockColor = BlendColors(blockColor, waterColor)
 		blockColor.R -= uint8(depth * 2)
 		blockColor.G -= uint8(depth * 2)
@@ -60,6 +60,9 @@ func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.R
 				}
 				if name == "minecraft:suspicious_sand" {
 					name = "minecraft:sand"
+				}
+				if name == "minecraft:suspicious_gravel" {
+					name = "minecraft:gravel"
 				}
 				if name == "minecraft:pointed_dripstone" {
 					name = "minecraft:dripstone_block"

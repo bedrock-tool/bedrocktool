@@ -1,0 +1,9 @@
+[submodule "gophertunnel"]
+	path = gophertunnel
+	url = https://github.com/olebeck/gophertunnel.git
+[submodule "dragonfly"]
+	path = dragonfly
+	url = https://github.com/olebeck/dragonfly.git
+[submodule "gio"]
+	path = gio
+	url = https://github.com/olebeck/gio.git

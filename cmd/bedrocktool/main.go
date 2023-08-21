@@ -68,6 +68,10 @@ func main() {
 	*/
 
 	defer func() {
+		// dont catch panic if not release verion
+		if utils.Version == "" {
+			return
+		}
 		if err := recover(); err != nil {
 			logrus.Errorf(locale.Loc("fatal_error", nil))
 			println("")
