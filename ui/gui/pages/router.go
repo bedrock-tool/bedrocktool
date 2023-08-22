@@ -23,6 +23,7 @@ type Router struct {
 	UI         ui.UI
 	Ctx        context.Context
 	Wg         sync.WaitGroup
+	MSAuth     *guiAuth
 	Invalidate func()
 
 	Theme *material.Theme
@@ -39,7 +40,7 @@ type Router struct {
 	updateAvailable bool
 }
 
-func NewRouter(ctx context.Context, invalidate func(), th *material.Theme) Router {
+func NewRouter(ctx context.Context, invalidate func(), th *material.Theme) *Router {
 	modal := component.NewModal()
 
 	nav := component.NewNav("Navigation Drawer", "This is an example.")
@@ -52,10 +53,11 @@ func NewRouter(ctx context.Context, invalidate func(), th *material.Theme) Route
 		State:    component.Invisible,
 		Duration: time.Millisecond * 250,
 	}
-	return Router{
+	r := &Router{
 		Ctx:            ctx,
 		Invalidate:     invalidate,
 		Theme:          th,
+		MSAuth:         &guiAuth{},
 		pages:          make(map[string]Page),
 		ModalLayer:     modal,
 		ModalNavDrawer: modalNav,
@@ -64,6 +66,8 @@ func NewRouter(ctx context.Context, invalidate func(), th *material.Theme) Route
 
 		UpdateButton: &widget.Clickable{},
 	}
+	r.MSAuth.router = r
+	return r
 }
 
 func (r *Router) Register(p Page) {
@@ -126,14 +130,19 @@ func (r *Router) Layout(gtx layout.Context, th *material.Theme) layout.Dimension
 	}
 	paint.Fill(gtx.Ops, th.Palette.Bg)
 	content := layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-		return layout.Flex{}.Layout(gtx,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				gtx.Constraints.Max.X /= 3
-				return r.NavDrawer.Layout(gtx, th, &r.NavAnim)
+		return layout.Stack{Alignment: layout.Center}.Layout(gtx,
+			layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						gtx.Constraints.Max.X /= 3
+						return r.NavDrawer.Layout(gtx, th, &r.NavAnim)
+					}),
+					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+						return r.pages[r.current].Layout(gtx, th)
+					}),
+				)
 			}),
-			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				return r.pages[r.current].Layout(gtx, th)
-			}),
+			layout.Stacked(r.MSAuth.Layout),
 		)
 	})
 	bar := layout.Rigid(func(gtx layout.Context) layout.Dimensions {

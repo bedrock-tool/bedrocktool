@@ -471,8 +471,6 @@ func (p *Context) Run(ctx context.Context, serverAddress, name string) (err erro
 	p.serverAddress = serverAddress
 	p.serverName = name
 
-	utils.Auth.Ctx = ctx
-
 	if utils.Options.Debug || utils.Options.ExtraDebug {
 		d = NewDebugLogger(utils.Options.ExtraDebug)
 		p.AddHandler(d)
