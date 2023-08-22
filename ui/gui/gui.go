@@ -41,9 +41,9 @@ var paletteLight = material.Palette{
 
 var paletteDark = material.Palette{
 	Bg:         color.NRGBA{0x12, 0x12, 0x12, 0xff},
-	Fg:         color.NRGBA{207, 207, 207, 0xff},
+	Fg:         color.NRGBA{227, 227, 227, 0xff},
 	ContrastBg: color.NRGBA{142, 49, 235, 0xff},
-	ContrastFg: color.NRGBA{207, 207, 207, 0xff},
+	ContrastFg: color.NRGBA{227, 227, 227, 0xff},
 }
 
 func (g *GUI) Start(ctx context.Context, cancel context.CancelCauseFunc) (err error) {

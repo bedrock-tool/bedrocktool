@@ -3,6 +3,7 @@ package utils
 import (
 	"image"
 	"image/color"
+	"strings"
 
 	"github.com/df-mc/dragonfly/server/block"
 	"github.com/df-mc/dragonfly/server/block/cube"
@@ -66,6 +67,21 @@ func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.R
 				}
 				if name == "minecraft:pointed_dripstone" {
 					name = "minecraft:dripstone_block"
+				}
+				if name == "minecraft:dark_oak_hanging_sign" {
+					name = "minecraft:darkoak_hanging_sign"
+				}
+				if name == "minecraft:mangrove_hanging_sign" {
+					name = "minecraft:mangrove_wood"
+				}
+				if name == "minecraft:oak_hanging_sign" {
+					name = "minecraft:oak_stairs"
+				}
+				if strings.HasSuffix(name, "_hanging_sign") {
+					name = strings.Replace(name, "_hanging", "_standing", 1)
+				}
+				if strings.HasSuffix(name, "_candle_cake") {
+					name = "minecraft:cake"
 				}
 				blockColor = LookupColor(name)
 			}
