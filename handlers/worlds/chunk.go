@@ -80,7 +80,7 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 			}
 		}
 		if !empty {
-			w.mapUI.SetChunk((world.ChunkPos)(pk.Position), ch, true)
+			w.mapUI.SetChunk((world.ChunkPos)(pk.Position), ch)
 		}
 	}
 }
@@ -116,7 +116,7 @@ func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) {
 
 	// redraw the chunks
 	for pos := range posToRedraw {
-		w.mapUI.SetChunk(pos, w.worldState.chunks[pos], true)
+		w.mapUI.SetChunk(pos, w.worldState.chunks[pos])
 	}
 	w.mapUI.SchedRedraw()
 }
@@ -147,7 +147,7 @@ func (w *worldsHandler) handleChunkPackets(pk packet.Packet) packet.Packet {
 			if ok {
 				x, y, z := blockPosInChunk(pk.Position)
 				c.SetBlock(x, y, z, uint8(pk.Layer), pk.NewBlockRuntimeID)
-				w.mapUI.SetChunk(cp, c, true)
+				w.mapUI.SetChunk(cp, c)
 			}
 		}
 	case *packet.UpdateSubChunkBlocks:
@@ -163,7 +163,7 @@ func (w *worldsHandler) handleChunkPackets(pk packet.Packet) packet.Packet {
 						c.SetBlock(x, y, z, 0, bce.BlockRuntimeID)
 					}
 				}
-				w.mapUI.SetChunk(cp, c, true)
+				w.mapUI.SetChunk(cp, c)
 			}
 		}
 	}

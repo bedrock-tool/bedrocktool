@@ -269,7 +269,7 @@ func (m *MapUI) ToImage() *image.RGBA {
 	return img
 }
 
-func (m *MapUI) SetChunk(pos world.ChunkPos, ch *chunk.Chunk, complete bool) {
+func (m *MapUI) SetChunk(pos world.ChunkPos, ch *chunk.Chunk) {
 	m.renderQueue.Enqueue(&RenderElem{(protocol.ChunkPos)(pos), ch})
 	m.SchedRedraw()
 }

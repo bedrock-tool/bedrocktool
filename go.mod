@@ -5,6 +5,7 @@ go 1.20
 require (
 	gioui.org v0.0.0-20230526230622-e3ef98dda382
 	gioui.org/x v0.0.0-20230523210033-8432ec5563bb
+	github.com/beevik/ntp v1.3.0
 	github.com/cloudfoundry-attic/jibber_jabber v0.0.0-20151120183258-bcc4c8345a21
 	github.com/dblezek/tga v0.0.0-20150626111426-80720cbc1017
 	github.com/df-mc/dragonfly v0.9.6
@@ -22,13 +23,14 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/tailscale/hujson v0.0.0-20221223112325-20486734a56a
 	github.com/thomaso-mirodin/intmath v0.0.0-20160323211736-5dc6d854e46e
+	github.com/undefinedlabs/go-mpatch v1.0.7
 	golang.design/x/lockfree v0.0.1
-	golang.org/x/crypto v0.9.0
+	golang.org/x/crypto v0.10.0
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 	golang.org/x/exp/shiny v0.0.0-20230522175609-2e198f4a06a1
 	golang.org/x/oauth2 v0.8.0
-	golang.org/x/term v0.8.0
-	golang.org/x/text v0.9.0
+	golang.org/x/term v0.9.0
+	golang.org/x/text v0.10.0
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -62,8 +64,8 @@ require (
 	github.com/yusufpapurcu/wmi v1.2.3 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	golang.org/x/image v0.7.0 // indirect
-	golang.org/x/net v0.10.0 // indirect
-	golang.org/x/sys v0.8.0 // indirect
+	golang.org/x/net v0.11.0 // indirect
+	golang.org/x/sys v0.10.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
 	gopkg.in/inconshreveable/go-update.v0 v0.0.0-20150814200126-d8b0b1d421aa // indirect
