@@ -125,9 +125,6 @@ func (p *Context) proxyLoop(ctx context.Context, toServer bool) error {
 		c1 = p.Server
 		c2 = p.Client
 	}
-	if c1 == nil || c2 == nil {
-		panic("nil conn")
-	}
 
 	for {
 		if ctx.Err() != nil {
@@ -361,7 +358,11 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 		if errors.Is(err, errCancelConnect) {
 			err = nil
 		}
-		p.disconnectReason = err.Error()
+		if err != nil {
+			p.disconnectReason = err.Error()
+		} else {
+			p.disconnectReason = "Disconnect"
+		}
 		return err
 	}
 

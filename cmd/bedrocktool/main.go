@@ -70,6 +70,7 @@ func main() {
 	defer func() {
 		// dont catch panic if not release verion
 		if utils.Version == "" {
+			logrus.Warn("no version set")
 			return
 		}
 		if err := recover(); err != nil {
