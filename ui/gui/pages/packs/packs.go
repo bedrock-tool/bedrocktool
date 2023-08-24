@@ -26,9 +26,9 @@ type (
 )
 
 type Page struct {
-	*pages.Router
+	router *pages.Router
 
-	State           messages.UIState
+	finished        bool
 	packsList       widget.List
 	packShowButtons map[string]*widget.Clickable
 	l               sync.Mutex
@@ -51,7 +51,7 @@ type packEntry struct {
 
 func New(router *pages.Router) *Page {
 	return &Page{
-		Router: router,
+		router: router,
 		packsList: widget.List{
 			List: layout.List{
 				Axis: layout.Vertical,
@@ -174,11 +174,16 @@ func (p *Page) layoutFinished(gtx C, th *material.Theme) D {
 		}
 	}
 
+	var title = "Downloading Packs"
+	if p.finished {
+		title = "Downloaded Packs"
+	}
+
 	return layout.Center.Layout(gtx, func(gtx C) D {
 		return layout.Flex{
 			Axis: layout.Vertical,
 		}.Layout(gtx,
-			layout.Rigid(material.Label(th, 20, "Downloaded Packs").Layout),
+			layout.Rigid(material.Label(th, 20, title).Layout),
 			layout.Flexed(1, func(gtx C) D {
 				p.l.Lock()
 				defer p.l.Unlock()
@@ -206,13 +211,7 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 		Right:  unit.Dp(35),
 		Left:   unit.Dp(35),
 	}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		switch p.State {
-		case messages.UIStateConnecting:
-			return layout.Center.Layout(gtx, material.Label(th, 100, "Connecting").Layout)
-		case messages.UIStateMain:
-			return p.layoutFinished(gtx, th)
-		}
-		return layout.Dimensions{}
+		return p.layoutFinished(gtx, th)
 	})
 }
 
@@ -223,13 +222,7 @@ func (p *Page) Handler(data interface{}) messages.MessageResponse {
 	}
 
 	switch m := data.(type) {
-	case messages.SetUIState:
-		p.State = m
-		p.Router.Invalidate()
-		r.Ok = true
-
 	case messages.InitialPacksInfo:
-		p.State = messages.UIStateMain
 		p.l.Lock()
 		for _, dp := range m.Packs {
 			e := &packEntry{
@@ -242,7 +235,7 @@ func (p *Page) Handler(data interface{}) messages.MessageResponse {
 			p.packShowButtons[e.UUID] = &widget.Clickable{}
 		}
 		p.l.Unlock()
-		p.Router.Invalidate()
+		p.router.Invalidate()
 
 	case messages.PackDownloadProgress:
 		p.l.Lock()
@@ -254,7 +247,7 @@ func (p *Page) Handler(data interface{}) messages.MessageResponse {
 			}
 		}
 		p.l.Unlock()
-		p.Router.Invalidate()
+		p.router.Invalidate()
 
 	case messages.FinishedDownloadingPacks:
 		p.l.Lock()
@@ -272,7 +265,7 @@ func (p *Page) Handler(data interface{}) messages.MessageResponse {
 			e.Path = dp.Path
 		}
 		p.l.Unlock()
-		p.Router.Invalidate()
+		p.router.Invalidate()
 		r.Ok = true
 	}
 

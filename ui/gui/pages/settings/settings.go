@@ -66,6 +66,7 @@ func New(router *pages.Router) *Page {
 		Options:    options,
 	}
 
+	settings.Theme = router.Theme
 	for _, su := range settings.Settings {
 		su.Init()
 	}

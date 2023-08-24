@@ -8,7 +8,6 @@ import (
 	"sync"
 
 	"gioui.org/layout"
-	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/bedrock-tool/bedrocktool/utils"
@@ -17,7 +16,7 @@ import (
 )
 
 type addressInput struct {
-	Editor         widget.Editor
+	editor         widget.Editor
 	showRealmsList widget.Bool
 	l              sync.Mutex
 	realmsList     widget.List
@@ -27,7 +26,7 @@ type addressInput struct {
 }
 
 var AddressInput = &addressInput{
-	Editor: widget.Editor{
+	editor: widget.Editor{
 		SingleLine: true,
 	},
 	realmsList: widget.List{
@@ -38,7 +37,7 @@ var AddressInput = &addressInput{
 }
 
 func (a *addressInput) Value() string {
-	return a.Editor.Text()
+	return a.editor.Text()
 }
 
 func (a *addressInput) getRealms() {
@@ -60,69 +59,68 @@ func MulAlpha(c color.NRGBA, alpha uint8) color.NRGBA {
 	return c
 }
 
-func (a *addressInput) Layout(th *material.Theme) layout.Widget {
+func (a *addressInput) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
+	return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		e := material.Editor(th, &a.editor, "Server Address")
+		return layout.UniformInset(5).Layout(gtx, e.Layout)
+	})
+}
+
+func (a *addressInput) LayoutRealms(gtx layout.Context, th *material.Theme) layout.Dimensions {
 	for k, c := range a.realmsButtons {
 		if c.Clicked() {
 			for _, r := range a.realms {
 				if r.ID == k {
-					a.Editor.SetText(fmt.Sprintf("realm:%s:%d", r.Name, r.ID))
+					a.editor.SetText(fmt.Sprintf("realm:%s:%d", r.Name, r.ID))
 				}
 			}
 		}
 	}
 
-	return func(gtx layout.Context) layout.Dimensions {
-		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						e := material.Editor(th, &a.Editor, "server Address")
-						return layout.UniformInset(5).Layout(gtx, e.Layout)
-					}),
-					layout.Rigid(layout.Spacer{Width: unit.Dp(10)}.Layout),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
-							layout.Rigid(material.Label(th, th.TextSize, "list realms").Layout),
-							layout.Rigid(material.Switch(th, &a.showRealmsList, "realms").Layout),
-						)
-					}),
+	return layout.Flex{
+		Axis: layout.Vertical,
+	}.Layout(gtx,
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return layout.UniformInset(15).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+					layout.Rigid(material.Label(th, th.TextSize, "list realms").Layout),
+					layout.Rigid(material.Switch(th, &a.showRealmsList, "realms").Layout),
 				)
-			}),
-			layout.Flexed(0.5, func(gtx layout.Context) layout.Dimensions {
-				if a.loading {
-					return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						gtx.Constraints.Max = image.Pt(20, 20)
-						return material.Loader(th).Layout(gtx)
-					})
-				}
+			})
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			if a.loading {
+				return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					gtx.Constraints.Max = image.Pt(20, 20)
+					return material.Loader(th).Layout(gtx)
+				})
+			}
 
-				if a.showRealmsList.Value {
-					if a.showRealmsList.Changed() {
-						go a.getRealms()
-					}
-					a.l.Lock()
-					defer a.l.Unlock()
-					if len(a.realms) == 0 {
-						return material.Label(th, th.TextSize, "you have no realms").Layout(gtx)
-					}
-					return material.List(th, &a.realmsList).Layout(gtx, len(a.realms), func(gtx layout.Context, index int) layout.Dimensions {
-						entry := a.realms[index]
-						return material.ButtonLayoutStyle{
-							Background:   MulAlpha(th.Palette.Bg, 0x60),
-							Button:       a.realmsButtons[entry.ID],
-							CornerRadius: 3,
-						}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return layout.UniformInset(15).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-								return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-									layout.Rigid(material.Label(th, th.TextSize, entry.Name).Layout),
-								)
-							})
+			if a.showRealmsList.Value {
+				if a.showRealmsList.Changed() {
+					go a.getRealms()
+				}
+				a.l.Lock()
+				defer a.l.Unlock()
+				if len(a.realms) == 0 {
+					return material.Label(th, th.TextSize, "you have no realms").Layout(gtx)
+				}
+				return material.List(th, &a.realmsList).Layout(gtx, len(a.realms), func(gtx layout.Context, index int) layout.Dimensions {
+					entry := a.realms[index]
+					return material.ButtonLayoutStyle{
+						Background:   MulAlpha(th.Palette.Bg, 0x60),
+						Button:       a.realmsButtons[entry.ID],
+						CornerRadius: 3,
+					}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return layout.UniformInset(15).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+								layout.Rigid(material.Label(th, th.TextSize, entry.Name).Layout),
+							)
 						})
 					})
-				}
-				return layout.Dimensions{}
-			}),
-		)
-
-	}
+				})
+			}
+			return layout.Dimensions{}
+		}),
+	)
 }

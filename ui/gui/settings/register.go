@@ -12,3 +12,4 @@ type SettingsUI interface {
 }
 
 var Settings = map[string]SettingsUI{}
+var Theme *material.Theme

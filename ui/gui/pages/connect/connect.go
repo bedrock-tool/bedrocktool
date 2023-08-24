@@ -98,6 +98,9 @@ func (u *Page) Handler(data any) messages.MessageResponse {
 			u.ServerConnecting = true
 		case messages.ConnectStateEstablished:
 			u.Established = true
+			if u.afterEstablish.ID() == "packs" {
+				u.router.SwitchTo(u.afterEstablish.ID())
+			}
 		case messages.ConnectStateDone:
 			u.router.SwitchTo(u.afterEstablish.ID())
 		}

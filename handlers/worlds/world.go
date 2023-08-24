@@ -214,27 +214,6 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 				w.bp.AddBiomes(w.serverState.biomes)
 			}
 
-			/* ignore this thx
-			if _pk, ok := pk.(*packet.UpdateAbilities); ok {
-				pk = &packet.UpdateAbilities{
-					AbilityData: protocol.AbilityData{
-						EntityUniqueID:     _pk.AbilityData.EntityUniqueID,
-						PlayerPermissions:  uint8(0x0),
-						CommandPermissions: uint8(0x0),
-						Layers: []protocol.AbilityLayer{
-							{
-								Type:      protocol.AbilityLayerTypeBase,
-								Abilities: uint32(0x3ffff) | protocol.AbilityMayFly,
-								Values:    uint32(0x0),
-								FlySpeed:  float32(0.025),
-								WalkSpeed: float32(0.012),
-							},
-						},
-					},
-				}
-			}
-			*/
-
 			forward := true
 			pk = w.handleItemPackets(pk, &forward)
 			pk = w.handleMapPackets(pk, &forward, toServer)

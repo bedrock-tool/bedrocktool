@@ -1,6 +1,6 @@
 module github.com/bedrock-tool/bedrocktool
 
-go 1.20
+go 1.21
 
 require (
 	gioui.org v0.0.0-20230526230622-e3ef98dda382
@@ -53,6 +53,7 @@ require (
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
 	github.com/klauspost/compress v1.16.5 // indirect
 	github.com/kr/binarydist v0.1.0 // indirect
+	github.com/kr/pretty v0.2.1 // indirect
 	github.com/lufia/plan9stats v0.0.0-20230326075908-cb1d2100619a // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
@@ -68,5 +69,7 @@ require (
 	golang.org/x/sys v0.10.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
+	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/inconshreveable/go-update.v0 v0.0.0-20150814200126-d8b0b1d421aa // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
