@@ -177,7 +177,7 @@ func (r *replayConnector) loop() {
 	}
 }
 
-func createReplayConnector(filename string, packetFunc PacketFunc) (r *replayConnector, err error) {
+func createReplayConnector(ctx context.Context, filename string, packetFunc PacketFunc) (r *replayConnector, err error) {
 	r = &replayConnector{
 		pool:       minecraft.DefaultProtocol.Packets(true),
 		proto:      minecraft.DefaultProtocol,
@@ -186,7 +186,7 @@ func createReplayConnector(filename string, packetFunc PacketFunc) (r *replayCon
 		close:      make(chan struct{}),
 		packets:    make(chan packet.Packet),
 	}
-	r.resourcePackHandler = newRpHandler(r, nil)
+	r.resourcePackHandler = newRpHandler(ctx, r, nil)
 	cache := &replayCache{}
 	r.resourcePackHandler.cache = cache
 

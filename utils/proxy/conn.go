@@ -26,7 +26,10 @@ func (p *Context) connectServer(ctx context.Context) (err error) {
 		PacketFunc:  p.packetFunc,
 		GetClientData: func() login.ClientData {
 			if p.WithClient {
-				<-p.haveClientData
+				select {
+				case <-p.haveClientData:
+				case <-ctx.Done():
+				}
 			}
 			return p.clientData
 		},
@@ -35,7 +38,7 @@ func (p *Context) connectServer(ctx context.Context) (err error) {
 			if p.WithClient {
 				p.rpHandler.Server = c
 			} else {
-				p.rpHandler = newRpHandler(c, nil)
+				p.rpHandler = newRpHandler(ctx, c, nil)
 			}
 			c.ResourcePackHandler = p.rpHandler
 			p.ui.Message(messages.ConnectState(messages.ConnectStateServerConnecting))
@@ -61,7 +64,7 @@ func (p *Context) connectClient(ctx context.Context, serverAddress string, cdpp 
 		},
 		EarlyConnHandler: func(c *minecraft.Conn) {
 			p.Client = c
-			p.rpHandler = newRpHandler(nil, c)
+			p.rpHandler = newRpHandler(ctx, nil, c)
 			c.ResourcePackHandler = p.rpHandler
 			close(p.clientConnecting)
 			p.ui.Message(messages.ConnectState(messages.ConnectStateClientConnecting))
@@ -75,9 +78,11 @@ func (p *Context) connectClient(ctx context.Context, serverAddress string, cdpp 
 	logrus.Infof(locale.Loc("listening_on", locale.Strmap{"Address": p.Listener.Addr()}))
 	logrus.Infof(locale.Loc("help_connect", nil))
 
+	var accepted = false
+
 	go func() {
 		<-ctx.Done()
-		if p.Client == nil {
+		if !accepted {
 			_ = p.Listener.Close()
 		}
 	}()
@@ -86,6 +91,7 @@ func (p *Context) connectClient(ctx context.Context, serverAddress string, cdpp 
 	if err != nil {
 		return err
 	}
+	accepted = true
 	p.Client = c.(*minecraft.Conn)
 	cd := p.Client.ClientData()
 	*cdpp = &cd

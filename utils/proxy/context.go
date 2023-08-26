@@ -300,7 +300,7 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 	wg := sync.WaitGroup{}
 	var cdp *login.ClientData = nil
 	if isReplay {
-		server, err := createReplayConnector(p.serverAddress[5:], p.packetFunc)
+		server, err := createReplayConnector(ctx, p.serverAddress[5:], p.packetFunc)
 		if err != nil {
 			return err
 		}

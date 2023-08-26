@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -22,6 +23,7 @@ type exemptedResourcePack struct {
 type rpHandler struct {
 	Server                       minecraft.IConn
 	Client                       minecraft.IConn
+	ctx                          context.Context
 	cache                        iPackCache
 	queue                        *resourcePackQueue
 	nextPack                     chan *resource.Pack
@@ -39,10 +41,11 @@ type rpHandler struct {
 	remotePackIds                []string
 }
 
-func newRpHandler(server, client minecraft.IConn) *rpHandler {
+func newRpHandler(ctx context.Context, server, client minecraft.IConn) *rpHandler {
 	r := &rpHandler{
 		Server: server,
 		Client: client,
+		ctx:    ctx,
 		queue: &resourcePackQueue{
 			downloadingPacks: make(map[string]downloadingPack),
 			awaitingPacks:    make(map[string]*downloadingPack),
@@ -123,7 +126,11 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 	close(r.receivedRemotePackInfo)
 	logrus.Debug("received remote pack infos")
 	if r.Client != nil {
-		<-r.knowPacksRequestedFromServer
+		select {
+		case <-r.knowPacksRequestedFromServer:
+		case <-r.ctx.Done():
+			return r.ctx.Err()
+		}
 	}
 
 	if len(packsToDownload) != 0 {
@@ -307,15 +314,21 @@ func (r *rpHandler) takeFromCache() (*resource.Pack, bool) {
 
 // nextResourcePackDownload moves to the next resource pack to download and sends a resource pack data info
 // packet with information about it.
-func (r *rpHandler) nextResourcePackDownload() (ok bool) {
+func (r *rpHandler) nextResourcePackDownload() (ok bool, err error) {
 	var pack *resource.Pack
-	pack, ok = <-r.nextPack
+
+	select {
+	case pack, ok = <-r.nextPack:
+	case <-r.ctx.Done():
+		return false, r.ctx.Err()
+	}
+
 	if !ok {
 		pack, ok = r.takeFromCache()
 	}
 	if !ok {
 		logrus.Info("finished sending client resource packs")
-		return false
+		return false, nil
 	}
 
 	logrus.Debug("next pack", pack.Name())
@@ -348,7 +361,7 @@ func (r *rpHandler) nextResourcePackDownload() (ok bool) {
 	})
 	// Set the next expected packet to ResourcePackChunkRequest packets.
 	r.Client.Expect(packet.IDResourcePackChunkRequest)
-	return true
+	return true, nil
 }
 
 // from client
@@ -377,7 +390,11 @@ func (r *rpHandler) OnResourcePackChunkRequest(pk *packet.ResourcePackChunkReque
 		response.Data = response.Data[:n]
 
 		defer func() {
-			if !r.nextResourcePackDownload() {
+			ok, err := r.nextResourcePackDownload()
+			if err != nil {
+				logrus.Error(err)
+			}
+			if !ok {
 				r.Client.Expect(packet.IDResourcePackClientResponse)
 			}
 		}()
@@ -390,6 +407,7 @@ func (r *rpHandler) OnResourcePackChunkRequest(pk *packet.ResourcePackChunkReque
 }
 
 func (r *rpHandler) Request(packs []string) error {
+	logrus.Infof("HI HI HI HI: %+#v", packs)
 	r.clientHasRequested = true
 	<-r.receivedRemotePackInfo
 
@@ -465,15 +483,24 @@ func (r *rpHandler) OnResourcePackClientResponse(pk *packet.ResourcePackClientRe
 		}
 		// Proceed with the first resource pack download. We run all downloads in sequence rather than in
 		// parallel, as it's less prone to packet loss.
-		r.nextResourcePackDownload()
+		_, err := r.nextResourcePackDownload()
+		if err != nil {
+			return err
+		}
 	case packet.PackResponseAllPacksDownloaded:
 		if !r.clientHasRequested {
 			close(r.knowPacksRequestedFromServer)
 			close(r.nextPack)
 			r.nextPack = nil
 		}
+
 		logrus.Debug("waiting for remote stack")
-		<-r.receivedRemoteStack
+		select {
+		case <-r.receivedRemoteStack:
+		case <-r.ctx.Done():
+			return r.ctx.Err()
+		}
+
 		r.cache.Close()
 		if err := r.Client.WritePacket(r.stack); err != nil {
 			return fmt.Errorf("error writing resource pack stack packet: %v", err)
@@ -487,8 +514,12 @@ func (r *rpHandler) OnResourcePackClientResponse(pk *packet.ResourcePackClientRe
 }
 
 func (r *rpHandler) GetResourcePacksInfo(texturePacksRequired bool) *packet.ResourcePacksInfo {
-	<-r.receivedRemotePackInfo
-	return r.remotePacks
+	select {
+	case <-r.receivedRemotePackInfo:
+		return r.remotePacks
+	case <-r.ctx.Done():
+		return &packet.ResourcePacksInfo{}
+	}
 }
 
 func (r *rpHandler) ResourcePacks() []*resource.Pack {
