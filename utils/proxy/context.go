@@ -431,7 +431,7 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 				return
 			}
 			if p.transfer != nil {
-				cancel(errTransfer{})
+				cancel(errTransfer)
 				return
 			}
 		}
@@ -456,6 +456,8 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 	return err
 }
 
+var errTransfer = errors.New("err transfer")
+
 func (p *Context) connect(ctx context.Context) (err error) {
 	p.spawned = false
 	p.clientAddr = nil
@@ -466,7 +468,7 @@ func (p *Context) connect(ctx context.Context) (err error) {
 	ctx2, cancel := context.WithCancelCause(ctx)
 	err = p.doSession(ctx2, cancel)
 
-	if _, ok := err.(errTransfer); ok && p.transfer != nil {
+	if errors.Is(err, errTransfer) && p.transfer != nil {
 		p.serverAddress = fmt.Sprintf("%s:%d", p.transfer.Address, p.transfer.Port)
 		logrus.Infof("transferring to %s", p.serverAddress)
 		return p.connect(ctx)

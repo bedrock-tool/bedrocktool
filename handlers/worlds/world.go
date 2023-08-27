@@ -37,6 +37,7 @@ type WorldSettings struct {
 	SaveInventories bool
 	BlockUpdates    bool
 	ExcludeMobs     []string
+	StartPaused     bool
 }
 
 type serverState struct {
@@ -77,7 +78,7 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 			useOldBiomes: false,
 			worldCounter: 0,
 		},
-		isCapturing: true,
+		isCapturing: !settings.StartPaused,
 
 		settings: settings,
 	}
