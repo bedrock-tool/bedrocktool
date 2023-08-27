@@ -61,6 +61,7 @@ func New(ui ui.UI, withClient bool) (*Context, error) {
 
 // AddCommand adds a command to the command handler
 func (p *Context) AddCommand(exec func([]string) bool, cmd protocol.Command) {
+	cmd.AliasesOffset = 0xffffffff
 	p.commands[cmd.Name] = ingameCommand{exec, cmd}
 }
 
@@ -103,10 +104,8 @@ func (p *Context) CommandHandlerPacketCB(pk packet.Packet, toServer bool, _ time
 			h.Exec(cmd[1:])
 		}
 	case *packet.AvailableCommands:
-		break // broken
 		cmds := make([]protocol.Command, 0, len(p.commands))
 		for _, ic := range p.commands {
-			ic.Cmd.AliasesOffset = 0xffffffff
 			cmds = append(cmds, ic.Cmd)
 		}
 		pk = &packet.AvailableCommands{
@@ -115,7 +114,7 @@ func (p *Context) CommandHandlerPacketCB(pk packet.Packet, toServer bool, _ time
 			Suffixes:                _pk.Suffixes,
 			Enums:                   _pk.Enums,
 			ChainedSubcommands:      _pk.ChainedSubcommands,
-			Commands:                _pk.Commands, //append(_pk.Commands, cmds...),
+			Commands:                append(_pk.Commands, cmds...),
 			DynamicEnums:            _pk.DynamicEnums,
 			Constraints:             _pk.Constraints,
 		}

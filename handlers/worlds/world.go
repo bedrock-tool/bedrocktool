@@ -95,13 +95,6 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 			}, protocol.Command{
 				Name:        "setname",
 				Description: locale.Loc("setname_desc", nil),
-				Overloads: []protocol.CommandOverload{{
-					Parameters: []protocol.CommandParameter{{
-						Name:     "name",
-						Type:     protocol.CommandArgTypeString,
-						Optional: false,
-					}},
-				}},
 			})
 
 			w.proxy.AddCommand(func(cmdline []string) bool {
