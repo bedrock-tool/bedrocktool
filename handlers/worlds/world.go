@@ -115,7 +115,7 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 				w.proxy.SendMessage(fmt.Sprintf("Exluding: %s", strings.Join(w.settings.ExcludeMobs, ", ")))
 				return true
 			}, protocol.Command{
-				Name:        "c",
+				Name:        "exclude-mob",
 				Description: "add a mob to the list of mobs to ignore",
 			})
 
