@@ -94,23 +94,30 @@ func (p *Context) AddHandler(handler *Handler) {
 }
 
 func (p *Context) CommandHandlerPacketCB(pk packet.Packet, toServer bool, _ time.Time, _ bool) (packet.Packet, error) {
-	switch pk := pk.(type) {
+	switch _pk := pk.(type) {
 	case *packet.CommandRequest:
-		cmd := strings.Split(pk.CommandLine, " ")
+		cmd := strings.Split(_pk.CommandLine, " ")
 		name := cmd[0][1:]
 		if h, ok := p.commands[name]; ok {
-			if h.Exec(cmd[1:]) {
-				pk = nil
-			}
+			pk = nil
+			h.Exec(cmd[1:])
 		}
 	case *packet.AvailableCommands:
+		break // broken
 		cmds := make([]protocol.Command, 0, len(p.commands))
 		for _, ic := range p.commands {
+			ic.Cmd.AliasesOffset = 0xffffffff
 			cmds = append(cmds, ic.Cmd)
 		}
 		pk = &packet.AvailableCommands{
-			Constraints: pk.Constraints,
-			Commands:    append(pk.Commands, cmds...),
+			EnumValues:              _pk.EnumValues,
+			ChainedSubcommandValues: _pk.ChainedSubcommandValues,
+			Suffixes:                _pk.Suffixes,
+			Enums:                   _pk.Enums,
+			ChainedSubcommands:      _pk.ChainedSubcommands,
+			Commands:                _pk.Commands, //append(_pk.Commands, cmds...),
+			DynamicEnums:            _pk.DynamicEnums,
+			Constraints:             _pk.Constraints,
 		}
 	}
 	return pk, nil

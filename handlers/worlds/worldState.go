@@ -2,6 +2,7 @@ package worlds
 
 import (
 	"os"
+	"slices"
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
@@ -21,6 +22,7 @@ type worldState struct {
 	chunks             map[world.ChunkPos]*chunk.Chunk
 	blockNBTs          map[cube.Pos]map[string]any
 	entities           map[uint64]*entityState
+	excludeMobs        []string
 	entityLinks        map[int64]map[int64]struct{}
 	openItemContainers map[byte]*itemContainer
 	VoidGen            bool
@@ -42,6 +44,16 @@ func newWorldState(name string, dim world.Dimension) *worldState {
 		openItemContainers: make(map[byte]*itemContainer),
 		Name:               name,
 	}
+}
+
+func (w *worldState) Copy() *worldState {
+	w2 := newWorldState(w.Name, w.dimension)
+	maps.Copy(w2.chunks, w.chunks)
+	maps.Copy(w2.blockNBTs, w.blockNBTs)
+	maps.Copy(w2.entities, w.entities)
+	maps.Copy(w2.entityLinks, w.entityLinks)
+	maps.Copy(w2.openItemContainers, w.openItemContainers)
+	return w2
 }
 
 func (w *worldState) cullChunks() {
@@ -82,6 +94,9 @@ func (w *worldState) startSave(folder string) (*mcdb.DB, error) {
 
 	chunkEntities := make(map[world.ChunkPos][]world.Entity)
 	for _, es := range w.entities {
+		if slices.Contains(w.excludeMobs, es.EntityType) {
+			continue
+		}
 		cp := world.ChunkPos{int32(es.Position.X()) >> 4, int32(es.Position.Z()) >> 4}
 		links := maps.Keys(w.entityLinks[es.UniqueID])
 		chunkEntities[cp] = append(chunkEntities[cp], es.ToServerEntity(links))

@@ -3,6 +3,7 @@ package world
 import (
 	"context"
 	"flag"
+	"strings"
 
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds"
 	"github.com/bedrock-tool/bedrocktool/locale"
@@ -19,6 +20,7 @@ type WorldCMD struct {
 	SaveEntities    bool
 	SaveInventories bool
 	SaveImage       bool
+	ExcludeMobs     string
 }
 
 func (*WorldCMD) Name() string     { return "worlds" }
@@ -31,6 +33,7 @@ func (c *WorldCMD) SetFlags(f *flag.FlagSet) {
 	f.BoolVar(&c.SaveImage, "image", false, locale.Loc("save_image", nil))
 	f.BoolVar(&c.SaveEntities, "save-entities", true, "Save Entities")
 	f.BoolVar(&c.SaveInventories, "save-inventories", true, "Save Inventories")
+	f.StringVar(&c.ExcludeMobs, "exclude-mobs", "", "list of mobs to exclude seperated by comma")
 }
 
 func (c *WorldCMD) Execute(ctx context.Context, ui ui.UI) error {
@@ -50,6 +53,7 @@ func (c *WorldCMD) Execute(ctx context.Context, ui ui.UI) error {
 		SaveEntities:    c.SaveEntities,
 		SaveInventories: c.SaveInventories,
 		SaveImage:       c.SaveImage,
+		ExcludeMobs:     strings.Split(c.ExcludeMobs, ","),
 	}))
 
 	err = proxy.Run(ctx, serverAddress, hostname)

@@ -283,6 +283,9 @@ func (w *worldsHandler) handleEntityPackets(pk packet.Packet) packet.Packet {
 	if !w.settings.SaveEntities {
 		return pk
 	}
+	if !w.isCapturing {
+		return pk
+	}
 
 	switch pk := pk.(type) {
 	case *packet.AddActor:

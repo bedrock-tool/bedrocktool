@@ -130,18 +130,24 @@ func (w *worldsHandler) handleChunkPackets(pk packet.Packet) packet.Packet {
 	case *packet.ChangeDimension:
 		w.processChangeDimension(pk)
 	case *packet.LevelChunk:
-		w.processLevelChunk(pk)
-		w.proxy.SendPopup(locale.Locm("popup_chunk_count", locale.Strmap{
-			"Count": len(w.worldState.chunks),
-			"Name":  w.worldState.Name,
-		}, len(w.worldState.chunks)))
+		if w.isCapturing {
+			w.processLevelChunk(pk)
+			w.proxy.SendPopup(locale.Locm("popup_chunk_count", locale.Strmap{
+				"Count": len(w.worldState.chunks),
+				"Name":  w.worldState.Name,
+			}, len(w.worldState.chunks)))
+		}
 	case *packet.SubChunk:
-		w.processSubChunk(pk)
+		if w.isCapturing {
+			w.processSubChunk(pk)
+		}
 	case *packet.BlockActorData:
-		p := pk.Position
-		w.worldState.blockNBTs[cube.Pos{int(p.X()), int(p.Y()), int(p.Z())}] = pk.NBTData
+		if w.isCapturing {
+			p := pk.Position
+			w.worldState.blockNBTs[cube.Pos{int(p.X()), int(p.Y()), int(p.Z())}] = pk.NBTData
+		}
 	case *packet.UpdateBlock:
-		if w.settings.BlockUpdates {
+		if w.settings.BlockUpdates && w.isCapturing {
 			cp := world.ChunkPos{pk.Position.X() >> 4, pk.Position.Z() >> 4}
 			c, ok := w.worldState.chunks[cp]
 			if ok {
@@ -151,7 +157,7 @@ func (w *worldsHandler) handleChunkPackets(pk packet.Packet) packet.Packet {
 			}
 		}
 	case *packet.UpdateSubChunkBlocks:
-		if w.settings.BlockUpdates {
+		if w.settings.BlockUpdates && w.isCapturing {
 			cp := world.ChunkPos{pk.Position.X(), pk.Position.Z()}
 			c, ok := w.worldState.chunks[cp]
 			if ok {

@@ -5,6 +5,7 @@ import (
 	"image/png"
 	"math/rand"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -35,6 +36,7 @@ type WorldSettings struct {
 	SaveEntities    bool
 	SaveInventories bool
 	BlockUpdates    bool
+	ExcludeMobs     []string
 }
 
 type serverState struct {
@@ -57,6 +59,7 @@ type worldsHandler struct {
 	ui    ui.UI
 	bp    *behaviourpack.BehaviourPack
 
+	isCapturing  bool
 	worldState   *worldState
 	serverState  serverState
 	settings     WorldSettings
@@ -64,12 +67,17 @@ type worldsHandler struct {
 }
 
 func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
+	settings.ExcludeMobs = slices.DeleteFunc(settings.ExcludeMobs, func(mob string) bool {
+		return mob == ""
+	})
+
 	w := &worldsHandler{
 		ui: ui,
 		serverState: serverState{
 			useOldBiomes: false,
 			worldCounter: 0,
 		},
+		isCapturing: true,
 
 		settings: settings,
 	}
@@ -101,6 +109,42 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 				Name:        "void",
 				Description: locale.Loc("void_desc", nil),
 			})
+
+			w.proxy.AddCommand(func(s []string) bool {
+				w.settings.ExcludeMobs = append(w.settings.ExcludeMobs, s...)
+				w.proxy.SendMessage(fmt.Sprintf("Exluding: %s", strings.Join(w.settings.ExcludeMobs, ", ")))
+				return true
+			}, protocol.Command{
+				Name:        "c",
+				Description: "add a mob to the list of mobs to ignore",
+			})
+
+			w.proxy.AddCommand(func(s []string) bool {
+				w.isCapturing = false
+				w.proxy.SendMessage("Restarted Capturing")
+				return true
+			}, protocol.Command{
+				Name:        "stop-capture",
+				Description: "stop capturing entities, chunks",
+			})
+
+			w.proxy.AddCommand(func(s []string) bool {
+				w.isCapturing = true
+				w.proxy.SendMessage("Paused Capturing")
+				return true
+			}, protocol.Command{
+				Name:        "start-capture",
+				Description: "start capturing entities, chunks",
+			})
+
+			w.proxy.AddCommand(func(s []string) bool {
+				w.SaveAndReset()
+				return true
+			}, protocol.Command{
+				Name:        "save-world",
+				Description: "immediately save and reset the world state",
+			})
+
 		},
 		AddressAndName: func(address, hostname string) error {
 			w.bp = behaviourpack.New(hostname)
@@ -294,7 +338,10 @@ func (w *worldsHandler) SaveAndReset() {
 		f.Close()
 	}
 
-	logrus.Infof(locale.Loc("saving_world", locale.Strmap{"Name": w.worldState.Name, "Count": len(w.worldState.chunks)}))
+	text := locale.Loc("saving_world", locale.Strmap{"Name": w.worldState.Name, "Count": len(w.worldState.chunks)})
+	logrus.Info(text)
+	w.proxy.SendMessage(text)
+
 	w.ui.Message(messages.SavingWorld{
 		World: &messages.SavedWorld{
 			Name:   w.worldState.Name,
@@ -304,6 +351,7 @@ func (w *worldsHandler) SaveAndReset() {
 	})
 
 	w.wg.Add(1)
+	w.worldState.excludeMobs = w.settings.ExcludeMobs
 	worldState := w.worldState
 	go func() {
 		defer w.wg.Done()
