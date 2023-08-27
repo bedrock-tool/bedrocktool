@@ -45,10 +45,10 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 		x := int(blockNBT["x"].(int32))
 		y := int(blockNBT["y"].(int32))
 		z := int(blockNBT["z"].(int32))
-		w.worldState.blockNBTs[cube.Pos{x, y, z}] = blockNBT
+		w.worldState.state().blockNBTs[cube.Pos{x, y, z}] = blockNBT
 	}
 
-	w.worldState.chunks[(world.ChunkPos)(pk.Position)] = ch
+	w.worldState.state().chunks[(world.ChunkPos)(pk.Position)] = ch
 
 	max := uint16(w.worldState.dimension.Range().Height() / 16)
 	switch pk.SubChunkCount {
@@ -80,9 +80,14 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 			}
 		}
 		if !empty {
-			w.mapUI.SetChunk((world.ChunkPos)(pk.Position), ch)
+			w.mapUI.SetChunk((world.ChunkPos)(pk.Position), ch, w.worldState.useDeferred)
 		}
 	}
+
+	w.proxy.SendPopup(locale.Locm("popup_chunk_count", locale.Strmap{
+		"Count": len(w.worldState.State.chunks),
+		"Name":  w.worldState.Name,
+	}, len(w.worldState.State.chunks)))
 }
 
 func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) {
@@ -95,7 +100,7 @@ func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) {
 			absZ = pk.Position[2] + int32(sub.Offset[2])
 			pos  = world.ChunkPos{absX, absZ}
 		)
-		ch, ok := w.worldState.chunks[pos]
+		ch, ok := w.worldState.state().chunks[pos]
 		if !ok {
 			logrus.Error(locale.Loc("subchunk_before_chunk", nil))
 			continue
@@ -108,7 +113,7 @@ func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) {
 			x := int(blockNBT["x"].(int32))
 			y := int(blockNBT["y"].(int32))
 			z := int(blockNBT["z"].(int32))
-			w.worldState.blockNBTs[cube.Pos{x, y, z}] = blockNBT
+			w.worldState.state().blockNBTs[cube.Pos{x, y, z}] = blockNBT
 		}
 
 		posToRedraw[pos] = true
@@ -116,7 +121,7 @@ func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) {
 
 	// redraw the chunks
 	for pos := range posToRedraw {
-		w.mapUI.SetChunk(pos, w.worldState.chunks[pos])
+		w.mapUI.SetChunk(pos, w.worldState.state().chunks[pos], w.worldState.useDeferred)
 	}
 	w.mapUI.SchedRedraw()
 }
@@ -130,36 +135,26 @@ func (w *worldsHandler) handleChunkPackets(pk packet.Packet) packet.Packet {
 	case *packet.ChangeDimension:
 		w.processChangeDimension(pk)
 	case *packet.LevelChunk:
-		if w.isCapturing {
-			w.processLevelChunk(pk)
-			w.proxy.SendPopup(locale.Locm("popup_chunk_count", locale.Strmap{
-				"Count": len(w.worldState.chunks),
-				"Name":  w.worldState.Name,
-			}, len(w.worldState.chunks)))
-		}
+		w.processLevelChunk(pk)
 	case *packet.SubChunk:
-		if w.isCapturing {
-			w.processSubChunk(pk)
-		}
+		w.processSubChunk(pk)
 	case *packet.BlockActorData:
-		if w.isCapturing {
-			p := pk.Position
-			w.worldState.blockNBTs[cube.Pos{int(p.X()), int(p.Y()), int(p.Z())}] = pk.NBTData
-		}
+		p := pk.Position
+		w.worldState.state().blockNBTs[cube.Pos{int(p.X()), int(p.Y()), int(p.Z())}] = pk.NBTData
 	case *packet.UpdateBlock:
-		if w.settings.BlockUpdates && w.isCapturing {
+		if w.settings.BlockUpdates {
 			cp := world.ChunkPos{pk.Position.X() >> 4, pk.Position.Z() >> 4}
-			c, ok := w.worldState.chunks[cp]
+			c, ok := w.worldState.state().chunks[cp]
 			if ok {
 				x, y, z := blockPosInChunk(pk.Position)
 				c.SetBlock(x, y, z, uint8(pk.Layer), pk.NewBlockRuntimeID)
-				w.mapUI.SetChunk(cp, c)
+				w.mapUI.SetChunk(cp, c, w.worldState.useDeferred)
 			}
 		}
 	case *packet.UpdateSubChunkBlocks:
-		if w.settings.BlockUpdates && w.isCapturing {
+		if w.settings.BlockUpdates {
 			cp := world.ChunkPos{pk.Position.X(), pk.Position.Z()}
-			c, ok := w.worldState.chunks[cp]
+			c, ok := w.worldState.state().chunks[cp]
 			if ok {
 				for _, bce := range pk.Blocks {
 					x, y, z := blockPosInChunk(bce.BlockPos)
@@ -169,7 +164,7 @@ func (w *worldsHandler) handleChunkPackets(pk packet.Packet) packet.Packet {
 						c.SetBlock(x, y, z, 0, bce.BlockRuntimeID)
 					}
 				}
-				w.mapUI.SetChunk(cp, c)
+				w.mapUI.SetChunk(cp, c, w.worldState.useDeferred)
 			}
 		}
 	}

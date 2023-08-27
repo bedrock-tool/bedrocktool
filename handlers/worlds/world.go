@@ -3,6 +3,7 @@ package worlds
 import (
 	"fmt"
 	"image/png"
+	"math"
 	"math/rand"
 	"os"
 	"slices"
@@ -21,6 +22,7 @@ import (
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"
 	_ "github.com/df-mc/dragonfly/server/world/biome"
+	"github.com/df-mc/dragonfly/server/world/chunk"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/nbt"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
@@ -46,6 +48,7 @@ type serverState struct {
 	worldCounter  int
 	WorldName     string
 	biomes        map[string]any
+	radius        int32
 
 	playerInventory []protocol.ItemInstance
 	packs           []utils.Pack
@@ -60,7 +63,6 @@ type worldsHandler struct {
 	ui    ui.UI
 	bp    *behaviourpack.BehaviourPack
 
-	isCapturing  bool
 	worldState   *worldState
 	serverState  serverState
 	settings     WorldSettings
@@ -78,9 +80,10 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 			useOldBiomes: false,
 			worldCounter: 0,
 		},
-		isCapturing: !settings.StartPaused,
-
 		settings: settings,
+	}
+	if settings.StartPaused {
+		w.worldState.PauseCapture()
 	}
 	w.mapUI = NewMapUI(w)
 	w.reset()
@@ -114,8 +117,8 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 			})
 
 			w.proxy.AddCommand(func(s []string) bool {
-				w.isCapturing = false
-				w.proxy.SendMessage("Restarted Capturing")
+				w.worldState.PauseCapture()
+				w.proxy.SendMessage("Paused Capturing")
 				return true
 			}, protocol.Command{
 				Name:        "stop-capture",
@@ -123,8 +126,11 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 			})
 
 			w.proxy.AddCommand(func(s []string) bool {
-				w.isCapturing = true
-				w.proxy.SendMessage("Paused Capturing")
+				w.proxy.SendMessage("Restarted Capturing")
+				pos := cube.Pos{int(math.Floor(float64(w.proxy.Player.Position[0]))), int(math.Floor(float64(w.proxy.Player.Position[1]))), int(math.Floor(float64(w.proxy.Player.Position[2])))}
+				w.worldState.UnpauseCapture(pos, w.serverState.radius, func(cp world.ChunkPos, c *chunk.Chunk) {
+					w.mapUI.SetChunk(cp, c, false)
+				})
 				return true
 			}, protocol.Command{
 				Name:        "start-capture",
@@ -184,6 +190,7 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 		PacketCB: func(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
 			switch pk := pk.(type) {
 			case *packet.ChunkRadiusUpdated:
+				w.serverState.radius = pk.ChunkRadius
 				pk.ChunkRadius = 80
 			case *packet.SetTime:
 				w.worldState.timeSync = time.Now()
@@ -313,8 +320,8 @@ func (w *worldsHandler) defaultName() string {
 }
 
 func (w *worldsHandler) SaveAndReset() {
-	w.worldState.cullChunks()
-	if len(w.worldState.chunks) == 0 {
+	w.worldState.State.cullChunks()
+	if len(w.worldState.State.chunks) == 0 {
 		w.reset()
 		return
 	}
@@ -332,7 +339,7 @@ func (w *worldsHandler) SaveAndReset() {
 		f.Close()
 	}
 
-	text := locale.Loc("saving_world", locale.Strmap{"Name": w.worldState.Name, "Count": len(w.worldState.chunks)})
+	text := locale.Loc("saving_world", locale.Strmap{"Name": w.worldState.Name, "Count": len(w.worldState.State.chunks)})
 	logrus.Info(text)
 	w.proxy.SendMessage(text)
 
@@ -340,7 +347,7 @@ func (w *worldsHandler) SaveAndReset() {
 		World: &messages.SavedWorld{
 			Name:   w.worldState.Name,
 			Path:   filename,
-			Chunks: len(w.worldState.chunks),
+			Chunks: len(w.worldState.State.chunks),
 		},
 	})
 
@@ -373,10 +380,15 @@ func (w *worldsHandler) SaveAndReset() {
 
 func (w *worldsHandler) reset() {
 	var dim world.Dimension
+	var deferred bool
 	if w.worldState != nil {
 		dim = w.worldState.dimension
+		deferred = w.worldState.useDeferred
 	}
 	w.worldState = newWorldState(w.defaultName(), dim)
 	w.worldState.VoidGen = w.settings.VoidGen
+	if deferred {
+		w.worldState.PauseCapture()
+	}
 	w.mapUI.Reset()
 }

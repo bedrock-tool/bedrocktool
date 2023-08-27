@@ -66,12 +66,12 @@ func (w *worldsHandler) addEntityLink(el protocol.EntityLink) {
 	case protocol.EntityLinkPassenger:
 		fallthrough
 	case protocol.EntityLinkRider:
-		if _, ok := w.worldState.entityLinks[el.RiddenEntityUniqueID]; !ok {
-			w.worldState.entityLinks[el.RiddenEntityUniqueID] = make(map[int64]struct{})
+		if _, ok := w.worldState.state().entityLinks[el.RiddenEntityUniqueID]; !ok {
+			w.worldState.state().entityLinks[el.RiddenEntityUniqueID] = make(map[int64]struct{})
 		}
-		w.worldState.entityLinks[el.RiddenEntityUniqueID][el.RiderEntityUniqueID] = struct{}{}
+		w.worldState.state().entityLinks[el.RiddenEntityUniqueID][el.RiderEntityUniqueID] = struct{}{}
 	case protocol.EntityLinkRemove:
-		delete(w.worldState.entityLinks[el.RiddenEntityUniqueID], el.RiderEntityUniqueID)
+		delete(w.worldState.state().entityLinks[el.RiddenEntityUniqueID], el.RiderEntityUniqueID)
 	}
 }
 
@@ -85,7 +85,7 @@ func (w *worldsHandler) processAddActor(pk *packet.AddActor) {
 			Inventory:  make(map[byte]map[byte]protocol.ItemInstance),
 			Metadata:   make(map[uint32]any),
 		}
-		w.worldState.entities[pk.EntityRuntimeID] = e
+		w.worldState.state().entities[pk.EntityRuntimeID] = e
 		for _, el := range pk.EntityLinks {
 			w.addEntityLink(el)
 		}
@@ -275,15 +275,12 @@ func (s *entityState) ToServerEntity(links []int64) serverEntity {
 }
 
 func (w *worldsHandler) getEntity(id uint64) (*entityState, bool) {
-	e, ok := w.worldState.entities[id]
+	e, ok := w.worldState.state().entities[id]
 	return e, ok
 }
 
 func (w *worldsHandler) handleEntityPackets(pk packet.Packet) packet.Packet {
 	if !w.settings.SaveEntities {
-		return pk
-	}
-	if !w.isCapturing {
 		return pk
 	}
 

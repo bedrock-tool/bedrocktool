@@ -2,6 +2,7 @@ package worlds
 
 import (
 	"image"
+	"image/color"
 	"image/draw"
 	"math"
 	"sync"
@@ -62,6 +63,8 @@ func (m *MapUI) GetBounds() (min, max protocol.ChunkPos) {
 type RenderElem struct {
 	pos protocol.ChunkPos
 	ch  *chunk.Chunk
+
+	isDeferredState bool
 }
 
 type MapUI struct {
@@ -69,7 +72,8 @@ type MapUI struct {
 	zoomLevel      int         // pixels per chunk
 	renderQueue    *lockfree.Queue
 	renderedChunks map[protocol.ChunkPos]*image.RGBA // prerendered chunks
-	needRedraw     bool                              // when the map has updated this is true
+	oldRendered    map[protocol.ChunkPos]*image.RGBA
+	needRedraw     bool // when the map has updated this is true
 	showOnGui      bool
 	l              sync.RWMutex
 
@@ -84,6 +88,7 @@ func NewMapUI(w *worldsHandler) *MapUI {
 		zoomLevel:      16,
 		renderQueue:    lockfree.NewQueue(),
 		renderedChunks: make(map[protocol.ChunkPos]*image.RGBA),
+		oldRendered:    make(map[protocol.ChunkPos]*image.RGBA),
 		needRedraw:     true,
 		w:              w,
 	}
@@ -166,6 +171,7 @@ func (m *MapUI) Stop() {
 func (m *MapUI) Reset() {
 	m.l.Lock()
 	m.renderedChunks = make(map[protocol.ChunkPos]*image.RGBA)
+	m.oldRendered = make(map[protocol.ChunkPos]*image.RGBA)
 	m.l.Unlock()
 	m.SchedRedraw()
 }
@@ -184,6 +190,8 @@ func (m *MapUI) SchedRedraw() {
 	m.needRedraw = true
 }
 
+var red = image.NewUniform(color.RGBA{R: 0xff, G: 0, B: 0, A: 128})
+
 func (m *MapUI) processQueue() []protocol.ChunkPos {
 	m.wg.Wait()
 	m.l.Lock()
@@ -194,7 +202,21 @@ func (m *MapUI) processQueue() []protocol.ChunkPos {
 			break
 		}
 		if r.ch != nil {
-			m.renderedChunks[r.pos] = utils.Chunk2Img(r.ch)
+			img := utils.Chunk2Img(r.ch)
+			if r.isDeferredState {
+				if old, ok := m.renderedChunks[r.pos]; ok {
+					m.oldRendered[r.pos] = old
+				}
+				draw.Draw(img, img.Rect, red, image.Point{}, draw.Over)
+			}
+			m.renderedChunks[r.pos] = img
+		} else {
+			if img, ok := m.oldRendered[r.pos]; ok {
+				m.renderedChunks[r.pos] = img
+			} else {
+				delete(m.renderedChunks, r.pos)
+			}
+
 		}
 		updatedChunks = append(updatedChunks, r.pos)
 	}
@@ -269,8 +291,8 @@ func (m *MapUI) ToImage() *image.RGBA {
 	return img
 }
 
-func (m *MapUI) SetChunk(pos world.ChunkPos, ch *chunk.Chunk) {
-	m.renderQueue.Enqueue(&RenderElem{(protocol.ChunkPos)(pos), ch})
+func (m *MapUI) SetChunk(pos world.ChunkPos, ch *chunk.Chunk, isDeferredState bool) {
+	m.renderQueue.Enqueue(&RenderElem{(protocol.ChunkPos)(pos), ch, isDeferredState})
 	m.SchedRedraw()
 }
 

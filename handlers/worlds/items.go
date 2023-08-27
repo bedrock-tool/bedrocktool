@@ -64,11 +64,11 @@ func (w *worldsHandler) handleItemPackets(pk packet.Packet, forward *bool) packe
 		}
 	case *packet.ContainerOpen:
 		// add to open containers
-		existing, ok := w.worldState.openItemContainers[pk.WindowID]
+		existing, ok := w.worldState.state().openItemContainers[pk.WindowID]
 		if !ok {
 			existing = &itemContainer{}
 		}
-		w.worldState.openItemContainers[pk.WindowID] = &itemContainer{
+		w.worldState.state().openItemContainers[pk.WindowID] = &itemContainer{
 			OpenPacket: pk,
 			Content:    existing.Content,
 		}
@@ -78,7 +78,7 @@ func (w *worldsHandler) handleItemPackets(pk packet.Packet, forward *bool) packe
 			w.serverState.playerInventory = pk.Content
 		} else {
 			// save content
-			existing, ok := w.worldState.openItemContainers[byte(pk.WindowID)]
+			existing, ok := w.worldState.state().openItemContainers[byte(pk.WindowID)]
 			if ok {
 				existing.Content = pk
 			}
@@ -92,7 +92,7 @@ func (w *worldsHandler) handleItemPackets(pk packet.Packet, forward *bool) packe
 			w.serverState.playerInventory[pk.Slot] = pk.NewItem
 		} else {
 			// save content
-			existing, ok := w.worldState.openItemContainers[byte(pk.WindowID)]
+			existing, ok := w.worldState.state().openItemContainers[byte(pk.WindowID)]
 			if ok {
 				existing.Content.Content[pk.Slot] = pk.NewItem
 			}
@@ -102,7 +102,7 @@ func (w *worldsHandler) handleItemPackets(pk packet.Packet, forward *bool) packe
 
 	case *packet.ContainerClose:
 		// find container info
-		existing, ok := w.worldState.openItemContainers[byte(pk.WindowID)]
+		existing, ok := w.worldState.state().openItemContainers[byte(pk.WindowID)]
 
 		switch pk.WindowID {
 		case protocol.WindowIDArmour: // todo handle
@@ -132,7 +132,7 @@ func (w *worldsHandler) handleItemPackets(pk packet.Packet, forward *bool) packe
 
 			// put into subchunk
 			p := existing.OpenPacket.ContainerPosition
-			nbt, ok := w.worldState.blockNBTs[cube.Pos{int(p.X()), int(p.Y()), int(p.Z())}]
+			nbt, ok := w.worldState.state().blockNBTs[cube.Pos{int(p.X()), int(p.Y()), int(p.Z())}]
 			if ok {
 				nbt["Items"] = nbtconv.InvToNBT(inv)
 			}
@@ -140,7 +140,7 @@ func (w *worldsHandler) handleItemPackets(pk packet.Packet, forward *bool) packe
 			w.proxy.SendMessage(locale.Loc("saved_block_inv", nil))
 
 			// remove it again
-			delete(w.worldState.openItemContainers, byte(pk.WindowID))
+			delete(w.worldState.state().openItemContainers, byte(pk.WindowID))
 		}
 	}
 	return pk
