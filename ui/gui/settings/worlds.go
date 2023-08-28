@@ -4,6 +4,7 @@ import (
 	"gioui.org/layout"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"gioui.org/x/component"
 	"gioui.org/x/outlay"
 	"github.com/bedrock-tool/bedrocktool/subcommands/world"
 	"github.com/bedrock-tool/bedrocktool/utils"
@@ -20,17 +21,11 @@ type worldSettings struct {
 	voidGen       widget.Bool
 	saveImage     widget.Bool
 	packetCapture widget.Bool
-	serverAddress *addressInput
-}
-
-func nullWidget(layout.Context) layout.Dimensions {
-	return layout.Dimensions{}
 }
 
 func (s *worldSettings) Init() {
 	s.worlds = commands.Registered["worlds"].(*world.WorldCMD)
 	s.grid = &outlay.Grid{}
-	s.serverAddress = AddressInput
 	s.voidGen.Value = true
 	s.packetCapture.Value = false
 
@@ -43,12 +38,6 @@ func (s *worldSettings) Init() {
 			material.CheckBox(Theme, &s.saveImage, "save png").Layout,
 			material.CheckBox(Theme, &s.voidGen, "void Generator").Layout,
 		},
-		{
-			func(gtx layout.Context) layout.Dimensions {
-				return s.serverAddress.Layout(gtx, Theme)
-			},
-			nullWidget,
-		},
 	}
 }
 
@@ -56,38 +45,41 @@ func (s *worldSettings) Apply() {
 	s.worlds.Packs = s.withPacks.Value
 	s.worlds.EnableVoid = s.voidGen.Value
 	s.worlds.SaveImage = s.saveImage.Value
-	s.worlds.ServerAddress = s.serverAddress.Value()
+	s.worlds.ServerAddress = AddressInput.Value()
 	s.worlds.SaveEntities = true
 	s.worlds.SaveInventories = true
 	utils.Options.Capture = s.packetCapture.Value
 }
 
 func (s *worldSettings) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
+	gtx.Constraints.Max.X = gtx.Constraints.Max.X / 2
 	return layout.Flex{
 		Axis: layout.Vertical,
 	}.Layout(gtx,
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return s.grid.Layout(gtx, 3, 2, func(axis layout.Axis, index, constraint int) int {
+			return s.grid.Layout(gtx, 2, 2, func(axis layout.Axis, index, constraint int) int {
 				switch axis {
 				case layout.Horizontal:
-					switch index {
-					case 4:
-						return gtx.Dp(300)
-					case 5:
-						return gtx.Dp(0)
-					default:
-						return gtx.Dp(150)
-					}
+					return constraint / 2
 				case layout.Vertical:
-					return gtx.Dp(40)
+					return gtx.Dp(50)
 				}
 				panic("unreachable")
 			}, func(gtx layout.Context, row, col int) layout.Dimensions {
-				return s.options[row][col](gtx)
+				return component.Surface(&material.Theme{
+					Palette: material.Palette{
+						Bg: component.WithAlpha(th.ContrastFg, 8),
+					},
+				}).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return layout.UniformInset(5).Layout(gtx, s.options[row][col])
+				})
 			})
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return s.serverAddress.LayoutRealms(gtx, Theme)
+			return AddressInput.Layout(gtx, Theme)
+		}),
+		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			return AddressInput.LayoutRealms(gtx, Theme)
 		}),
 	)
 }

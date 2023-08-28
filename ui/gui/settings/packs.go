@@ -10,17 +10,14 @@ import (
 
 type packsSettings struct {
 	packs *subcommands.ResourcePackCMD
-
-	serverAddress *addressInput
 }
 
 func (s *packsSettings) Init() {
 	s.packs = commands.Registered["packs"].(*subcommands.ResourcePackCMD)
-	s.serverAddress = AddressInput
 }
 
 func (s *packsSettings) Apply() {
-	s.packs.ServerAddress = s.serverAddress.Value()
+	s.packs.ServerAddress = AddressInput.Value()
 }
 
 func (s *packsSettings) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
@@ -28,7 +25,7 @@ func (s *packsSettings) Layout(gtx layout.Context, th *material.Theme) layout.Di
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 			gtx.Constraints.Max.X = gtx.Dp(unit.Dp(min(300, gtx.Constraints.Max.X)))
 			gtx.Constraints.Min.X = gtx.Constraints.Max.X
-			return s.serverAddress.Layout(gtx, th)
+			return AddressInput.Layout(gtx, th)
 		}),
 	)
 }

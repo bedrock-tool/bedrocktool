@@ -10,6 +10,7 @@ import (
 	"gioui.org/layout"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"gioui.org/x/component"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/sandertv/gophertunnel/minecraft/realms"
 	"github.com/sirupsen/logrus"
@@ -60,9 +61,19 @@ func MulAlpha(c color.NRGBA, alpha uint8) color.NRGBA {
 }
 
 func (a *addressInput) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
-	return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		e := material.Editor(th, &a.editor, "Server Address")
-		return layout.UniformInset(5).Layout(gtx, e.Layout)
+	return layout.UniformInset(5).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return component.Surface(&material.Theme{
+			Palette: material.Palette{
+				Bg: component.WithAlpha(th.ContrastFg, 8),
+			},
+		}).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.UniformInset(8).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				e := material.Editor(th, &a.editor, "Enter Server Address")
+				e.LineHeight += 4
+				return e.Layout(gtx)
+			})
+		})
+
 	})
 }
 
