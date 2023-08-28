@@ -1,6 +1,7 @@
 package worlds
 
 import (
+	"errors"
 	"fmt"
 	"image/png"
 	"math"
@@ -200,6 +201,10 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 				w.worldState.time = int(pk.Time)
 				w.worldState.dimension, _ = world.DimensionByID(int(pk.Dimension))
 				w.serverState.useHashedRids = pk.UseBlockNetworkIDHashes
+				if w.serverState.useHashedRids {
+					return nil, errors.New("this server uses the new hashed block id system, this hasnt been implemented yet, sorry")
+				}
+
 				world.InsertCustomItems(pk.Items)
 				for _, ie := range pk.Items {
 					w.bp.AddItem(ie)
