@@ -250,6 +250,7 @@ func (p *Page) Handler(data interface{}) messages.MessageResponse {
 		p.router.Invalidate()
 
 	case messages.FinishedDownloadingPacks:
+		p.finished = true
 		p.l.Lock()
 		for _, dp := range m.Packs {
 			e, ok := p.Packs[dp.UUID]

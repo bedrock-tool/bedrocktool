@@ -13,6 +13,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/settings"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
+	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/sirupsen/logrus"
 )
@@ -28,7 +29,7 @@ type cmdItem struct {
 }
 
 type Page struct {
-	*pages.Router
+	router *pages.Router
 
 	cmdMenu struct {
 		state      component.GridState
@@ -38,13 +39,12 @@ type Page struct {
 	}
 
 	startButton widget.Clickable
-
-	actions []component.AppBarAction
+	debugButton widget.Bool
 }
 
 func New(router *pages.Router) *Page {
 	p := &Page{
-		Router: router,
+		router: router,
 	}
 
 	for k := range commands.Registered {
@@ -78,7 +78,15 @@ func (p *Page) ID() string {
 }
 
 func (p *Page) Actions() []component.AppBarAction {
-	return p.actions
+	return []component.AppBarAction{
+		/*
+			{
+				Layout: func(gtx layout.Context, bg, fg color.NRGBA) layout.Dimensions {
+					return material.Switch(p.router.Theme, &p.debugButton, "debug").Layout(gtx)
+				},
+			},
+		*/
+	}
 }
 
 func (p *Page) Overflow() []component.OverflowAction {
@@ -104,9 +112,13 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 				s.Apply()
 			}
 
-			p.Router.SwitchTo(p.cmdMenu.selected)
-			p.Router.Execute(cmd)
+			p.router.SwitchTo(p.cmdMenu.selected)
+			p.router.Execute(cmd)
 		}
+	}
+
+	if p.debugButton.Changed() {
+		utils.Options.Debug = p.debugButton.Value
 	}
 
 	for k, c := range p.cmdMenu.clickables {

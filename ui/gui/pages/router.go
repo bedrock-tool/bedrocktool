@@ -168,7 +168,7 @@ func (r *Router) Handler(data interface{}) messages.MessageResponse {
 		}
 		r.Invalidate()
 	case messages.ConnectState:
-		if r.current != "connect_temp" {
+		if r.current != "connect_temp" && r.current != "packs" {
 			r.SwitchToPageTemp(NewConnect(r, r.pages[r.current]))
 		}
 	}
