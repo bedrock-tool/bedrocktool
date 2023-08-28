@@ -47,7 +47,8 @@ func selectUI() ui.UI {
 func updateCheck(ui ui.UI) {
 	newVersion, err := utils.Updater.UpdateAvailable()
 	if err != nil {
-		logrus.Error(err)
+		return
+		//logrus.Error(err)
 	}
 
 	if newVersion != "" {

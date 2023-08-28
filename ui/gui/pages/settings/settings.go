@@ -2,6 +2,7 @@ package settings
 
 import (
 	"image"
+	"image/color"
 	"sort"
 
 	"gioui.org/layout"
@@ -21,15 +22,19 @@ type (
 	D = layout.Dimensions
 )
 
+type cmdItem struct {
+	Clickable *widget.Clickable
+	Text      string
+}
+
 type Page struct {
 	*pages.Router
 
 	cmdMenu struct {
-		show     bool
-		open     widget.Clickable
-		state    *component.MenuState
-		items    map[string]*widget.Clickable
-		selected string
+		state      component.GridState
+		clickables map[string]cmdItem
+		names      []string
+		selected   string
 	}
 
 	startButton widget.Clickable
@@ -39,31 +44,23 @@ type Page struct {
 
 func New(router *pages.Router) *Page {
 	p := &Page{
-		Router:      router,
-		startButton: widget.Clickable{},
+		Router: router,
 	}
 
-	cmdNames := []string{}
 	for k := range commands.Registered {
-		cmdNames = append(cmdNames, k)
-	}
-	sort.Strings(cmdNames)
-
-	p.cmdMenu.items = make(map[string]*widget.Clickable, len(commands.Registered))
-	options := make([]func(layout.Context) layout.Dimensions, 0, len(commands.Registered))
-	for _, name := range cmdNames {
-		if _, ok := settings.Settings[name]; !ok {
+		if _, ok := settings.Settings[k]; !ok {
 			continue
 		}
-
-		item := &widget.Clickable{}
-		p.cmdMenu.items[name] = item
-		options = append(options, component.MenuItem(router.Theme, item, name).Layout)
+		p.cmdMenu.names = append(p.cmdMenu.names, k)
 	}
+	sort.Strings(p.cmdMenu.names)
 
-	p.cmdMenu.state = &component.MenuState{
-		OptionList: layout.List{},
-		Options:    options,
+	p.cmdMenu.clickables = make(map[string]cmdItem, len(commands.Registered))
+	for _, name := range p.cmdMenu.names {
+		p.cmdMenu.clickables[name] = cmdItem{
+			Clickable: &widget.Clickable{},
+			Text:      name,
+		}
 	}
 
 	settings.Theme = router.Theme
@@ -112,14 +109,9 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 		}
 	}
 
-	if p.cmdMenu.open.Clicked() {
-		p.cmdMenu.show = !p.cmdMenu.show
-	}
-
-	for k, c := range p.cmdMenu.items {
-		if c.Clicked() {
+	for k, c := range p.cmdMenu.clickables {
+		if c.Clickable.Clicked() {
 			p.cmdMenu.selected = k
-			p.cmdMenu.show = false
 		}
 	}
 
@@ -127,12 +119,31 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 		d := layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			// Select Command Button
 			layout.Rigid(func(gtx C) D {
-				str := p.cmdMenu.selected
-				if str == "" {
-					str = "Select Command"
-				}
-				btn := material.Button(th, &p.cmdMenu.open, str)
-				return btn.Layout(gtx)
+				return layout.Inset{
+					Top:    10,
+					Bottom: 10,
+					Left:   unit.Dp(gtx.Constraints.Max.X / 10),
+					Right:  unit.Dp(gtx.Constraints.Max.X / 10),
+				}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					return component.Grid(th, &p.cmdMenu.state).Layout(gtx, 1, len(p.cmdMenu.clickables),
+						func(axis layout.Axis, index, constraint int) int {
+							if axis == layout.Horizontal {
+								return constraint / 3
+							} else {
+								return gtx.Dp(40)
+							}
+						}, func(gtx layout.Context, row, col int) layout.Dimensions {
+							name := p.cmdMenu.names[col]
+							c := p.cmdMenu.clickables[name]
+							b := material.Button(th, c.Clickable, c.Text)
+							if p.cmdMenu.selected == name {
+								b.Background = th.ContrastFg
+								b.Color = color.NRGBA{R: 0, G: 0, B: 0, A: 0xff}
+							}
+							return layout.Inset{Left: 5, Right: 5}.Layout(gtx, b.Layout)
+						},
+					)
+				})
 			}),
 
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
@@ -166,10 +177,6 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 				})
 			}),
 		)
-
-		if p.cmdMenu.show {
-			component.Menu(th, p.cmdMenu.state).Layout(gtx)
-		}
 
 		return d
 	})
