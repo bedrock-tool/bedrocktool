@@ -69,7 +69,7 @@ func (w *worldStateInternal) storeChunk(pos world.ChunkPos, dim world.Dimension,
 	w.provider.StoreColumn(pos, dim, &world.Column{
 		Chunk:         ch,
 		BlockEntities: blockNBT,
-	}, false)
+	})
 }
 
 func (w *worldStateInternal) saveEntities(exclude []string, dimension world.Dimension) error {
@@ -124,7 +124,7 @@ func (w *worldStateDefer) ApplyTo(w2 worldStateInt, dimension world.Dimension, a
 	for cp, c := range w.chunks {
 		dist := i32.Sqrt(i32.Pow(cp.X()-int32(around.X()/16), 2) + i32.Pow(cp.Z()-int32(around.Z()/16), 2))
 		blockNBT := w.blockNBTs[cp]
-		if dist <= radius {
+		if dist <= radius || radius < 0 {
 			w2.storeChunk(cp, dimension, c, blockNBT)
 			cf(cp, c)
 		} else {
@@ -136,19 +136,19 @@ func (w *worldStateDefer) ApplyTo(w2 worldStateInt, dimension world.Dimension, a
 		x := int(es.Position[0])
 		z := int(es.Position[2])
 		dist := i32.Sqrt(i32.Pow(int32(x-around.X()), 2) + i32.Pow(int32(z-around.Z()), 2))
-		if dist < radius*16 || w2.haveEntity(k) {
+		if dist < radius*16 || w2.haveEntity(k) || radius < 0 {
 			w2.storeEntity(k, es)
 		}
 	}
 }
 
 type worldState struct {
-	dimension          world.Dimension
-	State              *worldStateInternal
-	deferredState      *worldStateDefer
-	openItemContainers map[byte]*itemContainer
-	storedChunks       map[world.ChunkPos]bool
-	useDeferred        bool
+	dimension     world.Dimension
+	State         *worldStateInternal
+	deferredState *worldStateDefer
+	storedChunks  map[world.ChunkPos]bool
+	cf            func(world.ChunkPos, *chunk.Chunk)
+	useDeferred   bool
 
 	excludeMobs []string
 	VoidGen     bool
@@ -159,11 +159,27 @@ type worldState struct {
 	provider    *mcdb.DB
 }
 
-func newWorldState(name string, folder string, dim world.Dimension) (*worldState, error) {
-	if dim == nil {
-		dim = world.Overworld
+func newWorldState(cf func(world.ChunkPos, *chunk.Chunk)) (*worldState, error) {
+	w := &worldState{
+		State: &worldStateInternal{
+			worldStateEnt: worldStateEnt{
+				entities:    make(map[uint64]*entityState),
+				entityLinks: make(map[int64]map[int64]struct{}),
+			},
+		},
+		storedChunks: make(map[world.ChunkPos]bool),
+		cf:           cf,
 	}
+	w.initDeferred()
+	w.useDeferred = true
 
+	return w, nil
+}
+
+func (w *worldState) Open(name string, folder string, dim world.Dimension, deferred bool) error {
+	w.Name = name
+	w.folder = folder
+	w.dimension = dim
 	os.RemoveAll(folder)
 	os.MkdirAll(folder, 0o777)
 	provider, err := mcdb.Config{
@@ -171,24 +187,19 @@ func newWorldState(name string, folder string, dim world.Dimension) (*worldState
 		Compression: opt.DefaultCompression,
 	}.Open(folder)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return &worldState{
-		dimension: dim,
-		State: &worldStateInternal{
-			provider: provider,
-			worldStateEnt: worldStateEnt{
-				entities:    make(map[uint64]*entityState),
-				entityLinks: make(map[int64]map[int64]struct{}),
-			},
-		},
-		openItemContainers: make(map[byte]*itemContainer),
-		storedChunks:       make(map[world.ChunkPos]bool),
-		Name:               name,
-		folder:             folder,
-		provider:           provider,
-	}, nil
+	w.provider = provider
+	w.State.provider = provider
+
+	if !deferred {
+		w.deferredState.ApplyTo(w.State, w.dimension, cube.Pos{}, -1, w.cf)
+		w.useDeferred = false
+		w.deferredState = nil
+	}
+
+	return nil
 }
 
 func (w *worldState) storeChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cube.Pos]world.Block) {

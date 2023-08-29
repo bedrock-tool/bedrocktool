@@ -51,8 +51,9 @@ type serverState struct {
 	biomes        map[string]any
 	radius        int32
 
-	playerInventory []protocol.ItemInstance
-	packs           []utils.Pack
+	openItemContainers map[byte]*itemContainer
+	playerInventory    []protocol.ItemInstance
+	packs              []utils.Pack
 
 	Name string
 }
@@ -78,8 +79,9 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 	w := &worldsHandler{
 		ui: ui,
 		serverState: serverState{
-			useOldBiomes: false,
-			worldCounter: 0,
+			useOldBiomes:       false,
+			worldCounter:       0,
+			openItemContainers: make(map[byte]*itemContainer),
 		},
 		settings: settings,
 	}
@@ -149,7 +151,7 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 		AddressAndName: func(address, hostname string) error {
 			w.bp = behaviourpack.New(hostname)
 			w.serverState.Name = hostname
-			w.reset()
+			w.newWorldState()
 			return nil
 		},
 		OnClientConnect: func(conn minecraft.IConn) {
@@ -245,6 +247,11 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 					}
 					w.worldState.dimension, _ = world.DimensionByID(int(dimensionID))
 				}
+				err := w.openWorldState(w.worldState.dimension, w.settings.StartPaused)
+				if err != nil {
+					return nil, err
+				}
+
 			case *packet.ItemComponent:
 				w.bp.ApplyComponentEntries(pk.Items)
 			case *packet.BiomeDefinitionList:
@@ -380,29 +387,43 @@ func (w *worldsHandler) SaveAndReset() {
 	}()
 }
 
-func (w *worldsHandler) reset() {
+func (w *worldsHandler) reset() error {
 	// carry over deffered and dim from previous
-	var dim world.Dimension
+	var dim world.Dimension = world.Overworld
 	var deferred bool
 	if w.worldState != nil {
 		dim = w.worldState.dimension
 		deferred = w.worldState.useDeferred
 	}
 
-	// create folder
-	name := w.defaultName()
-	folder := fmt.Sprintf("worlds/%s/%s", w.serverState.Name, name)
-	os.MkdirAll(folder, 0777)
+	w.newWorldState()
+	err := w.openWorldState(dim, deferred)
+	if err != nil {
+		return err
+	}
 
+	w.mapUI.Reset()
+	return nil
+}
+
+func (w *worldsHandler) newWorldState() {
 	var err error
-	w.worldState, err = newWorldState(name, folder, dim)
+	w.worldState, err = newWorldState(func(cp world.ChunkPos, c *chunk.Chunk) {
+		w.mapUI.SetChunk(cp, c, false)
+	})
 	if err != nil {
 		logrus.Error(err)
 		return
 	}
 	w.worldState.VoidGen = w.settings.VoidGen
-	if deferred {
-		w.worldState.PauseCapture()
+}
+
+func (w *worldsHandler) openWorldState(dim world.Dimension, deferred bool) error {
+	name := w.defaultName()
+	folder := fmt.Sprintf("worlds/%s/%s", w.serverState.Name, name)
+	err := w.worldState.Open(name, folder, dim, deferred)
+	if err != nil {
+		return err
 	}
-	w.mapUI.Reset()
+	return nil
 }

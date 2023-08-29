@@ -261,6 +261,36 @@ func (s *entityState) ToServerEntity(links []int64) serverEntity {
 		e.EntityType.NBT["Armor"] = armor
 	}
 
+	e.EntityType.NBT["Attributes"] = []any{
+		map[string]any{
+			"Name":       "minecraft:movement",
+			"Base":       float32(0.25),
+			"Current":    float32(0.25),
+			"DefaultMax": float32(3.4028235e+38),
+			"DefaultMin": float32(0),
+			"Max":        float32(3.4028235e+38),
+			"Min":        float32(0),
+		},
+		map[string]any{
+			"Current":    float32(0.02),
+			"DefaultMax": float32(3.4028235e+38),
+			"DefaultMin": float32(0),
+			"Max":        float32(3.4028235e+38),
+			"Min":        float32(0),
+			"Name":       "minecraft:underwater_movement",
+			"Base":       float32(0.02),
+		},
+		map[string]any{
+			"Min":        float32(0),
+			"Name":       "minecraft:lava_movement",
+			"Base":       float32(0.02),
+			"Current":    float32(0.02),
+			"DefaultMax": float32(3.4028235e+38),
+			"DefaultMin": float32(0),
+			"Max":        float32(3.4028235e+38),
+		},
+	}
+
 	return e
 }
 
