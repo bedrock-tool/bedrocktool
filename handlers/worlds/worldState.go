@@ -13,105 +13,98 @@ import (
 	"github.com/df-mc/dragonfly/server/world/mcdb"
 	"github.com/df-mc/goleveldb/leveldb/opt"
 	"github.com/sandertv/gophertunnel/minecraft"
+	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sirupsen/logrus"
 	"github.com/thomaso-mirodin/intmath/i32"
 	"golang.org/x/exp/maps"
 )
 
+type worldStateInt interface {
+	storeChunk(pos world.ChunkPos, dim world.Dimension, ch *chunk.Chunk, blockNBT map[cube.Pos]world.Block)
+	storeEntity(id uint64, es *entityState)
+	haveEntity(id uint64) bool
+	getEntity(id uint64) (*entityState, bool)
+	addEntityLink(el protocol.EntityLink)
+}
+
+type worldStateEnt struct {
+	entities    map[uint64]*entityState
+	entityLinks map[int64]map[int64]struct{}
+}
+
+func (w *worldStateEnt) storeEntity(id uint64, es *entityState) {
+	w.entities[id] = es
+}
+
+func (w *worldStateEnt) haveEntity(id uint64) bool {
+	_, ok := w.entities[id]
+	return ok
+}
+
+func (w *worldStateEnt) getEntity(id uint64) (*entityState, bool) {
+	e, ok := w.entities[id]
+	return e, ok
+}
+
+func (w *worldStateEnt) addEntityLink(el protocol.EntityLink) {
+	switch el.Type {
+	case protocol.EntityLinkPassenger:
+		fallthrough
+	case protocol.EntityLinkRider:
+		if _, ok := w.entityLinks[el.RiddenEntityUniqueID]; !ok {
+			w.entityLinks[el.RiddenEntityUniqueID] = make(map[int64]struct{})
+		}
+		w.entityLinks[el.RiddenEntityUniqueID][el.RiderEntityUniqueID] = struct{}{}
+	case protocol.EntityLinkRemove:
+		delete(w.entityLinks[el.RiddenEntityUniqueID], el.RiderEntityUniqueID)
+	}
+}
+
 type worldStateInternal struct {
-	chunks             map[world.ChunkPos]*chunk.Chunk
-	blockNBTs          map[cube.Pos]map[string]any
-	entities           map[uint64]*entityState
-	entityLinks        map[int64]map[int64]struct{}
-	openItemContainers map[byte]*itemContainer
+	provider *mcdb.DB
+	worldStateEnt
 }
 
-type worldState struct {
-	dimension     world.Dimension
-	State         worldStateInternal
-	deferredState worldStateInternal
-	useDeferred   bool
-
-	excludeMobs []string
-	VoidGen     bool
-	timeSync    time.Time
-	time        int
-	Name        string
+func (w *worldStateInternal) storeChunk(pos world.ChunkPos, dim world.Dimension, ch *chunk.Chunk, blockNBT map[cube.Pos]world.Block) {
+	w.provider.StoreColumn(pos, dim, &world.Column{
+		Chunk:         ch,
+		BlockEntities: blockNBT,
+	}, false)
 }
 
-func newWorldState(name string, dim world.Dimension) *worldState {
-	if dim == nil {
-		dim = world.Overworld
+func (w *worldStateInternal) saveEntities(exclude []string, dimension world.Dimension) error {
+	chunkEntities := make(map[world.ChunkPos][]world.Entity)
+	for _, es := range w.entities {
+		if slices.Contains(exclude, es.EntityType) {
+			continue
+		}
+		cp := world.ChunkPos{int32(es.Position.X()) >> 4, int32(es.Position.Z()) >> 4}
+		links := maps.Keys(w.entityLinks[es.UniqueID])
+		chunkEntities[cp] = append(chunkEntities[cp], es.ToServerEntity(links))
 	}
-	return &worldState{
-		dimension: dim,
-		State: worldStateInternal{
-			chunks:             make(map[world.ChunkPos]*chunk.Chunk),
-			blockNBTs:          make(map[cube.Pos]map[string]any),
-			entities:           make(map[uint64]*entityState),
-			entityLinks:        make(map[int64]map[int64]struct{}),
-			openItemContainers: make(map[byte]*itemContainer),
-		},
-		Name: name,
-	}
-}
 
-func (w *worldState) initDeferred() {
-	w.deferredState = worldStateInternal{
-		chunks:             make(map[world.ChunkPos]*chunk.Chunk),
-		blockNBTs:          make(map[cube.Pos]map[string]any),
-		entities:           make(map[uint64]*entityState),
-		entityLinks:        make(map[int64]map[int64]struct{}),
-		openItemContainers: make(map[byte]*itemContainer),
-	}
-}
-
-func (w *worldState) state() *worldStateInternal {
-	if w.useDeferred {
-		return &w.deferredState
-	}
-	return &w.State
-}
-
-func (w *worldState) PauseCapture() {
-	w.initDeferred()
-	w.useDeferred = true
-}
-
-func (w *worldState) UnpauseCapture(around cube.Pos, radius int32, cf func(world.ChunkPos, *chunk.Chunk)) {
-	w.deferredState.cullChunks()
-	for cp, c := range w.deferredState.chunks {
-		dist := i32.Sqrt(i32.Pow(cp.X()-int32(around.X()/16), 2) + i32.Pow(cp.Z()-int32(around.Z()/16), 2))
-		if dist <= radius {
-			w.State.chunks[cp] = c
-			cf(cp, c)
-		} else {
-			cf(cp, nil)
+	for cp, v := range chunkEntities {
+		err := w.provider.StoreEntities(cp, dimension, v)
+		if err != nil {
+			logrus.Error(err)
 		}
 	}
-	for p, v := range w.deferredState.blockNBTs {
-		dist := i32.Sqrt(i32.Pow(int32(p.X()-around.X()), 2) + i32.Pow(int32(p.Z()-around.Z()), 2))
-		if dist < radius*16 {
-			w.State.blockNBTs[p] = v
-		}
-	}
-	for k, es := range w.deferredState.entities {
-		x := int(es.Position[0])
-		z := int(es.Position[2])
-		dist := i32.Sqrt(i32.Pow(int32(x-around.X()), 2) + i32.Pow(int32(z-around.Z()), 2))
-		if dist < radius*16 {
-			w.State.entities[k] = es
-		} else {
-			if _, ok := w.State.entities[k]; ok {
-				w.State.entities[k] = es
-			}
-		}
-	}
-	w.useDeferred = false
-	w.deferredState = worldStateInternal{}
+
+	return nil
 }
 
-func (w *worldStateInternal) cullChunks() {
+type worldStateDefer struct {
+	chunks    map[world.ChunkPos]*chunk.Chunk
+	blockNBTs map[world.ChunkPos]map[cube.Pos]world.Block
+	worldStateEnt
+}
+
+func (w *worldStateDefer) storeChunk(pos world.ChunkPos, dim world.Dimension, ch *chunk.Chunk, blockNBT map[cube.Pos]world.Block) {
+	w.chunks[pos] = ch
+	w.blockNBTs[pos] = blockNBT
+}
+
+func (w *worldStateDefer) cullChunks() {
 	for key, ch := range w.chunks {
 		var empty = true
 		for _, sub := range ch.Sub() {
@@ -126,7 +119,53 @@ func (w *worldStateInternal) cullChunks() {
 	}
 }
 
-func (w *worldState) startSave(folder string) (*mcdb.DB, error) {
+func (w *worldStateDefer) ApplyTo(w2 worldStateInt, dimension world.Dimension, around cube.Pos, radius int32, cf func(world.ChunkPos, *chunk.Chunk)) {
+	w.cullChunks()
+	for cp, c := range w.chunks {
+		dist := i32.Sqrt(i32.Pow(cp.X()-int32(around.X()/16), 2) + i32.Pow(cp.Z()-int32(around.Z()/16), 2))
+		blockNBT := w.blockNBTs[cp]
+		if dist <= radius {
+			w2.storeChunk(cp, dimension, c, blockNBT)
+			cf(cp, c)
+		} else {
+			cf(cp, nil)
+		}
+	}
+
+	for k, es := range w.entities {
+		x := int(es.Position[0])
+		z := int(es.Position[2])
+		dist := i32.Sqrt(i32.Pow(int32(x-around.X()), 2) + i32.Pow(int32(z-around.Z()), 2))
+		if dist < radius*16 || w2.haveEntity(k) {
+			w2.storeEntity(k, es)
+		}
+	}
+}
+
+type worldState struct {
+	dimension          world.Dimension
+	State              *worldStateInternal
+	deferredState      *worldStateDefer
+	openItemContainers map[byte]*itemContainer
+	storedChunks       map[world.ChunkPos]bool
+	useDeferred        bool
+
+	excludeMobs []string
+	VoidGen     bool
+	timeSync    time.Time
+	time        int
+	Name        string
+	folder      string
+	provider    *mcdb.DB
+}
+
+func newWorldState(name string, folder string, dim world.Dimension) (*worldState, error) {
+	if dim == nil {
+		dim = world.Overworld
+	}
+
+	os.RemoveAll(folder)
+	os.MkdirAll(folder, 0o777)
 	provider, err := mcdb.Config{
 		Log:         logrus.StandardLogger(),
 		Compression: opt.DefaultCompression,
@@ -135,65 +174,75 @@ func (w *worldState) startSave(folder string) (*mcdb.DB, error) {
 		return nil, err
 	}
 
-	chunkBlockNBT := make(map[world.ChunkPos]map[cube.Pos]world.Block)
-	for bp, blockNBT := range w.State.blockNBTs { // 3d to 2d
-		cp := world.ChunkPos{int32(bp.X()) >> 4, int32(bp.Z()) >> 4}
-		m, ok := chunkBlockNBT[cp]
-		if !ok {
-			m = make(map[cube.Pos]world.Block)
-			chunkBlockNBT[cp] = m
-		}
-		id := blockNBT["id"].(string)
-		m[bp] = &dummyBlock{id, blockNBT}
-	}
-
-	chunkEntities := make(map[world.ChunkPos][]world.Entity)
-	for _, es := range w.State.entities {
-		if slices.Contains(w.excludeMobs, es.EntityType) {
-			continue
-		}
-		cp := world.ChunkPos{int32(es.Position.X()) >> 4, int32(es.Position.Z()) >> 4}
-		links := maps.Keys(w.State.entityLinks[es.UniqueID])
-		chunkEntities[cp] = append(chunkEntities[cp], es.ToServerEntity(links))
-	}
-
-	// save chunk data
-	for cp, c := range w.State.chunks {
-		column := &world.Column{
-			Chunk:         c,
-			BlockEntities: chunkBlockNBT[cp],
-			Entities:      chunkEntities[cp],
-		}
-		err = provider.StoreColumn(cp, w.dimension, column)
-		if err != nil {
-			logrus.Error(err)
-		}
-	}
-
-	return provider, err
+	return &worldState{
+		dimension: dim,
+		State: &worldStateInternal{
+			provider: provider,
+			worldStateEnt: worldStateEnt{
+				entities:    make(map[uint64]*entityState),
+				entityLinks: make(map[int64]map[int64]struct{}),
+			},
+		},
+		openItemContainers: make(map[byte]*itemContainer),
+		storedChunks:       make(map[world.ChunkPos]bool),
+		Name:               name,
+		folder:             folder,
+		provider:           provider,
+	}, nil
 }
 
-func (w *worldState) Save(folder string, playerData map[string]any, spawn cube.Pos, gd minecraft.GameData, bp *behaviourpack.BehaviourPack) error {
-	// open world
-	os.RemoveAll(folder)
-	os.MkdirAll(folder, 0o777)
-	provider, err := w.startSave(folder)
+func (w *worldState) storeChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cube.Pos]world.Block) {
+	w.storedChunks[pos] = true
+	w.state().storeChunk(pos, w.dimension, ch, blockNBT)
+}
+
+func (w *worldState) initDeferred() {
+	w.deferredState = &worldStateDefer{
+		chunks:    make(map[world.ChunkPos]*chunk.Chunk),
+		blockNBTs: make(map[world.ChunkPos]map[cube.Pos]world.Block),
+		worldStateEnt: worldStateEnt{
+			entities:    make(map[uint64]*entityState),
+			entityLinks: make(map[int64]map[int64]struct{}),
+		},
+	}
+}
+
+func (w *worldState) state() worldStateInt {
+	if w.useDeferred {
+		return w.deferredState
+	}
+	return w.State
+}
+
+func (w *worldState) PauseCapture() {
+	w.initDeferred()
+	w.useDeferred = true
+}
+
+func (w *worldState) UnpauseCapture(around cube.Pos, radius int32, cf func(world.ChunkPos, *chunk.Chunk)) {
+	w.deferredState.ApplyTo(w.State, w.dimension, around, radius, cf)
+	w.useDeferred = false
+	w.deferredState = nil
+}
+
+func (w *worldState) Finish(playerData map[string]any, spawn cube.Pos, gd minecraft.GameData, bp *behaviourpack.BehaviourPack) error {
+	err := w.State.saveEntities(w.excludeMobs, w.dimension)
 	if err != nil {
 		return err
 	}
 
-	err = provider.SaveLocalPlayerData(playerData)
+	err = w.provider.SaveLocalPlayerData(playerData)
 	if err != nil {
 		return err
 	}
 
 	// write metadata
-	s := provider.Settings()
+	s := w.provider.Settings()
 	s.Spawn = spawn
 	s.Name = w.Name
 
 	// set gamerules
-	ld := provider.LevelDat()
+	ld := w.provider.LevelDat()
 	ld.CheatsEnabled = true
 	ld.RandomSeed = int64(gd.WorldSeed)
 	for _, gr := range gd.GameRules {
@@ -289,10 +338,6 @@ func (w *worldState) Save(folder string, playerData map[string]any, spawn cube.P
 		ld.Experiments["saved_with_toggled_experiments"] = true
 	}
 
-	provider.SaveSettings(s)
-	err = provider.Close()
-	if err != nil {
-		return err
-	}
-	return nil
+	w.provider.SaveSettings(s)
+	return w.provider.Close()
 }

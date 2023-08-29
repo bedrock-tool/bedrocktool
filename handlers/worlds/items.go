@@ -4,7 +4,6 @@ import (
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils/nbtconv"
 	"github.com/df-mc/dragonfly/server/block"
-	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/item"
 	"github.com/df-mc/dragonfly/server/item/inventory"
 	"github.com/df-mc/dragonfly/server/world"
@@ -64,11 +63,11 @@ func (w *worldsHandler) handleItemPackets(pk packet.Packet, forward *bool) packe
 		}
 	case *packet.ContainerOpen:
 		// add to open containers
-		existing, ok := w.worldState.state().openItemContainers[pk.WindowID]
+		existing, ok := w.worldState.openItemContainers[pk.WindowID]
 		if !ok {
 			existing = &itemContainer{}
 		}
-		w.worldState.state().openItemContainers[pk.WindowID] = &itemContainer{
+		w.worldState.openItemContainers[pk.WindowID] = &itemContainer{
 			OpenPacket: pk,
 			Content:    existing.Content,
 		}
@@ -78,7 +77,7 @@ func (w *worldsHandler) handleItemPackets(pk packet.Packet, forward *bool) packe
 			w.serverState.playerInventory = pk.Content
 		} else {
 			// save content
-			existing, ok := w.worldState.state().openItemContainers[byte(pk.WindowID)]
+			existing, ok := w.worldState.openItemContainers[byte(pk.WindowID)]
 			if ok {
 				existing.Content = pk
 			}
@@ -92,7 +91,7 @@ func (w *worldsHandler) handleItemPackets(pk packet.Packet, forward *bool) packe
 			w.serverState.playerInventory[pk.Slot] = pk.NewItem
 		} else {
 			// save content
-			existing, ok := w.worldState.state().openItemContainers[byte(pk.WindowID)]
+			existing, ok := w.worldState.openItemContainers[byte(pk.WindowID)]
 			if ok {
 				existing.Content.Content[pk.Slot] = pk.NewItem
 			}
@@ -102,7 +101,7 @@ func (w *worldsHandler) handleItemPackets(pk packet.Packet, forward *bool) packe
 
 	case *packet.ContainerClose:
 		// find container info
-		existing, ok := w.worldState.state().openItemContainers[byte(pk.WindowID)]
+		existing, ok := w.worldState.openItemContainers[byte(pk.WindowID)]
 
 		switch pk.WindowID {
 		case protocol.WindowIDArmour: // todo handle
@@ -130,17 +129,19 @@ func (w *worldsHandler) handleItemPackets(pk packet.Packet, forward *bool) packe
 				inv.SetItem(i, item)
 			}
 
-			// put into subchunk
-			p := existing.OpenPacket.ContainerPosition
-			nbt, ok := w.worldState.state().blockNBTs[cube.Pos{int(p.X()), int(p.Y()), int(p.Z())}]
-			if ok {
-				nbt["Items"] = nbtconv.InvToNBT(inv)
-			}
+			/*
+				// put into subchunk
+				p := existing.OpenPacket.ContainerPosition
+				nbt, ok := w.worldState.state().blockNBTs[cube.Pos{int(p.X()), int(p.Y()), int(p.Z())}]
+				if ok {
+					nbt["Items"] = nbtconv.InvToNBT(inv)
+				}
 
-			w.proxy.SendMessage(locale.Loc("saved_block_inv", nil))
+				w.proxy.SendMessage(locale.Loc("saved_block_inv", nil))
+			*/
 
 			// remove it again
-			delete(w.worldState.state().openItemContainers, byte(pk.WindowID))
+			delete(w.worldState.openItemContainers, byte(pk.WindowID))
 		}
 	}
 	return pk

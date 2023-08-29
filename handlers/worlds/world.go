@@ -87,7 +87,6 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 		w.worldState.PauseCapture()
 	}
 	w.mapUI = NewMapUI(w)
-	w.reset()
 
 	return &proxy.Handler{
 		Name: "Worlds",
@@ -150,6 +149,7 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 		AddressAndName: func(address, hostname string) error {
 			w.bp = behaviourpack.New(hostname)
 			w.serverState.Name = hostname
+			w.reset()
 			return nil
 		},
 		OnClientConnect: func(conn minecraft.IConn) {
@@ -325,8 +325,7 @@ func (w *worldsHandler) defaultName() string {
 }
 
 func (w *worldsHandler) SaveAndReset() {
-	w.worldState.State.cullChunks()
-	if len(w.worldState.State.chunks) == 0 {
+	if len(w.worldState.storedChunks) == 0 {
 		w.reset()
 		return
 	}
@@ -334,42 +333,43 @@ func (w *worldsHandler) SaveAndReset() {
 	playerPos := w.proxy.Player.Position
 	spawnPos := cube.Pos{int(playerPos.X()), int(playerPos.Y()), int(playerPos.Z())}
 
-	folder := fmt.Sprintf("worlds/%s/%s", w.serverState.Name, w.worldState.Name)
-	filename := folder + ".mcworld"
-	os.MkdirAll(folder, 0777)
-
 	if w.settings.SaveImage {
-		f, _ := os.Create(folder + ".png")
+		f, _ := os.Create(w.worldState.folder + ".png")
 		png.Encode(f, w.mapUI.ToImage())
 		f.Close()
 	}
 
-	text := locale.Loc("saving_world", locale.Strmap{"Name": w.worldState.Name, "Count": len(w.worldState.State.chunks)})
+	text := locale.Loc("saving_world", locale.Strmap{"Name": w.worldState.Name, "Count": len(w.worldState.storedChunks)})
 	logrus.Info(text)
 	w.proxy.SendMessage(text)
+
+	filename := w.worldState.folder + ".mcworld"
 
 	w.ui.Message(messages.SavingWorld{
 		World: &messages.SavedWorld{
 			Name:   w.worldState.Name,
 			Path:   filename,
-			Chunks: len(w.worldState.State.chunks),
+			Chunks: len(w.worldState.storedChunks),
 		},
 	})
 
 	w.wg.Add(1)
 	w.worldState.excludeMobs = w.settings.ExcludeMobs
 	worldState := w.worldState
+	w.serverState.worldCounter += 1
+	w.reset()
+
 	go func() {
 		defer w.wg.Done()
-		err := worldState.Save(folder, w.playerData(), spawnPos, w.proxy.Server.GameData(), w.bp)
+		err := worldState.Finish(w.playerData(), spawnPos, w.proxy.Server.GameData(), w.bp)
 		if err != nil {
 			logrus.Error(err)
 			return
 		}
-		w.AddPacks(folder)
+		w.AddPacks(worldState.folder)
 
 		// zip it
-		err = utils.ZipFolder(filename, folder)
+		err = utils.ZipFolder(filename, worldState.folder)
 		if err != nil {
 			logrus.Error(err)
 			return
@@ -378,19 +378,28 @@ func (w *worldsHandler) SaveAndReset() {
 		//os.RemoveAll(folder)
 		w.ui.Message(messages.SetUIState(messages.UIStateMain))
 	}()
-
-	w.serverState.worldCounter += 1
-	w.reset()
 }
 
 func (w *worldsHandler) reset() {
+	// carry over deffered and dim from previous
 	var dim world.Dimension
 	var deferred bool
 	if w.worldState != nil {
 		dim = w.worldState.dimension
 		deferred = w.worldState.useDeferred
 	}
-	w.worldState = newWorldState(w.defaultName(), dim)
+
+	// create folder
+	name := w.defaultName()
+	folder := fmt.Sprintf("worlds/%s/%s", w.serverState.Name, name)
+	os.MkdirAll(folder, 0777)
+
+	var err error
+	w.worldState, err = newWorldState(name, folder, dim)
+	if err != nil {
+		logrus.Error(err)
+		return
+	}
 	w.worldState.VoidGen = w.settings.VoidGen
 	if deferred {
 		w.worldState.PauseCapture()

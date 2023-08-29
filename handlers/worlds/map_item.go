@@ -210,15 +210,14 @@ func (m *MapUI) processQueue() []protocol.ChunkPos {
 				draw.Draw(img, img.Rect, red, image.Point{}, draw.Over)
 			}
 			m.renderedChunks[r.pos] = img
+			updatedChunks = append(updatedChunks, r.pos)
 		} else {
 			if img, ok := m.oldRendered[r.pos]; ok {
 				m.renderedChunks[r.pos] = img
 			} else {
 				delete(m.renderedChunks, r.pos)
 			}
-
 		}
-		updatedChunks = append(updatedChunks, r.pos)
 	}
 	m.l.Unlock()
 	return updatedChunks
