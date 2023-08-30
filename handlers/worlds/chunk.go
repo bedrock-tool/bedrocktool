@@ -113,7 +113,7 @@ func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) error {
 		if _, ok := chunks[pos]; ok {
 			continue
 		}
-		col, err := w.worldState.State.provider.LoadColumn(pos, w.worldState.dimension)
+		col, err := w.worldState.state.provider.LoadColumn(pos, w.worldState.dimension)
 		if err != nil {
 			return err
 		}

@@ -32,7 +32,7 @@ PLATFORMS = [
     ("linux", ["amd64"], ""),
     #("darwin", ["amd64", "arm64"], ""),
     #("android", ["arm64"], ".apk"),
-    ("js", ["wasm"], "")
+    #("js", ["wasm"], "")
 ]
 
 
@@ -137,7 +137,7 @@ def build_all(platform_filter: str, arch_filter: str):
         if len(archs) == 0:
             continue
         for GUI in [False, True]:
-            if platform in ["android"] and not GUI:
+            if platform in ["android", "js"] and not GUI:
                 continue
 
             print(f"Building {platform} gui: {GUI}")

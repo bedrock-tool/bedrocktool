@@ -6,9 +6,11 @@ import (
 	"image/color"
 
 	"gioui.org/app"
+	"gioui.org/font/gofont"
 	"gioui.org/io/system"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/text"
 	"gioui.org/widget/material"
 	"gioui.org/x/pref/theme"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages"
@@ -50,6 +52,7 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelCauseFunc) (err er
 	g.cancel = cancel
 
 	th := material.NewTheme()
+	th.Shaper = text.NewShaper(text.WithCollection(gofont.Collection()))
 	dark, err := theme.IsDarkMode()
 	if err != nil {
 		logrus.Warn(err)

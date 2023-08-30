@@ -62,7 +62,7 @@ func (e serverEntity) Type() world.EntityType {
 }
 
 func (w *worldsHandler) addEntityLink(el protocol.EntityLink) {
-	w.worldState.state().addEntityLink(el)
+	w.worldState.State().addEntityLink(el)
 }
 
 func (w *worldsHandler) processAddActor(pk *packet.AddActor) {
@@ -75,7 +75,7 @@ func (w *worldsHandler) processAddActor(pk *packet.AddActor) {
 			Inventory:  make(map[byte]map[byte]protocol.ItemInstance),
 			Metadata:   make(map[uint32]any),
 		}
-		w.worldState.state().storeEntity(uint64(pk.EntityUniqueID), e)
+		w.worldState.State().storeEntity(uint64(pk.EntityUniqueID), e)
 		for _, el := range pk.EntityLinks {
 			w.addEntityLink(el)
 		}
@@ -295,7 +295,7 @@ func (s *entityState) ToServerEntity(links []int64) serverEntity {
 }
 
 func (w *worldsHandler) getEntity(id uint64) (*entityState, bool) {
-	e, ok := w.worldState.state().getEntity(id)
+	e, ok := w.worldState.State().getEntity(id)
 	return e, ok
 }
 

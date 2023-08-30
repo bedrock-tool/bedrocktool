@@ -155,10 +155,10 @@ func (w *worldStateDefer) ApplyTo(w2 worldStateInt, dimension world.Dimension, a
 type worldState struct {
 	l             sync.Mutex
 	dimension     world.Dimension
-	State         *worldStateInternal
+	state         *worldStateInternal
 	deferredState *worldStateDefer
 	storedChunks  map[world.ChunkPos]bool
-	cf            func(world.ChunkPos, *chunk.Chunk)
+	chunkFunc     func(world.ChunkPos, *chunk.Chunk)
 	useDeferred   bool
 
 	excludeMobs []string
@@ -172,16 +172,16 @@ type worldState struct {
 
 func newWorldState(cf func(world.ChunkPos, *chunk.Chunk)) (*worldState, error) {
 	w := &worldState{
-		State: &worldStateInternal{
+		state: &worldStateInternal{
 			worldStateEnt: worldStateEnt{
 				entities:    make(map[uint64]*entityState),
 				entityLinks: make(map[int64]map[int64]struct{}),
 			},
 		},
 		storedChunks: make(map[world.ChunkPos]bool),
-		cf:           cf,
+		chunkFunc:    cf,
 	}
-	w.State.l = &w.l
+	w.state.l = &w.l
 	w.initDeferred()
 	w.useDeferred = true
 
@@ -197,7 +197,7 @@ func (w *worldState) newProvider() error {
 		return err
 	}
 	w.provider = provider
-	w.State.provider = provider
+	w.state.provider = provider
 	return nil
 }
 
@@ -213,7 +213,7 @@ func (w *worldState) Open(name string, folder string, dim world.Dimension, defer
 	}
 
 	if !deferred {
-		w.deferredState.ApplyTo(w.State, w.dimension, cube.Pos{}, -1, w.cf)
+		w.deferredState.ApplyTo(w.state, w.dimension, cube.Pos{}, -1, w.chunkFunc)
 		w.useDeferred = false
 		w.deferredState = nil
 	}
@@ -243,7 +243,7 @@ func (w *worldState) Rename(name, folder string) error {
 
 func (w *worldState) storeChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cube.Pos]world.Block) {
 	w.storedChunks[pos] = true
-	w.state().storeChunk(pos, w.dimension, ch, blockNBT)
+	w.State().storeChunk(pos, w.dimension, ch, blockNBT)
 }
 
 func (w *worldState) initDeferred() {
@@ -257,11 +257,11 @@ func (w *worldState) initDeferred() {
 	}
 }
 
-func (w *worldState) state() worldStateInt {
+func (w *worldState) State() worldStateInt {
 	if w.useDeferred {
 		return w.deferredState
 	}
-	return w.State
+	return w.state
 }
 
 func (w *worldState) PauseCapture() {
@@ -270,13 +270,13 @@ func (w *worldState) PauseCapture() {
 }
 
 func (w *worldState) UnpauseCapture(around cube.Pos, radius int32, cf func(world.ChunkPos, *chunk.Chunk)) {
-	w.deferredState.ApplyTo(w.State, w.dimension, around, radius, cf)
+	w.deferredState.ApplyTo(w.state, w.dimension, around, radius, cf)
 	w.useDeferred = false
 	w.deferredState = nil
 }
 
 func (w *worldState) Finish(playerData map[string]any, spawn cube.Pos, gd minecraft.GameData, bp *behaviourpack.BehaviourPack) error {
-	err := w.State.saveEntities(w.excludeMobs, w.dimension)
+	err := w.state.saveEntities(w.excludeMobs, w.dimension)
 	if err != nil {
 		return err
 	}
