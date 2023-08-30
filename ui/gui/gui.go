@@ -49,10 +49,6 @@ var paletteDark = material.Palette{
 func (g *GUI) Start(ctx context.Context, cancel context.CancelCauseFunc) (err error) {
 	g.cancel = cancel
 
-	w := app.NewWindow(
-		app.Title("Bedrocktool " + utils.Version),
-	)
-
 	th := material.NewTheme()
 	dark, err := theme.IsDarkMode()
 	if err != nil {
@@ -65,6 +61,10 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelCauseFunc) (err er
 		_th := th.WithPalette(paletteLight)
 		th = &_th
 	}
+
+	w := app.NewWindow(
+		app.Title("Bedrocktool " + utils.Version),
+	)
 
 	g.router = pages.NewRouter(ctx, w.Invalidate, th)
 	g.router.UI = g
@@ -81,10 +81,10 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelCauseFunc) (err er
 		app.Main()
 	}()
 
-	return g.run(w)
+	return g.loop(w)
 }
 
-func (g *GUI) run(w *app.Window) error {
+func (g *GUI) loop(w *app.Window) error {
 	var ops op.Ops
 	for {
 		select {

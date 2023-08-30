@@ -309,7 +309,11 @@ func (w *worldsHandler) setVoidGen(val bool, fromUI bool) bool {
 }
 
 func (w *worldsHandler) setWorldName(val string, fromUI bool) bool {
-	w.worldState.Name = val
+	err := w.renameWorldState(val)
+	if err != nil {
+		logrus.Error(err)
+		return false
+	}
 	w.proxy.SendMessage(locale.Loc("worldname_set", locale.Strmap{"Name": w.worldState.Name}))
 
 	if !fromUI {
@@ -426,4 +430,9 @@ func (w *worldsHandler) openWorldState(dim world.Dimension, deferred bool) error
 		return err
 	}
 	return nil
+}
+
+func (w *worldsHandler) renameWorldState(name string) error {
+	folder := fmt.Sprintf("worlds/%s/%s", w.serverState.Name, name)
+	return w.worldState.Rename(name, folder)
 }

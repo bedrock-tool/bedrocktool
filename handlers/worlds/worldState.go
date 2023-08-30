@@ -3,6 +3,7 @@ package worlds
 import (
 	"os"
 	"slices"
+	"sync"
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
@@ -61,18 +62,27 @@ func (w *worldStateEnt) addEntityLink(el protocol.EntityLink) {
 }
 
 type worldStateInternal struct {
+	l        *sync.Mutex
 	provider *mcdb.DB
 	worldStateEnt
 }
 
 func (w *worldStateInternal) storeChunk(pos world.ChunkPos, dim world.Dimension, ch *chunk.Chunk, blockNBT map[cube.Pos]world.Block) {
-	w.provider.StoreColumn(pos, dim, &world.Column{
+	w.l.Lock()
+	defer w.l.Unlock()
+	err := w.provider.StoreColumn(pos, dim, &world.Column{
 		Chunk:         ch,
 		BlockEntities: blockNBT,
 	})
+	if err != nil {
+		logrus.Error("storeChunk", err)
+	}
 }
 
 func (w *worldStateInternal) saveEntities(exclude []string, dimension world.Dimension) error {
+	w.l.Lock()
+	defer w.l.Unlock()
+
 	chunkEntities := make(map[world.ChunkPos][]world.Entity)
 	for _, es := range w.entities {
 		if slices.Contains(exclude, es.EntityType) {
@@ -143,6 +153,7 @@ func (w *worldStateDefer) ApplyTo(w2 worldStateInt, dimension world.Dimension, a
 }
 
 type worldState struct {
+	l             sync.Mutex
 	dimension     world.Dimension
 	State         *worldStateInternal
 	deferredState *worldStateDefer
@@ -170,10 +181,24 @@ func newWorldState(cf func(world.ChunkPos, *chunk.Chunk)) (*worldState, error) {
 		storedChunks: make(map[world.ChunkPos]bool),
 		cf:           cf,
 	}
+	w.State.l = &w.l
 	w.initDeferred()
 	w.useDeferred = true
 
 	return w, nil
+}
+
+func (w *worldState) newProvider() error {
+	provider, err := mcdb.Config{
+		Log:         logrus.StandardLogger(),
+		Compression: opt.DefaultCompression,
+	}.Open(w.folder)
+	if err != nil {
+		return err
+	}
+	w.provider = provider
+	w.State.provider = provider
+	return nil
 }
 
 func (w *worldState) Open(name string, folder string, dim world.Dimension, deferred bool) error {
@@ -182,16 +207,10 @@ func (w *worldState) Open(name string, folder string, dim world.Dimension, defer
 	w.dimension = dim
 	os.RemoveAll(folder)
 	os.MkdirAll(folder, 0o777)
-	provider, err := mcdb.Config{
-		Log:         logrus.StandardLogger(),
-		Compression: opt.DefaultCompression,
-	}.Open(folder)
+	err := w.newProvider()
 	if err != nil {
 		return err
 	}
-
-	w.provider = provider
-	w.State.provider = provider
 
 	if !deferred {
 		w.deferredState.ApplyTo(w.State, w.dimension, cube.Pos{}, -1, w.cf)
@@ -199,6 +218,26 @@ func (w *worldState) Open(name string, folder string, dim world.Dimension, defer
 		w.deferredState = nil
 	}
 
+	return nil
+}
+
+func (w *worldState) Rename(name, folder string) error {
+	w.l.Lock()
+	defer w.l.Unlock()
+	err := w.provider.Close()
+	if err != nil {
+		return err
+	}
+	err = os.Rename(w.folder, folder)
+	if err != nil {
+		return err
+	}
+	w.folder = folder
+	w.Name = name
+	err = w.newProvider()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

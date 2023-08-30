@@ -39,6 +39,8 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 		subChunkCount = int(pk.SubChunkCount)
 	}
 
+	//os.WriteFile("chunk.bin", pk.RawPayload, 0777)
+
 	ch, blockNBTs, err := chunk.NetworkDecode(world.AirRID(), pk.RawPayload, subChunkCount, w.serverState.useOldBiomes, w.serverState.useHashedRids, w.worldState.dimension.Range())
 	if err != nil {
 		logrus.Error(err)
@@ -97,16 +99,20 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 }
 
 func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) error {
-	posToRedraw := make(map[world.ChunkPos]bool)
-
 	var chunks = make(map[world.ChunkPos]*chunk.Chunk)
 	for _, ent := range pk.SubChunkEntries {
+		if ent.Result != protocol.SubChunkResultSuccess {
+			continue
+		}
 		var (
 			absX = pk.Position[0] + int32(ent.Offset[0])
 			absZ = pk.Position[2] + int32(ent.Offset[2])
 			pos  = world.ChunkPos{absX, absZ}
 		)
 
+		if _, ok := chunks[pos]; ok {
+			continue
+		}
 		col, err := w.worldState.State.provider.LoadColumn(pos, w.worldState.dimension)
 		if err != nil {
 			return err
@@ -163,17 +169,13 @@ func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) error {
 				}
 			}
 		}
-		posToRedraw[pos] = true
 	}
 
 	for cp, c := range chunks {
 		w.worldState.storeChunk(cp, c, blockNBTs[cp])
+		w.mapUI.SetChunk(cp, c, w.worldState.useDeferred)
 	}
 
-	// redraw the chunks
-	for pos := range posToRedraw {
-		w.mapUI.SetChunk(pos, chunks[pos], w.worldState.useDeferred)
-	}
 	w.mapUI.SchedRedraw()
 	return nil
 }

@@ -31,7 +31,8 @@ PLATFORMS = [
     ("windows", ["amd64"], ".exe"),
     ("linux", ["amd64"], ""),
     #("darwin", ["amd64", "arm64"], ""),
-    #("android", ["arm64"], ".apk")
+    #("android", ["arm64"], ".apk"),
+    ("js", ["wasm"], "")
 ]
 
 
@@ -97,6 +98,13 @@ def build_gui(platform: str, arch: str, env, tags: list[str], ldflags, compiled_
 def package(platform: str, arch: str, compiled_path: str, GUI: bool, ext: str):
     SUB1 = '-gui' if GUI else ''
     exe_out_path = f"./builds/{NAME}-{platform}-{arch}-{TAG}{SUB1}{ext}"
+
+    if platform == "js":
+        if GUI:
+            shutil.copytree(compiled_path, exe_out_path)
+        else:
+            shutil.copy(compiled_path, exe_out_path)
+        return
 
     # create hash and copy
     with open(compiled_path, "rb") as f:

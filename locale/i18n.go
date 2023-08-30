@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 
-	"github.com/cloudfoundry-attic/jibber_jabber"
 	"github.com/nicksnyder/go-i18n/v2/i18n"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/text/language"
@@ -37,7 +36,7 @@ func init() {
 
 	// get default language
 	if languageName == "" {
-		languageName, _ = jibber_jabber.DetectLanguage()
+		languageName = getLanguageName()
 	}
 	defaultTag, err = language.Parse(languageName)
 	if err != nil {
