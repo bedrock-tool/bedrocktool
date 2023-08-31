@@ -28,15 +28,17 @@ type SetUIState = UIState
 
 //
 
+type ConnectState int
+
 const (
-	ConnectStateListening = iota + 1
+	ConnectStateBegin ConnectState = iota + 1
+	ConnectStateListening
 	ConnectStateClientConnecting
 	ConnectStateServerConnecting
+	ConnectStateReceivingResources
 	ConnectStateEstablished
 	ConnectStateDone
 )
-
-type ConnectState int
 
 type SetVoidGen struct {
 	Value bool

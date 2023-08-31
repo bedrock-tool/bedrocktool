@@ -14,7 +14,6 @@ import (
 	"gioui.org/widget/material"
 	"gioui.org/x/pref/theme"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages"
-	_ "github.com/bedrock-tool/bedrocktool/ui/gui/pages/connect"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages/packs"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages/settings"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages/skins"

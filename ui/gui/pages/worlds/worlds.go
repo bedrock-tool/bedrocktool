@@ -34,7 +34,13 @@ type Page struct {
 
 func New(router *pages.Router) *Page {
 	return &Page{
-		Router:   router,
+		Router: router,
+		/*
+			worldMap: &Map2{
+				images:   make(map[image.Point]*image.RGBA),
+				imageOps: make(map[image.Point]paint.ImageOp),
+			},
+		*/
 		worldMap: &Map{},
 		worldsList: widget.List{
 			List: layout.List{
@@ -86,16 +92,11 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 		Left:   unit.Dp(35),
 	}
 
-	margin.Layout(gtx, func(gtx C) D {
+	return margin.Layout(gtx, func(gtx C) D {
 		switch p.State {
 		case messages.UIStateMain:
 			// show the main ui
-			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-				//layout.Rigid(material.Label(th, th.TextSize, p.worldName).Layout),
-				layout.Flexed(1, func(gtx C) D {
-					return layout.Center.Layout(gtx, p.worldMap.Layout)
-				}),
-			)
+			return p.worldMap.Layout(gtx)
 		case messages.UIStateFinished:
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 				layout.Rigid(func(gtx C) D {
@@ -111,12 +112,10 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 					})
 				}),
 			)
+		default:
+			return D{}
 		}
-
-		return D{}
 	})
-
-	return layout.Dimensions{}
 }
 
 func (u *Page) Handler(data any) messages.MessageResponse {

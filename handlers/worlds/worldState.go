@@ -188,6 +188,40 @@ func newWorldState(cf func(world.ChunkPos, *chunk.Chunk)) (*worldState, error) {
 	return w, nil
 }
 
+func (w *worldState) storeChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cube.Pos]world.Block) {
+	w.storedChunks[pos] = true
+	w.State().storeChunk(pos, w.dimension, ch, blockNBT)
+}
+
+func (w *worldState) initDeferred() {
+	w.deferredState = &worldStateDefer{
+		chunks:    make(map[world.ChunkPos]*chunk.Chunk),
+		blockNBTs: make(map[world.ChunkPos]map[cube.Pos]world.Block),
+		worldStateEnt: worldStateEnt{
+			entities:    make(map[uint64]*entityState),
+			entityLinks: make(map[int64]map[int64]struct{}),
+		},
+	}
+}
+
+func (w *worldState) State() worldStateInt {
+	if w.useDeferred {
+		return w.deferredState
+	}
+	return w.state
+}
+
+func (w *worldState) PauseCapture() {
+	w.initDeferred()
+	w.useDeferred = true
+}
+
+func (w *worldState) UnpauseCapture(around cube.Pos, radius int32, cf func(world.ChunkPos, *chunk.Chunk)) {
+	w.deferredState.ApplyTo(w.state, w.dimension, around, radius, cf)
+	w.useDeferred = false
+	w.deferredState = nil
+}
+
 func (w *worldState) newProvider() error {
 	provider, err := mcdb.Config{
 		Log:         logrus.StandardLogger(),
@@ -239,40 +273,6 @@ func (w *worldState) Rename(name, folder string) error {
 		return err
 	}
 	return nil
-}
-
-func (w *worldState) storeChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cube.Pos]world.Block) {
-	w.storedChunks[pos] = true
-	w.State().storeChunk(pos, w.dimension, ch, blockNBT)
-}
-
-func (w *worldState) initDeferred() {
-	w.deferredState = &worldStateDefer{
-		chunks:    make(map[world.ChunkPos]*chunk.Chunk),
-		blockNBTs: make(map[world.ChunkPos]map[cube.Pos]world.Block),
-		worldStateEnt: worldStateEnt{
-			entities:    make(map[uint64]*entityState),
-			entityLinks: make(map[int64]map[int64]struct{}),
-		},
-	}
-}
-
-func (w *worldState) State() worldStateInt {
-	if w.useDeferred {
-		return w.deferredState
-	}
-	return w.state
-}
-
-func (w *worldState) PauseCapture() {
-	w.initDeferred()
-	w.useDeferred = true
-}
-
-func (w *worldState) UnpauseCapture(around cube.Pos, radius int32, cf func(world.ChunkPos, *chunk.Chunk)) {
-	w.deferredState.ApplyTo(w.state, w.dimension, around, radius, cf)
-	w.useDeferred = false
-	w.deferredState = nil
 }
 
 func (w *worldState) Finish(playerData map[string]any, spawn cube.Pos, gd minecraft.GameData, bp *behaviourpack.BehaviourPack) error {

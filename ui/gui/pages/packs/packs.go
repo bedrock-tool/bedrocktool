@@ -222,6 +222,10 @@ func (p *Page) Handler(data interface{}) messages.MessageResponse {
 	}
 
 	switch m := data.(type) {
+	case messages.ConnectState:
+		if m == messages.ConnectStateReceivingResources {
+			p.router.RemovePopup("connect")
+		}
 	case messages.InitialPacksInfo:
 		p.l.Lock()
 		for _, dp := range m.Packs {

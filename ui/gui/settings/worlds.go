@@ -14,7 +14,7 @@ import (
 type worldSettings struct {
 	worlds *world.WorldCMD
 
-	grid    *outlay.Grid
+	grid    outlay.Grid
 	options [][]layout.Widget
 
 	withPacks     widget.Bool
@@ -25,7 +25,6 @@ type worldSettings struct {
 
 func (s *worldSettings) Init() {
 	s.worlds = commands.Registered["worlds"].(*world.WorldCMD)
-	s.grid = &outlay.Grid{}
 	s.voidGen.Value = true
 	s.packetCapture.Value = false
 

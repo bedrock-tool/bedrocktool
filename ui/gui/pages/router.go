@@ -17,6 +17,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/exp/slices"
 )
 
 type Router struct {
@@ -38,6 +39,8 @@ type Router struct {
 
 	UpdateButton    *widget.Clickable
 	updateAvailable bool
+
+	popups []Popup
 }
 
 func NewRouter(ctx context.Context, invalidate func(), th *material.Theme) *Router {
@@ -105,6 +108,16 @@ func (r *Router) SwitchTo(tag string) {
 	r.AppBar.SetActions(actions, p.Overflow())
 }
 
+func (r *Router) PushPopup(p Popup) {
+	r.popups = append(r.popups, p)
+}
+
+func (r *Router) RemovePopup(id string) {
+	r.popups = slices.DeleteFunc(r.popups, func(p Popup) bool {
+		return p.ID() == id
+	})
+}
+
 func (r *Router) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
 	if r.UpdateButton.Clicked() {
 		r.SwitchTo("update")
@@ -129,21 +142,29 @@ func (r *Router) Layout(gtx layout.Context, th *material.Theme) layout.Dimension
 		r.SwitchTo(r.ModalNavDrawer.CurrentNavDestination().(string))
 	}
 	paint.Fill(gtx.Ops, th.Palette.Bg)
-	content := layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-		return layout.Stack{Alignment: layout.Center}.Layout(gtx,
-			layout.Expanded(func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{}.Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						gtx.Constraints.Max.X /= 3
-						return r.NavDrawer.Layout(gtx, th, &r.NavAnim)
-					}),
-					layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-						return r.pages[r.current].Layout(gtx, th)
-					}),
-				)
+
+	var children []layout.StackChild
+	children = append(children, layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+		return layout.Flex{}.Layout(gtx,
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+				gtx.Constraints.Max.X /= 3
+				return r.NavDrawer.Layout(gtx, th, &r.NavAnim)
 			}),
-			layout.Stacked(r.MSAuth.Layout),
+			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+				return r.pages[r.current].Layout(gtx, th)
+			}),
 		)
+	}))
+
+	for _, p := range r.popups {
+		p := p
+		children = append(children, layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+			return p.Layout(gtx, th)
+		}))
+	}
+
+	content := layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+		return layout.Stack{Alignment: layout.Center}.Layout(gtx, children...)
 	})
 	bar := layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 		return r.AppBar.Layout(gtx, th, "Menu", "Actions")
@@ -159,7 +180,7 @@ func (r *Router) Layout(gtx layout.Context, th *material.Theme) layout.Dimension
 }
 
 func (r *Router) Handler(data interface{}) messages.MessageResponse {
-	switch data.(type) {
+	switch data := data.(type) {
 	case messages.UpdateAvailable:
 		r.updateAvailable = true
 		p, ok := r.pages[r.current]
@@ -168,9 +189,13 @@ func (r *Router) Handler(data interface{}) messages.MessageResponse {
 		}
 		r.Invalidate()
 	case messages.ConnectState:
-		if r.current != "connect_temp" && r.current != "packs" {
-			r.SwitchToPageTemp(NewConnect(r, r.pages[r.current]))
+		if data == messages.ConnectStateBegin {
+			r.PushPopup(NewConnect(r))
 		}
+	}
+
+	for _, p := range r.popups {
+		p.Handler(data)
 	}
 
 	page, ok := r.pages[r.current]
@@ -191,5 +216,3 @@ func (r *Router) Execute(cmd commands.Command) {
 		}
 	}()
 }
-
-var NewConnect func(router *Router, afterEstablish Page) Page

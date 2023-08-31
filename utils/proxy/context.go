@@ -274,6 +274,15 @@ func (p *Context) onServerConnect() error {
 	return nil
 }
 
+func (p *Context) onClientConnect() {
+	for _, handler := range p.handlers {
+		if handler.OnClientConnect == nil {
+			continue
+		}
+		handler.OnClientConnect(p.Client)
+	}
+}
+
 func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc) (err error) {
 	defer func() {
 		for _, handler := range p.handlers {
@@ -302,11 +311,13 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 		}
 	}
 
+	p.ui.Message(messages.ConnectStateBegin)
+
 	// setup Client and Server Connections
 	wg := sync.WaitGroup{}
 	var cdp *login.ClientData = nil
 	if isReplay {
-		server, err := createReplayConnector(ctx, p.serverAddress[5:], p.packetFunc)
+		server, err := createReplayConnector(ctx, p.serverAddress[5:], p.packetFunc, p.onResourcePacksInfo)
 		if err != nil {
 			return err
 		}
@@ -321,13 +332,7 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 					cancel(err)
 					return
 				}
-
-				for _, handler := range p.handlers {
-					if handler.OnClientConnect == nil {
-						continue
-					}
-					handler.OnClientConnect(p.Client)
-				}
+				p.onClientConnect()
 			}()
 		}
 		wg.Add(1)

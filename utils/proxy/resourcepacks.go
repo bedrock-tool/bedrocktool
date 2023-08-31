@@ -39,9 +39,10 @@ type rpHandler struct {
 	resourcePacks                []*resource.Pack
 	stack                        *packet.ResourcePackStack
 	remotePackIds                []string
+	OnResourcePacksInfoCB        func()
 }
 
-func newRpHandler(ctx context.Context, server, client minecraft.IConn) *rpHandler {
+func newRpHandler(ctx context.Context, server, client minecraft.IConn, onInfo func()) *rpHandler {
 	r := &rpHandler{
 		Server: server,
 		Client: client,
@@ -56,6 +57,7 @@ func newRpHandler(ctx context.Context, server, client minecraft.IConn) *rpHandle
 		},
 		receivedRemotePackInfo: make(chan struct{}),
 		receivedRemoteStack:    make(chan struct{}),
+		OnResourcePacksInfoCB:  onInfo,
 	}
 	if r.Client != nil {
 		r.nextPack = make(chan *resource.Pack)
@@ -66,6 +68,9 @@ func newRpHandler(ctx context.Context, server, client minecraft.IConn) *rpHandle
 
 // from server
 func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
+	if r.OnResourcePacksInfoCB != nil {
+		r.OnResourcePacksInfoCB()
+	}
 	// First create a new resource pack queue with the information in the packet so we can download them
 	// properly later.
 	totalPacks := len(pk.TexturePacks) + len(pk.BehaviourPacks)
@@ -407,7 +412,6 @@ func (r *rpHandler) OnResourcePackChunkRequest(pk *packet.ResourcePackChunkReque
 }
 
 func (r *rpHandler) Request(packs []string) error {
-	logrus.Infof("HI HI HI HI: %+#v", packs)
 	r.clientHasRequested = true
 	<-r.receivedRemotePackInfo
 

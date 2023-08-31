@@ -28,9 +28,10 @@ func (a *authsrv) HaveToken() bool {
 	return err == nil
 }
 
-func (a *authsrv) Refresh() error {
+func (a *authsrv) Refresh() (err error) {
 	a.src = auth.RefreshTokenSource(a.t)
-	return nil
+	a.t, err = a.src.Token()
+	return err
 }
 
 func (a *authsrv) writeToken() error {

@@ -11,6 +11,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+func (p *Context) onResourcePacksInfo() {
+	p.ui.Message(messages.ConnectStateReceivingResources)
+}
+
 func (p *Context) connectServer(ctx context.Context) (err error) {
 	if p.WithClient {
 		select {
@@ -20,6 +24,7 @@ func (p *Context) connectServer(ctx context.Context) (err error) {
 		}
 	}
 
+	p.ui.Message(messages.ConnectStateServerConnecting)
 	logrus.Info(locale.Loc("connecting", locale.Strmap{"Address": p.serverAddress}))
 	server, err := minecraft.Dialer{
 		TokenSource: p.tokenSource,
@@ -38,10 +43,9 @@ func (p *Context) connectServer(ctx context.Context) (err error) {
 			if p.WithClient {
 				p.rpHandler.Server = c
 			} else {
-				p.rpHandler = newRpHandler(ctx, c, nil)
+				p.rpHandler = newRpHandler(ctx, c, nil, p.onResourcePacksInfo)
 			}
 			c.ResourcePackHandler = p.rpHandler
-			p.ui.Message(messages.ConnectState(messages.ConnectStateServerConnecting))
 		},
 	}.DialContext(ctx, "raknet", p.serverAddress)
 	if err != nil {
@@ -64,7 +68,7 @@ func (p *Context) connectClient(ctx context.Context, serverAddress string, cdpp 
 		},
 		EarlyConnHandler: func(c *minecraft.Conn) {
 			p.Client = c
-			p.rpHandler = newRpHandler(ctx, nil, c)
+			p.rpHandler = newRpHandler(ctx, nil, c, p.onResourcePacksInfo)
 			c.ResourcePackHandler = p.rpHandler
 			close(p.clientConnecting)
 			p.ui.Message(messages.ConnectState(messages.ConnectStateClientConnecting))
@@ -74,7 +78,7 @@ func (p *Context) connectClient(ctx context.Context, serverAddress string, cdpp 
 		return err
 	}
 
-	p.ui.Message(messages.ConnectState(messages.ConnectStateListening))
+	p.ui.Message(messages.ConnectStateListening)
 	logrus.Infof(locale.Loc("listening_on", locale.Strmap{"Address": p.Listener.Addr()}))
 	logrus.Infof(locale.Loc("help_connect", nil))
 
