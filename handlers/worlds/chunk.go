@@ -15,7 +15,7 @@ import (
 )
 
 func (w *worldsHandler) processChangeDimension(pk *packet.ChangeDimension) {
-	w.SaveAndReset()
+	w.SaveAndReset(false)
 	dimensionID := pk.Dimension
 	if w.serverState.useOldBiomes && dimensionID == 0 {
 		dimensionID += 10

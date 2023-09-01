@@ -74,6 +74,15 @@ func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.R
 				if name == "minecraft:mangrove_hanging_sign" {
 					name = "minecraft:mangrove_wood"
 				}
+				if name == "minecraft:crimson_hanging_sign" {
+					name = "minecraft:crimson_fungus"
+				}
+				if name == "minecraft:warped_standing_sign" {
+					name = "minecraft:warped_fungus"
+				}
+				if name == "minecraft:warped_hanging_sign" {
+					name = "minecraft:warped_fungus"
+				}
 				if name == "minecraft:oak_hanging_sign" {
 					name = "minecraft:oak_stairs"
 				}
@@ -90,8 +99,10 @@ func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.R
 		}
 
 		if blockColor.R == 0xff && blockColor.G == 0x0 && blockColor.B == 0xff {
-			println(b.EncodeBlock())
-			b.Color()
+			if Version == "" {
+				println(b.EncodeBlock())
+				b.Color()
+			}
 		}
 
 		if blockColor.A != 255 {

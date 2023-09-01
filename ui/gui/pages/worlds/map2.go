@@ -9,10 +9,13 @@ import (
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 )
+
+const tileSize = 256
 
 type Map2 struct {
 	click f32.Point
@@ -48,7 +51,11 @@ func (m *Map2) HandlePointerEvent(e pointer.Event) {
 }
 
 func (m *Map2) Layout(gtx layout.Context) layout.Dimensions {
+	if m.scaleFactor == 0 {
+		m.scaleFactor = 1
+	}
 	m.center = f32.Pt(float32(gtx.Constraints.Max.X), float32(gtx.Constraints.Max.Y)).Div(2)
+	defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
 
 	for _, e := range gtx.Events(m) {
 		if e, ok := e.(pointer.Event); ok {
@@ -57,8 +64,22 @@ func (m *Map2) Layout(gtx layout.Context) layout.Dimensions {
 	}
 
 	for p, imageOp := range m.imageOps {
-		pt := f32.Pt(float32(math.Floor(float64(p.X)*32)), float32(math.Floor(float64(p.Y)*32)))
-		aff := op.Affine(m.transform.Offset(m.center).Offset(pt)).Push(gtx.Ops)
+		pt := f32.Pt(float32(float64(p.X)*tileSize*float64(m.scaleFactor)), float32(float64(p.Y)*tileSize*float64(m.scaleFactor)))
+		scaledSize := tileSize * m.scaleFactor
+
+		// check if this needs to be drawn
+		r2 := image.Rectangle{
+			Min: pt.Round(),
+			Max: pt.Add(f32.Pt(scaledSize, scaledSize)).Round(),
+		}.Add(m.center.Round()).Add(m.transform.Transform(f32.Pt(0, 0)).Round())
+		if (image.Rectangle{Max: gtx.Constraints.Max}).Intersect(r2).Empty() {
+			continue
+		}
+
+		aff := op.Affine(m.transform.
+			Offset(m.center).
+			Offset(pt),
+		).Push(gtx.Ops)
 		imageOp.Add(gtx.Ops)
 		paint.PaintOp{}.Add(gtx.Ops)
 		aff.Pop()
@@ -72,22 +93,6 @@ func (m *Map2) Layout(gtx layout.Context) layout.Dimensions {
 		}
 	}
 
-	/*
-		if m.MapImage != nil {
-			// Calculate the size of the widget based on the size of the image and the current scale factor.
-			dx := float32(m.MapImage.Bounds().Dx())
-			dy := float32(m.MapImage.Bounds().Dy())
-			size := f32.Pt(dx*m.scaleFactor, dy*m.scaleFactor)
-
-			// Draw the image at the correct position and scale.
-			defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
-			aff := op.Affine(m.transform.Offset(m.center.Sub(size.Div(2)))).Push(gtx.Ops)
-			m.imageOp.Add(gtx.Ops)
-			paint.PaintOp{}.Add(gtx.Ops)
-			aff.Pop()
-		}
-	*/
-
 	size := gtx.Constraints.Max
 	pointer.InputOp{
 		Tag:          m,
@@ -100,10 +105,23 @@ func (m *Map2) Layout(gtx layout.Context) layout.Dimensions {
 }
 
 func chunkPosToTilePos(cp protocol.ChunkPos) (tile image.Point, offset image.Point) {
-	tile.X = int(cp.X()*16) / 32
-	tile.Y = int(cp.Z()*16) / 32
-	offset.X = int(cp.X()*16) % 32
-	offset.Y = int(cp.Z()*16) % 32
+	blockX := int(cp.X()) * 16
+	blockY := int(cp.Z()) * 16
+	tile.X = blockX / tileSize
+	tile.Y = blockY / tileSize
+
+	offset.X = blockX % tileSize
+	offset.Y = blockY % tileSize
+
+	if blockX < 0 && offset.X != 0 {
+		tile.X--
+		offset.X += tileSize
+	}
+	if blockY < 0 && offset.Y != 0 {
+		tile.Y--
+		offset.Y += tileSize
+	}
+
 	return
 }
 
@@ -113,7 +131,7 @@ func (m *Map2) Update(u *messages.UpdateMap) {
 		tilePos, posInTile := chunkPosToTilePos(cp)
 		img, ok := m.images[tilePos]
 		if !ok {
-			img = image.NewRGBA(image.Rect(0, 0, 32, 32))
+			img = image.NewRGBA(image.Rect(0, 0, tileSize, tileSize))
 			m.images[tilePos] = img
 		}
 		draw.Draw(img, image.Rectangle{

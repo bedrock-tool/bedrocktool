@@ -140,7 +140,7 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 			})
 
 			w.proxy.AddCommand(func(s []string) bool {
-				w.SaveAndReset()
+				w.SaveAndReset(false)
 				return true
 			}, protocol.Command{
 				Name:        "save-world",
@@ -283,7 +283,7 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 			return pk, nil
 		},
 		OnEnd: func() {
-			w.SaveAndReset()
+			w.SaveAndReset(true)
 			w.wg.Wait()
 			world.ResetStates()
 			world.ResetBiomes()
@@ -335,7 +335,7 @@ func (w *worldsHandler) defaultName() string {
 	return worldName
 }
 
-func (w *worldsHandler) SaveAndReset() {
+func (w *worldsHandler) SaveAndReset(end bool) {
 	if len(w.worldState.storedChunks) == 0 {
 		w.reset()
 		return
@@ -368,7 +368,11 @@ func (w *worldsHandler) SaveAndReset() {
 	w.worldState.excludeMobs = w.settings.ExcludeMobs
 	worldState := w.worldState
 	w.serverState.worldCounter += 1
-	w.reset()
+	if !end {
+		w.reset()
+	} else {
+		w.worldState = nil
+	}
 
 	go func() {
 		defer w.wg.Done()

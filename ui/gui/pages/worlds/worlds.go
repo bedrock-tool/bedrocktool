@@ -2,9 +2,11 @@ package worlds
 
 import (
 	"fmt"
+	"image"
 	"sync"
 
 	"gioui.org/layout"
+	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -21,7 +23,7 @@ type (
 type Page struct {
 	*pages.Router
 
-	worldMap   *Map
+	worldMap   *Map2
 	State      messages.UIState
 	chunkCount int
 	voidGen    bool
@@ -35,13 +37,10 @@ type Page struct {
 func New(router *pages.Router) *Page {
 	return &Page{
 		Router: router,
-		/*
-			worldMap: &Map2{
-				images:   make(map[image.Point]*image.RGBA),
-				imageOps: make(map[image.Point]paint.ImageOp),
-			},
-		*/
-		worldMap: &Map{},
+		worldMap: &Map2{
+			images:   make(map[image.Point]*image.RGBA),
+			imageOps: make(map[image.Point]paint.ImageOp),
+		},
 		worldsList: widget.List{
 			List: layout.List{
 				Axis: layout.Vertical,
@@ -127,6 +126,7 @@ func (u *Page) Handler(data any) messages.MessageResponse {
 	switch m := data.(type) {
 	case messages.SetUIState:
 		u.State = m
+		u.State = messages.UIStateMain
 		u.Router.Invalidate()
 		r.Ok = true
 	case messages.UpdateMap:

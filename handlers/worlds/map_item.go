@@ -75,7 +75,7 @@ type MapUI struct {
 	oldRendered    map[protocol.ChunkPos]*image.RGBA
 	needRedraw     bool // when the map has updated this is true
 	showOnGui      bool
-	l              sync.RWMutex
+	l              sync.Mutex
 
 	ticker *time.Ticker
 	w      *worldsHandler
@@ -194,7 +194,6 @@ var red = image.NewUniform(color.RGBA{R: 0xff, G: 0, B: 0, A: 128})
 
 func (m *MapUI) processQueue() []protocol.ChunkPos {
 	m.wg.Wait()
-	m.l.Lock()
 	updatedChunks := make([]protocol.ChunkPos, 0, m.renderQueue.Length())
 	for {
 		r, ok := m.renderQueue.Dequeue().(*RenderElem)
@@ -219,12 +218,13 @@ func (m *MapUI) processQueue() []protocol.ChunkPos {
 			}
 		}
 	}
-	m.l.Unlock()
 	return updatedChunks
 }
 
 // Redraw draws chunk images to the map image
 func (m *MapUI) Redraw() {
+	m.l.Lock()
+	defer m.l.Unlock()
 	updatedChunks := m.processQueue()
 	middle := protocol.ChunkPos{
 		int32(m.w.proxy.Player.Position.X()),
@@ -239,7 +239,6 @@ func (m *MapUI) Redraw() {
 		m.img.Pix[i] = 0
 	}
 
-	m.l.RLock()
 	for _ch := range m.renderedChunks {
 		relativeMiddleX := float64(_ch.X()*16 - middle.X())
 		relativeMiddleZ := float64(_ch.Z()*16 - middle.Z())
@@ -263,10 +262,11 @@ func (m *MapUI) Redraw() {
 			BoundsMax:     max,
 		})
 	}
-	m.l.RUnlock()
 }
 
 func (m *MapUI) ToImage() *image.RGBA {
+	m.l.Lock()
+	defer m.l.Unlock()
 	m.processQueue()
 	// get the chunk coord bounds
 	min, max := m.GetBounds()
@@ -275,7 +275,6 @@ func (m *MapUI) ToImage() *image.RGBA {
 
 	img := image.NewRGBA(image.Rect(0, 0, chunksX*16, chunksY*16))
 
-	m.l.RLock()
 	for pos, tile := range m.renderedChunks {
 		px := image.Pt(
 			int((pos.X()-min.X())*16),
@@ -286,7 +285,6 @@ func (m *MapUI) ToImage() *image.RGBA {
 			px.X+16, px.Y+16,
 		), tile, image.Point{}, draw.Src)
 	}
-	m.l.RUnlock()
 	return img
 }
 
