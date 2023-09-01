@@ -28,12 +28,11 @@ type Map2 struct {
 
 	images   map[image.Point]*image.RGBA
 	imageOps map[image.Point]paint.ImageOp
-
-	BoundsMin protocol.ChunkPos
-	BoundsMax protocol.ChunkPos
 }
 
 func (m *Map2) HandlePointerEvent(e pointer.Event) {
+	const WHEEL_DELTA = 120
+
 	switch e.Type {
 	case pointer.Press:
 		m.click = e.Position
@@ -44,6 +43,9 @@ func (m *Map2) HandlePointerEvent(e pointer.Event) {
 	case pointer.Release:
 		m.grabbed = false
 	case pointer.Scroll:
+		if int(e.Scroll.Y)%WHEEL_DELTA == 0 {
+			e.Scroll.Y = -8 * e.Scroll.Y / WHEEL_DELTA
+		}
 		scaleFactor := float32(math.Pow(1.01, float64(e.Scroll.Y)))
 		m.transform = m.transform.Scale(e.Position.Sub(m.center), f32.Pt(scaleFactor, scaleFactor))
 		m.scaleFactor *= scaleFactor
@@ -76,10 +78,8 @@ func (m *Map2) Layout(gtx layout.Context) layout.Dimensions {
 			continue
 		}
 
-		aff := op.Affine(m.transform.
-			Offset(m.center).
-			Offset(pt),
-		).Push(gtx.Ops)
+		t := m.transform.Offset(m.center).Offset(pt)
+		aff := op.Affine(t).Push(gtx.Ops)
 		imageOp.Add(gtx.Ops)
 		paint.PaintOp{}.Add(gtx.Ops)
 		aff.Pop()
@@ -126,6 +126,12 @@ func chunkPosToTilePos(cp protocol.ChunkPos) (tile image.Point, offset image.Poi
 }
 
 func (m *Map2) Update(u *messages.UpdateMap) {
+	if u.ChunkCount == -1 {
+		m.images = make(map[image.Point]*image.RGBA)
+		m.imageOps = make(map[image.Point]paint.ImageOp)
+		return
+	}
+
 	var updatedTiles []image.Point
 	for _, cp := range u.UpdatedChunks {
 		tilePos, posInTile := chunkPosToTilePos(cp)

@@ -126,7 +126,6 @@ func (u *Page) Handler(data any) messages.MessageResponse {
 	switch m := data.(type) {
 	case messages.SetUIState:
 		u.State = m
-		u.State = messages.UIStateMain
 		u.Router.Invalidate()
 		r.Ok = true
 	case messages.UpdateMap:

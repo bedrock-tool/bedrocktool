@@ -172,6 +172,9 @@ func (m *MapUI) Reset() {
 	m.l.Lock()
 	m.renderedChunks = make(map[protocol.ChunkPos]*image.RGBA)
 	m.oldRendered = make(map[protocol.ChunkPos]*image.RGBA)
+	m.w.ui.Message(messages.UpdateMap{
+		ChunkCount: -1,
+	})
 	m.l.Unlock()
 	m.SchedRedraw()
 }
