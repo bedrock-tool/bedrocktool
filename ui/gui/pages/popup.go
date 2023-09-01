@@ -49,7 +49,7 @@ func layoutPopupBackground(gtx layout.Context, th *material.Theme, tag string, w
 				Radii: gtx.Dp(15),
 			}.Layout(gtx)
 
-			return widget(gtx)
+			return layout.UniformInset(unit.Dp(5)).Layout(gtx, widget)
 		})
 	})
 }

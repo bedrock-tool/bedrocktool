@@ -71,7 +71,6 @@ func (p *Context) connectClient(ctx context.Context, serverAddress string, cdpp 
 			p.rpHandler = newRpHandler(ctx, nil, c, p.onResourcePacksInfo)
 			c.ResourcePackHandler = p.rpHandler
 			close(p.clientConnecting)
-			p.ui.Message(messages.ConnectState(messages.ConnectStateClientConnecting))
 		},
 	}.Listen("raknet", ":19132")
 	if err != nil {

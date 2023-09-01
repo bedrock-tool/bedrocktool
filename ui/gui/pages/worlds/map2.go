@@ -66,20 +66,22 @@ func (m *Map2) Layout(gtx layout.Context) layout.Dimensions {
 	}
 
 	for p, imageOp := range m.imageOps {
-		pt := f32.Pt(float32(float64(p.X)*tileSize*float64(m.scaleFactor)), float32(float64(p.Y)*tileSize*float64(m.scaleFactor)))
 		scaledSize := tileSize * m.scaleFactor
+		pt := f32.Pt(float32(p.X)*scaledSize, float32(p.Y)*scaledSize)
 
 		// check if this needs to be drawn
-		r2 := image.Rectangle{
-			Min: pt.Round(),
-			Max: pt.Add(f32.Pt(scaledSize, scaledSize)).Round(),
-		}.Add(m.center.Round()).Add(m.transform.Transform(f32.Pt(0, 0)).Round())
-		if (image.Rectangle{Max: gtx.Constraints.Max}).Intersect(r2).Empty() {
+		if (image.Rectangle{
+			Max: gtx.Constraints.Max,
+		}).Intersect(
+			image.Rectangle{
+				Min: pt.Round(),
+				Max: pt.Add(f32.Pt(scaledSize, scaledSize)).Round(),
+			}.Add(m.center.Round()).Add(m.transform.Transform(f32.Pt(0, 0)).Round()),
+		).Empty() {
 			continue
 		}
 
-		t := m.transform.Offset(m.center).Offset(pt)
-		aff := op.Affine(t).Push(gtx.Ops)
+		aff := op.Affine(m.transform.Offset(m.center).Offset(pt)).Push(gtx.Ops)
 		imageOp.Add(gtx.Ops)
 		paint.PaintOp{}.Add(gtx.Ops)
 		aff.Pop()
@@ -96,7 +98,7 @@ func (m *Map2) Layout(gtx layout.Context) layout.Dimensions {
 	size := gtx.Constraints.Max
 	pointer.InputOp{
 		Tag:          m,
-		Grab:         m.grabbed,
+		Grab:         true,
 		Types:        pointer.Scroll | pointer.Drag | pointer.Press | pointer.Release,
 		ScrollBounds: image.Rect(-size.X, -size.Y, size.X, size.Y),
 	}.Add(gtx.Ops)

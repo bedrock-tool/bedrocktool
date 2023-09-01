@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"runtime/debug"
 	"syscall"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
@@ -75,19 +74,7 @@ func main() {
 			return
 		}
 		if err := recover(); err != nil {
-			logrus.Errorf(locale.Loc("fatal_error", nil))
-			println("")
-			println("--COPY FROM HERE--")
-			logrus.Infof("Version: %s", utils.Version)
-			logrus.Infof("Cmdline: %s", os.Args)
-			logrus.Errorf("Error: %s", err)
-			println("stacktrace from panic: \n" + string(debug.Stack()))
-			println("--END COPY HERE--")
-			println("")
-			println(locale.Loc("report_issue", nil))
-			if utils.Options.ExtraDebug {
-				println(locale.Loc("used_extra_debug_report", nil))
-			}
+			utils.PrintPanic(err.(error))
 			if utils.Options.IsInteractive {
 				input := bufio.NewScanner(os.Stdin)
 				input.Scan()

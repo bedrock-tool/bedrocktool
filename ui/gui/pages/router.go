@@ -15,6 +15,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/icons"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
+	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
@@ -110,12 +111,14 @@ func (r *Router) SwitchTo(tag string) {
 
 func (r *Router) PushPopup(p Popup) {
 	r.popups = append(r.popups, p)
+	r.Invalidate()
 }
 
 func (r *Router) RemovePopup(id string) {
 	r.popups = slices.DeleteFunc(r.popups, func(p Popup) bool {
 		return p.ID() == id
 	})
+	r.Invalidate()
 }
 
 func (r *Router) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
@@ -210,9 +213,24 @@ func (r *Router) Execute(cmd commands.Command) {
 	go func() {
 		defer r.Wg.Done()
 
+		defer func() {
+			if err := recover(); err != nil {
+				err := err.(error)
+				utils.PrintPanic(err)
+				r.PushPopup(NewErrorPopup(r, err, func() {
+					r.RemovePopup("connect")
+					r.SwitchTo("settings")
+				}, true))
+			}
+		}()
+
 		err := cmd.Execute(r.Ctx, r.UI)
 		if err != nil {
 			logrus.Error(err)
+			r.PushPopup(NewErrorPopup(r, err, func() {
+				r.RemovePopup("connect")
+				r.SwitchTo("settings")
+			}, false))
 		}
 	}()
 }

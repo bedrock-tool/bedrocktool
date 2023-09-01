@@ -33,7 +33,6 @@ type ConnectState int
 const (
 	ConnectStateBegin ConnectState = iota + 1
 	ConnectStateListening
-	ConnectStateClientConnecting
 	ConnectStateServerConnecting
 	ConnectStateReceivingResources
 	ConnectStateEstablished

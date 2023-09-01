@@ -31,6 +31,15 @@ func (p *ConnectPopup) ID() string {
 }
 
 func (p *ConnectPopup) Layout(gtx C, th *material.Theme) D {
+	ifb := func(b bool, w layout.Widget) func(C) D {
+		if b {
+			return w
+		}
+		return func(c C) D {
+			return D{}
+		}
+	}
+
 	tf := func(b bool, text string) func(C) D {
 		if b {
 			return material.Label(th, 40, text).Layout
@@ -40,11 +49,22 @@ func (p *ConnectPopup) Layout(gtx C, th *material.Theme) D {
 		}
 	}
 
-	return layoutPopupBackground(gtx, th, "connect", func(gtx layout.Context) layout.Dimensions {
-		return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+	return layoutPopupBackground(gtx, th, "connect", func(gtx C) D {
+		return layout.Center.Layout(gtx, func(gtx C) D {
 			return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
-				layout.Rigid(tf(p.Listening, "Listening")),
-				layout.Rigid(tf(p.ClientConnecting, "Client Connecting")),
+				layout.Rigid(
+					ifb(p.Listening, func(gtx C) D {
+						return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+							layout.Rigid(material.Label(th, 40, "Listening").Layout),
+							layout.Rigid(func(gtx C) D {
+								if !(p.ClientConnecting || p.ServerConnecting) {
+									return material.Body1(th, "connect to 127.0.0.1 or this devices local address\nin the minecraft bedrock client to continue").Layout(gtx)
+								}
+								return D{}
+							}),
+						)
+					}),
+				),
 				layout.Rigid(tf(p.ServerConnecting, "Connecting to Server")),
 				layout.Rigid(tf(p.Established, "Established")),
 			)
@@ -63,8 +83,6 @@ func (u *ConnectPopup) Handler(data any) messages.MessageResponse {
 		switch m {
 		case messages.ConnectStateListening:
 			u.Listening = true
-		case messages.ConnectStateClientConnecting:
-			u.ClientConnecting = true
 		case messages.ConnectStateServerConnecting:
 			u.ServerConnecting = true
 		case messages.ConnectStateEstablished:

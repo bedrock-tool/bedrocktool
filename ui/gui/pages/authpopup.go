@@ -13,7 +13,7 @@ type guiAuth struct {
 	err    error
 }
 
-func (g *guiAuth) ID() string {
+func (guiAuth) ID() string {
 	return "ms-auth"
 }
 
