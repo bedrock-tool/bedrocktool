@@ -243,7 +243,7 @@ func (p *Context) packetFunc(header packet.Header, payload []byte, src, dst net.
 	}
 
 	if !p.spawned {
-		pk, ok := decodePacket(header, payload)
+		pk, ok := DecodePacket(header, payload)
 		if !ok {
 			return
 		}
@@ -317,7 +317,7 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 	wg := sync.WaitGroup{}
 	var cdp *login.ClientData = nil
 	if isReplay {
-		server, err := createReplayConnector(ctx, p.serverAddress[5:], p.packetFunc, p.onResourcePacksInfo)
+		server, err := CreateReplayConnector(ctx, p.serverAddress[5:], p.packetFunc, p.onResourcePacksInfo)
 		if err != nil {
 			return err
 		}

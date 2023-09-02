@@ -177,7 +177,7 @@ func (r *replayConnector) loop() {
 	}
 }
 
-func createReplayConnector(ctx context.Context, filename string, packetFunc PacketFunc, onResourcePackInfo func()) (r *replayConnector, err error) {
+func CreateReplayConnector(ctx context.Context, filename string, packetFunc PacketFunc, onResourcePackInfo func()) (r *replayConnector, err error) {
 	r = &replayConnector{
 		pool:       minecraft.DefaultProtocol.Packets(true),
 		proto:      minecraft.DefaultProtocol,

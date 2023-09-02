@@ -56,7 +56,7 @@ var errCancelConnect = fmt.Errorf("cancelled connecting")
 var serverPool = packet.NewServerPool()
 var clientPool = packet.NewClientPool()
 
-func decodePacket(header packet.Header, payload []byte) (pk packet.Packet, ok bool) {
+func DecodePacket(header packet.Header, payload []byte) (pk packet.Packet, ok bool) {
 	pkFunc, ok := serverPool[header.PacketID]
 	if !ok {
 		pkFunc, ok = clientPool[header.PacketID]

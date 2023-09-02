@@ -22,6 +22,7 @@ type WorldCMD struct {
 	SaveImage       bool
 	ExcludeMobs     string
 	StartPaused     bool
+	PreloadReplay   string
 }
 
 func (*WorldCMD) Name() string     { return "worlds" }
@@ -36,6 +37,7 @@ func (c *WorldCMD) SetFlags(f *flag.FlagSet) {
 	f.BoolVar(&c.SaveInventories, "save-inventories", true, "Save Inventories")
 	f.StringVar(&c.ExcludeMobs, "exclude-mobs", "", "list of mobs to exclude seperated by comma")
 	f.BoolVar(&c.StartPaused, "start-paused", false, "pause the capturing on startup (can be restarted using /start-capture ingame)")
+	f.StringVar(&c.PreloadReplay, "preload-replay", "", "preload from a replay")
 }
 
 func (c *WorldCMD) Execute(ctx context.Context, ui ui.UI) error {
@@ -57,6 +59,7 @@ func (c *WorldCMD) Execute(ctx context.Context, ui ui.UI) error {
 		SaveImage:       c.SaveImage,
 		ExcludeMobs:     strings.Split(c.ExcludeMobs, ","),
 		StartPaused:     c.StartPaused,
+		PreloadReplay:   c.PreloadReplay,
 	}))
 
 	err = proxy.Run(ctx, serverAddress, hostname)

@@ -246,7 +246,7 @@ func (w *worldState) Open(name string, folder string, dim world.Dimension, defer
 		return err
 	}
 
-	if !deferred {
+	if !deferred && w.deferredState != nil {
 		w.deferredState.ApplyTo(w.state, w.dimension, cube.Pos{}, -1, w.chunkFunc)
 		w.useDeferred = false
 		w.deferredState = nil
