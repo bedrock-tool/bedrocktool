@@ -142,6 +142,9 @@ func (p *Context) proxyLoop(ctx context.Context, toServer bool) error {
 			if errors.Is(err, io.EOF) {
 				err = nil
 			}
+			if errors.Is(err, net.ErrClosed) {
+				err = nil
+			}
 			return err
 		}
 
@@ -179,6 +182,9 @@ func (p *Context) proxyLoop(ctx context.Context, toServer bool) error {
 					p.disconnectReason = disconnect.Error()
 				}
 				if errors.Is(err, io.EOF) {
+					err = nil
+				}
+				if errors.Is(err, net.ErrClosed) {
 					err = nil
 				}
 				return err

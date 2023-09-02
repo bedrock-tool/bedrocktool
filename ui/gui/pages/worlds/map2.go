@@ -20,7 +20,7 @@ const tileSize = 256
 type Map2 struct {
 	click f32.Point
 
-	scaleFactor float32
+	scaleFactor float64
 	center      f32.Point
 	transform   f32.Affine2D
 	grabbed     bool
@@ -46,8 +46,8 @@ func (m *Map2) HandlePointerEvent(e pointer.Event) {
 		if int(e.Scroll.Y)%WHEEL_DELTA == 0 {
 			e.Scroll.Y = -8 * e.Scroll.Y / WHEEL_DELTA
 		}
-		scaleFactor := float32(math.Pow(1.01, float64(e.Scroll.Y)))
-		m.transform = m.transform.Scale(e.Position.Sub(m.center), f32.Pt(scaleFactor, scaleFactor))
+		scaleFactor := math.Pow(1.01, float64(e.Scroll.Y))
+		m.transform = m.transform.Scale(e.Position.Sub(m.center), f32.Pt(float32(scaleFactor), float32(scaleFactor)))
 		m.scaleFactor *= scaleFactor
 	}
 }
@@ -67,7 +67,7 @@ func (m *Map2) Layout(gtx layout.Context) layout.Dimensions {
 
 	for p, imageOp := range m.imageOps {
 		scaledSize := tileSize * m.scaleFactor
-		pt := f32.Pt(float32(p.X)*scaledSize, float32(p.Y)*scaledSize)
+		pt := f32.Pt(float32(float64(p.X)*scaledSize), float32(float64(p.Y)*scaledSize))
 
 		// check if this needs to be drawn
 		if (image.Rectangle{
@@ -75,7 +75,7 @@ func (m *Map2) Layout(gtx layout.Context) layout.Dimensions {
 		}).Intersect(
 			image.Rectangle{
 				Min: pt.Round(),
-				Max: pt.Add(f32.Pt(scaledSize, scaledSize)).Round(),
+				Max: pt.Add(f32.Pt(float32(scaledSize), float32(scaledSize))).Round(),
 			}.Add(m.center.Round()).Add(m.transform.Transform(f32.Pt(0, 0)).Round()),
 		).Empty() {
 			continue
