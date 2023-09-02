@@ -46,7 +46,7 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 		logrus.Error(err)
 		return
 	}
-	var chunkBlockNBT = make(map[cube.Pos]world.Block)
+	var chunkBlockNBT = make(map[cube.Pos]*dummyBlock)
 	for _, blockNBT := range blockNBTs {
 		x := int(blockNBT["x"].(int32))
 		y := int(blockNBT["y"].(int32))
@@ -100,7 +100,7 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 
 func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) error {
 	var chunks = make(map[world.ChunkPos]*chunk.Chunk)
-	var blockNBTs = make(map[world.ChunkPos]map[cube.Pos]world.Block)
+	var blockNBTs = make(map[world.ChunkPos]map[cube.Pos]*dummyBlock)
 
 	for _, ent := range pk.SubChunkEntries {
 		if ent.Result != protocol.SubChunkResultSuccess {
@@ -120,7 +120,7 @@ func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) error {
 			return err
 		}
 		chunks[pos] = col.Chunk
-		blockNBTs[pos] = make(map[cube.Pos]world.Block)
+		blockNBTs[pos] = make(map[cube.Pos]*dummyBlock)
 	}
 
 	for _, ent := range pk.SubChunkEntries {

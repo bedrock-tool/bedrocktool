@@ -4,6 +4,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils/nbtconv"
 	"github.com/df-mc/dragonfly/server/block"
+	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/item"
 	"github.com/df-mc/dragonfly/server/item/inventory"
 	"github.com/df-mc/dragonfly/server/world"
@@ -129,16 +130,14 @@ func (w *worldsHandler) handleItemPackets(pk packet.Packet, forward *bool) packe
 				inv.SetItem(i, item)
 			}
 
-			/*
-				// put into subchunk
-				p := existing.OpenPacket.ContainerPosition
-				nbt, ok := w.worldState.state().blockNBTs[cube.Pos{int(p.X()), int(p.Y()), int(p.Z())}]
-				if ok {
-					nbt["Items"] = nbtconv.InvToNBT(inv)
-				}
+			// put into subchunk
+			p := existing.OpenPacket.ContainerPosition
+			pos := cube.Pos{int(p.X()), int(p.Y()), int(p.Z())}
+			w.worldState.State().SetMergeBlockNBT(pos, map[string]any{
+				"Items": nbtconv.InvToNBT(inv),
+			})
 
-				w.proxy.SendMessage(locale.Loc("saved_block_inv", nil))
-			*/
+			w.proxy.SendMessage(locale.Loc("saved_block_inv", nil))
 
 			// remove it again
 			delete(w.serverState.openItemContainers, byte(pk.WindowID))

@@ -66,10 +66,15 @@ func (p *packetCapturer) AddressAndName(address, hostname string) (err error) {
 
 func (p *packetCapturer) OnServerConnect() bool {
 	packs := p.proxy.Server.ResourcePacks()
+	written := make(map[string]bool)
 	for _, pack := range packs {
+		filename := filepath.Join("packcache", pack.UUID()+"_"+pack.Version()+".zip")
+		if _, ok := written[filename]; ok {
+			continue
+		}
 		logrus.Debugf("Writing %s to capture", pack.Name())
 		f, err := p.z.CreateHeader(&zip.FileHeader{
-			Name:   filepath.Join("packcache", pack.UUID()+"_"+pack.Version()+".zip"),
+			Name:   filename,
 			Method: zip.Store,
 		})
 		if err != nil {
@@ -77,6 +82,7 @@ func (p *packetCapturer) OnServerConnect() bool {
 		}
 		pack.WriteTo(f)
 		pack.Seek(0, 0)
+		written[filename] = true
 	}
 
 	// create the packets.bin file and dump already received packets into it

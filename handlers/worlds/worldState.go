@@ -21,16 +21,18 @@ import (
 )
 
 type worldStateInt interface {
-	storeChunk(pos world.ChunkPos, dim world.Dimension, ch *chunk.Chunk, blockNBT map[cube.Pos]world.Block)
+	storeChunk(pos world.ChunkPos, dim world.Dimension, ch *chunk.Chunk, blockNBT map[cube.Pos]*dummyBlock)
 	storeEntity(id uint64, es *entityState)
 	haveEntity(id uint64) bool
 	getEntity(id uint64) (*entityState, bool)
 	addEntityLink(el protocol.EntityLink)
+	SetMergeBlockNBT(cube.Pos, map[string]any)
 }
 
 type worldStateEnt struct {
 	entities    map[uint64]*entityState
 	entityLinks map[int64]map[int64]struct{}
+	blockNBTs   map[world.ChunkPos]map[cube.Pos]*dummyBlock
 }
 
 func (w *worldStateEnt) storeEntity(id uint64, es *entityState) {
@@ -61,18 +63,36 @@ func (w *worldStateEnt) addEntityLink(el protocol.EntityLink) {
 	}
 }
 
+func cubePosInChunk(pos cube.Pos) (p world.ChunkPos, sp int16) {
+	p[0] = int32(pos.X() >> 4)
+	sp = int16(pos.Y() >> 4)
+	p[1] = int32(pos.Z() >> 4)
+	return
+}
+
+func (w *worldStateEnt) SetMergeBlockNBT(pos cube.Pos, m map[string]any) {
+	cp, _ := cubePosInChunk(pos)
+	b, ok := w.blockNBTs[cp]
+	if !ok {
+		b = make(map[cube.Pos]*dummyBlock)
+		w.blockNBTs[cp] = b
+	}
+	maps.Copy(b[pos].nbt, m)
+}
+
 type worldStateInternal struct {
 	l        *sync.Mutex
 	provider *mcdb.DB
 	worldStateEnt
 }
 
-func (w *worldStateInternal) storeChunk(pos world.ChunkPos, dim world.Dimension, ch *chunk.Chunk, blockNBT map[cube.Pos]world.Block) {
+func (w *worldStateInternal) storeChunk(pos world.ChunkPos, dim world.Dimension, ch *chunk.Chunk, blockNBT map[cube.Pos]*dummyBlock) {
 	w.l.Lock()
 	defer w.l.Unlock()
+	w.blockNBTs[pos] = blockNBT
+
 	err := w.provider.StoreColumn(pos, dim, &world.Column{
-		Chunk:         ch,
-		BlockEntities: blockNBT,
+		Chunk: ch,
 	})
 	if err != nil {
 		logrus.Error("storeChunk", err)
@@ -103,13 +123,26 @@ func (w *worldStateInternal) saveEntities(exclude []string, dimension world.Dime
 	return nil
 }
 
+func (w *worldStateInternal) saveBlockNBTs(dim world.Dimension) error {
+	for cp, v := range w.blockNBTs {
+		vv := make(map[cube.Pos]world.Block, len(v))
+		for p, db := range v {
+			vv[p] = db
+		}
+		err := w.provider.StoreBlockNBTs(cp, dim, vv)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 type worldStateDefer struct {
-	chunks    map[world.ChunkPos]*chunk.Chunk
-	blockNBTs map[world.ChunkPos]map[cube.Pos]world.Block
+	chunks map[world.ChunkPos]*chunk.Chunk
 	worldStateEnt
 }
 
-func (w *worldStateDefer) storeChunk(pos world.ChunkPos, dim world.Dimension, ch *chunk.Chunk, blockNBT map[cube.Pos]world.Block) {
+func (w *worldStateDefer) storeChunk(pos world.ChunkPos, dim world.Dimension, ch *chunk.Chunk, blockNBT map[cube.Pos]*dummyBlock) {
 	w.chunks[pos] = ch
 	w.blockNBTs[pos] = blockNBT
 }
@@ -176,6 +209,7 @@ func newWorldState(cf func(world.ChunkPos, *chunk.Chunk)) (*worldState, error) {
 			worldStateEnt: worldStateEnt{
 				entities:    make(map[uint64]*entityState),
 				entityLinks: make(map[int64]map[int64]struct{}),
+				blockNBTs:   make(map[world.ChunkPos]map[cube.Pos]*dummyBlock),
 			},
 		},
 		storedChunks: make(map[world.ChunkPos]bool),
@@ -188,18 +222,18 @@ func newWorldState(cf func(world.ChunkPos, *chunk.Chunk)) (*worldState, error) {
 	return w, nil
 }
 
-func (w *worldState) storeChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cube.Pos]world.Block) {
+func (w *worldState) storeChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cube.Pos]*dummyBlock) {
 	w.storedChunks[pos] = true
 	w.State().storeChunk(pos, w.dimension, ch, blockNBT)
 }
 
 func (w *worldState) initDeferred() {
 	w.deferredState = &worldStateDefer{
-		chunks:    make(map[world.ChunkPos]*chunk.Chunk),
-		blockNBTs: make(map[world.ChunkPos]map[cube.Pos]world.Block),
+		chunks: make(map[world.ChunkPos]*chunk.Chunk),
 		worldStateEnt: worldStateEnt{
 			entities:    make(map[uint64]*entityState),
 			entityLinks: make(map[int64]map[int64]struct{}),
+			blockNBTs:   make(map[world.ChunkPos]map[cube.Pos]*dummyBlock),
 		},
 	}
 }
@@ -277,6 +311,11 @@ func (w *worldState) Rename(name, folder string) error {
 
 func (w *worldState) Finish(playerData map[string]any, spawn cube.Pos, gd minecraft.GameData, bp *behaviourpack.BehaviourPack) error {
 	err := w.state.saveEntities(w.excludeMobs, w.dimension)
+	if err != nil {
+		return err
+	}
+
+	err = w.state.saveBlockNBTs(w.dimension)
 	if err != nil {
 		return err
 	}
