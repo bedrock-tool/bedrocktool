@@ -100,6 +100,8 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 
 func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) error {
 	var chunks = make(map[world.ChunkPos]*chunk.Chunk)
+	var blockNBTs = make(map[world.ChunkPos]map[cube.Pos]world.Block)
+
 	for _, ent := range pk.SubChunkEntries {
 		if ent.Result != protocol.SubChunkResultSuccess {
 			continue
@@ -118,9 +120,8 @@ func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) error {
 			return err
 		}
 		chunks[pos] = col.Chunk
+		blockNBTs[pos] = make(map[cube.Pos]world.Block)
 	}
-
-	var blockNBTs = make(map[world.ChunkPos]map[cube.Pos]world.Block)
 
 	for _, ent := range pk.SubChunkEntries {
 		var (
@@ -149,8 +150,6 @@ func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) error {
 			ch := chunks[pos]
 			ch.Sub()[index] = sub
 
-			blockNBTs[pos] = make(map[cube.Pos]world.Block)
-
 			if buf.Len() > 0 {
 				dec := nbt.NewDecoderWithEncoding(buf, nbt.NetworkLittleEndian)
 				for buf.Len() > 0 {
@@ -162,8 +161,10 @@ func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) error {
 					x := int(blockNBT["x"].(int32))
 					y := int(blockNBT["y"].(int32))
 					z := int(blockNBT["z"].(int32))
+					id := blockNBT["id"].(string)
+
 					blockNBTs[pos][cube.Pos{x, y, z}] = &dummyBlock{
-						id:  blockNBT["id"].(string),
+						id:  id,
 						nbt: blockNBT,
 					}
 				}
