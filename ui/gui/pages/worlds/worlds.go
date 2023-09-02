@@ -7,7 +7,6 @@ import (
 
 	"gioui.org/layout"
 	"gioui.org/op/paint"
-	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
@@ -84,19 +83,12 @@ func displayWorldEntry(gtx C, th *material.Theme, entry *messages.SavedWorld) D 
 }
 
 func (p *Page) Layout(gtx C, th *material.Theme) D {
-	margin := layout.Inset{
-		Top:    unit.Dp(25),
-		Bottom: unit.Dp(25),
-		Right:  unit.Dp(35),
-		Left:   unit.Dp(35),
-	}
-
-	return margin.Layout(gtx, func(gtx C) D {
-		switch p.State {
-		case messages.UIStateMain:
-			// show the main ui
-			return p.worldMap.Layout(gtx)
-		case messages.UIStateFinished:
+	switch p.State {
+	case messages.UIStateMain:
+		// show the main ui
+		return p.worldMap.Layout(gtx)
+	case messages.UIStateFinished:
+		return layout.UniformInset(25).Layout(gtx, func(gtx C) D {
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 				layout.Rigid(func(gtx C) D {
 					return layout.UniformInset(15).
@@ -111,10 +103,10 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 					})
 				}),
 			)
-		default:
-			return D{}
-		}
-	})
+		})
+	default:
+		return D{}
+	}
 }
 
 func (u *Page) Handler(data any) messages.MessageResponse {
@@ -126,7 +118,6 @@ func (u *Page) Handler(data any) messages.MessageResponse {
 	switch m := data.(type) {
 	case messages.SetUIState:
 		u.State = m
-		u.State = messages.UIStateMain
 		u.Router.Invalidate()
 		r.Ok = true
 	case messages.UpdateMap:
