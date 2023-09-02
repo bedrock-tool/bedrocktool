@@ -31,7 +31,7 @@ func (httpRequester *trequester) Fetch(url string) (io.ReadCloser, error) {
 	// set user agent to know what versions are run
 	h, _ := os.Hostname()       // sent as crc32 hashed
 	v, _ := mem.VirtualMemory() // how much ram you have
-	req.Header.Add("User-Agent", fmt.Sprintf("%s '%s' %d %d %d", cmdName, Version, crc32.ChecksumIEEE([]byte(h)), runtime.NumCPU(), v.Total))
+	req.Header.Add("User-Agent", fmt.Sprintf("%s '%s' %d %d %d", CmdName, Version, crc32.ChecksumIEEE([]byte(h)), runtime.NumCPU(), v.Total))
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -50,6 +50,6 @@ var Updater = &selfupdate.Updater{
 	ApiURL:         updateServer,
 	BinURL:         updateServer,
 	Dir:            "update/",
-	CmdName:        cmdName,
+	CmdName:        CmdName,
 	Requester:      &trequester{},
 }
