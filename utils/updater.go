@@ -13,7 +13,7 @@ import (
 )
 
 var Version string
-var cmdName = "bedrocktool"
+var CmdName = "invalid"
 
 var UpdateAvailable string
 
