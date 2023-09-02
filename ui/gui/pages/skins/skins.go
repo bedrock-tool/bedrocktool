@@ -18,7 +18,7 @@ type (
 )
 
 type Page struct {
-	*pages.Router
+	router *pages.Router
 
 	State     messages.UIState
 	SkinsList widget.List
@@ -28,7 +28,7 @@ type Page struct {
 
 func New(router *pages.Router) *Page {
 	return &Page{
-		Router: router,
+		router: router,
 		SkinsList: widget.List{
 			List: layout.List{
 				Axis: layout.Vertical,
@@ -104,13 +104,13 @@ func (p *Page) Handler(data interface{}) messages.MessageResponse {
 	switch m := data.(type) {
 	case messages.SetUIState:
 		p.State = m
-		p.Router.Invalidate()
+		p.router.Invalidate()
 		r.Ok = true
 	case messages.NewSkin:
 		p.l.Lock()
 		p.Skins = append(p.Skins, m)
 		p.l.Unlock()
-		p.Router.Invalidate()
+		p.router.Invalidate()
 		r.Ok = true
 	}
 	return r

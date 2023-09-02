@@ -40,9 +40,10 @@ type rpHandler struct {
 	stack                        *packet.ResourcePackStack
 	remotePackIds                []string
 	OnResourcePacksInfoCB        func()
+	OnFinishedPack               func(*resource.Pack)
 }
 
-func newRpHandler(ctx context.Context, server, client minecraft.IConn, onInfo func()) *rpHandler {
+func newRpHandler(ctx context.Context, server, client minecraft.IConn) *rpHandler {
 	r := &rpHandler{
 		Server: server,
 		Client: client,
@@ -57,7 +58,6 @@ func newRpHandler(ctx context.Context, server, client minecraft.IConn, onInfo fu
 		},
 		receivedRemotePackInfo: make(chan struct{}),
 		receivedRemoteStack:    make(chan struct{}),
-		OnResourcePacksInfoCB:  onInfo,
 	}
 	if r.Client != nil {
 		r.nextPack = make(chan *resource.Pack)
@@ -112,7 +112,9 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 				uuid:    pack.UUID,
 				version: pack.Version,
 			})
-			r.resourcePacks = append(r.resourcePacks, r.cache.Get(pack.UUID+"_"+pack.Version).WithContentKey(pack.ContentKey))
+			newPack := r.cache.Get(pack.UUID + "_" + pack.Version).WithContentKey(pack.ContentKey)
+			r.resourcePacks = append(r.resourcePacks, newPack)
+			r.OnFinishedPack(newPack)
 			r.queue.serverPackAmount--
 			continue
 		}
@@ -228,6 +230,7 @@ func (r *rpHandler) OnResourcePackDataInfo(pk *packet.ResourcePackDataInfo) erro
 		r.queue.serverPackAmount--
 		// Finally we add the resource to the resource packs slice.
 		r.resourcePacks = append(r.resourcePacks, newPack)
+		r.OnFinishedPack(newPack)
 		r.cache.Put(newPack)
 
 		// if theres a client and the client needs resource packs send it to its queue

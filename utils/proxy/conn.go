@@ -8,11 +8,16 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/login"
+	"github.com/sandertv/gophertunnel/minecraft/resource"
 	"github.com/sirupsen/logrus"
 )
 
 func (p *Context) onResourcePacksInfo() {
 	p.ui.Message(messages.ConnectStateReceivingResources)
+}
+
+func (p *Context) onFinishedPack(pack *resource.Pack) {
+	p.ui.Message(messages.FinishedPack{Pack: pack})
 }
 
 func (p *Context) connectServer(ctx context.Context) (err error) {
@@ -43,7 +48,9 @@ func (p *Context) connectServer(ctx context.Context) (err error) {
 			if p.WithClient {
 				p.rpHandler.Server = c
 			} else {
-				p.rpHandler = newRpHandler(ctx, c, nil, p.onResourcePacksInfo)
+				p.rpHandler = newRpHandler(ctx, c, nil)
+				p.rpHandler.OnResourcePacksInfoCB = p.onResourcePacksInfo
+				p.rpHandler.OnFinishedPack = p.onFinishedPack
 			}
 			c.ResourcePackHandler = p.rpHandler
 		},
@@ -68,7 +75,9 @@ func (p *Context) connectClient(ctx context.Context, serverAddress string, cdpp 
 		},
 		EarlyConnHandler: func(c *minecraft.Conn) {
 			p.Client = c
-			p.rpHandler = newRpHandler(ctx, nil, c, p.onResourcePacksInfo)
+			p.rpHandler = newRpHandler(ctx, nil, c)
+			p.rpHandler.OnResourcePacksInfoCB = p.onResourcePacksInfo
+			p.rpHandler.OnFinishedPack = p.onFinishedPack
 			c.ResourcePackHandler = p.rpHandler
 			close(p.clientConnecting)
 		},

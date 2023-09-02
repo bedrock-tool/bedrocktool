@@ -31,6 +31,7 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft/nbt"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
+	"github.com/sandertv/gophertunnel/minecraft/resource"
 	"github.com/sirupsen/logrus"
 )
 
@@ -333,7 +334,7 @@ func (w *worldsHandler) preloadReplay() error {
 		if err != nil {
 			logrus.Error(err)
 		}
-	}, func() {})
+	}, func() {}, func(p *resource.Pack) {})
 	if err != nil {
 		return err
 	}

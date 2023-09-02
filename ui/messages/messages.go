@@ -4,6 +4,7 @@ import (
 	"image"
 
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
+	"github.com/sandertv/gophertunnel/minecraft/resource"
 )
 
 type MessageResponse struct {
@@ -96,16 +97,16 @@ type PackDownloadProgress struct {
 }
 
 type DownloadedPack struct {
-	UUID string
-	Name string
 	Path string
-	Size int
-	Icon image.Image
 	Err  error
 }
 
 type FinishedDownloadingPacks struct {
-	Packs []*DownloadedPack
+	Packs map[string]*DownloadedPack
+}
+
+type FinishedPack struct {
+	Pack *resource.Pack
 }
 
 type UpdateAvailable struct {

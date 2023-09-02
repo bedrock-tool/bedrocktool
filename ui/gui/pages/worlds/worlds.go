@@ -20,7 +20,7 @@ type (
 )
 
 type Page struct {
-	*pages.Router
+	router *pages.Router
 
 	worldMap   *Map2
 	State      messages.UIState
@@ -35,7 +35,7 @@ type Page struct {
 
 func New(router *pages.Router) *Page {
 	return &Page{
-		Router: router,
+		router: router,
 		worldMap: &Map2{
 			images:   make(map[image.Point]*image.RGBA),
 			imageOps: make(map[image.Point]paint.ImageOp),
@@ -118,26 +118,26 @@ func (u *Page) Handler(data any) messages.MessageResponse {
 	switch m := data.(type) {
 	case messages.SetUIState:
 		u.State = m
-		u.Router.Invalidate()
+		u.router.Invalidate()
 		r.Ok = true
 	case messages.UpdateMap:
 		u.chunkCount = m.ChunkCount
 		u.worldMap.Update(&m)
-		u.Router.Invalidate()
+		u.router.Invalidate()
 		r.Ok = true
 	case messages.SetVoidGen:
 		u.voidGen = m.Value
-		u.Router.Invalidate()
+		u.router.Invalidate()
 		r.Ok = true
 	case messages.SetWorldName:
 		u.worldName = m.WorldName
-		u.Router.Invalidate()
+		u.router.Invalidate()
 		r.Ok = true
 	case messages.SavingWorld:
 		u.l.Lock()
 		u.worlds = append(u.worlds, m.World)
 		u.l.Unlock()
-		u.Router.Invalidate()
+		u.router.Invalidate()
 		r.Ok = true
 	}
 	return r
