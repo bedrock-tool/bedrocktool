@@ -97,6 +97,7 @@ func (r *Router) SwitchTo(tag string) {
 	}
 	p, ok := r.pages[tag]
 	if !ok {
+		logrus.Errorf("unknown page %s", tag)
 		return
 	}
 	navItem := p.NavItem()
@@ -107,6 +108,7 @@ func (r *Router) SwitchTo(tag string) {
 		actions = append(actions, component.SimpleIconAction(r.UpdateButton, &icons.ActionUpdate, component.OverflowAction{}))
 	}
 	r.AppBar.SetActions(actions, p.Overflow())
+	r.Invalidate()
 }
 
 func (r *Router) PushPopup(p Popup) {

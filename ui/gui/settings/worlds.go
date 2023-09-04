@@ -4,7 +4,6 @@ import (
 	"gioui.org/layout"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"gioui.org/x/component"
 	"gioui.org/x/outlay"
 	"github.com/bedrock-tool/bedrocktool/subcommands/world"
 	"github.com/bedrock-tool/bedrocktool/utils"
@@ -65,13 +64,7 @@ func (s *worldSettings) Layout(gtx layout.Context, th *material.Theme) layout.Di
 				}
 				panic("unreachable")
 			}, func(gtx layout.Context, row, col int) layout.Dimensions {
-				return component.Surface(&material.Theme{
-					Palette: material.Palette{
-						Bg: component.WithAlpha(th.ContrastFg, 8),
-					},
-				}).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return layout.UniformInset(5).Layout(gtx, s.options[row][col])
-				})
+				return layoutOption(gtx, th, s.options[row][col])
 			})
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {

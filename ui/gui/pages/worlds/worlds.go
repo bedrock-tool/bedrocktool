@@ -31,6 +31,8 @@ type Page struct {
 	worldsList widget.List
 	worlds     []*messages.SavedWorld
 	l          sync.Mutex
+
+	back widget.Clickable
 }
 
 func New(router *pages.Router) *Page {
@@ -71,36 +73,57 @@ func (p *Page) NavItem() component.NavItem {
 
 func displayWorldEntry(gtx C, th *material.Theme, entry *messages.SavedWorld) D {
 	return layout.UniformInset(5).Layout(gtx, func(gtx C) D {
-		return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-			layout.Rigid(func(gtx C) D {
-				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-					layout.Rigid(material.Label(th, th.TextSize, entry.Name).Layout),
-					layout.Rigid(material.Label(th, th.TextSize, fmt.Sprintf("%d Chunks", entry.Chunks)).Layout),
-				)
-			}),
-		)
+		return component.Surface(&material.Theme{
+			Palette: material.Palette{
+				Bg: component.WithAlpha(th.ContrastFg, 8),
+			},
+		}).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+				layout.Rigid(material.Label(th, th.TextSize, entry.Name).Layout),
+				layout.Rigid(material.Label(th, th.TextSize, fmt.Sprintf("%d Chunks", entry.Chunks)).Layout),
+				layout.Rigid(material.Label(th, th.TextSize, fmt.Sprintf("%d Entities", entry.Entities)).Layout),
+			)
+		})
 	})
 }
 
 func (p *Page) Layout(gtx C, th *material.Theme) D {
+	if p.back.Clicked() {
+		p.router.SwitchTo("settings")
+		return D{}
+	}
+
 	switch p.State {
 	case messages.UIStateMain:
 		// show the main ui
 		return p.worldMap.Layout(gtx)
 	case messages.UIStateFinished:
 		return layout.UniformInset(25).Layout(gtx, func(gtx C) D {
-			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-				layout.Rigid(func(gtx C) D {
-					return layout.UniformInset(15).
-						Layout(gtx, material.Label(th, 20, "Worlds Saved").Layout)
-				}),
-				layout.Flexed(1, func(gtx C) D {
-					p.l.Lock()
-					defer p.l.Unlock()
-					return material.List(th, &p.worldsList).Layout(gtx, len(p.worlds), func(gtx C, index int) D {
-						entry := p.worlds[len(p.worlds)-index-1]
-						return displayWorldEntry(gtx, th, entry)
+			return layout.Flex{
+				Axis:    layout.Vertical,
+				Spacing: layout.SpaceBetween,
+			}.Layout(gtx,
+				layout.Flexed(0.9, func(gtx C) D {
+					return layout.UniformInset(15).Layout(gtx, func(gtx C) D {
+						return layout.Flex{
+							Axis: layout.Vertical,
+						}.Layout(gtx,
+							layout.Rigid(material.Label(th, 20, "Worlds Saved").Layout),
+							layout.Flexed(1, func(gtx C) D {
+								p.l.Lock()
+								defer p.l.Unlock()
+								return material.List(th, &p.worldsList).Layout(gtx, len(p.worlds), func(gtx C, index int) D {
+									entry := p.worlds[len(p.worlds)-index-1]
+									return displayWorldEntry(gtx, th, entry)
+								})
+							}),
+						)
 					})
+				}),
+				layout.Flexed(0.1, func(gtx layout.Context) layout.Dimensions {
+					gtx.Constraints.Max.Y = gtx.Dp(40)
+					gtx.Constraints.Max.X = gtx.Constraints.Max.X / 6
+					return material.Button(th, &p.back, "Return").Layout(gtx)
 				}),
 			)
 		})

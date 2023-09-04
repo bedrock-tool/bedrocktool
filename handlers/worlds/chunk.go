@@ -193,11 +193,11 @@ func (w *worldsHandler) handleChunkPackets(pk packet.Packet) packet.Packet {
 		w.processLevelChunk(pk)
 	case *packet.SubChunk:
 		w.processSubChunk(pk)
+	case *packet.BlockActorData:
+		p := pk.Position
+		pos := cube.Pos{int(p.X()), int(p.Y()), int(p.Z())}
+		w.worldState.state.SetMergeBlockNBT(pos, pk.NBTData)
 		/*
-			case *packet.BlockActorData:
-				p := pk.Position
-				w.worldState.state().blockNBTs[cube.Pos{int(p.X()), int(p.Y()), int(p.Z())}] = pk.NBTData
-
 			case *packet.UpdateBlock:
 				if w.settings.BlockUpdates {
 					cp := world.ChunkPos{pk.Position.X() >> 4, pk.Position.Z() >> 4}

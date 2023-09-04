@@ -128,7 +128,10 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 	}
 
 	return layout.UniformInset(7).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		d := layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+		d := layout.Flex{
+			Axis:    layout.Vertical,
+			Spacing: layout.SpaceBetween,
+		}.Layout(gtx,
 			// Select Command Button
 			layout.Rigid(func(gtx C) D {
 				return layout.Inset{
@@ -158,33 +161,35 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 				})
 			}),
 
-			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+			layout.Flexed(0.8, func(gtx layout.Context) (d layout.Dimensions) {
 				if p.cmdMenu.selected == "" {
-					return layout.Dimensions{}
-				}
-				s, ok := settings.Settings[p.cmdMenu.selected]
-				if !ok {
-					return layout.Center.Layout(gtx, material.H4(th, "No Settings Yet (Use CLI)").Layout)
+					d = layout.Center.Layout(gtx, material.H5(th, "Select a Mode").Layout)
 				} else {
-					return layout.UniformInset(15).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						return s.Layout(gtx, th)
-					})
+					s, ok := settings.Settings[p.cmdMenu.selected]
+					if !ok {
+						d = layout.Center.Layout(gtx, material.H5(th, "No Settings Yet (Use CLI)").Layout)
+					} else {
+						d = layout.UniformInset(15).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							return s.Layout(gtx, th)
+						})
+					}
 				}
+				d.Size.Y = gtx.Constraints.Max.Y
+				return d
 			}),
 
 			// Start Button
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			layout.Flexed(0.15, func(gtx layout.Context) layout.Dimensions {
 				return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.Inset{
 						Top:    unit.Dp(15),
 						Bottom: unit.Dp(15),
 					}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						gtx.Constraints = layout.Constraints{
-							Min: image.Pt(300, 50),
-							Max: image.Pt(400, 50),
+							Min: image.Pt(300, gtx.Constraints.Max.Y),
+							Max: image.Pt(gtx.Constraints.Max.X/3, gtx.Constraints.Max.Y),
 						}
-						btn := material.Button(th, &p.startButton, "Start")
-						return btn.Layout(gtx)
+						return material.Button(th, &p.startButton, "Start").Layout(gtx)
 					})
 				})
 			}),

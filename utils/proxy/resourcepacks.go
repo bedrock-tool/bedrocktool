@@ -88,7 +88,9 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 				uuid:    pack.UUID,
 				version: pack.Version,
 			})
-			r.resourcePacks = append(r.resourcePacks, r.cache.Get(pack.UUID+"_"+pack.Version).WithContentKey(pack.ContentKey))
+			newPack := r.cache.Get(pack.UUID + "_" + pack.Version).WithContentKey(pack.ContentKey)
+			r.resourcePacks = append(r.resourcePacks, newPack)
+			r.OnFinishedPack(newPack)
 			r.queue.serverPackAmount--
 			continue
 		}

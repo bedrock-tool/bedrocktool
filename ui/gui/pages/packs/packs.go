@@ -31,6 +31,7 @@ type Page struct {
 	packsList widget.List
 	l         sync.Mutex
 	Packs     []*packEntry
+	back      widget.Clickable
 }
 
 type packEntry struct {
@@ -118,53 +119,49 @@ func drawPackEntry(gtx C, th *material.Theme, pack *packEntry) D {
 		colorSize = color.NRGBA{0x00, 0xc9, 0xc9, 0xff}
 	}
 
-	return layout.UniformInset(5).Layout(gtx, func(gtx C) D {
+	return layout.Inset{
+		Top:    5,
+		Bottom: 5,
+		Left:   0,
+		Right:  5,
+	}.Layout(gtx, func(gtx C) D {
 		fn := func(gtx C) D {
-			return layout.Stack{}.Layout(gtx,
-				layout.Expanded(func(gtx layout.Context) layout.Dimensions {
-					return component.Rect{
-						Color: component.WithAlpha(th.Fg, 20),
-						Size:  gtx.Constraints.Min,
-						Radii: gtx.Dp(5),
-					}.Layout(gtx)
-				}),
-				layout.Stacked(func(gtx C) D {
-					return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-						layout.Rigid(func(gtx C) D {
-							return drawPackIcon(gtx, pack.HasIcon, pack.Icon, image.Pt(50, 50))
-						}),
-						layout.Flexed(1, func(gtx C) D {
-							return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-								layout.Rigid(material.Label(th, th.TextSize, pack.Name).Layout),
-								layout.Rigid(material.LabelStyle{
-									Text:           size,
-									Color:          colorSize,
-									SelectionColor: MulAlpha(th.Palette.ContrastBg, 0x60),
-									TextSize:       th.TextSize,
-									Shaper:         th.Shaper,
-								}.Layout),
-								layout.Rigid(func(gtx C) D {
-									if pack.Err != nil {
-										return material.LabelStyle{
-											Color: color.NRGBA{0xbb, 0x00, 0x00, 0xff},
-											Text:  pack.Err.Error(),
-										}.Layout(gtx)
-									}
-									return D{}
-								}),
-							)
-						}),
-					)
-				}),
-			)
+			return component.Surface(&material.Theme{
+				Palette: material.Palette{
+					Bg: component.WithAlpha(th.Fg, 10),
+				},
+			}).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+					layout.Rigid(func(gtx C) D {
+						return drawPackIcon(gtx, pack.HasIcon, pack.Icon, image.Pt(50, 50))
+					}),
+					layout.Flexed(1, func(gtx C) D {
+						return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+							layout.Rigid(material.Label(th, th.TextSize, pack.Name).Layout),
+							layout.Rigid(material.LabelStyle{
+								Text:           size,
+								Color:          colorSize,
+								SelectionColor: MulAlpha(th.Palette.ContrastBg, 0x60),
+								TextSize:       th.TextSize,
+								Shaper:         th.Shaper,
+							}.Layout),
+							layout.Rigid(func(gtx C) D {
+								if pack.Err != nil {
+									return material.LabelStyle{
+										Color: color.NRGBA{0xbb, 0x00, 0x00, 0xff},
+										Text:  pack.Err.Error(),
+									}.Layout(gtx)
+								}
+								return D{}
+							}),
+						)
+					}),
+				)
+			})
 		}
 
 		if pack.Path != "" {
-			return material.ButtonLayoutStyle{
-				Background:   MulAlpha(th.Palette.Bg, 0x60),
-				Button:       &pack.button,
-				CornerRadius: 3,
-			}.Layout(gtx, fn)
+			return material.Clickable(gtx, &pack.button, fn)
 		} else {
 			return fn(gtx)
 		}
@@ -172,7 +169,7 @@ func drawPackEntry(gtx C, th *material.Theme, pack *packEntry) D {
 	})
 }
 
-func (p *Page) layoutFinished(gtx C, th *material.Theme) D {
+func (p *Page) Layout(gtx C, th *material.Theme) D {
 	for _, pack := range p.Packs {
 		if pack.button.Clicked() {
 			if pack.IsFinished {
@@ -181,37 +178,54 @@ func (p *Page) layoutFinished(gtx C, th *material.Theme) D {
 		}
 	}
 
+	if p.back.Clicked() {
+		p.router.SwitchTo("settings")
+		return D{}
+	}
+
 	var title = "Downloading Packs"
 	if p.finished {
 		title = "Downloaded Packs"
 	}
 
-	return layout.Center.Layout(gtx, func(gtx C) D {
-		return layout.Flex{
-			Axis: layout.Vertical,
-		}.Layout(gtx,
-			layout.Rigid(material.Label(th, 20, title).Layout),
-			layout.Flexed(1, func(gtx C) D {
-				p.l.Lock()
-				defer p.l.Unlock()
-
-				return material.List(th, &p.packsList).Layout(gtx, len(p.Packs), func(gtx C, index int) D {
-					pack := p.Packs[index]
-					return drawPackEntry(gtx, th, pack)
-				})
-			}),
-		)
-	})
-}
-
-func (p *Page) Layout(gtx C, th *material.Theme) D {
 	return layout.Inset{
 		Top:    unit.Dp(25),
 		Bottom: unit.Dp(25),
 		Right:  unit.Dp(35),
 		Left:   unit.Dp(35),
 	}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return p.layoutFinished(gtx, th)
+		return layout.Flex{
+			Axis:    layout.Vertical,
+			Spacing: layout.SpaceBetween,
+		}.Layout(gtx,
+			layout.Flexed(0.9, func(gtx C) D {
+				return layout.Flex{
+					Axis: layout.Vertical,
+				}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						return layout.Inset{
+							Bottom: 5,
+						}.Layout(gtx, material.Label(th, 20, title).Layout)
+					}),
+					layout.Flexed(1, func(gtx C) D {
+						p.l.Lock()
+						defer p.l.Unlock()
+
+						return material.List(th, &p.packsList).Layout(gtx, len(p.Packs), func(gtx C, index int) D {
+							pack := p.Packs[index]
+							return drawPackEntry(gtx, th, pack)
+						})
+					}),
+				)
+			}),
+			layout.Flexed(0.1, func(gtx layout.Context) layout.Dimensions {
+				return layout.UniformInset(5).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					gtx.Constraints.Max.Y = gtx.Dp(40)
+					gtx.Constraints.Max.X = gtx.Constraints.Max.X / 6
+					return material.Button(th, &p.back, "Return").Layout(gtx)
+				})
+			}),
+		)
 	})
 }
 

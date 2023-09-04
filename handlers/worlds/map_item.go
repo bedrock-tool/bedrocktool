@@ -255,14 +255,11 @@ func (m *MapUI) Redraw() {
 		}
 	}
 	if m.showOnGui {
-		min, max := m.GetBounds()
 		m.w.ui.Message(messages.UpdateMap{
 			ChunkCount:    len(m.renderedChunks),
 			Rotation:      m.w.proxy.Player.Yaw,
 			UpdatedChunks: updatedChunks,
 			Chunks:        m.renderedChunks,
-			BoundsMin:     min,
-			BoundsMax:     max,
 		})
 	}
 }

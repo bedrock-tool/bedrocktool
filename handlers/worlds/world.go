@@ -418,9 +418,10 @@ func (w *worldsHandler) SaveAndReset(end bool) {
 
 	w.ui.Message(messages.SavingWorld{
 		World: &messages.SavedWorld{
-			Name:   w.worldState.Name,
-			Path:   filename,
-			Chunks: len(w.worldState.storedChunks),
+			Name:     w.worldState.Name,
+			Path:     filename,
+			Chunks:   len(w.worldState.storedChunks),
+			Entities: len(w.worldState.state.entities),
 		},
 	})
 

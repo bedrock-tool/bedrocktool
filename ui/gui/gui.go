@@ -77,8 +77,6 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelCauseFunc) (err er
 	g.router.Register(update.New(g.router))
 	utils.Auth.MSHandler = g.router.MSAuth
 
-	g.router.SwitchTo("Settings")
-
 	go func() {
 		app.Main()
 	}()

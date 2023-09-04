@@ -4,7 +4,6 @@ import (
 	"gioui.org/layout"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"gioui.org/x/component"
 	"gioui.org/x/outlay"
 	"github.com/bedrock-tool/bedrocktool/subcommands/skins"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
@@ -46,20 +45,14 @@ func (s *skinsSettings) Layout(gtx layout.Context, th *material.Theme) layout.Di
 				}
 				panic("unreachable")
 			}, func(gtx layout.Context, row, col int) layout.Dimensions {
-				return component.Surface(&material.Theme{
-					Palette: material.Palette{
-						Bg: component.WithAlpha(th.ContrastFg, 8),
-					},
-				}).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return layout.UniformInset(5).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						switch col {
-						case 0:
-							return material.CheckBox(th, &s.Proxy, "Enable Proxy").Layout(gtx)
-						case 1:
-							return material.Editor(th, &s.Filter, "Player name filter").Layout(gtx)
-						}
-						panic("unreachable")
-					})
+				return layoutOption(gtx, th, func(gtx layout.Context) layout.Dimensions {
+					switch col {
+					case 0:
+						return material.CheckBox(th, &s.Proxy, "Enable Proxy").Layout(gtx)
+					case 1:
+						return material.Editor(th, &s.Filter, "Player name filter").Layout(gtx)
+					}
+					panic("unreachable")
 				})
 			})
 		}),

@@ -26,10 +26,12 @@ type replayConnector struct {
 	packetF fs.File
 	ver     uint32
 
+	l       sync.Mutex
 	packets chan packet.Packet
-	spawn   chan struct{}
-	close   chan struct{}
-	once    sync.Once
+
+	spawn chan struct{}
+	close chan struct{}
+	once  sync.Once
 
 	pool       packet.Pool
 	proto      minecraft.Protocol
@@ -171,7 +173,14 @@ func (r *replayConnector) loop() {
 					return
 				}
 			} else {
-				r.packets <- pk
+				r.l.Lock()
+				if r.packets != nil {
+					r.packets <- pk
+					r.l.Unlock()
+				} else {
+					r.l.Unlock()
+					return
+				}
 			}
 		}
 	}
@@ -252,7 +261,10 @@ func (r *replayConnector) SetLoggedIn() {
 func (r *replayConnector) Close() error {
 	r.once.Do(func() {
 		close(r.close)
+		r.l.Lock()
 		close(r.packets)
+		r.packets = nil
+		r.l.Unlock()
 	})
 	return nil
 }

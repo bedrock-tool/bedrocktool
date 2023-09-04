@@ -349,11 +349,6 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 				cancel(err)
 				return
 			}
-			err = p.onServerConnect()
-			if err != nil {
-				cancel(err)
-				return
-			}
 		}()
 	}
 
@@ -381,6 +376,12 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 			p.disconnectReason = "Disconnect"
 		}
 		return err
+	}
+
+	err = p.onServerConnect()
+	if err != nil {
+		cancel(err)
+		return
 	}
 
 	{ // spawn

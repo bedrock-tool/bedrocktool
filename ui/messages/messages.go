@@ -63,8 +63,6 @@ type UpdateMap struct {
 	Rotation      float32
 	UpdatedChunks []protocol.ChunkPos
 	Chunks        map[protocol.ChunkPos]*image.RGBA
-	BoundsMin     protocol.ChunkPos
-	BoundsMax     protocol.ChunkPos
 }
 
 //
@@ -79,10 +77,11 @@ type SavingWorld struct {
 }
 
 type SavedWorld struct {
-	Name   string
-	Path   string
-	Chunks int
-	Image  image.Image
+	Name     string
+	Path     string
+	Chunks   int
+	Entities int
+	Image    image.Image
 }
 
 type CanShowImages struct{}
