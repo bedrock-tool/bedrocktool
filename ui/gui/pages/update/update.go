@@ -18,6 +18,8 @@ type (
 	D = layout.Dimensions
 )
 
+const ID = "update"
+
 type Page struct {
 	*pages.Router
 
@@ -27,7 +29,7 @@ type Page struct {
 	updating    bool
 }
 
-func New(router *pages.Router) *Page {
+func New(router *pages.Router) pages.Page {
 	return &Page{
 		Router: router,
 		State:  messages.UIStateMain,
@@ -37,7 +39,7 @@ func New(router *pages.Router) *Page {
 var _ pages.Page = &Page{}
 
 func (p *Page) ID() string {
-	return "update"
+	return ID
 }
 
 func (p *Page) Actions() []component.AppBarAction {

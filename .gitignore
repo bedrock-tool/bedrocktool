@@ -12,7 +12,7 @@ token*.json
 
 /bedrocktool
 /bedrocktool-*
-__debug_bin
+__debug_bin*
 
 .vscode/*
 keys.db

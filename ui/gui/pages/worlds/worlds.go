@@ -19,6 +19,8 @@ type (
 	D = layout.Dimensions
 )
 
+const ID = "worlds"
+
 type Page struct {
 	router *pages.Router
 
@@ -35,7 +37,7 @@ type Page struct {
 	back widget.Clickable
 }
 
-func New(router *pages.Router) *Page {
+func New(router *pages.Router) pages.Page {
 	return &Page{
 		router: router,
 		worldMap: &Map2{
@@ -53,7 +55,7 @@ func New(router *pages.Router) *Page {
 var _ pages.Page = &Page{}
 
 func (p *Page) ID() string {
-	return "worlds"
+	return ID
 }
 
 func (p *Page) Actions() []component.AppBarAction {

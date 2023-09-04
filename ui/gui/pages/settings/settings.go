@@ -23,6 +23,8 @@ type (
 	D = layout.Dimensions
 )
 
+const ID = "settings"
+
 type cmdItem struct {
 	Clickable *widget.Clickable
 	Text      string
@@ -42,7 +44,7 @@ type Page struct {
 	debugButton widget.Bool
 }
 
-func New(router *pages.Router) *Page {
+func New(router *pages.Router) pages.Page {
 	p := &Page{
 		router: router,
 	}
@@ -74,7 +76,7 @@ func New(router *pages.Router) *Page {
 var _ pages.Page = &Page{}
 
 func (p *Page) ID() string {
-	return "settings"
+	return ID
 }
 
 func (p *Page) Actions() []component.AppBarAction {

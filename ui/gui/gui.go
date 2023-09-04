@@ -70,11 +70,13 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelCauseFunc) (err er
 
 	g.router = pages.NewRouter(ctx, w.Invalidate, th)
 	g.router.UI = g
-	g.router.Register(settings.New(g.router))
-	g.router.Register(worlds.New(g.router))
-	g.router.Register(skins.New(g.router))
-	g.router.Register(packs.New(g.router))
-	g.router.Register(update.New(g.router))
+	g.router.Register(settings.New, settings.ID)
+	g.router.Register(worlds.New, worlds.ID)
+	g.router.Register(skins.New, skins.ID)
+	g.router.Register(packs.New, packs.ID)
+	g.router.Register(update.New, update.ID)
+	g.router.SwitchTo(settings.ID)
+
 	utils.Auth.MSHandler = g.router.MSAuth
 
 	go func() {

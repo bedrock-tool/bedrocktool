@@ -24,6 +24,8 @@ type (
 	D = layout.Dimensions
 )
 
+const ID = "packs"
+
 type Page struct {
 	router *pages.Router
 
@@ -35,6 +37,7 @@ type Page struct {
 }
 
 type packEntry struct {
+	Processing bool
 	IsFinished bool
 	UUID       string
 
@@ -49,7 +52,7 @@ type packEntry struct {
 	Err    error
 }
 
-func New(router *pages.Router) *Page {
+func New(router *pages.Router) pages.Page {
 	return &Page{
 		router: router,
 		packsList: widget.List{
@@ -61,7 +64,7 @@ func New(router *pages.Router) *Page {
 }
 
 func (p *Page) ID() string {
-	return "packs"
+	return ID
 }
 
 var _ pages.Page = &Page{}
@@ -120,10 +123,8 @@ func drawPackEntry(gtx C, th *material.Theme, pack *packEntry) D {
 	}
 
 	return layout.Inset{
-		Top:    5,
-		Bottom: 5,
-		Left:   0,
-		Right:  5,
+		Top: 5, Bottom: 5,
+		Left: 0, Right: 5,
 	}.Layout(gtx, func(gtx C) D {
 		fn := func(gtx C) D {
 			return component.Surface(&material.Theme{
@@ -146,13 +147,36 @@ func drawPackEntry(gtx C, th *material.Theme, pack *packEntry) D {
 								Shaper:         th.Shaper,
 							}.Layout),
 							layout.Rigid(func(gtx C) D {
+								var c color.NRGBA
+								t := ""
+
 								if pack.Err != nil {
-									return material.LabelStyle{
-										Color: color.NRGBA{0xbb, 0x00, 0x00, 0xff},
-										Text:  pack.Err.Error(),
-									}.Layout(gtx)
+									c = color.NRGBA{0xbb, 0x00, 0x00, 0xff}
+									t = pack.Err.Error()
+								} else if pack.Processing {
+									c = th.Fg
+									t = "Processing"
+								} else if pack.IsFinished {
+									c = th.Fg
+									t = "Finished"
+								} else if pack.Loaded == pack.Size {
+									c = th.Fg
+									t = "Downloaded"
+								} else {
+									c = th.Fg
+									t = "Downloading"
 								}
-								return D{}
+
+								if t != "" {
+									return material.LabelStyle{
+										TextSize: th.TextSize,
+										Color:    c,
+										Text:     t,
+										Shaper:   th.Shaper,
+									}.Layout(gtx)
+								} else {
+									return D{}
+								}
 							}),
 						)
 					}),
@@ -193,7 +217,7 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 		Bottom: unit.Dp(25),
 		Right:  unit.Dp(35),
 		Left:   unit.Dp(35),
-	}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+	}.Layout(gtx, func(gtx C) D {
 		return layout.Flex{
 			Axis:    layout.Vertical,
 			Spacing: layout.SpaceBetween,
@@ -202,7 +226,7 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 				return layout.Flex{
 					Axis: layout.Vertical,
 				}.Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					layout.Rigid(func(gtx C) D {
 						return layout.Inset{
 							Bottom: 5,
 						}.Layout(gtx, material.Label(th, 20, title).Layout)
@@ -218,8 +242,8 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 					}),
 				)
 			}),
-			layout.Flexed(0.1, func(gtx layout.Context) layout.Dimensions {
-				return layout.UniformInset(5).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			layout.Flexed(0.1, func(gtx C) D {
+				return layout.UniformInset(5).Layout(gtx, func(gtx C) D {
 					gtx.Constraints.Max.Y = gtx.Dp(40)
 					gtx.Constraints.Max.X = gtx.Constraints.Max.X / 6
 					return material.Button(th, &p.back, "Return").Layout(gtx)
@@ -258,9 +282,6 @@ func (p *Page) Handler(data interface{}) messages.MessageResponse {
 		for _, pe := range p.Packs {
 			if pe.UUID == m.UUID {
 				pe.Loaded += m.LoadedAdd
-				if pe.Loaded == pe.Size {
-					pe.IsFinished = true
-				}
 				break
 			}
 		}
@@ -275,22 +296,22 @@ func (p *Page) Handler(data interface{}) messages.MessageResponse {
 					pe.HasIcon = true
 				}
 				pe.Loaded = pe.Size
-				pe.IsFinished = true
 				break
 			}
 		}
 
-	case messages.FinishedDownloadingPacks:
-		p.finished = true
+	case messages.ProcessingPack:
 		p.l.Lock()
 		for _, pe := range p.Packs {
-			dp, ok := m.Packs[pe.UUID]
-			if !ok {
-				continue
+			if pe.UUID == m.ID {
+				pe.Processing = m.Processing
+				pe.Err = m.Err
+				if m.Path != "" {
+					pe.Path = m.Path
+					pe.IsFinished = true
+				}
+				break
 			}
-			pe.Err = dp.Err
-			pe.IsFinished = true
-			pe.Path = dp.Path
 		}
 		p.l.Unlock()
 		p.router.Invalidate()

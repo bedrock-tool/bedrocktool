@@ -100,12 +100,15 @@ type DownloadedPack struct {
 	Err  error
 }
 
-type FinishedDownloadingPacks struct {
-	Packs map[string]*DownloadedPack
-}
-
 type FinishedPack struct {
 	Pack *resource.Pack
+}
+
+type ProcessingPack struct {
+	ID         string
+	Processing bool
+	Path       string
+	Err        error
 }
 
 type UpdateAvailable struct {

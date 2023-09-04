@@ -3,7 +3,6 @@ package pages
 import (
 	"context"
 	"log"
-	"strings"
 	"sync"
 	"time"
 
@@ -28,15 +27,16 @@ type Router struct {
 	MSAuth     *guiAuth
 	Invalidate func()
 
-	Theme *material.Theme
+	Theme   *material.Theme
+	pages   map[string]func(*Router) Page
+	current Page
 
-	pages   map[string]Page
-	current string
-	*component.ModalNavDrawer
-	NavAnim component.VisibilityAnimation
-	*component.AppBar
-	*component.ModalLayer
-	NonModalDrawer, BottomBar bool
+	ModalNavDrawer *component.ModalNavDrawer
+	NavAnim        component.VisibilityAnimation
+	AppBar         *component.AppBar
+	ModalLayer     *component.ModalLayer
+	NonModalDrawer bool
+	BottomBar      bool
 
 	UpdateButton    *widget.Clickable
 	updateAvailable bool
@@ -61,8 +61,8 @@ func NewRouter(ctx context.Context, invalidate func(), th *material.Theme) *Rout
 		Ctx:            ctx,
 		Invalidate:     invalidate,
 		Theme:          th,
+		pages:          make(map[string]func(*Router) Page),
 		MSAuth:         &guiAuth{},
-		pages:          make(map[string]Page),
 		ModalLayer:     modal,
 		ModalNavDrawer: modalNav,
 		AppBar:         bar,
@@ -74,34 +74,20 @@ func NewRouter(ctx context.Context, invalidate func(), th *material.Theme) *Rout
 	return r
 }
 
-func (r *Router) Register(p Page) {
-	r.pages[p.ID()] = p
-	navItem := p.NavItem()
-	navItem.Tag = p.ID()
-	if r.current == "" {
-		r.current = p.ID()
-		r.AppBar.Title = navItem.Name
-		r.AppBar.SetActions(p.Actions(), p.Overflow())
-	}
-	r.ModalNavDrawer.AddNavItem(navItem)
-}
-
-func (r *Router) SwitchToPageTemp(p Page) {
-	r.pages[p.ID()+"_temp"] = p
-	r.SwitchTo(p.ID() + "_temp")
+func (r *Router) Register(p func(*Router) Page, id string) {
+	r.pages[id] = p
 }
 
 func (r *Router) SwitchTo(tag string) {
-	if strings.HasSuffix(r.current, "_temp") {
-		delete(r.pages, r.current)
-	}
-	p, ok := r.pages[tag]
+	pf, ok := r.pages[tag]
 	if !ok {
 		logrus.Errorf("unknown page %s", tag)
 		return
 	}
+	p := pf(r)
+
 	navItem := p.NavItem()
-	r.current = tag
+	r.current = p
 	r.AppBar.Title = navItem.Name
 	actions := p.Actions()
 	if r.updateAvailable {
@@ -153,10 +139,10 @@ func (r *Router) Layout(gtx layout.Context, th *material.Theme) layout.Dimension
 		return layout.Flex{}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				gtx.Constraints.Max.X /= 3
-				return r.NavDrawer.Layout(gtx, th, &r.NavAnim)
+				return r.ModalNavDrawer.NavDrawer.Layout(gtx, th, &r.NavAnim)
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				return r.pages[r.current].Layout(gtx, th)
+				return r.current.Layout(gtx, th)
 			}),
 		)
 	}))
@@ -188,10 +174,10 @@ func (r *Router) Handler(data interface{}) messages.MessageResponse {
 	switch data := data.(type) {
 	case messages.UpdateAvailable:
 		r.updateAvailable = true
-		p, ok := r.pages[r.current]
-		if ok {
-			r.AppBar.SetActions(append(p.Actions(), component.SimpleIconAction(r.UpdateButton, &icons.ActionUpdate, component.OverflowAction{})), p.Overflow())
-		}
+		r.AppBar.SetActions(append(
+			r.current.Actions(),
+			component.SimpleIconAction(r.UpdateButton, &icons.ActionUpdate, component.OverflowAction{}),
+		), r.current.Overflow())
 		r.Invalidate()
 	case messages.ConnectState:
 		if data == messages.ConnectStateBegin {
@@ -203,11 +189,7 @@ func (r *Router) Handler(data interface{}) messages.MessageResponse {
 		p.Handler(data)
 	}
 
-	page, ok := r.pages[r.current]
-	if ok {
-		return page.Handler(data)
-	}
-	return messages.MessageResponse{}
+	return r.current.Handler(data)
 }
 
 func (r *Router) Execute(cmd commands.Command) {

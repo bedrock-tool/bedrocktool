@@ -17,6 +17,8 @@ type (
 	D = layout.Dimensions
 )
 
+const ID = "skins"
+
 type Page struct {
 	router *pages.Router
 
@@ -26,7 +28,7 @@ type Page struct {
 	Skins     []messages.NewSkin
 }
 
-func New(router *pages.Router) *Page {
+func New(router *pages.Router) pages.Page {
 	return &Page{
 		router: router,
 		SkinsList: widget.List{
@@ -40,7 +42,7 @@ func New(router *pages.Router) *Page {
 var _ pages.Page = &Page{}
 
 func (p *Page) ID() string {
-	return "skins"
+	return ID
 }
 
 func (p *Page) Actions() []component.AppBarAction {
