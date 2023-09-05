@@ -68,12 +68,6 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 		Left:   unit.Dp(35),
 	}.Layout(gtx, func(gtx C) D {
 		switch p.State {
-		case messages.UIStateConnect:
-			// display login page
-			return material.Label(th, 100, "connect Client").Layout(gtx)
-		case messages.UIStateConnecting:
-			// display connecting to server
-			return material.Label(th, 100, "Connecting").Layout(gtx)
 		case messages.UIStateMain:
 			// show the main ui
 			return layout.Flex{

@@ -295,6 +295,7 @@ func (p *Page) Handler(data interface{}) messages.MessageResponse {
 					pe.Icon = paint.NewImageOpFilter(m.Pack.Icon(), paint.FilterNearest)
 					pe.HasIcon = true
 				}
+				pe.Name = m.Pack.Name() + " v" + m.Pack.Version()
 				pe.Loaded = pe.Size
 				break
 			}

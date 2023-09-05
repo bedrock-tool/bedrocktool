@@ -12,7 +12,7 @@ import (
 type skinsSettings struct {
 	skins *skins.SkinCMD
 
-	grid *outlay.Grid
+	grid outlay.Grid
 
 	Filter widget.Editor
 	Proxy  widget.Bool
@@ -20,7 +20,6 @@ type skinsSettings struct {
 
 func (s *skinsSettings) Init() {
 	s.skins = commands.Registered["skins"].(*skins.SkinCMD)
-	s.grid = &outlay.Grid{}
 	s.Filter.SingleLine = true
 	s.Proxy.Value = true
 }
