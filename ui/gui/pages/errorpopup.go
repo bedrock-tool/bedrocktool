@@ -49,34 +49,36 @@ func (e *errorPopup) Layout(gtx C, th *material.Theme) D {
 	}
 
 	return layoutPopupBackground(gtx, th, "error", func(gtx C) D {
-		return layout.Flex{
-			Axis:      layout.Vertical,
-			Alignment: layout.Start,
-			Spacing:   layout.SpaceEvenly,
-		}.Layout(gtx,
-			layout.Rigid(material.H3(th, title).Layout),
-			layout.Rigid(material.Body1(th, e.err.Error()).Layout),
-			layout.Rigid(func(gtx C) D {
-				if e.isPanic {
-					return material.Body2(th, "More info has been printed to the console, you can submit the error to make debugging easier").Layout(gtx)
-				}
-				return D{}
-			}),
-			layout.Rigid(func(gtx C) D {
-				return layout.Flex{
-					Axis:    layout.Horizontal,
-					Spacing: layout.SpaceSides,
-				}.Layout(gtx,
-					layout.Rigid(material.Button(th, &e.close, "Close").Layout),
-					layout.Rigid(func(gtx C) D {
-						if e.isPanic && !e.haveSubmittedPanic {
-							return material.Button(th, &e.submitPanic, "Upload panic info").Layout(gtx)
-						}
-						return D{}
-					}),
-				)
-			}),
-		)
+		return layout.UniformInset(10).Layout(gtx, func(gtx C) D {
+			return layout.Flex{
+				Axis:      layout.Vertical,
+				Alignment: layout.Start,
+				Spacing:   layout.SpaceBetween,
+			}.Layout(gtx,
+				layout.Rigid(material.H3(th, title).Layout),
+				layout.Rigid(material.Body1(th, e.err.Error()).Layout),
+				layout.Rigid(func(gtx C) D {
+					if e.isPanic {
+						return material.Body2(th, "More info has been printed to the console, you can submit the error to make debugging easier").Layout(gtx)
+					}
+					return D{}
+				}),
+				layout.Rigid(func(gtx C) D {
+					return layout.Flex{
+						Axis:    layout.Horizontal,
+						Spacing: layout.SpaceSides,
+					}.Layout(gtx,
+						layout.Rigid(material.Button(th, &e.close, "Close").Layout),
+						layout.Rigid(func(gtx C) D {
+							if e.isPanic && !e.haveSubmittedPanic {
+								return material.Button(th, &e.submitPanic, "Upload panic info").Layout(gtx)
+							}
+							return D{}
+						}),
+					)
+				}),
+			)
+		})
 	})
 }
 

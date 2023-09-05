@@ -1,7 +1,11 @@
 package utils
 
 import (
+	"bytes"
+	"encoding/json"
+	"net/http"
 	"os"
+	"runtime"
 	"runtime/debug"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
@@ -29,12 +33,52 @@ func PrintPanic(err error) {
 	}
 }
 
+type errorReport struct {
+	Version     string
+	OS          string
+	ErrorString string
+	Error       any
+	Stacktrace  string
+}
+
 func UploadPanic() {
 	if panicErr == nil {
 		return
 	}
+	UploadError(panicErr)
 }
 
-func UploadError() {
+func UploadError(err error) {
+	report := errorReport{
+		Version:     Version,
+		OS:          runtime.GOOS,
+		ErrorString: err.Error(),
+		Error:       err,
+		Stacktrace:  panicStack,
+	}
 
+	body := bytes.NewBuffer(nil)
+	err = json.NewEncoder(body).Encode(report)
+	if err != nil {
+		logrus.Error(err)
+		return
+	}
+
+	errorServer := updateServer + "errors/"
+	req, err := http.NewRequest("PUT", errorServer+"/submit", body)
+	if err != nil {
+		logrus.Error(err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		logrus.Error(err)
+		return
+	}
+
+	if res.StatusCode != 200 {
+		logrus.Errorf("Upload Error Status: %d", res.StatusCode)
+	}
 }

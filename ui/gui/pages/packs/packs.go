@@ -302,6 +302,7 @@ func (p *Page) Handler(data interface{}) messages.MessageResponse {
 
 	case messages.ProcessingPack:
 		p.l.Lock()
+		allFinished := true
 		for _, pe := range p.Packs {
 			if pe.UUID == m.ID {
 				pe.Processing = m.Processing
@@ -310,8 +311,13 @@ func (p *Page) Handler(data interface{}) messages.MessageResponse {
 					pe.Path = m.Path
 					pe.IsFinished = true
 				}
-				break
 			}
+			if !pe.IsFinished {
+				allFinished = false
+			}
+		}
+		if allFinished {
+			p.finished = true
 		}
 		p.l.Unlock()
 		p.router.Invalidate()

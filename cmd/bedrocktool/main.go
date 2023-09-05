@@ -74,7 +74,12 @@ func main() {
 			return
 		}
 		if err := recover(); err != nil {
+			if s, ok := err.(string); ok {
+				err = errors.New(s)
+			}
+
 			utils.PrintPanic(err.(error))
+			utils.UploadPanic()
 			if utils.Options.IsInteractive {
 				input := bufio.NewScanner(os.Stdin)
 				input.Scan()
