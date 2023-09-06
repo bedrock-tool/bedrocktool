@@ -59,7 +59,7 @@ func (s *worldSettings) Layout(gtx layout.Context, th *material.Theme) layout.Di
 						case 0:
 							return material.CheckBox(th, &s.withPacks, "with Packs").Layout(gtx)
 						case 1:
-							material.CheckBox(th, &s.packetCapture, "packet capture").Layout(gtx)
+							return material.CheckBox(th, &s.packetCapture, "packet capture").Layout(gtx)
 						}
 					case 1:
 						switch col {
