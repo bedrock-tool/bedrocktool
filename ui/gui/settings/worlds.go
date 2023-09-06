@@ -13,8 +13,7 @@ import (
 type worldSettings struct {
 	worlds *world.WorldCMD
 
-	grid    outlay.Grid
-	options [][]layout.Widget
+	grid outlay.Grid
 
 	withPacks     widget.Bool
 	voidGen       widget.Bool
@@ -26,17 +25,6 @@ func (s *worldSettings) Init() {
 	s.worlds = commands.Registered["worlds"].(*world.WorldCMD)
 	s.voidGen.Value = true
 	s.packetCapture.Value = false
-
-	s.options = [][]layout.Widget{
-		{
-			material.CheckBox(Theme, &s.withPacks, "with Packs").Layout,
-			material.CheckBox(Theme, &s.packetCapture, "packet capture").Layout,
-		},
-		{
-			material.CheckBox(Theme, &s.saveImage, "save png").Layout,
-			material.CheckBox(Theme, &s.voidGen, "void Generator").Layout,
-		},
-	}
 }
 
 func (s *worldSettings) Apply() {
@@ -64,14 +52,32 @@ func (s *worldSettings) Layout(gtx layout.Context, th *material.Theme) layout.Di
 				}
 				panic("unreachable")
 			}, func(gtx layout.Context, row, col int) layout.Dimensions {
-				return layoutOption(gtx, th, s.options[row][col])
+				return layoutOption(gtx, th, func(gtx layout.Context) layout.Dimensions {
+					switch row {
+					case 0:
+						switch col {
+						case 0:
+							return material.CheckBox(th, &s.withPacks, "with Packs").Layout(gtx)
+						case 1:
+							material.CheckBox(th, &s.packetCapture, "packet capture").Layout(gtx)
+						}
+					case 1:
+						switch col {
+						case 0:
+							return material.CheckBox(th, &s.saveImage, "save png").Layout(gtx)
+						case 1:
+							return material.CheckBox(th, &s.voidGen, "void Generator").Layout(gtx)
+						}
+					}
+					panic("unreachable")
+				})
 			})
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return AddressInput.Layout(gtx, Theme)
+			return AddressInput.Layout(gtx, th)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return AddressInput.LayoutRealms(gtx, Theme)
+			return AddressInput.LayoutRealms(gtx, th)
 		}),
 	)
 }

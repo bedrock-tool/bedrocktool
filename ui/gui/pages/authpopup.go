@@ -44,6 +44,6 @@ func (g *guiAuth) Layout(gtx layout.Context, th *material.Theme) layout.Dimensio
 	})
 }
 
-func (p *guiAuth) Handler(data interface{}) messages.MessageResponse {
-	return messages.MessageResponse{}
+func (p *guiAuth) Handler(data any) messages.Response {
+	return messages.Response{Ok: false}
 }

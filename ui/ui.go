@@ -9,6 +9,6 @@ import (
 type UI interface {
 	Init() bool
 	Start(context.Context, context.CancelCauseFunc) error
-	Message(data interface{}) messages.MessageResponse
+	Message(data interface{}) messages.Response
 	ServerInput(context.Context, string) (string, string, error)
 }

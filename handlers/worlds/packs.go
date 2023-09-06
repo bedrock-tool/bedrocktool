@@ -63,7 +63,7 @@ func (w *worldsHandler) AddPacks(folder string) {
 
 		var rdeps []dep
 		for _, pack := range w.serverState.packs {
-			if pack.Encrypted() {
+			if pack.Base().Encrypted() {
 				if !pack.CanDecrypt() {
 					logrus.Warnf("Cant add %s, it is encrypted", pack.Base().Name())
 					continue

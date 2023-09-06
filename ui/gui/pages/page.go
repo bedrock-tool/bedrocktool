@@ -7,7 +7,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 )
 
-type HandlerFunc = func(data interface{}) messages.MessageResponse
+type HandlerFunc = func(data interface{}) messages.Response
 
 type Page interface {
 	ID() string
@@ -17,7 +17,7 @@ type Page interface {
 	NavItem() component.NavItem
 
 	// handle events from program
-	Handler(data any) messages.MessageResponse
+	Handler(data any) messages.Response
 }
 
 var Pages = map[string]func(*Router) Page{}

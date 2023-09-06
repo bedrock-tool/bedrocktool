@@ -11,7 +11,6 @@ import (
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/bedrock-tool/bedrocktool/utils/proxy"
-	"github.com/sandertv/gophertunnel/minecraft"
 )
 
 type SkinCMD struct {
@@ -46,22 +45,15 @@ func (c *SkinCMD) Execute(ctx context.Context, ui ui.UI) error {
 			Skin:       sa.Skin,
 		})
 	}))
+
 	p.AddHandler(&proxy.Handler{
 		Name: "Skin CMD",
-		OnClientConnect: func(conn minecraft.IConn) {
-			ui.Message(messages.SetUIState(messages.UIStateConnecting))
-		},
 		OnServerConnect: func() (cancel bool) {
 			ui.Message(messages.SetUIState(messages.UIStateMain))
 			return false
 		},
 	})
 
-	if p.WithClient {
-		ui.Message(messages.SetUIState(messages.UIStateConnect))
-	} else {
-		ui.Message(messages.SetUIState(messages.UIStateConnecting))
-	}
 	err = p.Run(ctx, address, hostname)
 	return err
 }

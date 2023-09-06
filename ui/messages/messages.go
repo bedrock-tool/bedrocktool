@@ -7,7 +7,7 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 )
 
-type MessageResponse struct {
+type Response struct {
 	Ok   bool
 	Data interface{}
 }
@@ -15,13 +15,12 @@ type MessageResponse struct {
 type UIState int
 
 const (
-	UIStateConnect = iota
-	UIStateConnecting
+	UIStateInvalid = iota
 	UIStateMain
 	UIStateFinished
 )
 
-type HandlerFunc = func(data interface{}) MessageResponse
+type HandlerFunc = func(data interface{}) Response
 
 //
 

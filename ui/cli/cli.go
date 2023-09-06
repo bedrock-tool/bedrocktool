@@ -26,8 +26,8 @@ func (c *CLI) ServerInput(ctx context.Context, server string) (string, string, e
 	return utils.ServerInput(ctx, server)
 }
 
-func (c *CLI) Message(data interface{}) messages.MessageResponse {
-	return messages.MessageResponse{
+func (c *CLI) Message(data interface{}) messages.Response {
+	return messages.Response{
 		Ok:   false,
 		Data: nil,
 	}

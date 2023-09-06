@@ -118,6 +118,7 @@ func (r *replayConnector) handleLoginSequence(pk packet.Packet) (bool, error) {
 			ClientSideGeneration:         pk.ClientSideGeneration,
 			ChatRestrictionLevel:         pk.ChatRestrictionLevel,
 			DisablePlayerInteractions:    pk.DisablePlayerInteractions,
+			UseBlockNetworkIDHashes:      pk.UseBlockNetworkIDHashes,
 		})
 
 	case *packet.ResourcePacksInfo:

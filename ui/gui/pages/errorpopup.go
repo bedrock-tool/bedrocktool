@@ -82,6 +82,6 @@ func (e *errorPopup) Layout(gtx C, th *material.Theme) D {
 	})
 }
 
-func (e *errorPopup) Handler(data interface{}) messages.MessageResponse {
-	return messages.MessageResponse{}
+func (e *errorPopup) Handler(data interface{}) messages.Response {
+	return messages.Response{}
 }

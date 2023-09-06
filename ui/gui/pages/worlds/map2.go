@@ -143,8 +143,7 @@ func (m *Map2) Update(u *messages.UpdateMap) {
 			m.images[tilePos] = img
 		}
 		draw.Draw(img, image.Rectangle{
-			Min: posInTile,
-			Max: posInTile.Add(image.Pt(16, 16)),
+			Min: posInTile, Max: posInTile.Add(image.Pt(16, 16)),
 		}, u.Chunks[cp], image.Point{}, draw.Src)
 		updatedTiles = append(updatedTiles, tilePos)
 	}

@@ -11,7 +11,6 @@ import (
 )
 
 type Pack interface {
-	Encrypted() bool
 	CanDecrypt() bool
 	Base() *resource.Pack
 	FS() (fs.FS, []string, error)

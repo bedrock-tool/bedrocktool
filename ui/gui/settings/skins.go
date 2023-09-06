@@ -56,10 +56,10 @@ func (s *skinsSettings) Layout(gtx layout.Context, th *material.Theme) layout.Di
 			})
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return AddressInput.Layout(gtx, Theme)
+			return AddressInput.Layout(gtx, th)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return AddressInput.LayoutRealms(gtx, Theme)
+			return AddressInput.LayoutRealms(gtx, th)
 		}),
 	)
 }

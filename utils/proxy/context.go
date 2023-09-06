@@ -26,10 +26,10 @@ import (
 type Context struct {
 	Server   minecraft.IConn
 	Client   minecraft.IConn
-	Listener *minecraft.Listener
+	listener *minecraft.Listener
 	Player   Player
 
-	WithClient bool
+	withClient bool
 
 	tokenSource      oauth2.TokenSource
 	clientConnecting chan struct{}
@@ -52,7 +52,7 @@ type Context struct {
 func New(ui ui.UI, withClient bool) (*Context, error) {
 	p := &Context{
 		commands:         make(map[string]ingameCommand),
-		WithClient:       withClient,
+		withClient:       withClient,
 		disconnectReason: "Connection Lost",
 		ui:               ui,
 	}
@@ -321,7 +321,6 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 
 	// setup Client and Server Connections
 	wg := sync.WaitGroup{}
-	var cdp *login.ClientData = nil
 	if isReplay {
 		server, err := CreateReplayConnector(ctx, p.serverAddress[5:], p.packetFunc, p.onResourcePacksInfo, p.onFinishedPack)
 		if err != nil {
@@ -329,11 +328,11 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 		}
 		p.Server = server
 	} else {
-		if p.WithClient {
+		if p.withClient {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				err = p.connectClient(ctx, p.serverAddress, &cdp)
+				err = p.connectClient(ctx, p.serverAddress)
 				if err != nil {
 					cancel(err)
 					return
@@ -356,12 +355,12 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 	if p.Server != nil {
 		defer p.Server.Close()
 	}
-	if p.Listener != nil {
+	if p.listener != nil {
 		defer func() {
 			if p.Client != nil {
-				_ = p.Listener.Disconnect(p.Client.(*minecraft.Conn), p.disconnectReason)
+				_ = p.listener.Disconnect(p.Client.(*minecraft.Conn), p.disconnectReason)
 			}
-			_ = p.Listener.Close()
+			_ = p.listener.Close()
 		}()
 	}
 

@@ -158,8 +158,8 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 				Name:        "save-world",
 				Description: "immediately save and reset the world state",
 			})
-
 		},
+
 		AddressAndName: func(address, hostname string) error {
 			w.bp = behaviourpack.New(hostname)
 			w.serverState.Name = hostname
@@ -171,9 +171,6 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 			}
 
 			return nil
-		},
-		OnClientConnect: func(conn minecraft.IConn) {
-			w.ui.Message(messages.SetUIState(messages.UIStateConnecting))
 		},
 
 		ToClientGameDataModifier: func(gd *minecraft.GameData) {

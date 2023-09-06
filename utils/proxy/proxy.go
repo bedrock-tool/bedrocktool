@@ -34,8 +34,8 @@ type Handler struct {
 	PacketCB func(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error)
 
 	// called after client connected
-	OnClientConnect   func(conn minecraft.IConn)
-	SecondaryClientCB func(conn minecraft.IConn)
+	OnClientConnect func(conn minecraft.IConn)
+	//SecondaryClientCB func(conn minecraft.IConn)
 
 	// called after server connected & downloaded resource packs
 	OnServerConnect func() (cancel bool)

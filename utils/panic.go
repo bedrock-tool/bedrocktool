@@ -16,6 +16,7 @@ var panicStack string
 var panicErr error
 
 func PrintPanic(err error) {
+	panicStack = string(debug.Stack())
 	panicErr = err
 	logrus.Errorf(locale.Loc("fatal_error", nil))
 	println("")
@@ -23,7 +24,6 @@ func PrintPanic(err error) {
 	logrus.Infof("Version: %s", Version)
 	logrus.Infof("Cmdline: %s", os.Args)
 	logrus.Errorf("Error: %s", err)
-	panicStack = string(debug.Stack())
 	println("stacktrace from panic: \n" + panicStack)
 	println("--END COPY HERE--")
 	println("")

@@ -91,8 +91,8 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 	})
 }
 
-func (p *Page) Handler(data interface{}) messages.MessageResponse {
-	r := messages.MessageResponse{
+func (p *Page) Handler(data interface{}) messages.Response {
+	r := messages.Response{
 		Ok:   false,
 		Data: nil,
 	}

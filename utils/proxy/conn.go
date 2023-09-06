@@ -21,7 +21,7 @@ func (p *Context) onFinishedPack(pack *resource.Pack) {
 }
 
 func (p *Context) connectServer(ctx context.Context) (err error) {
-	if p.WithClient {
+	if p.withClient {
 		select {
 		case <-p.clientConnecting:
 		case <-ctx.Done():
@@ -35,7 +35,7 @@ func (p *Context) connectServer(ctx context.Context) (err error) {
 		TokenSource: p.tokenSource,
 		PacketFunc:  p.packetFunc,
 		GetClientData: func() login.ClientData {
-			if p.WithClient {
+			if p.withClient {
 				select {
 				case <-p.haveClientData:
 				case <-ctx.Done():
@@ -45,7 +45,7 @@ func (p *Context) connectServer(ctx context.Context) (err error) {
 		},
 		EarlyConnHandler: func(c *minecraft.Conn) {
 			p.Server = c
-			if p.WithClient {
+			if p.withClient {
 				p.rpHandler.Server = c
 			} else {
 				p.rpHandler = newRpHandler(ctx, c, nil)
@@ -65,8 +65,8 @@ func (p *Context) connectServer(ctx context.Context) (err error) {
 	return nil
 }
 
-func (p *Context) connectClient(ctx context.Context, serverAddress string, cdpp **login.ClientData) (err error) {
-	p.Listener, err = minecraft.ListenConfig{
+func (p *Context) connectClient(ctx context.Context, serverAddress string) (err error) {
+	p.listener, err = minecraft.ListenConfig{
 		StatusProvider: minecraft.NewStatusProvider(fmt.Sprintf("%s Proxy", serverAddress)),
 		//PacketFunc:     p.packetFunc,
 		OnClientData: func(c *minecraft.Conn) {
@@ -87,7 +87,7 @@ func (p *Context) connectClient(ctx context.Context, serverAddress string, cdpp 
 	}
 
 	p.ui.Message(messages.ConnectStateListening)
-	logrus.Infof(locale.Loc("listening_on", locale.Strmap{"Address": p.Listener.Addr()}))
+	logrus.Infof(locale.Loc("listening_on", locale.Strmap{"Address": p.listener.Addr()}))
 	logrus.Infof(locale.Loc("help_connect", nil))
 
 	var accepted = false
@@ -95,17 +95,15 @@ func (p *Context) connectClient(ctx context.Context, serverAddress string, cdpp 
 	go func() {
 		<-ctx.Done()
 		if !accepted {
-			_ = p.Listener.Close()
+			_ = p.listener.Close()
 		}
 	}()
 
-	c, err := p.Listener.Accept()
+	c, err := p.listener.Accept()
 	if err != nil {
 		return err
 	}
 	accepted = true
 	p.Client = c.(*minecraft.Conn)
-	cd := p.Client.ClientData()
-	*cdpp = &cd
 	return nil
 }

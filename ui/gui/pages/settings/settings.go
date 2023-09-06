@@ -65,7 +65,6 @@ func New(router *pages.Router) pages.Page {
 		}
 	}
 
-	settings.Theme = router.Theme
 	for _, su := range settings.Settings {
 		su.Init()
 	}
@@ -201,8 +200,8 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 	})
 }
 
-func (p *Page) Handler(m any) messages.MessageResponse {
-	return messages.MessageResponse{
+func (p *Page) Handler(m any) messages.Response {
+	return messages.Response{
 		Ok:   false,
 		Data: nil,
 	}

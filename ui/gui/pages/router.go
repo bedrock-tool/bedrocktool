@@ -2,6 +2,7 @@ package pages
 
 import (
 	"context"
+	"image/color"
 	"log"
 	"sync"
 	"time"
@@ -22,10 +23,11 @@ import (
 
 type Router struct {
 	UI         ui.UI
-	Ctx        context.Context
+	ctx        context.Context
 	Wg         sync.WaitGroup
 	MSAuth     *guiAuth
 	Invalidate func()
+	LogWidget  func(C, *material.Theme) D
 
 	Theme   *material.Theme
 	pages   map[string]func(*Router) Page
@@ -38,8 +40,10 @@ type Router struct {
 	NonModalDrawer bool
 	BottomBar      bool
 
-	UpdateButton    *widget.Clickable
+	updateButton    widget.Clickable
 	updateAvailable bool
+
+	logToggle widget.Bool
 
 	popups []Popup
 }
@@ -58,7 +62,7 @@ func NewRouter(ctx context.Context, invalidate func(), th *material.Theme) *Rout
 		Duration: time.Millisecond * 250,
 	}
 	r := &Router{
-		Ctx:            ctx,
+		ctx:            ctx,
 		Invalidate:     invalidate,
 		Theme:          th,
 		pages:          make(map[string]func(*Router) Page),
@@ -67,8 +71,6 @@ func NewRouter(ctx context.Context, invalidate func(), th *material.Theme) *Rout
 		ModalNavDrawer: modalNav,
 		AppBar:         bar,
 		NavAnim:        na,
-
-		UpdateButton: &widget.Clickable{},
 	}
 	r.MSAuth.router = r
 	return r
@@ -89,11 +91,7 @@ func (r *Router) SwitchTo(tag string) {
 	navItem := p.NavItem()
 	r.current = p
 	r.AppBar.Title = navItem.Name
-	actions := p.Actions()
-	if r.updateAvailable {
-		actions = append(actions, component.SimpleIconAction(r.UpdateButton, &icons.ActionUpdate, component.OverflowAction{}))
-	}
-	r.AppBar.SetActions(actions, p.Overflow())
+	r.setActions()
 	r.Invalidate()
 }
 
@@ -110,8 +108,12 @@ func (r *Router) RemovePopup(id string) {
 }
 
 func (r *Router) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
-	if r.UpdateButton.Clicked() {
+	if r.updateButton.Clicked() {
 		r.SwitchTo("update")
+	}
+
+	if r.logToggle.Changed() {
+		r.setActions()
 	}
 
 	for _, event := range r.AppBar.Events(gtx) {
@@ -154,6 +156,12 @@ func (r *Router) Layout(gtx layout.Context, th *material.Theme) layout.Dimension
 		}))
 	}
 
+	if r.logToggle.Value {
+		children = append(children, layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+			return r.LogWidget(gtx, th)
+		}))
+	}
+
 	content := layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 		return layout.Stack{Alignment: layout.Center}.Layout(gtx, children...)
 	})
@@ -170,14 +178,37 @@ func (r *Router) Layout(gtx layout.Context, th *material.Theme) layout.Dimension
 	return layout.Dimensions{Size: gtx.Constraints.Max}
 }
 
-func (r *Router) Handler(data interface{}) messages.MessageResponse {
+func (r *Router) setActions() {
+	var extra []component.AppBarAction
+	extra = append(extra, component.AppBarAction{Layout: func(gtx layout.Context, bg, fg color.NRGBA) layout.Dimensions {
+		return layout.UniformInset(5).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.Flex{
+				Axis:      layout.Horizontal,
+				Alignment: layout.Middle,
+			}.Layout(gtx,
+				layout.Rigid(material.Switch(r.Theme, &r.logToggle, "logs").Layout),
+				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					return layout.UniformInset(5).Layout(gtx, material.Label(r.Theme, 12, "logs").Layout)
+				}),
+			)
+		})
+	}})
+
+	if r.updateAvailable {
+		extra = append(extra, component.SimpleIconAction(&r.updateButton, &icons.ActionUpdate, component.OverflowAction{}))
+	}
+
+	r.AppBar.SetActions(append(
+		r.current.Actions(),
+		extra...,
+	), r.current.Overflow())
+}
+
+func (r *Router) Handler(data interface{}) messages.Response {
 	switch data := data.(type) {
 	case messages.UpdateAvailable:
 		r.updateAvailable = true
-		r.AppBar.SetActions(append(
-			r.current.Actions(),
-			component.SimpleIconAction(r.UpdateButton, &icons.ActionUpdate, component.OverflowAction{}),
-		), r.current.Overflow())
+		r.setActions()
 		r.Invalidate()
 	case messages.ConnectState:
 		if data == messages.ConnectStateBegin {
@@ -208,7 +239,7 @@ func (r *Router) Execute(cmd commands.Command) {
 			}
 		}()
 
-		err := cmd.Execute(r.Ctx, r.UI)
+		err := cmd.Execute(r.ctx, r.UI)
 		if err != nil {
 			logrus.Error(err)
 			r.PushPopup(NewErrorPopup(r, err, func() {

@@ -11,6 +11,7 @@ import (
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/text"
+	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/pref/theme"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages"
@@ -26,7 +27,9 @@ import (
 
 type GUI struct {
 	router *pages.Router
+	ctx    context.Context
 	cancel context.CancelCauseFunc
+	logger logger
 }
 
 func (g *GUI) Init() bool {
@@ -48,6 +51,7 @@ var paletteDark = material.Palette{
 }
 
 func (g *GUI) Start(ctx context.Context, cancel context.CancelCauseFunc) (err error) {
+	g.ctx = ctx
 	g.cancel = cancel
 
 	th := material.NewTheme()
@@ -77,6 +81,15 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelCauseFunc) (err er
 	g.router.Register(update.New, update.ID)
 	g.router.SwitchTo(settings.ID)
 
+	g.logger.list = widget.List{
+		List: layout.List{
+			Axis: layout.Vertical,
+		},
+	}
+	g.logger.router = g.router
+	g.router.LogWidget = g.logger.Layout
+	logrus.AddHook(&g.logger)
+
 	utils.Auth.MSHandler = g.router.MSAuth
 
 	go func() {
@@ -102,7 +115,7 @@ func (g *GUI) loop(w *app.Window) error {
 				g.router.Layout(gtx, g.router.Theme)
 				e.Frame(gtx.Ops)
 			}
-		case <-g.router.Ctx.Done():
+		case <-g.ctx.Done():
 			logrus.Info("Closing")
 			g.cancel(errors.New("Closing"))
 			g.router.Wg.Wait()
@@ -111,23 +124,13 @@ func (g *GUI) loop(w *app.Window) error {
 	}
 }
 
-func (g *GUI) Message(data interface{}) messages.MessageResponse {
-	r := g.router.Handler(data)
-	if r.Ok || r.Data != nil {
-		return r
-	}
-
-	r = messages.MessageResponse{
-		Ok:   false,
-		Data: nil,
-	}
-
+func (g *GUI) Message(data interface{}) messages.Response {
 	switch data.(type) {
 	case messages.CanShowImages:
-		r.Ok = true
+		return messages.Response{Ok: true}
 	}
 
-	return r
+	return g.router.Handler(data)
 }
 
 func (g *GUI) ServerInput(ctx context.Context, address string) (string, string, error) {

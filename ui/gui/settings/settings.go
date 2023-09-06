@@ -12,6 +12,6 @@ func layoutOption(gtx layout.Context, th *material.Theme, w layout.Widget) layou
 			Bg: component.WithAlpha(th.ContrastFg, 8),
 		},
 	}).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.Inset{Top: 5, Bottom: 5, Left: 5, Right: 8}.Layout(gtx, w)
+		return layout.Inset{Top: 3, Bottom: 3, Left: 3, Right: 5}.Layout(gtx, w)
 	})
 }

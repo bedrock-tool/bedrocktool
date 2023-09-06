@@ -11,7 +11,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -48,14 +47,10 @@ func CleanupName(name string) string {
 	return name
 }
 
-// connections
-
 // SplitExt splits path to filename and extension
 func SplitExt(filename string) (name, ext string) {
-	name, ext = path.Base(filename), path.Ext(filename)
-	if ext != "" {
-		name = strings.TrimSuffix(name, ext)
-	}
+	name, ext = filepath.Base(filename), filepath.Ext(filename)
+	name = strings.TrimSuffix(name, ext)
 	return
 }
 
@@ -66,7 +61,7 @@ func RandSeededUUID(str string) string {
 }
 
 func WriteManifest(manifest *resource.Manifest, fpath string) error {
-	w, err := os.Create(path.Join(fpath, "manifest.json"))
+	w, err := os.Create(filepath.Join(fpath, "manifest.json"))
 	if err != nil {
 		return err
 	}

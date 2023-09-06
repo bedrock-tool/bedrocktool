@@ -134,8 +134,8 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 	}
 }
 
-func (u *Page) Handler(data any) messages.MessageResponse {
-	r := messages.MessageResponse{
+func (u *Page) Handler(data any) messages.Response {
+	r := messages.Response{
 		Ok:   false,
 		Data: nil,
 	}

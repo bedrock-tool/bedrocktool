@@ -14,10 +14,9 @@ type (
 type ConnectPopup struct {
 	router *Router
 
-	Listening        bool
-	ClientConnecting bool
-	ServerConnecting bool
-	Established      bool
+	listening        bool
+	serverConnecting bool
+	established      bool
 }
 
 func NewConnect(router *Router) Popup {
@@ -41,23 +40,18 @@ func (p *ConnectPopup) Layout(gtx C, th *material.Theme) D {
 	}
 
 	tf := func(b bool, text string) func(C) D {
-		if b {
-			return material.Label(th, 40, text).Layout
-		}
-		return func(c C) D {
-			return D{}
-		}
+		return ifb(b, material.Label(th, 40, text).Layout)
 	}
 
 	return layoutPopupBackground(gtx, th, "connect", func(gtx C) D {
 		return layout.Center.Layout(gtx, func(gtx C) D {
 			return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
 				layout.Rigid(
-					ifb(p.Listening, func(gtx C) D {
+					ifb(p.listening, func(gtx C) D {
 						return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 							layout.Rigid(material.Label(th, 40, "Listening").Layout),
 							layout.Rigid(func(gtx C) D {
-								if !(p.ClientConnecting || p.ServerConnecting) {
+								if !p.serverConnecting {
 									return material.Body1(th, "connect to 127.0.0.1 or this devices local address\nin the minecraft bedrock client to continue").Layout(gtx)
 								}
 								return D{}
@@ -65,15 +59,15 @@ func (p *ConnectPopup) Layout(gtx C, th *material.Theme) D {
 						)
 					}),
 				),
-				layout.Rigid(tf(p.ServerConnecting, "Connecting to Server")),
-				layout.Rigid(tf(p.Established, "Established")),
+				layout.Rigid(tf(p.serverConnecting, "Connecting to Server")),
+				layout.Rigid(tf(p.established, "Established")),
 			)
 		})
 	})
 }
 
-func (u *ConnectPopup) Handler(data any) messages.MessageResponse {
-	r := messages.MessageResponse{
+func (u *ConnectPopup) Handler(data any) messages.Response {
+	r := messages.Response{
 		Ok:   false,
 		Data: nil,
 	}
@@ -82,11 +76,11 @@ func (u *ConnectPopup) Handler(data any) messages.MessageResponse {
 	case messages.ConnectState:
 		switch m {
 		case messages.ConnectStateListening:
-			u.Listening = true
+			u.listening = true
 		case messages.ConnectStateServerConnecting:
-			u.ServerConnecting = true
+			u.serverConnecting = true
 		case messages.ConnectStateEstablished:
-			u.Established = true
+			u.established = true
 		case messages.ConnectStateDone:
 			u.router.RemovePopup(u.ID())
 		}
