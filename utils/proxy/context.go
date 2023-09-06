@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -19,6 +21,7 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/login"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
+	"github.com/sandertv/gophertunnel/minecraft/resource"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
 )
@@ -30,6 +33,7 @@ type Context struct {
 	Player   Player
 
 	withClient bool
+	addedPacks []*resource.Pack
 
 	tokenSource      oauth2.TokenSource
 	clientConnecting chan struct{}
@@ -525,6 +529,31 @@ func (p *Context) Run(ctx context.Context, serverAddress, name string) (err erro
 		}
 		p.ui.Message(messages.SetUIState(messages.UIStateFinished))
 	}()
+
+	// load forced packs
+	if err = filepath.WalkDir("forcedpacks/", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		ext := filepath.Ext(path)
+		switch ext {
+		case ".mcpack", ".zip":
+			pack, err := resource.Compile(path)
+			if err != nil {
+				return err
+			}
+			p.addedPacks = append(p.addedPacks, pack)
+			logrus.Infof("Added %s to the forced packs", pack.Name())
+		default:
+			logrus.Warnf("Unrecognized file %s in forcedpacks", path)
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
 
 	return p.connect(ctx)
 }

@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/sandertv/gophertunnel/minecraft"
+	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 	"github.com/sirupsen/logrus"
@@ -46,9 +47,14 @@ type exemptedResourcePack struct {
 }
 
 type rpHandler struct {
-	Server                       minecraft.IConn
-	Client                       minecraft.IConn
-	ctx                          context.Context
+	Server minecraft.IConn
+	Client minecraft.IConn
+	ctx    context.Context
+
+	addedPacks     []*resource.Pack
+	addedPacksDone int
+
+	stack                        *packet.ResourcePackStack
 	cache                        iPackCache
 	queue                        *resourcePackQueue
 	nextPack                     chan *resource.Pack
@@ -62,17 +68,17 @@ type rpHandler struct {
 	receivedRemoteStack          chan struct{}
 	packMu                       sync.Mutex
 	resourcePacks                []*resource.Pack
-	stack                        *packet.ResourcePackStack
 	remotePackIds                []string
 	OnResourcePacksInfoCB        func()
 	OnFinishedPack               func(*resource.Pack)
 }
 
-func newRpHandler(ctx context.Context, server, client minecraft.IConn) *rpHandler {
+func newRpHandler(ctx context.Context, server, client minecraft.IConn, addedPacks []*resource.Pack) *rpHandler {
 	r := &rpHandler{
-		Server: server,
-		Client: client,
-		ctx:    ctx,
+		Server:     server,
+		Client:     client,
+		ctx:        ctx,
+		addedPacks: addedPacks,
 		queue: &resourcePackQueue{
 			downloadingPacks: make(map[string]downloadingPack),
 			awaitingPacks:    make(map[string]*downloadingPack),
@@ -326,6 +332,17 @@ func (r *rpHandler) OnResourcePackStack(pk *packet.ResourcePackStack) error {
 		}
 	}
 
+	// r.addedPacks to the stack
+	var addPacks []protocol.StackResourcePack
+	for _, p := range r.addedPacks {
+		addPacks = append(addPacks, protocol.StackResourcePack{
+			UUID:        p.UUID(),
+			Version:     p.Version(),
+			SubPackName: p.Name(),
+		})
+	}
+	pk.TexturePacks = append(addPacks, pk.TexturePacks...)
+
 	r.stack = pk
 	close(r.receivedRemoteStack)
 	logrus.Debug("received remote resourcepack stack, starting game")
@@ -352,18 +369,29 @@ func (r *rpHandler) takeFromCache() (*resource.Pack, bool) {
 func (r *rpHandler) nextResourcePackDownload() (ok bool, err error) {
 	var pack *resource.Pack
 
-	select {
-	case pack, ok = <-r.nextPack:
-	case <-r.ctx.Done():
-		return false, r.ctx.Err()
-	}
+	// select from one of the 3 sources in order
+	// 1. addedPacks
+	// 2. serverPacks
+	// 3. cachedPacks
+	if r.addedPacksDone < len(r.addedPacks) {
+		pack = r.addedPacks[r.addedPacksDone]
+		r.addedPacksDone++
+	} else {
+		if r.nextPack != nil {
+			select {
+			case pack, ok = <-r.nextPack:
+			case <-r.ctx.Done():
+				return false, r.ctx.Err()
+			}
+		}
 
-	if !ok {
-		pack, ok = r.takeFromCache()
-	}
-	if !ok {
-		logrus.Info("finished sending client resource packs")
-		return false, nil
+		if !ok {
+			pack, ok = r.takeFromCache()
+		}
+		if !ok {
+			logrus.Info("finished sending client resource packs")
+			return false, nil
+		}
 	}
 
 	logrus.Debug("next pack", pack.Name())
@@ -472,6 +500,10 @@ func (r *rpHandler) Request(packs []string) error {
 
 			r.packsFromCache = append(r.packsFromCache, pack)
 			found = true
+		} else if slices.ContainsFunc(r.addedPacks, func(pack *resource.Pack) bool {
+			return pack.UUID()+"_"+pack.Version() == packUUID
+		}) {
+			found = true
 		} else {
 			for _, pack := range r.remotePacks.TexturePacks {
 				if pack.UUID+"_"+pack.Version == packUUID {
@@ -492,7 +524,7 @@ func (r *rpHandler) Request(packs []string) error {
 		}
 	}
 
-	if len(r.packsFromCache)+len(r.packsRequestedFromServer) < len(packs) {
+	if len(r.packsFromCache)+len(r.packsRequestedFromServer)+len(r.addedPacks) < len(packs) {
 		logrus.Errorf("BUG: not enough packs sent to client, client will stall %d + %d  %d", len(r.packsFromCache), len(r.packsRequestedFromServer), len(packs))
 	}
 
@@ -548,12 +580,32 @@ func (r *rpHandler) OnResourcePackClientResponse(pk *packet.ResourcePackClientRe
 }
 
 func (r *rpHandler) GetResourcePacksInfo(texturePacksRequired bool) *packet.ResourcePacksInfo {
+	pk := &packet.ResourcePacksInfo{}
+
+	// add r.addedPacks to the info
+	for _, p := range r.addedPacks {
+		pk.TexturePacks = append(pk.TexturePacks, protocol.TexturePackInfo{
+			UUID:            p.UUID(),
+			Version:         p.Version(),
+			Size:            uint64(p.Len()),
+			ContentKey:      p.ContentKey(),
+			SubPackName:     p.Name(),
+			ContentIdentity: "",
+			HasScripts:      false,
+			RTXEnabled:      false,
+		})
+	}
+
 	select {
 	case <-r.receivedRemotePackInfo:
-		return r.remotePacks
+		pk.BehaviourPacks = append(pk.BehaviourPacks, r.remotePacks.BehaviourPacks...)
+		pk.ForcingServerPacks = r.remotePacks.ForcingServerPacks
+		pk.HasScripts = r.remotePacks.HasScripts
+		pk.TexturePackRequired = r.remotePacks.TexturePackRequired
+		pk.TexturePacks = append(pk.TexturePacks, r.remotePacks.TexturePacks...)
 	case <-r.ctx.Done():
-		return &packet.ResourcePacksInfo{}
 	}
+	return pk
 }
 
 func (r *rpHandler) ResourcePacks() []*resource.Pack {

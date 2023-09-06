@@ -74,6 +74,7 @@ type worldsHandler struct {
 	serverState  serverState
 	settings     WorldSettings
 	customBlocks []protocol.BlockEntry
+	doNotRemove  []int64
 }
 
 func resetGlobals() {

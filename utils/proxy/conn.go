@@ -48,7 +48,7 @@ func (p *Context) connectServer(ctx context.Context) (err error) {
 			if p.withClient {
 				p.rpHandler.Server = c
 			} else {
-				p.rpHandler = newRpHandler(ctx, c, nil)
+				p.rpHandler = newRpHandler(ctx, c, nil, p.addedPacks)
 				p.rpHandler.OnResourcePacksInfoCB = p.onResourcePacksInfo
 				p.rpHandler.OnFinishedPack = p.onFinishedPack
 			}
@@ -75,7 +75,7 @@ func (p *Context) connectClient(ctx context.Context, serverAddress string) (err 
 		},
 		EarlyConnHandler: func(c *minecraft.Conn) {
 			p.Client = c
-			p.rpHandler = newRpHandler(ctx, nil, c)
+			p.rpHandler = newRpHandler(ctx, nil, c, p.addedPacks)
 			p.rpHandler.OnResourcePacksInfoCB = p.onResourcePacksInfo
 			p.rpHandler.OnFinishedPack = p.onFinishedPack
 			c.ResourcePackHandler = p.rpHandler

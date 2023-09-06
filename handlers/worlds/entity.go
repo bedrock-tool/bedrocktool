@@ -1,6 +1,8 @@
 package worlds
 
 import (
+	"slices"
+
 	"github.com/bedrock-tool/bedrocktool/utils/behaviourpack"
 	"github.com/bedrock-tool/bedrocktool/utils/nbtconv"
 	"github.com/df-mc/dragonfly/server/block/cube"
@@ -308,6 +310,9 @@ func (w *worldsHandler) handleEntityPackets(pk packet.Packet) packet.Packet {
 	case *packet.AddActor:
 		w.processAddActor(pk)
 	case *packet.RemoveActor:
+		if slices.Contains(w.doNotRemove, pk.EntityUniqueID) {
+			pk.EntityUniqueID = 0xfffffff
+		}
 	case *packet.SetActorData:
 		e, ok := w.getEntity(pk.EntityRuntimeID)
 		if ok {
