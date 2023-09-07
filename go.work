@@ -6,4 +6,5 @@ use (
 	./gio
 	./gophertunnel
 	./goleveldb
+	./hujson
 )

@@ -10,3 +10,6 @@
 [submodule "goleveldb"]
 	path = goleveldb
 	url = https://github.com/olebeck/goleveldb
+[submodule "hujson"]
+	path = hujson
+	url = https://github.com/olebeck/hujson
