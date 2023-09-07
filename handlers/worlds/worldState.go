@@ -21,7 +21,7 @@ import (
 )
 
 type worldStateInt interface {
-	storeChunk(pos world.ChunkPos, dim world.Dimension, ch *chunk.Chunk, blockNBT map[cube.Pos]*dummyBlock)
+	storeChunk(pos world.ChunkPos, dim world.Dimension, ch *chunk.Chunk, blockNBT map[cube.Pos]dummyBlock)
 	storeEntity(id uint64, es *entityState)
 	haveEntity(id uint64) bool
 	getEntity(id uint64) (*entityState, bool)
@@ -32,7 +32,7 @@ type worldStateInt interface {
 type worldStateEnt struct {
 	entities    map[uint64]*entityState
 	entityLinks map[int64]map[int64]struct{}
-	blockNBTs   map[world.ChunkPos]map[cube.Pos]*dummyBlock
+	blockNBTs   map[world.ChunkPos]map[cube.Pos]dummyBlock
 }
 
 func (w *worldStateEnt) storeEntity(id uint64, es *entityState) {
@@ -72,12 +72,21 @@ func cubePosInChunk(pos cube.Pos) (p world.ChunkPos, sp int16) {
 
 func (w *worldStateEnt) SetMergeBlockNBT(pos cube.Pos, m map[string]any) {
 	cp, _ := cubePosInChunk(pos)
-	b, ok := w.blockNBTs[cp]
+	chunkNBTs, ok := w.blockNBTs[cp]
 	if !ok {
-		b = make(map[cube.Pos]*dummyBlock)
-		w.blockNBTs[cp] = b
+		chunkNBTs = make(map[cube.Pos]dummyBlock)
+		w.blockNBTs[cp] = chunkNBTs
 	}
-	maps.Copy(b[pos].nbt, m)
+	b, ok := chunkNBTs[pos]
+	if !ok {
+		b = dummyBlock{
+			id:  m["id"].(string),
+			nbt: map[string]any{},
+		}
+	}
+
+	maps.Copy(b.nbt, m)
+	chunkNBTs[pos] = b
 }
 
 type worldStateInternal struct {
@@ -86,7 +95,7 @@ type worldStateInternal struct {
 	worldStateEnt
 }
 
-func (w *worldStateInternal) storeChunk(pos world.ChunkPos, dim world.Dimension, ch *chunk.Chunk, blockNBT map[cube.Pos]*dummyBlock) {
+func (w *worldStateInternal) storeChunk(pos world.ChunkPos, dim world.Dimension, ch *chunk.Chunk, blockNBT map[cube.Pos]dummyBlock) {
 	w.l.Lock()
 	defer w.l.Unlock()
 	w.blockNBTs[pos] = blockNBT
@@ -127,7 +136,7 @@ func (w *worldStateInternal) saveBlockNBTs(dim world.Dimension) error {
 	for cp, v := range w.blockNBTs {
 		vv := make(map[cube.Pos]world.Block, len(v))
 		for p, db := range v {
-			vv[p] = db
+			vv[p] = &db
 		}
 		err := w.provider.StoreBlockNBTs(cp, dim, vv)
 		if err != nil {
@@ -142,7 +151,7 @@ type worldStateDefer struct {
 	worldStateEnt
 }
 
-func (w *worldStateDefer) storeChunk(pos world.ChunkPos, dim world.Dimension, ch *chunk.Chunk, blockNBT map[cube.Pos]*dummyBlock) {
+func (w *worldStateDefer) storeChunk(pos world.ChunkPos, dim world.Dimension, ch *chunk.Chunk, blockNBT map[cube.Pos]dummyBlock) {
 	w.chunks[pos] = ch
 	w.blockNBTs[pos] = blockNBT
 }
@@ -209,7 +218,7 @@ func newWorldState(cf func(world.ChunkPos, *chunk.Chunk)) (*worldState, error) {
 			worldStateEnt: worldStateEnt{
 				entities:    make(map[uint64]*entityState),
 				entityLinks: make(map[int64]map[int64]struct{}),
-				blockNBTs:   make(map[world.ChunkPos]map[cube.Pos]*dummyBlock),
+				blockNBTs:   make(map[world.ChunkPos]map[cube.Pos]dummyBlock),
 			},
 		},
 		storedChunks: make(map[world.ChunkPos]bool),
@@ -222,7 +231,7 @@ func newWorldState(cf func(world.ChunkPos, *chunk.Chunk)) (*worldState, error) {
 	return w, nil
 }
 
-func (w *worldState) storeChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cube.Pos]*dummyBlock) {
+func (w *worldState) storeChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cube.Pos]dummyBlock) {
 	w.storedChunks[pos] = true
 	w.State().storeChunk(pos, w.dimension, ch, blockNBT)
 }
@@ -233,7 +242,7 @@ func (w *worldState) initDeferred() {
 		worldStateEnt: worldStateEnt{
 			entities:    make(map[uint64]*entityState),
 			entityLinks: make(map[int64]map[int64]struct{}),
-			blockNBTs:   make(map[world.ChunkPos]map[cube.Pos]*dummyBlock),
+			blockNBTs:   make(map[world.ChunkPos]map[cube.Pos]dummyBlock),
 		},
 	}
 }
