@@ -277,7 +277,10 @@ func (p *Context) onServerConnect() error {
 		if handler.OnServerConnect == nil {
 			continue
 		}
-		disconnect := handler.OnServerConnect()
+		disconnect, err := handler.OnServerConnect()
+		if err != nil {
+			return err
+		}
 		if disconnect {
 			return errCancelConnect
 		}

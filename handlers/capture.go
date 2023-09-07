@@ -64,8 +64,15 @@ func (p *packetCapturer) AddressAndName(address, hostname string) (err error) {
 	return nil
 }
 
-func (p *packetCapturer) OnServerConnect() bool {
+func (p *packetCapturer) OnServerConnect() (bool, error) {
 	packs := p.proxy.Server.ResourcePacks()
+	select {
+	case <-p.proxy.Server.OnDisconnect():
+		_, err := p.proxy.Server.ReadPacket()
+		return true, err
+	default:
+	}
+
 	written := make(map[string]bool)
 	for _, pack := range packs {
 		filename := filepath.Join("packcache", pack.UUID()+"_"+pack.Version()+".zip")
@@ -99,7 +106,7 @@ func (p *packetCapturer) OnServerConnect() bool {
 	p.tempBuf = nil
 	p.wPacket = f
 	p.dumpLock.Unlock()
-	return false
+	return false, nil
 }
 
 func (p *packetCapturer) PacketFunc(header packet.Header, payload []byte, src, dst net.Addr) {

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"maps"
 	"net"
 	"os"
 	"sync"
@@ -28,6 +29,7 @@ type replayConnector struct {
 	ver     uint32
 
 	packets chan packet.Packet
+	err     error
 
 	spawn  chan struct{}
 	close  chan struct{}
@@ -147,7 +149,9 @@ func (r *replayConnector) loop() {
 	for {
 		payload, toServer, err := r.readPacket()
 		if err != nil {
-			logrus.Error(err)
+			r.err = err
+			r.Close()
+			return
 		}
 		if payload == nil {
 			return
@@ -159,7 +163,8 @@ func (r *replayConnector) loop() {
 
 		pkData, err := minecraft.ParseData(payload, r, src, dst)
 		if err != nil {
-			logrus.Error(err)
+			r.err = err
+			r.Close()
 			return
 		}
 		pks, err := pkData.Decode(r)
@@ -171,7 +176,8 @@ func (r *replayConnector) loop() {
 			if !gameStarted {
 				gameStarted, err = r.handleLoginSequence(pk)
 				if err != nil {
-					logrus.Error(err)
+					r.err = err
+					r.Close()
 					return
 				}
 			} else {
@@ -185,8 +191,10 @@ func (r *replayConnector) loop() {
 }
 
 func CreateReplayConnector(ctx context.Context, filename string, packetFunc PacketFunc, onResourcePackInfo func(), OnFinishedPack func(*resource.Pack)) (r *replayConnector, err error) {
+	pool := minecraft.DefaultProtocol.Packets(true)
+	maps.Copy(pool, minecraft.DefaultProtocol.Packets(false))
 	r = &replayConnector{
-		pool:       minecraft.DefaultProtocol.Packets(true),
+		pool:       pool,
 		proto:      minecraft.DefaultProtocol,
 		packetFunc: packetFunc,
 		spawn:      make(chan struct{}),
@@ -292,13 +300,18 @@ func (r *replayConnector) DoSpawn() error {
 func (r *replayConnector) DoSpawnContext(ctx context.Context) error {
 	select {
 	case <-r.close:
-		return errors.New("do spawn")
 	case <-ctx.Done():
-		return errors.New("do spawn")
 	case <-r.spawn:
 		// Conn was spawned successfully.
 		return nil
 	}
+	if r.err != nil {
+		return r.err
+	}
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	return errors.New("do spawn")
 }
 
 func (r *replayConnector) DoSpawnTimeout(timeout time.Duration) error {
@@ -336,10 +349,16 @@ func (r *replayConnector) Read(b []byte) (n int, err error) {
 func (r *replayConnector) ReadPacket() (pk packet.Packet, err error) {
 	select {
 	case <-r.close:
+		if r.err != nil {
+			return nil, r.err
+		}
 		return nil, net.ErrClosed
 	case p, ok := <-r.packets:
 		if !ok {
 			err = net.ErrClosed
+			if r.err != nil {
+				err = r.err
+			}
 		}
 		return p, err
 	}

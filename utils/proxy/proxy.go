@@ -39,7 +39,7 @@ type Handler struct {
 	//SecondaryClientCB func(conn minecraft.IConn)
 
 	// called after server connected & downloaded resource packs
-	OnServerConnect func() (cancel bool)
+	OnServerConnect func() (cancel bool, err error)
 	// called after game started
 	ConnectCB func(err error) bool
 

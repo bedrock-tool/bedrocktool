@@ -243,6 +243,9 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 				)
 			}),
 			layout.Flexed(0.1, func(gtx C) D {
+				if !p.finished {
+					return D{}
+				}
 				return layout.UniformInset(5).Layout(gtx, func(gtx C) D {
 					gtx.Constraints.Max.Y = gtx.Dp(40)
 					gtx.Constraints.Max.X = gtx.Constraints.Max.X / 6

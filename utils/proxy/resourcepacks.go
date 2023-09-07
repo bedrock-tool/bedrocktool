@@ -630,7 +630,12 @@ func (r *rpHandler) GetResourcePacksInfo(texturePacksRequired bool) *packet.Reso
 }
 
 func (r *rpHandler) ResourcePacks() []*resource.Pack {
-	<-r.receivedRemoteStack // wait for the whole receiving process to be done
+	select {
+	case <-r.receivedRemoteStack:
+	case <-r.ctx.Done():
+	case <-r.Server.OnDisconnect():
+	}
+	// wait for the whole receiving process to be done
 	return r.resourcePacks
 }
 

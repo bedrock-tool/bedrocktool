@@ -15,7 +15,6 @@ import (
 const TokenFile = "token.json"
 
 type authsrv struct {
-	t         *oauth2.Token
 	src       oauth2.TokenSource
 	Ctx       context.Context
 	MSHandler auth.MSAuthHandler
@@ -28,76 +27,67 @@ func (a *authsrv) HaveToken() bool {
 	return err == nil
 }
 
-func (a *authsrv) Refresh() (err error) {
-	a.src = auth.RefreshTokenSource(a.t)
-	a.t, err = a.src.Token()
-	return err
-}
-
-func (a *authsrv) writeToken() error {
+func (a *authsrv) writeToken(token *oauth2.Token) error {
 	f, err := os.Create(TokenFile)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 	e := json.NewEncoder(f)
-	return e.Encode(a.t)
+	return e.Encode(token)
 }
 
-func (a *authsrv) readToken() error {
+func (a *authsrv) readToken() (*oauth2.Token, error) {
 	var token oauth2.Token
 	f, err := os.Open(TokenFile)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer f.Close()
 	e := json.NewDecoder(f)
 	err = e.Decode(&token)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	a.t = &token
-	return nil
+	return &token, nil
 }
 
 func (a *authsrv) GetTokenSource() (src oauth2.TokenSource, err error) {
 	if a.src != nil {
 		return a.src, nil
 	}
-	if !a.HaveToken() {
-		// request a new token
-		a.t, err = auth.RequestLiveTokenWriter(a.Ctx, a.MSHandler)
-		if err != nil {
-			return nil, err
-		}
-		err := a.writeToken()
+	var token *oauth2.Token
+	if a.HaveToken() {
+		// read the existing token
+		token, err = a.readToken()
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		// read the existing token
-		err := a.readToken()
+		// request a new token
+		token, err = auth.RequestLiveTokenWriter(a.Ctx, a.MSHandler)
+		if err != nil {
+			return nil, err
+		}
+		err := a.writeToken(token)
 		if err != nil {
 			return nil, err
 		}
 	}
-	// refresh the token if necessary
-	err = a.Refresh()
-	if err != nil {
-		return nil, err
-	}
+	a.src = auth.RefreshTokenSource(token)
+
 	// if the old token isnt valid save the new one
-	if !a.t.Valid() {
-		newToken, err := a.src.Token()
+	if !token.Valid() {
+		token, err = a.src.Token()
 		if err != nil {
 			return nil, err
 		}
-		a.t = newToken
-		err = a.writeToken()
+		err = a.writeToken(token)
 		if err != nil {
 			return nil, err
 		}
 	}
+
 	return a.src, nil
 }
 

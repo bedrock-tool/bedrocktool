@@ -48,9 +48,9 @@ func (c *SkinCMD) Execute(ctx context.Context, ui ui.UI) error {
 
 	p.AddHandler(&proxy.Handler{
 		Name: "Skin CMD",
-		OnServerConnect: func() (cancel bool) {
+		OnServerConnect: func() (cancel bool, err error) {
 			ui.Message(messages.SetUIState(messages.UIStateMain))
-			return false
+			return false, nil
 		},
 	})
 
