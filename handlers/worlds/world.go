@@ -46,6 +46,7 @@ type WorldSettings struct {
 	ExcludeMobs     []string
 	StartPaused     bool
 	PreloadReplay   string
+	ChunkRadius     int32
 }
 
 type serverState struct {
@@ -89,6 +90,10 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 	settings.ExcludeMobs = slices.DeleteFunc(settings.ExcludeMobs, func(mob string) bool {
 		return mob == ""
 	})
+
+	if settings.ChunkRadius == 0 {
+		settings.ChunkRadius = 80
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -193,7 +198,11 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 			w.ui.Message(messages.SetUIState(messages.UIStateMain))
 
 			w.proxy.ClientWritePacket(&packet.ChunkRadiusUpdated{
-				ChunkRadius: 80,
+				ChunkRadius: w.settings.ChunkRadius,
+			})
+
+			w.proxy.Server.WritePacket(&packet.RequestChunkRadius{
+				ChunkRadius: w.settings.ChunkRadius,
 			})
 
 			gd := w.proxy.Server.GameData()
@@ -224,9 +233,11 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 
 func (w *worldsHandler) packetCB(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
 	switch pk := pk.(type) {
+	case *packet.RequestChunkRadius:
+		pk.ChunkRadius = w.settings.ChunkRadius
 	case *packet.ChunkRadiusUpdated:
 		w.serverState.radius = pk.ChunkRadius
-		pk.ChunkRadius = 80
+		pk.ChunkRadius = w.settings.ChunkRadius
 	case *packet.SetTime:
 		w.worldState.timeSync = time.Now()
 		w.worldState.time = int(pk.Time)

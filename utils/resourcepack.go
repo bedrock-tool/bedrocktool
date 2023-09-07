@@ -4,7 +4,9 @@ import (
 	"archive/zip"
 	"errors"
 	"io/fs"
+	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
@@ -43,7 +45,7 @@ func (p *packBase) FS() (fs.FS, []string, error) {
 		if f.FileInfo().IsDir() {
 			continue
 		}
-		names = append(names, f.Name)
+		names = append(names, filepath.Clean(strings.ReplaceAll(f.Name, "\\", "/")))
 	}
 	sort.Strings(names)
 

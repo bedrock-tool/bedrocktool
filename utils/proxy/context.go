@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/fs"
 	"net"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -531,28 +532,30 @@ func (p *Context) Run(ctx context.Context, serverAddress, name string) (err erro
 	}()
 
 	// load forced packs
-	if err = filepath.WalkDir("forcedpacks/", func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			return nil
-		}
-		ext := filepath.Ext(path)
-		switch ext {
-		case ".mcpack", ".zip":
-			pack, err := resource.Compile(path)
+	if _, err := os.Stat("forcedpacks"); err == nil {
+		if err = filepath.WalkDir("forcedpacks/", func(path string, d fs.DirEntry, err error) error {
 			if err != nil {
 				return err
 			}
-			p.addedPacks = append(p.addedPacks, pack)
-			logrus.Infof("Added %s to the forced packs", pack.Name())
-		default:
-			logrus.Warnf("Unrecognized file %s in forcedpacks", path)
+			if d.IsDir() {
+				return nil
+			}
+			ext := filepath.Ext(path)
+			switch ext {
+			case ".mcpack", ".zip":
+				pack, err := resource.Compile(path)
+				if err != nil {
+					return err
+				}
+				p.addedPacks = append(p.addedPacks, pack)
+				logrus.Infof("Added %s to the forced packs", pack.Name())
+			default:
+				logrus.Warnf("Unrecognized file %s in forcedpacks", path)
+			}
+			return nil
+		}); err != nil {
+			return err
 		}
-		return nil
-	}); err != nil {
-		return err
 	}
 
 	return p.connect(ctx)

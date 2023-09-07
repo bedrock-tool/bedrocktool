@@ -122,11 +122,13 @@ func NewPacketCapturer() *proxy.Handler {
 		OnEnd: func() {
 			p.dumpLock.Lock()
 			defer p.dumpLock.Unlock()
-			err := p.zip.Close()
-			if err != nil {
-				logrus.Error(err)
+			if p.zip != nil {
+				err := p.zip.Close()
+				if err != nil {
+					logrus.Error(err)
+				}
+				p.file.Close()
 			}
-			p.file.Close()
 		},
 	}
 }

@@ -23,6 +23,7 @@ type WorldCMD struct {
 	ExcludeMobs     string
 	StartPaused     bool
 	PreloadReplay   string
+	ChunkRadius     int
 }
 
 func (*WorldCMD) Name() string     { return "worlds" }
@@ -38,6 +39,7 @@ func (c *WorldCMD) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.ExcludeMobs, "exclude-mobs", "", "list of mobs to exclude seperated by comma")
 	f.BoolVar(&c.StartPaused, "start-paused", false, "pause the capturing on startup (can be restarted using /start-capture ingame)")
 	f.StringVar(&c.PreloadReplay, "preload-replay", "", "preload from a replay")
+	f.IntVar(&c.ChunkRadius, "chunk-radius", 0, "the max chunk radius to force")
 }
 
 func (c *WorldCMD) Execute(ctx context.Context, ui ui.UI) error {
@@ -60,6 +62,7 @@ func (c *WorldCMD) Execute(ctx context.Context, ui ui.UI) error {
 		ExcludeMobs:     strings.Split(c.ExcludeMobs, ","),
 		StartPaused:     c.StartPaused,
 		PreloadReplay:   c.PreloadReplay,
+		ChunkRadius:     int32(c.ChunkRadius),
 	}))
 
 	err = proxy.Run(ctx, serverAddress, hostname)

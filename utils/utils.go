@@ -112,8 +112,8 @@ func memmove(to, from unsafe.Pointer, n uintptr)
 func (c *cfb8) Read(dst []byte) (n int, err error) {
 	_ = c.shiftRegister[15]
 	n, err = c.r.Read(dst)
-	_ = dst[n-1]
 	if n > 0 {
+		_ = dst[n-1]
 		for off := 0; off < n; off += 1 {
 			c.cipher.Encrypt(c.iv[:], c.shiftRegister[:])
 
