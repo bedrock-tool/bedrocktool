@@ -1,6 +1,7 @@
 package worlds
 
 import (
+	"context"
 	"image"
 	"image/color"
 	"image/draw"
@@ -95,7 +96,7 @@ func NewMapUI(w *worldsHandler) *MapUI {
 	return m
 }
 
-func (m *MapUI) Start() {
+func (m *MapUI) Start(ctx context.Context) {
 	r := m.w.ui.Message(messages.CanShowImages{})
 	if r.Ok {
 		m.showOnGui = true
@@ -122,6 +123,9 @@ func (m *MapUI) Start() {
 	go func() {
 		var oldPos mgl32.Vec3
 		for range m.ticker.C {
+			if ctx.Err() != nil {
+				return
+			}
 			newPos := m.w.proxy.Player.Position
 			if int(oldPos.X()) != int(newPos.X()) || int(oldPos.Z()) != int(newPos.Z()) {
 				m.needRedraw = true

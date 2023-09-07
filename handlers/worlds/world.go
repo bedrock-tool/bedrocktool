@@ -65,6 +65,7 @@ type serverState struct {
 
 type worldsHandler struct {
 	wg    sync.WaitGroup
+	ctx   context.Context
 	proxy *proxy.Context
 	mapUI *MapUI
 	ui    ui.UI
@@ -89,8 +90,11 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 		return mob == ""
 	})
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	w := &worldsHandler{
-		ui: ui,
+		ctx: ctx,
+		ui:  ui,
 		serverState: serverState{
 			useOldBiomes:       false,
 			worldCounter:       0,
@@ -202,7 +206,7 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 			w.serverState.packs = utils.GetPacks(w.proxy.Server)
 
 			w.proxy.SendMessage(locale.Loc("use_setname", nil))
-			w.mapUI.Start()
+			w.mapUI.Start(ctx)
 			return false
 		},
 
@@ -212,6 +216,7 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 			w.wg.Wait()
 			resetGlobals()
 		},
+		Deferred: cancel,
 	}
 
 	return h

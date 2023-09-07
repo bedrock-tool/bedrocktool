@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/sandertv/gophertunnel/minecraft"
@@ -26,12 +27,12 @@ type replayConnector struct {
 	packetF fs.File
 	ver     uint32
 
-	l       sync.Mutex
 	packets chan packet.Packet
 
-	spawn chan struct{}
-	close chan struct{}
-	once  sync.Once
+	spawn  chan struct{}
+	close  chan struct{}
+	closed atomic.Bool
+	once   sync.Once
 
 	pool       packet.Pool
 	proto      minecraft.Protocol
@@ -174,14 +175,10 @@ func (r *replayConnector) loop() {
 					return
 				}
 			} else {
-				r.l.Lock()
-				if r.packets != nil {
-					r.packets <- pk
-					r.l.Unlock()
-				} else {
-					r.l.Unlock()
+				if r.closed.Load() {
 					return
 				}
+				r.packets <- pk
 			}
 		}
 	}
@@ -261,11 +258,13 @@ func (r *replayConnector) SetLoggedIn() {
 
 func (r *replayConnector) Close() error {
 	r.once.Do(func() {
+		r.closed.Store(true)
 		close(r.close)
-		r.l.Lock()
+		select {
+		case <-r.packets:
+		default:
+		}
 		close(r.packets)
-		r.packets = nil
-		r.l.Unlock()
 	})
 	return nil
 }

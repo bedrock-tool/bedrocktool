@@ -51,26 +51,48 @@ type rpHandler struct {
 	Client minecraft.IConn
 	ctx    context.Context
 
+	// gives access to stored resource packs in an abstract way so it can be replaced for replay
+	cache iPackCache
+
+	// used to decide what packs to send next
+	// when these all are done the client must not expect any more resource packs
+	nextPack       chan *resource.Pack
+	packsFromCache []*resource.Pack
 	addedPacks     []*resource.Pack
 	addedPacksDone int
 
-	stack                        *packet.ResourcePackStack
-	cache                        iPackCache
-	queue                        *resourcePackQueue
-	nextPack                     chan *resource.Pack
-	packsFromCache               []*resource.Pack
-	packsRequestedFromServer     []string
+	queue *resourcePackQueue
+
+	// closed when decided what packs to download from the server
 	knowPacksRequestedFromServer chan struct{}
-	clientHasRequested           bool
-	ignoredResourcePacks         []exemptedResourcePack
-	remotePacks                  *packet.ResourcePacksInfo
-	receivedRemotePackInfo       chan struct{}
-	receivedRemoteStack          chan struct{}
-	packMu                       sync.Mutex
-	resourcePacks                []*resource.Pack
-	remotePackIds                []string
-	OnResourcePacksInfoCB        func()
-	OnFinishedPack               func(*resource.Pack)
+	packsRequestedFromServer     []string
+
+	// set to true if the client wants any resource packs
+	// if its false when the client sends the `done` message, that means the nextPack channel should be closed
+	clientHasRequested bool
+
+	// list of packs to not download, this is based on whats in the cache
+	ignoredResourcePacks []exemptedResourcePack
+
+	// closed when the proxy has received resource pack info from the server
+	receivedRemotePackInfo chan struct{}
+	remotePacks            *packet.ResourcePacksInfo
+
+	// closed when the proxy has received the resource pack stack from the server
+	receivedRemoteStack chan struct{}
+	stack               *packet.ResourcePackStack
+
+	// used when adding a resourcepack to the list after its downloaded
+	packMu sync.Mutex
+
+	// all active resource packs for access by the proxy
+	resourcePacks []*resource.Pack
+
+	// optional callback when its known what resource packs the server has
+	OnResourcePacksInfoCB func()
+
+	// optional callback that is called as soon as a resource pack is added to the proxies list
+	OnFinishedPack func(*resource.Pack)
 }
 
 func newRpHandler(ctx context.Context, server, client minecraft.IConn, addedPacks []*resource.Pack) *rpHandler {
@@ -153,7 +175,6 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 		}
 		// This UUID_Version is a hack Mojang put in place.
 		packsToDownload = append(packsToDownload, pack.UUID+"_"+pack.Version)
-		r.remotePackIds = append(r.remotePackIds, pack.UUID)
 		r.queue.downloadingPacks[pack.UUID] = downloadingPack{
 			size:       pack.Size,
 			buf:        bytes.NewBuffer(make([]byte, 0, pack.Size)),

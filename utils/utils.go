@@ -15,6 +15,7 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"unsafe"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
@@ -91,8 +92,8 @@ func CfbDecrypt(data []byte, key []byte) []byte {
 type cfb8 struct {
 	r             io.Reader
 	cipher        cipher.Block
-	shiftRegister []byte
-	iv            []byte
+	shiftRegister [16]byte
+	iv            [16]byte
 }
 
 func NewCfb8(r io.Reader, key []byte) io.Reader {
@@ -100,20 +101,27 @@ func NewCfb8(r io.Reader, key []byte) io.Reader {
 		r: r,
 	}
 	c.cipher, _ = aes.NewCipher(key)
-	c.shiftRegister = make([]byte, 16)
-	copy(c.shiftRegister, key[:16])
-	c.iv = make([]byte, 16)
+	copy(c.shiftRegister[:], key[:16])
 	return c
 }
 
+//go:noescape
+//go:linkname memmove runtime.memmove
+func memmove(to, from unsafe.Pointer, n uintptr)
+
 func (c *cfb8) Read(dst []byte) (n int, err error) {
+	_ = c.shiftRegister[15]
 	n, err = c.r.Read(dst)
+	_ = dst[n-1]
 	if n > 0 {
-		c.shiftRegister = append(c.shiftRegister, dst[:n]...)
 		for off := 0; off < n; off += 1 {
-			c.cipher.Encrypt(c.iv, c.shiftRegister)
+			c.cipher.Encrypt(c.iv[:], c.shiftRegister[:])
+
+			// shift
+			memmove(unsafe.Pointer(&c.shiftRegister[0]), unsafe.Pointer(&c.shiftRegister[1]), 15)
+			c.shiftRegister[15] = dst[off]
+
 			dst[off] ^= c.iv[0]
-			c.shiftRegister = c.shiftRegister[1:]
 		}
 	}
 	return
