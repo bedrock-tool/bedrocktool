@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"net"
 	"time"
@@ -71,6 +72,7 @@ func DecodePacket(header packet.Header, payload []byte) (pk packet.Packet, ok bo
 	defer func() {
 		if recoveredErr := recover(); recoveredErr != nil {
 			logrus.Errorf("%T: %s", pk, recoveredErr.(error))
+			logrus.Debugf("payload: %s", hex.EncodeToString(payload))
 			ok = false
 		}
 	}()

@@ -108,7 +108,7 @@ func serverGetHostname(server string) string {
 }
 
 var (
-	realmRegex = regexp.MustCompile("realm:(?P<Name>.*)(?::(?P<ID>.*))?")
+	realmRegex = regexp.MustCompile("realm:(?P<Name>.*)(?::(?P<ID>.*))+")
 	pcapRegex  = regexp.MustCompile(`(?P<Filename>(?P<Name>.*)\.pcap2)(?:\?(?P<Args>.*))?`)
 )
 
