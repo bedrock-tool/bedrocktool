@@ -47,7 +47,8 @@ func (skin *Skin) getGeometry() (*SkinGeometry_1_12, string, error) {
 	}
 
 	var data any
-	if err := json.Unmarshal(skin.SkinGeometry, &data); err != nil {
+	err := ParseJson(skin.SkinGeometry, &data)
+	if err != nil {
 		return nil, "", err
 	}
 	if data == nil {

@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"encoding/json"
 	"errors"
 	"image"
 	"image/color"
@@ -15,7 +14,6 @@ import (
 	"github.com/dblezek/tga"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sirupsen/logrus"
-	"github.com/tailscale/hujson"
 	"golang.org/x/exp/slices"
 )
 
@@ -53,12 +51,8 @@ func readBlocksJson(f fs.FS) (map[string]string, error) {
 		}
 		return nil, err
 	}
-	blocksJsonContent, err = hujson.Standardize(blocksJsonContent)
-	if err != nil {
-		return nil, err
-	}
 	var m map[string]any
-	err = json.Unmarshal(blocksJsonContent, &m)
+	err = ParseJson(blocksJsonContent, &m)
 	if err != nil {
 		return nil, err
 	}
@@ -99,15 +93,11 @@ func loadFlipbooks(f fs.FS) (map[string]string, error) {
 		}
 		return nil, err
 	}
-	flipbookContent, err = hujson.Standardize(flipbookContent)
-	if err != nil {
-		return nil, err
-	}
 	var m []struct {
 		Texture string `json:"flipbook_texture"`
 		Atlas   string `json:"atlas_tile"`
 	}
-	err = json.Unmarshal(flipbookContent, &m)
+	err = ParseJson(flipbookContent, &m)
 	if err != nil {
 		return nil, err
 	}
@@ -127,16 +117,12 @@ func loadTerrainTexture(f fs.FS) (map[string]string, error) {
 		}
 		return nil, err
 	}
-	terrainContent, err = hujson.Standardize(terrainContent)
-	if err != nil {
-		return nil, err
-	}
 	var m struct {
 		Data map[string]struct {
 			Textures any `json:"textures"`
 		} `json:"texture_data"`
 	}
-	err = json.Unmarshal(terrainContent, &m)
+	err = ParseJson(terrainContent, &m)
 	if err != nil {
 		return nil, err
 	}

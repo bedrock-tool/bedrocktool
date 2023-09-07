@@ -19,6 +19,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
+	"github.com/tailscale/hujson"
 
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 )
@@ -156,4 +157,22 @@ func ShowFile(path string) {
 	if runtime.GOOS == "linux" {
 		println(path)
 	}
+}
+
+func ParseJson(s []byte, out any) error {
+	v, err := hujson.Parse(s)
+	if err != nil {
+		if !strings.Contains(err.Error(), "invalid character") {
+			return err
+		}
+	}
+	v.Standardize()
+	s = v.Pack()
+
+	d := json.NewDecoder(bytes.NewBuffer(s))
+	err = d.Decode(out)
+	if err != nil {
+		return err
+	}
+	return nil
 }
