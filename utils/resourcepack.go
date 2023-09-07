@@ -4,7 +4,7 @@ import (
 	"archive/zip"
 	"errors"
 	"io/fs"
-	"path/filepath"
+	"path"
 	"sort"
 	"strings"
 
@@ -45,7 +45,7 @@ func (p *packBase) FS() (fs.FS, []string, error) {
 		if f.FileInfo().IsDir() {
 			continue
 		}
-		names = append(names, filepath.Clean(strings.ReplaceAll(f.Name, "\\", "/")))
+		names = append(names, path.Clean(strings.ReplaceAll(f.Name, "\\", "/")))
 	}
 	sort.Strings(names)
 
