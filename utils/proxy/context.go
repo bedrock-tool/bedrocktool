@@ -486,6 +486,7 @@ func (p *Context) connect(ctx context.Context) (err error) {
 	p.haveClientData = make(chan struct{})
 	ctx2, cancel := context.WithCancelCause(ctx)
 	err = p.doSession(ctx2, cancel)
+	cancel(nil)
 
 	if errors.Is(err, errTransfer) && p.transfer != nil {
 		p.serverAddress = fmt.Sprintf("%s:%d", p.transfer.Address, p.transfer.Port)
