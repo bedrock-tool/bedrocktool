@@ -8,8 +8,10 @@ import (
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/go-gl/mathgl/mgl32"
+	"github.com/gregwebs/go-recovery"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
+	"github.com/sirupsen/logrus"
 )
 
 type entityState struct {
@@ -92,7 +94,14 @@ func (w *worldsHandler) processAddActor(pk *packet.AddActor) {
 	}
 
 	if w.scripting.CB.OnEntityAdd != nil {
-		ignore := w.scripting.CB.OnEntityAdd(e)
+		var ignore bool
+		err := recovery.Call(func() error {
+			ignore = w.scripting.CB.OnEntityAdd(e)
+			return nil
+		})
+		if err != nil {
+			logrus.Errorf("scripting: %s", err)
+		}
 		if ignore {
 			return
 		}

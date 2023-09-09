@@ -62,7 +62,14 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 
 	pos := world.ChunkPos(pk.Position)
 	if w.scripting.CB.OnChunkAdd != nil {
-		ignore := w.scripting.CB.OnChunkAdd(pos)
+		var ignore bool
+		err := recovery.Call(func() error {
+			ignore = w.scripting.CB.OnChunkAdd(pos)
+			return nil
+		})
+		if err != nil {
+			logrus.Errorf("Scripting: %s", err)
+		}
 		if ignore {
 			return
 		}
