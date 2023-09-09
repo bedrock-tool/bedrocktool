@@ -6,15 +6,17 @@ require (
 	gioui.org v0.2.0
 	gioui.org/x v0.2.0
 	github.com/beevik/ntp v1.3.0
-	github.com/cloudfoundry-attic/jibber_jabber v0.0.0-20151120183258-bcc4c8345a21
+	github.com/cloudfoundry/jibber_jabber v0.0.0-20151120183258-bcc4c8345a21
 	github.com/dblezek/tga v0.0.0-20150626111426-80720cbc1017
 	github.com/df-mc/dragonfly v0.9.8
 	github.com/df-mc/goleveldb v1.1.9
+	github.com/dop251/goja v0.0.0-20230828202809-3dbe69dd2b8e
 	github.com/fatih/color v1.15.0
 	github.com/flytam/filenamify v1.2.0
 	github.com/go-gl/mathgl v1.1.0
 	github.com/google/subcommands v1.2.0
 	github.com/google/uuid v1.3.1
+	github.com/gregwebs/go-recovery v0.2.1
 	github.com/nicksnyder/go-i18n/v2 v2.2.1
 	github.com/sanbornm/go-selfupdate v0.0.0-20230714125711-e1c03e3d6ac7
 	github.com/sandertv/go-raknet v1.12.1
@@ -42,19 +44,19 @@ require (
 	github.com/brentp/intintmap v0.0.0-20190211203843-30dc0ade9af9 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/changkun/lockfree v0.0.1 // indirect
-	github.com/cloudfoundry/jibber_jabber v0.0.0-20151120183258-bcc4c8345a21 // indirect
 	github.com/df-mc/atomic v1.10.0 // indirect
 	github.com/df-mc/worldupgrader v1.0.8 // indirect
+	github.com/dlclark/regexp2 v1.7.0 // indirect
 	github.com/ftrvxmtrx/tga v0.0.0-20150524081124-bd8e8d5be13a // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
+	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
 	github.com/go-text/typesetting v0.0.0-20230803102845-24e03d8b5372 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
+	github.com/google/pprof v0.0.0-20230207041349-798e818bf904 // indirect
 	github.com/gregwebs/errors v1.1.0 // indirect
-	github.com/gregwebs/go-recovery v0.2.1 // indirect
 	github.com/klauspost/compress v1.16.7 // indirect
 	github.com/kr/binarydist v0.1.0 // indirect
-	github.com/kr/pretty v0.2.1 // indirect
 	github.com/lufia/plan9stats v0.0.0-20230326075908-cb1d2100619a // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
@@ -70,6 +72,4 @@ require (
 	golang.org/x/sys v0.11.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
-	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
-	gopkg.in/yaml.v2 v2.4.0 // indirect
 )

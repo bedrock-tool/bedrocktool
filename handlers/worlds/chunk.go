@@ -59,7 +59,15 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 			nbt: blockNBT,
 		}
 	}
-	w.worldState.storeChunk(world.ChunkPos(pk.Position), ch, chunkBlockNBT)
+
+	pos := world.ChunkPos(pk.Position)
+	if w.scripting.CB.OnChunkAdd != nil {
+		ignore := w.scripting.CB.OnChunkAdd(pos)
+		if ignore {
+			return
+		}
+	}
+	w.worldState.storeChunk(pos, ch, chunkBlockNBT)
 
 	max := uint16(w.worldState.dimension.Range().Height() / 16)
 	switch pk.SubChunkCount {

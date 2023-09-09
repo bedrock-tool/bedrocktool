@@ -69,7 +69,9 @@ func (w *worldsHandler) addEntityLink(el protocol.EntityLink) {
 
 func (w *worldsHandler) processAddActor(pk *packet.AddActor) {
 	e, ok := w.getEntity(pk.EntityRuntimeID)
+	var new bool
 	if !ok {
+		new = true
 		e = &entityState{
 			RuntimeID:  pk.EntityRuntimeID,
 			UniqueID:   pk.EntityUniqueID,
@@ -77,21 +79,7 @@ func (w *worldsHandler) processAddActor(pk *packet.AddActor) {
 			Inventory:  make(map[byte]map[byte]protocol.ItemInstance),
 			Metadata:   make(map[uint32]any),
 		}
-		w.worldState.State().storeEntity(uint64(pk.EntityUniqueID), e)
-		for _, el := range pk.EntityLinks {
-			w.addEntityLink(el)
-		}
-
-		w.bp.AddEntity(behaviourpack.EntityIn{
-			Identifier: pk.EntityType,
-			Attr:       pk.Attributes,
-			Meta:       pk.EntityMetadata,
-		})
 	}
-	if e == nil {
-		panic("unreachable")
-	}
-
 	e.Position = pk.Position
 	e.Pitch = pk.Pitch
 	e.Yaw = pk.Yaw
@@ -101,6 +89,25 @@ func (w *worldsHandler) processAddActor(pk *packet.AddActor) {
 
 	for k, v := range pk.EntityMetadata {
 		e.Metadata[k] = v
+	}
+
+	if w.scripting.CB.OnEntityAdd != nil {
+		ignore := w.scripting.CB.OnEntityAdd(e)
+		if ignore {
+			return
+		}
+	}
+
+	if new {
+		w.worldState.State().storeEntity(uint64(pk.EntityUniqueID), e)
+		for _, el := range pk.EntityLinks {
+			w.addEntityLink(el)
+		}
+		w.bp.AddEntity(behaviourpack.EntityIn{
+			Identifier: pk.EntityType,
+			Attr:       pk.Attributes,
+			Meta:       pk.EntityMetadata,
+		})
 	}
 }
 

@@ -1,0 +1,9 @@
+{
+    "compilerOptions": {
+        "target": "ES6",
+        "checkJs": true,
+        "types": ["./bedrocktool"],
+        "lib": ["ES5"]
+    },
+    "include": ["**/*.js"]
+}

@@ -3,6 +3,7 @@ package world
 import (
 	"context"
 	"flag"
+	"os"
 	"strings"
 
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds"
@@ -24,6 +25,7 @@ type WorldCMD struct {
 	StartPaused     bool
 	PreloadReplay   string
 	ChunkRadius     int
+	ScriptPath      string
 }
 
 func (*WorldCMD) Name() string     { return "worlds" }
@@ -40,9 +42,19 @@ func (c *WorldCMD) SetFlags(f *flag.FlagSet) {
 	f.BoolVar(&c.StartPaused, "start-paused", false, "pause the capturing on startup (can be restarted using /start-capture ingame)")
 	f.StringVar(&c.PreloadReplay, "preload-replay", "", "preload from a replay")
 	f.IntVar(&c.ChunkRadius, "chunk-radius", 0, "the max chunk radius to force")
+	f.StringVar(&c.ScriptPath, "script", "", "path to script to use")
 }
 
 func (c *WorldCMD) Execute(ctx context.Context, ui ui.UI) error {
+	var script string
+	if c.ScriptPath != "" {
+		data, err := os.ReadFile(c.ScriptPath)
+		if err != nil {
+			return err
+		}
+		script = string(data)
+	}
+
 	serverAddress, hostname, err := ui.ServerInput(ctx, c.ServerAddress)
 	if err != nil {
 		return err
@@ -63,6 +75,7 @@ func (c *WorldCMD) Execute(ctx context.Context, ui ui.UI) error {
 		StartPaused:     c.StartPaused,
 		PreloadReplay:   c.PreloadReplay,
 		ChunkRadius:     int32(c.ChunkRadius),
+		Script:          script,
 	}))
 
 	err = proxy.Run(ctx, serverAddress, hostname)

@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bedrock-tool/bedrocktool/handlers/worlds/scripting"
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/ui"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
@@ -49,6 +50,7 @@ type WorldSettings struct {
 	StartPaused     bool
 	PreloadReplay   string
 	ChunkRadius     int32
+	Script          string
 }
 
 type serverState struct {
@@ -73,6 +75,8 @@ type worldsHandler struct {
 	mapUI *MapUI
 	ui    ui.UI
 	bp    *behaviourpack.BehaviourPack
+
+	scripting *scripting.VM
 
 	worldState   *worldState
 	serverState  serverState
@@ -113,6 +117,7 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 		w.worldState.PauseCapture()
 	}
 	w.mapUI = NewMapUI(w)
+	w.scripting = scripting.New()
 
 	h := &proxy.Handler{
 		Name: "Worlds",
@@ -178,6 +183,13 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 			w.bp = behaviourpack.New(hostname)
 			w.serverState.Name = hostname
 			w.newWorldState()
+
+			if settings.Script != "" {
+				err := w.scripting.Load(settings.Script)
+				if err != nil {
+					return err
+				}
+			}
 
 			err := w.preloadReplay()
 			if err != nil {
