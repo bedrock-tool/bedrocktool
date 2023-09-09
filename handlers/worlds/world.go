@@ -368,13 +368,14 @@ func (w *worldsHandler) preloadReplay() error {
 	if err != nil {
 		return err
 	}
-
+	w.proxy.Server = conn
 	for {
 		_, err := conn.ReadPacket()
 		if err != nil {
 			break
 		}
 	}
+	w.proxy.Server = nil
 
 	logrus.Info("finished preload")
 	resetGlobals()

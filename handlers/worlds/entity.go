@@ -12,6 +12,7 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/exp/maps"
 )
 
 type entityState struct {
@@ -89,14 +90,14 @@ func (w *worldsHandler) processAddActor(pk *packet.AddActor) {
 	e.HeadYaw = pk.HeadYaw
 	e.Velocity = pk.Velocity
 
-	for k, v := range pk.EntityMetadata {
-		e.Metadata[k] = v
-	}
+	metadata := make(protocol.EntityMetadata)
+	maps.Copy(metadata, pk.EntityMetadata)
+	e.Metadata = metadata
 
 	if w.scripting.CB.OnEntityAdd != nil {
 		var ignore bool
 		err := recovery.Call(func() error {
-			ignore = w.scripting.CB.OnEntityAdd(e)
+			w.scripting.OnEntityAdd(e, e.Metadata)
 			return nil
 		})
 		if err != nil {
@@ -332,11 +333,23 @@ func (w *worldsHandler) handleEntityPackets(pk packet.Packet) packet.Packet {
 	case *packet.SetActorData:
 		e, ok := w.getEntity(pk.EntityRuntimeID)
 		if ok {
-			e.Metadata = pk.EntityMetadata
+			metadata := make(protocol.EntityMetadata)
+			maps.Copy(metadata, pk.EntityMetadata)
+			if w.scripting.CB.OnEntityDataUpdate != nil {
+				err := recovery.Call(func() error {
+					w.scripting.OnEntityDataUpdate(e, metadata)
+					return nil
+				})
+				if err != nil {
+					logrus.Errorf("Scripting %s", err)
+				}
+			}
+
+			e.Metadata = metadata
 			w.bp.AddEntity(behaviourpack.EntityIn{
 				Identifier: e.EntityType,
 				Attr:       nil,
-				Meta:       pk.EntityMetadata,
+				Meta:       metadata,
 			})
 		}
 	case *packet.SetActorMotion:
