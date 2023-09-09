@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"io"
 	"path/filepath"
+	"strings"
 
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 )
@@ -25,6 +26,7 @@ func (r *replayCache) Close()                  {}
 func (r *replayCache) ReadFrom(z *zip.Reader) error {
 	r.packs = make(map[string]*resource.Pack)
 	for _, f := range z.File {
+		f.Name = strings.ReplaceAll(f.Name, "\\", "/")
 		if filepath.Dir(f.Name) == "packcache" {
 			f, err := z.Open(f.Name)
 			if err != nil {

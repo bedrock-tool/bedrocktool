@@ -135,7 +135,9 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 	packsToDownload := make([]string, 0, totalPacks)
 
 	for _, pack := range pk.TexturePacks {
-		if _, ok := r.queue.downloadingPacks[pack.UUID]; ok {
+		_, alreadyDownloading := r.queue.downloadingPacks[pack.UUID]
+		alreadyIgnored := slices.ContainsFunc(r.ignoredResourcePacks, func(e exemptedResourcePack) bool { return e.uuid == pack.UUID })
+		if alreadyDownloading || alreadyIgnored {
 			logrus.Warnf("duplicate texture pack entry %v in resource pack info\n", pack.UUID)
 			r.queue.serverPackAmount--
 			continue
