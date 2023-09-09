@@ -62,25 +62,26 @@ func (m *MapUI) GetBounds() (min, max protocol.ChunkPos) {
 }
 
 type RenderElem struct {
-	pos protocol.ChunkPos
 	ch  *chunk.Chunk
+	pos protocol.ChunkPos
 
 	isDeferredState bool
 }
 
 type MapUI struct {
 	img            *image.RGBA // rendered image
-	zoomLevel      int         // pixels per chunk
 	renderQueue    *lockfree.Queue
 	renderedChunks map[protocol.ChunkPos]*image.RGBA // prerendered chunks
 	oldRendered    map[protocol.ChunkPos]*image.RGBA
-	needRedraw     bool // when the map has updated this is true
-	showOnGui      bool
-	l              sync.Mutex
+	ticker         *time.Ticker
+	w              *worldsHandler
 
-	ticker *time.Ticker
-	w      *worldsHandler
-	wg     sync.WaitGroup
+	l  sync.Mutex
+	wg sync.WaitGroup
+
+	zoomLevel  int  // pixels per chunk
+	needRedraw bool // when the map has updated this is true
+	showOnGui  bool
 }
 
 func NewMapUI(w *worldsHandler) *MapUI {
@@ -293,7 +294,11 @@ func (m *MapUI) ToImage() *image.RGBA {
 }
 
 func (m *MapUI) SetChunk(pos world.ChunkPos, ch *chunk.Chunk, isDeferredState bool) {
-	m.renderQueue.Enqueue(&RenderElem{(protocol.ChunkPos)(pos), ch, isDeferredState})
+	m.renderQueue.Enqueue(&RenderElem{
+		ch:              ch,
+		pos:             (protocol.ChunkPos)(pos),
+		isDeferredState: isDeferredState,
+	})
 	m.SchedRedraw()
 }
 

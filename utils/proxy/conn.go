@@ -45,13 +45,7 @@ func (p *Context) connectServer(ctx context.Context) (err error) {
 		},
 		EarlyConnHandler: func(c *minecraft.Conn) {
 			p.Server = c
-			if p.withClient {
-				p.rpHandler.Server = c
-			} else {
-				p.rpHandler = newRpHandler(ctx, c, nil, p.addedPacks)
-				p.rpHandler.OnResourcePacksInfoCB = p.onResourcePacksInfo
-				p.rpHandler.OnFinishedPack = p.onFinishedPack
-			}
+			p.rpHandler.SetServer(c)
 			c.ResourcePackHandler = p.rpHandler
 		},
 	}.DialContext(ctx, "raknet", p.serverAddress)
@@ -75,9 +69,7 @@ func (p *Context) connectClient(ctx context.Context, serverAddress string) (err 
 		},
 		EarlyConnHandler: func(c *minecraft.Conn) {
 			p.Client = c
-			p.rpHandler = newRpHandler(ctx, nil, c, p.addedPacks)
-			p.rpHandler.OnResourcePacksInfoCB = p.onResourcePacksInfo
-			p.rpHandler.OnFinishedPack = p.onFinishedPack
+			p.rpHandler.SetClient(c)
 			c.ResourcePackHandler = p.rpHandler
 			close(p.clientConnecting)
 		},

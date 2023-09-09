@@ -95,10 +95,8 @@ type rpHandler struct {
 	OnFinishedPack func(*resource.Pack)
 }
 
-func newRpHandler(ctx context.Context, server, client minecraft.IConn, addedPacks []*resource.Pack) *rpHandler {
+func newRpHandler(ctx context.Context, addedPacks []*resource.Pack) *rpHandler {
 	r := &rpHandler{
-		Server:     server,
-		Client:     client,
 		ctx:        ctx,
 		addedPacks: addedPacks,
 		queue: &resourcePackQueue{
@@ -112,11 +110,17 @@ func newRpHandler(ctx context.Context, server, client minecraft.IConn, addedPack
 		receivedRemotePackInfo: make(chan struct{}),
 		receivedRemoteStack:    make(chan struct{}),
 	}
-	if r.Client != nil {
-		r.nextPack = make(chan *resource.Pack)
-		r.knowPacksRequestedFromServer = make(chan struct{})
-	}
 	return r
+}
+
+func (r *rpHandler) SetServer(c minecraft.IConn) {
+	r.Server = c
+}
+
+func (r *rpHandler) SetClient(c minecraft.IConn) {
+	r.Client = c
+	r.nextPack = make(chan *resource.Pack)
+	r.knowPacksRequestedFromServer = make(chan struct{})
 }
 
 // from server

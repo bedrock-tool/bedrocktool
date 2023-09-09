@@ -21,11 +21,11 @@ const ID = "skins"
 
 type Page struct {
 	router *pages.Router
+	Skins  []messages.NewSkin
 
+	l         sync.Mutex
 	State     messages.UIState
 	SkinsList widget.List
-	l         sync.Mutex
-	Skins     []messages.NewSkin
 	back      widget.Clickable
 }
 

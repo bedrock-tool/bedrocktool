@@ -17,6 +17,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
+	"github.com/gregwebs/go-recovery"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
 )
@@ -228,14 +229,17 @@ func (r *Router) Execute(cmd commands.Command) {
 	go func() {
 		defer r.Wg.Done()
 
+		recovery.ErrorHandler = func(err error) {
+			utils.PrintPanic(err)
+			r.PushPopup(NewErrorPopup(r, err, func() {
+				r.RemovePopup("connect")
+				r.SwitchTo("settings")
+			}, true))
+		}
+
 		defer func() {
-			if err := recover(); err != nil {
-				err := err.(error)
-				utils.PrintPanic(err)
-				r.PushPopup(NewErrorPopup(r, err, func() {
-					r.RemovePopup("connect")
-					r.SwitchTo("settings")
-				}, true))
+			if err, ok := recover().(error); ok {
+				recovery.ErrorHandler(err)
 			}
 		}()
 

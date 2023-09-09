@@ -25,16 +25,15 @@ type Page struct {
 	router *pages.Router
 
 	worldMap   *Map2
+	worlds     []*messages.SavedWorld
+	worldsList widget.List
+	l          sync.Mutex
+
 	State      messages.UIState
 	chunkCount int
 	voidGen    bool
 	worldName  string
-
-	worldsList widget.List
-	worlds     []*messages.SavedWorld
-	l          sync.Mutex
-
-	back widget.Clickable
+	back       widget.Clickable
 }
 
 func New(router *pages.Router) pages.Page {

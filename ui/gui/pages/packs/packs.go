@@ -27,13 +27,13 @@ type (
 const ID = "packs"
 
 type Page struct {
-	router *pages.Router
-
-	finished  bool
+	router    *pages.Router
+	Packs     []*packEntry
 	packsList widget.List
 	l         sync.Mutex
-	Packs     []*packEntry
-	back      widget.Clickable
+
+	finished bool
+	back     widget.Clickable
 }
 
 type packEntry struct {

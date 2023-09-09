@@ -50,6 +50,8 @@ require (
 	github.com/go-text/typesetting v0.0.0-20230803102845-24e03d8b5372 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
+	github.com/gregwebs/errors v1.1.0 // indirect
+	github.com/gregwebs/go-recovery v0.2.1 // indirect
 	github.com/klauspost/compress v1.16.7 // indirect
 	github.com/kr/binarydist v0.1.0 // indirect
 	github.com/kr/pretty v0.2.1 // indirect

@@ -201,9 +201,10 @@ func CreateReplayConnector(ctx context.Context, filename string, packetFunc Pack
 		close:      make(chan struct{}),
 		packets:    make(chan packet.Packet),
 	}
-	r.resourcePackHandler = newRpHandler(ctx, r, nil, nil)
+	r.resourcePackHandler = newRpHandler(ctx, nil)
 	r.resourcePackHandler.OnResourcePacksInfoCB = onResourcePackInfo
 	r.resourcePackHandler.OnFinishedPack = OnFinishedPack
+	r.resourcePackHandler.SetServer(r)
 	cache := &replayCache{}
 	r.resourcePackHandler.cache = cache
 

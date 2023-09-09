@@ -16,6 +16,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/bedrock-tool/bedrocktool/utils/proxy"
+	"github.com/gregwebs/go-recovery"
 	"gopkg.in/square/go-jose.v2/json"
 
 	_ "github.com/bedrock-tool/bedrocktool/subcommands"
@@ -67,6 +68,11 @@ func main() {
 		defer pprof.StopCPUProfile()
 	*/
 
+	recovery.ErrorHandler = func(err error) {
+		utils.PrintPanic(err)
+		utils.UploadPanic()
+	}
+
 	defer func() {
 		// dont catch panic if not release verion
 		if utils.Version == "" {
@@ -77,9 +83,7 @@ func main() {
 			if s, ok := err.(string); ok {
 				err = errors.New(s)
 			}
-
-			utils.PrintPanic(err.(error))
-			utils.UploadPanic()
+			recovery.ErrorHandler(err.(error))
 			if utils.Options.IsInteractive {
 				input := bufio.NewScanner(os.Stdin)
 				input.Scan()

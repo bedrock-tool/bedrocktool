@@ -2,6 +2,7 @@ package worlds
 
 import (
 	"context"
+	"encoding/gob"
 	"errors"
 	"fmt"
 	"image/png"
@@ -21,6 +22,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/behaviourpack"
 	"github.com/bedrock-tool/bedrocktool/utils/proxy"
+	"github.com/gregwebs/go-recovery"
 
 	"github.com/df-mc/dragonfly/server/block"
 	"github.com/df-mc/dragonfly/server/block/cube"
@@ -162,7 +164,9 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 			})
 
 			w.proxy.AddCommand(func(s []string) bool {
-				w.SaveAndReset(false)
+				go recovery.Go(func() error {
+					return w.SaveAndReset(false)
+				})
 				return true
 			}, protocol.Command{
 				Name:        "save-world",
@@ -409,10 +413,10 @@ func (w *worldsHandler) defaultName() string {
 	return worldName
 }
 
-func (w *worldsHandler) SaveAndReset(end bool) {
+func (w *worldsHandler) SaveAndReset(end bool) (err error) {
 	if len(w.worldState.storedChunks) == 0 {
 		w.reset()
-		return
+		return nil
 	}
 
 	playerPos := w.proxy.Player.Position
@@ -449,25 +453,31 @@ func (w *worldsHandler) SaveAndReset(end bool) {
 		w.worldState = nil
 	}
 
-	go func() {
-		defer w.wg.Done()
-		err := worldState.Finish(w.playerData(), spawnPos, w.proxy.Server.GameData(), w.bp)
-		if err != nil {
-			logrus.Error(err)
-			return
-		}
-		w.AddPacks(worldState.folder)
+	defer w.wg.Done()
+	err = worldState.Finish(w.playerData(), spawnPos, w.proxy.Server.GameData(), w.bp)
+	if err != nil {
+		logrus.Error(err)
+		return err
+	}
+	w.AddPacks(worldState.folder)
 
-		// zip it
-		err = utils.ZipFolder(filename, worldState.folder)
-		if err != nil {
-			logrus.Error(err)
-			return
-		}
-		logrus.Info(locale.Loc("saved", locale.Strmap{"Name": filename}))
-		//os.RemoveAll(folder)
-		w.ui.Message(messages.SetUIState(messages.UIStateMain))
-	}()
+	// zip it
+	err = utils.ZipFolder(filename, worldState.folder)
+	if err != nil {
+		logrus.Error(err)
+		return err
+	}
+	logrus.Info(locale.Loc("saved", locale.Strmap{"Name": filename}))
+	//os.RemoveAll(folder)
+	w.ui.Message(messages.SetUIState(messages.UIStateMain))
+
+	return err
+}
+
+func init() {
+	gob.Register(map[string]any{})
+	gob.Register([]any{})
+	gob.Register(map[string][]float32{})
 }
 
 func (w *worldsHandler) reset() error {

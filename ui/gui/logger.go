@@ -14,8 +14,8 @@ import (
 
 type logger struct {
 	router *pages.Router
-	l      sync.Mutex
 	lines  []*logrus.Entry
+	l      sync.Mutex
 	list   widget.List
 }
 

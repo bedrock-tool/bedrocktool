@@ -7,6 +7,7 @@ import (
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/df-mc/dragonfly/server/world/chunk"
+	"github.com/gregwebs/go-recovery"
 	"github.com/sandertv/gophertunnel/minecraft/nbt"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
@@ -15,7 +16,9 @@ import (
 )
 
 func (w *worldsHandler) processChangeDimension(pk *packet.ChangeDimension) {
-	w.SaveAndReset(false)
+	go recovery.Go(func() error {
+		return w.SaveAndReset(false)
+	})
 	dimensionID := pk.Dimension
 	if w.serverState.useOldBiomes && dimensionID == 0 {
 		dimensionID += 10
@@ -71,7 +74,7 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 		}
 
 		dimId, _ := world.DimensionID(w.worldState.dimension)
-		w.proxy.Server.WritePacket(&packet.SubChunkRequest{
+		_ = w.proxy.Server.WritePacket(&packet.SubChunkRequest{
 			Dimension: int32(dimId),
 			Position: protocol.SubChunkPos{
 				pk.Position.X(), 0, pk.Position.Z(),
@@ -192,7 +195,9 @@ func (w *worldsHandler) handleChunkPackets(pk packet.Packet) packet.Packet {
 	case *packet.LevelChunk:
 		w.processLevelChunk(pk)
 	case *packet.SubChunk:
-		w.processSubChunk(pk)
+		if err := w.processSubChunk(pk); err != nil {
+			logrus.Error(err)
+		}
 	case *packet.BlockActorData:
 		p := pk.Position
 		pos := cube.Pos{int(p.X()), int(p.Y()), int(p.Z())}

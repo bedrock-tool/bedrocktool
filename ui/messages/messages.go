@@ -8,8 +8,8 @@ import (
 )
 
 type Response struct {
+	Data any
 	Ok   bool
-	Data interface{}
 }
 
 type UIState int
@@ -20,7 +20,7 @@ const (
 	UIStateFinished
 )
 
-type HandlerFunc = func(data interface{}) Response
+type HandlerFunc = func(data any) Response
 
 //
 
@@ -58,10 +58,10 @@ type Init struct {
 //
 
 type UpdateMap struct {
+	Chunks        map[protocol.ChunkPos]*image.RGBA
+	UpdatedChunks []protocol.ChunkPos
 	ChunkCount    int
 	Rotation      float32
-	UpdatedChunks []protocol.ChunkPos
-	Chunks        map[protocol.ChunkPos]*image.RGBA
 }
 
 //

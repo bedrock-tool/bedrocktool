@@ -37,7 +37,7 @@ func (w *worldsHandler) AddPacks(folder string) {
 		name = strings.ReplaceAll(name, "/", "-")
 		name = strings.ReplaceAll(name, ":", "_")
 		packFolder := path.Join(folder, "behavior_packs", name)
-		os.MkdirAll(packFolder, 0o755)
+		_ = os.MkdirAll(packFolder, 0o755)
 
 		for _, p := range w.proxy.Server.ResourcePacks() {
 			p := utils.PackFromBase(p)

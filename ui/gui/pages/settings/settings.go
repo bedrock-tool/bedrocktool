@@ -34,9 +34,9 @@ type Page struct {
 	router *pages.Router
 
 	cmdMenu struct {
-		state      component.GridState
 		clickables map[string]cmdItem
 		names      []string
+		state      component.GridState
 		selected   string
 	}
 

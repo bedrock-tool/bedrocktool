@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"io/fs"
 	"net"
 	"os"
@@ -144,9 +143,6 @@ func (p *Context) proxyLoop(ctx context.Context, toServer bool) error {
 
 		pk, err := c1.ReadPacket()
 		if err != nil {
-			if errors.Is(err, io.EOF) {
-				err = nil
-			}
 			if errors.Is(err, net.ErrClosed) {
 				err = nil
 			}
@@ -185,9 +181,6 @@ func (p *Context) proxyLoop(ctx context.Context, toServer bool) error {
 			if err := c2.WritePacket(pk); err != nil {
 				if disconnect, ok := errors.Unwrap(err).(minecraft.DisconnectError); ok {
 					p.disconnectReason = disconnect.Error()
-				}
-				if errors.Is(err, io.EOF) {
-					err = nil
 				}
 				if errors.Is(err, net.ErrClosed) {
 					err = nil
@@ -308,7 +301,10 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 
 	for _, handler := range p.handlers {
 		if handler.AddressAndName != nil {
-			handler.AddressAndName(p.serverAddress, p.serverName)
+			err = handler.AddressAndName(p.serverAddress, p.serverName)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -336,6 +332,10 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 		}
 		p.Server = server
 	} else {
+		p.rpHandler = newRpHandler(ctx, p.addedPacks)
+		p.rpHandler.OnResourcePacksInfoCB = p.onResourcePacksInfo
+		p.rpHandler.OnFinishedPack = p.onFinishedPack
+
 		if p.withClient {
 			wg.Add(1)
 			go func() {
