@@ -16,15 +16,13 @@ import (
 //go:embed enums.js
 var enums_js string
 
-type Callbacks struct {
-	OnEntityAdd        func(entity any, metadata *goja.Object) (ignore bool)
-	OnChunkAdd         func(pos world.ChunkPos) (ignore bool)
-	OnEntityDataUpdate func(entity any, metadata *goja.Object)
-}
-
 type VM struct {
 	vm *goja.Runtime
-	CB Callbacks
+	CB struct {
+		OnEntityAdd        func(entity any, metadata *goja.Object) (ignore bool)
+		OnChunkAdd         func(pos world.ChunkPos) (ignore bool)
+		OnEntityDataUpdate func(entity any, metadata *goja.Object)
+	}
 }
 
 func New() *VM {
