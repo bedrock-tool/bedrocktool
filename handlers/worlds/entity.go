@@ -296,7 +296,7 @@ func (s *entityState) ToServerEntity(links []int64) serverEntity {
 	return e
 }
 
-func (w *worldsHandler) getEntity(id uint64) (*entityState, bool) {
+func (w *worldsHandler) getEntity(id EntityRuntimeID) (*entityState, bool) {
 	e, ok := w.worldState.State().getEntity(id)
 	return e, ok
 }

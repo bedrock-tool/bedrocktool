@@ -20,31 +20,34 @@ import (
 	"golang.org/x/exp/maps"
 )
 
+type EntityRuntimeID = uint64
+type EntityUniqueID = int64
+
 type worldStateInt interface {
 	storeChunk(pos world.ChunkPos, dim world.Dimension, ch *chunk.Chunk, blockNBT map[cube.Pos]dummyBlock)
-	storeEntity(id uint64, es *entityState)
-	haveEntity(id uint64) bool
-	getEntity(id uint64) (*entityState, bool)
+	storeEntity(id EntityRuntimeID, es *entityState)
+	haveEntity(id EntityRuntimeID) bool
+	getEntity(id EntityRuntimeID) (*entityState, bool)
 	addEntityLink(el protocol.EntityLink)
-	SetMergeBlockNBT(cube.Pos, map[string]any)
+	SetBlockNBT(pos cube.Pos, nbt map[string]any, merge bool)
 }
 
 type worldStateEnt struct {
-	entities    map[uint64]*entityState
-	entityLinks map[int64]map[int64]struct{}
+	entities    map[EntityRuntimeID]*entityState
+	entityLinks map[EntityUniqueID]map[EntityUniqueID]struct{}
 	blockNBTs   map[world.ChunkPos]map[cube.Pos]dummyBlock
 }
 
-func (w *worldStateEnt) storeEntity(id uint64, es *entityState) {
+func (w *worldStateEnt) storeEntity(id EntityRuntimeID, es *entityState) {
 	w.entities[id] = es
 }
 
-func (w *worldStateEnt) haveEntity(id uint64) bool {
+func (w *worldStateEnt) haveEntity(id EntityRuntimeID) bool {
 	_, ok := w.entities[id]
 	return ok
 }
 
-func (w *worldStateEnt) getEntity(id uint64) (*entityState, bool) {
+func (w *worldStateEnt) getEntity(id EntityRuntimeID) (*entityState, bool) {
 	e, ok := w.entities[id]
 	return e, ok
 }
@@ -70,7 +73,7 @@ func cubePosInChunk(pos cube.Pos) (p world.ChunkPos, sp int16) {
 	return
 }
 
-func (w *worldStateEnt) SetMergeBlockNBT(pos cube.Pos, m map[string]any) {
+func (w *worldStateEnt) SetBlockNBT(pos cube.Pos, m map[string]any, merge bool) {
 	cp, _ := cubePosInChunk(pos)
 	chunkNBTs, ok := w.blockNBTs[cp]
 	if !ok {
@@ -81,11 +84,15 @@ func (w *worldStateEnt) SetMergeBlockNBT(pos cube.Pos, m map[string]any) {
 	if !ok {
 		b = dummyBlock{
 			id:  m["id"].(string),
-			nbt: map[string]any{},
+			nbt: m,
 		}
 	}
 
-	maps.Copy(b.nbt, m)
+	if merge {
+		maps.Copy(b.nbt, m)
+	} else {
+		b.nbt = m
+	}
 	chunkNBTs[pos] = b
 }
 
@@ -98,7 +105,13 @@ type worldStateInternal struct {
 func (w *worldStateInternal) storeChunk(pos world.ChunkPos, dim world.Dimension, ch *chunk.Chunk, blockNBT map[cube.Pos]dummyBlock) {
 	w.l.Lock()
 	defer w.l.Unlock()
-	w.blockNBTs[pos] = blockNBT
+	if len(blockNBT) > 0 {
+		if _, ok := w.blockNBTs[pos]; !ok {
+			w.blockNBTs[pos] = blockNBT
+		} else {
+			maps.Copy(w.blockNBTs[pos], blockNBT)
+		}
+	}
 
 	err := w.provider.StoreColumn(pos, dim, &world.Column{
 		Chunk: ch,
@@ -216,8 +229,8 @@ func newWorldState(cf func(world.ChunkPos, *chunk.Chunk)) (*worldState, error) {
 	w := &worldState{
 		state: &worldStateInternal{
 			worldStateEnt: worldStateEnt{
-				entities:    make(map[uint64]*entityState),
-				entityLinks: make(map[int64]map[int64]struct{}),
+				entities:    make(map[EntityRuntimeID]*entityState),
+				entityLinks: make(map[EntityUniqueID]map[EntityUniqueID]struct{}),
 				blockNBTs:   make(map[world.ChunkPos]map[cube.Pos]dummyBlock),
 			},
 		},
@@ -240,8 +253,8 @@ func (w *worldState) initDeferred() {
 	w.deferredState = &worldStateDefer{
 		chunks: make(map[world.ChunkPos]*chunk.Chunk),
 		worldStateEnt: worldStateEnt{
-			entities:    make(map[uint64]*entityState),
-			entityLinks: make(map[int64]map[int64]struct{}),
+			entities:    make(map[EntityRuntimeID]*entityState),
+			entityLinks: make(map[EntityUniqueID]map[EntityUniqueID]struct{}),
 			blockNBTs:   make(map[world.ChunkPos]map[cube.Pos]dummyBlock),
 		},
 	}

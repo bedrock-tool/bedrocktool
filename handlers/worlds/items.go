@@ -133,9 +133,9 @@ func (w *worldsHandler) handleItemPackets(pk packet.Packet, forward *bool) packe
 			// put into subchunk
 			p := existing.OpenPacket.ContainerPosition
 			pos := cube.Pos{int(p.X()), int(p.Y()), int(p.Z())}
-			w.worldState.State().SetMergeBlockNBT(pos, map[string]any{
+			w.worldState.State().SetBlockNBT(pos, map[string]any{
 				"Items": nbtconv.InvToNBT(inv),
-			})
+			}, true)
 
 			w.proxy.SendMessage(locale.Loc("saved_block_inv", nil))
 

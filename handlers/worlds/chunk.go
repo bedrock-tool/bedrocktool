@@ -201,7 +201,7 @@ func (w *worldsHandler) handleChunkPackets(pk packet.Packet) packet.Packet {
 	case *packet.BlockActorData:
 		p := pk.Position
 		pos := cube.Pos{int(p.X()), int(p.Y()), int(p.Z())}
-		w.worldState.state.SetMergeBlockNBT(pos, pk.NBTData)
+		w.worldState.state.SetBlockNBT(pos, pk.NBTData, false)
 		/*
 			case *packet.UpdateBlock:
 				if w.settings.BlockUpdates {
