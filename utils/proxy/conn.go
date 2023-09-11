@@ -60,6 +60,8 @@ func (p *Context) connectServer(ctx context.Context) (err error) {
 }
 
 func (p *Context) connectClient(ctx context.Context, serverAddress string) (err error) {
+	p.clientConnecting = make(chan struct{})
+	p.haveClientData = make(chan struct{})
 	p.listener, err = minecraft.ListenConfig{
 		StatusProvider: minecraft.NewStatusProvider(fmt.Sprintf("%s Proxy", serverAddress)),
 		//PacketFunc:     p.packetFunc,

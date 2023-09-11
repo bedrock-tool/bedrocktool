@@ -100,6 +100,7 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelCauseFunc) (err er
 }
 
 func (g *GUI) loop(w *app.Window) error {
+	//m := worlds.NewMap3()
 	var ops op.Ops
 	for {
 		select {
@@ -113,6 +114,7 @@ func (g *GUI) loop(w *app.Window) error {
 			case system.FrameEvent:
 				gtx := layout.NewContext(&ops, e)
 				g.router.Layout(gtx, g.router.Theme)
+				//m.Layout(gtx)
 				e.Frame(gtx.Ops)
 			}
 		case <-g.ctx.Done():
