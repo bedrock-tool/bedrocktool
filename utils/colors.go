@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/dblezek/tga"
+	"github.com/df-mc/dragonfly/server/world"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
@@ -172,8 +173,11 @@ func toTexturePath(name string) string {
 	return "textures/blocks/" + strings.Replace(name, ":", "/", 1)
 }
 
-func ResolveColors(entries []protocol.BlockEntry, packs []Pack, addToBlocks bool) map[string]color.RGBA {
-	colors := make(map[string]color.RGBA)
+var ridToIdx map[BlockRID]TexMapEntry
+
+func ResolveColors(entries []protocol.BlockEntry, packs []Pack, addToBlocks bool) (*image.RGBA, map[string]color.RGBA64) {
+	colors := make(map[string]color.RGBA64)
+	images := make(map[string]image.Image)
 	texture_names := getTexturePaths(entries)
 	for _, p := range packs {
 		fs, names, err := p.FS()
@@ -253,12 +257,17 @@ func ResolveColors(entries []protocol.BlockEntry, packs []Pack, addToBlocks bool
 				continue
 			}
 
-			colors[block] = calculateMeanAverageColour(img)
+			colors[block] = RGBAToRGBA64(calculateMeanAverageColour(img))
+			images[block] = img
 		}
 	}
 
 	if addToBlocks {
 		customBlockColors = colors
 	}
-	return colors
+
+	m := NewTextureMap()
+	ridToIdx = m.SetTextures(world.Blocks(), images)
+
+	return m.Lookup, colors
 }

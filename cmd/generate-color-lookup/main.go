@@ -40,7 +40,7 @@ func main() {
 		}
 	}
 
-	colors := utils.ResolveColors(entries, packs, false)
+	_, colors := utils.ResolveColors(entries, packs, false)
 	keys := maps.Keys(colors)
 	sort.Strings(keys)
 

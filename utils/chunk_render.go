@@ -9,7 +9,6 @@ import (
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/df-mc/dragonfly/server/world/chunk"
-	"github.com/thomaso-mirodin/intmath/i32"
 )
 
 func isBlockLightblocking(b world.Block) bool {
@@ -18,38 +17,57 @@ func isBlockLightblocking(b world.Block) bool {
 	return !noDiffuse
 }
 
-var customBlockColors = map[string]color.RGBA{}
+var customBlockColors = map[string]color.RGBA64{}
 
-func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.RGBA) {
+func RGBAToRGBA64(rgba color.RGBA) color.RGBA64 {
+	return color.RGBA64{
+		R: uint16(rgba.R) * 257,
+		G: uint16(rgba.G) * 257,
+		B: uint16(rgba.B) * 257,
+		A: uint16(rgba.A) * 257,
+	}
+}
+
+var waterColor color.RGBA64
+
+func init() {
+	waterColor = RGBAToRGBA64(block.Water{}.Color())
+}
+
+func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.RGBA64) {
 	if y <= int16(c.Range().Min()) {
-		return color.RGBA{0, 0, 0, 0}
+		return color.RGBA64{0, 0, 0, 0}
 	}
 	rid := c.Block(x, y, z, 0)
+	/*
+		if idx, ok := ridToIdx[rid]; ok {
+			return color.RGBA64{idx.X, idx.Y, 0, 0xff}
+		}
+		return color.RGBA64{}
+	*/
 
-	blockColor = color.RGBA{255, 0, 255, 255}
+	blockColor = color.RGBA64{0xffff, 0, 0xffff, 0xffff}
 	b, found := world.BlockByRuntimeID(rid)
 	if !found {
 		return blockColor
 	}
 
 	if _, isWater := b.(block.Water); isWater {
-		waterColor := block.Water{}.Color()
-
 		// get the first non water block at the position
 		heightBlock := c.HeightMap().At(x, z)
 		depth := y - heightBlock
 		if depth > 0 {
 			blockColor = blockColorAt(c, x, heightBlock, z)
 		} else {
-			blockColor = color.RGBA{0, 0, 0, 0}
+			blockColor = color.RGBA64{0, 0, 0, 0}
 		}
 
 		// blend that blocks color with water depending on depth
-		waterColor.A = uint8(i32.Min(150+int32(depth)*7, 230))
+		waterColor.A = min(150+uint16(depth)*7, 230) * 257
 		blockColor = BlendColors(blockColor, waterColor)
-		blockColor.R -= uint8(depth * 2)
-		blockColor.G -= uint8(depth * 2)
-		blockColor.B -= uint8(depth * 2)
+		blockColor.R -= uint16(depth * 6 * 257)
+		blockColor.G -= uint16(depth * 6 * 257)
+		blockColor.B -= uint16(depth * 6 * 257)
 		return blockColor
 	} else {
 		if b2, ok := b.(world.UnknownBlock); ok {
@@ -92,27 +110,28 @@ func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.R
 				if strings.HasSuffix(name, "_candle_cake") {
 					name = "minecraft:cake"
 				}
-				blockColor = LookupColor(name)
+				blockColor = RGBAToRGBA64(LookupColor(name))
 			}
 		} else {
-			blockColor = b.Color()
+			blockColor = RGBAToRGBA64(b.Color())
+
 		}
 
-		if blockColor.R == 0xff && blockColor.G == 0x0 && blockColor.B == 0xff {
+		if blockColor.R == 0xffff && blockColor.G == 0x0 && blockColor.B == 0xffff {
 			if Version == "" {
 				println(b.EncodeBlock())
 				b.Color()
 			}
 		}
 
-		if blockColor.A != 255 {
+		if blockColor.A != 0xffff {
 			blockColor = BlendColors(blockColorAt(c, x, y-1, z), blockColor)
 		}
 		return blockColor
 	}
 }
 
-func chunkGetColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) color.RGBA {
+func chunkGetColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) color.RGBA64 {
 	haveUp := false
 	cube.Pos{int(x), int(y), int(z)}.
 		Side(cube.FaceUp).
@@ -133,26 +152,26 @@ func chunkGetColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) color.RGBA {
 
 	blockColor := blockColorAt(c, x, y, z)
 	if haveUp && (x+z)%2 == 0 {
-		if blockColor.R > 10 {
-			blockColor.R -= 10
+		if blockColor.R > 10*0xff {
+			blockColor.R -= 10 * 0xff
 		}
-		if blockColor.G > 10 {
-			blockColor.G -= 10
+		if blockColor.G > 10*0xff {
+			blockColor.G -= 10 * 0xff
 		}
-		if blockColor.B > 10 {
-			blockColor.B -= 10
+		if blockColor.B > 10*0xff {
+			blockColor.B -= 10 * 0xff
 		}
 	}
 	return blockColor
 }
 
-func Chunk2Img(c *chunk.Chunk) *image.RGBA {
-	img := image.NewRGBA(image.Rect(0, 0, 16, 16))
+func Chunk2Img(c *chunk.Chunk) *image.RGBA64 {
+	img := image.NewRGBA64(image.Rect(0, 0, 16, 16))
 	hm := c.HeightMapWithWater()
 
 	for x := uint8(0); x < 16; x++ {
 		for z := uint8(0); z < 16; z++ {
-			img.SetRGBA(
+			img.SetRGBA64(
 				int(x), int(z),
 				chunkGetColorAt(c, x, hm.At(x, z), z),
 			)

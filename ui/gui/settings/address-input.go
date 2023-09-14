@@ -17,7 +17,7 @@ import (
 )
 
 type addressInput struct {
-	editor         widget.Editor
+	Editor         widget.Editor
 	showRealmsList widget.Bool
 	l              sync.Mutex
 	realmsList     widget.List
@@ -27,7 +27,7 @@ type addressInput struct {
 }
 
 var AddressInput = &addressInput{
-	editor: widget.Editor{
+	Editor: widget.Editor{
 		SingleLine: true,
 	},
 	realmsList: widget.List{
@@ -38,7 +38,7 @@ var AddressInput = &addressInput{
 }
 
 func (a *addressInput) Value() string {
-	return a.editor.Text()
+	return a.Editor.Text()
 }
 
 func (a *addressInput) getRealms() {
@@ -68,7 +68,7 @@ func (a *addressInput) Layout(gtx layout.Context, th *material.Theme) layout.Dim
 			},
 		}).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return layout.UniformInset(8).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				e := material.Editor(th, &a.editor, "Enter Server Address")
+				e := material.Editor(th, &a.Editor, "Enter Server Address")
 				e.LineHeight += 4
 				return e.Layout(gtx)
 			})
@@ -82,7 +82,7 @@ func (a *addressInput) LayoutRealms(gtx layout.Context, th *material.Theme) layo
 		if c.Clicked() {
 			for _, r := range a.realms {
 				if r.ID == k {
-					a.editor.SetText(fmt.Sprintf("realm:%s:%d", r.Name, r.ID))
+					a.Editor.SetText(fmt.Sprintf("realm:%s:%d", r.Name, r.ID))
 				}
 			}
 		}

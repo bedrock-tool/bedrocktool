@@ -12,7 +12,6 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sirupsen/logrus"
-	"github.com/thomaso-mirodin/intmath/i32"
 )
 
 func (w *worldsHandler) processChangeDimension(pk *packet.ChangeDimension) {
@@ -76,10 +75,10 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 	}
 	w.worldState.storeChunk(pos, ch, chunkBlockNBT)
 
-	max := uint16(w.worldState.dimension.Range().Height() / 16)
+	max := w.worldState.dimension.Range().Height() / 16
 	switch pk.SubChunkCount {
 	case protocol.SubChunkRequestModeLimited:
-		max = uint16(pk.HighestSubChunk)
+		max = int(pk.HighestSubChunk)
 		fallthrough
 	case protocol.SubChunkRequestModeLimitless:
 		var offsetTable []protocol.SubChunkOffset
@@ -94,7 +93,7 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 			Position: protocol.SubChunkPos{
 				pk.Position.X(), 0, pk.Position.Z(),
 			},
-			Offsets: offsetTable[:i32.Min(int32(max+1), int32(len(offsetTable)))],
+			Offsets: offsetTable[:min(max+1, len(offsetTable))],
 		})
 	default:
 		// legacy

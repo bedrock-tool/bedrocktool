@@ -57,6 +57,10 @@ type Init struct {
 
 //
 
+type MapLookup struct {
+	Lookup *image.RGBA
+}
+
 type UpdateMap struct {
 	Chunks        map[protocol.ChunkPos]*image.RGBA
 	UpdatedChunks []protocol.ChunkPos

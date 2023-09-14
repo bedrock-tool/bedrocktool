@@ -1,5 +1,3 @@
-//go:build experimental
-
 // experimental 3d stuff
 
 package worlds
@@ -15,17 +13,31 @@ import (
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/shader"
+	"github.com/bedrock-tool/bedrocktool/ui/messages"
+	"github.com/sandertv/gophertunnel/minecraft/protocol"
+	"golang.design/x/lockfree"
 )
 
+type tile struct {
+	Tex gpu.Texture
+}
+
 type Map3 struct {
-	q           gpu.Buffer
-	pipe        gpu.Pipeline
-	uniformData *gpu.BlitUniforms
-	uniforms    *gpu.UniformBuffer
+	queue         *lockfree.Queue
+	verts         gpu.Buffer
+	pipe          gpu.Pipeline
+	uniformData   *gpu.BlitUniforms
+	uniforms      *gpu.UniformBuffer
+	lookupTexture gpu.Texture
+	lookupImage   *image.RGBA
+	tiles         map[image.Point]*tile
 }
 
 func NewMap3() *Map3 {
-	m := &Map3{}
+	m := &Map3{
+		queue: lockfree.NewQueue(),
+		tiles: make(map[image.Point]*tile),
+	}
 	m.uniformData = new(gpu.BlitUniforms)
 	return m
 }
@@ -56,15 +68,17 @@ func byteSlice(s interface{}) []byte {
 }
 
 func (m *Map3) prepare(dev gpu.Device) {
-	println("prepare")
 	if m.pipe == nil {
 		var err error
-		m.q, err = dev.NewImmutableBuffer(2,
+		m.verts, err = dev.NewImmutableBuffer(2,
 			byteSlice([]float32{
 				-1, -1, 0, 0,
 				+1, -1, 1, 0,
 				-1, +1, 0, 1,
-				+1, +1, 1, 1,
+
+				+1, +1, 0, 0,
+				-1, +1, 0, 1,
+				+1, -1, 1, 0,
 			}),
 		)
 		if err != nil {
@@ -109,8 +123,6 @@ func (m *Map3) prepare(dev gpu.Device) {
 			struct Block
 			{
 				vec4 transform;
-				vec4 uvTransformR1;
-				vec4 uvTransformR2;
 			};
 
 			uniform Block _block;
@@ -152,19 +164,9 @@ func (m *Map3) prepare(dev gpu.Device) {
 						Type:   0x0,
 						Size:   4,
 						Offset: 0,
-					}, {
-						Name:   "_block.uvTransformR1",
-						Type:   0x0,
-						Size:   4,
-						Offset: 16,
-					}, {
-						Name:   "_block.uvTransformR2",
-						Type:   0x0,
-						Size:   4,
-						Offset: 32,
 					},
 				},
-				Size: 48,
+				Size: 16,
 			},
 		})
 		if err != nil {
@@ -181,9 +183,12 @@ func (m *Map3) prepare(dev gpu.Device) {
 				layout(location = 0) in highp vec2 vUV;
 	
 				layout(location = 0) out vec4 fragColor;
+
+				layout(binding=0) uniform sampler2D lookupTex;
 	
 				void main() {
-					fragColor = vec4(vUV.x, vUV.y, 0.5, 1.0);
+					fragColor = texture(lookupTex, vUV);
+					//fragColor = vec4(vUV.x, vUV.y, 0.5, 1.0);
 				}
 			`,
 		})
@@ -209,24 +214,81 @@ func (m *Map3) prepare(dev gpu.Device) {
 
 		m.uniforms = gpu.NewUniformBuffer(dev, m.uniformData)
 	}
+
+	m.processQueue(dev)
+
+	if m.lookupImage != nil && m.lookupTexture == nil {
+		t, err := dev.NewTexture(2, m.lookupImage.Rect.Dx(), m.lookupImage.Rect.Dy(), 0, 0, 8)
+		if err != nil {
+			panic(err)
+		}
+		t.Upload(image.Pt(0, 0), m.lookupImage.Rect.Max, m.lookupImage.Pix, m.lookupImage.Stride)
+		m.lookupTexture = t
+	}
 }
 
 func (m *Map3) render(dev gpu.Device, scale, off f32.Point) {
+	if m.lookupTexture == nil {
+		return
+	}
+
 	println("render")
 	dev.BindPipeline(m.pipe)
-	dev.BindVertexBuffer(m.q, 0)
+	dev.BindVertexBuffer(m.verts, 0)
 
-	off = off.Sub(f32.Pt(0, 50.0/600))
-
+	dev.BindUniforms(m.uniforms.Buf)
 	m.uniformData.Transform = [4]float32{scale.X, scale.Y, off.X, off.Y}
 	m.uniforms.Upload()
-	dev.BindUniforms(m.uniforms.Buf)
 
-	dev.DrawArrays(0, 4)
+	dev.BindTexture(0, m.lookupTexture)
+	dev.DrawArrays(0, 6)
 }
 
 func (m *Map3) Release() {
 	m.pipe.Release()
 	m.uniforms.Release()
-	m.q.Release()
+	m.verts.Release()
+	for p, t := range m.tiles {
+		t.Tex.Release()
+		delete(m.tiles, p)
+	}
+}
+
+type queuedTile struct {
+	ChunkPos protocol.ChunkPos
+	Img      *image.RGBA
+}
+
+func (m *Map3) Update(u *messages.UpdateMap) {
+	for _, cp := range u.UpdatedChunks {
+		m.queue.Enqueue(&queuedTile{
+			ChunkPos: cp,
+			Img:      u.Chunks[cp],
+		})
+	}
+}
+
+func (m *Map3) SetLookupTexture(img *image.RGBA) {
+	m.lookupImage = img
+}
+
+func (m *Map3) processQueue(dev gpu.Device) {
+	for {
+		e, ok := m.queue.Dequeue().(*queuedTile)
+		if !ok {
+			break
+		}
+		tilePos, posInTile := chunkPosToTilePos(e.ChunkPos)
+		t, ok := m.tiles[tilePos]
+		if !ok {
+			t = &tile{}
+			m.tiles[tilePos] = t
+			var err error
+			t.Tex, err = dev.NewTexture(2, tileSize, tileSize, 0, 0, 8)
+			if err != nil {
+				panic(err)
+			}
+		}
+		t.Tex.Upload(posInTile, image.Pt(16, 16), e.Img.Pix, e.Img.Stride)
+	}
 }

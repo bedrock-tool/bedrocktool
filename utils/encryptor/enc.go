@@ -28,8 +28,6 @@ type Content struct {
 	Content []contentItem `json:"content"`
 }
 
-var StaticKey = []byte("s5s5ejuDru4uchuF2drUFuthaspAbepE")
-
 func GenerateKey() (out []byte) {
 	out = make([]byte, 32)
 	var vocab = []byte("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")

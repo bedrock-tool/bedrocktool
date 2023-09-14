@@ -25,6 +25,7 @@ type Page struct {
 	router *pages.Router
 
 	worldMap   *Map2
+	Map3       *Map3
 	worlds     []*messages.SavedWorld
 	worldsList widget.List
 	l          sync.Mutex
@@ -43,6 +44,7 @@ func New(router *pages.Router) pages.Page {
 			images:   make(map[image.Point]*image.RGBA),
 			imageOps: make(map[image.Point]paint.ImageOp),
 		},
+		Map3: NewMap3(),
 		worldsList: widget.List{
 			List: layout.List{
 				Axis: layout.Vertical,
@@ -147,8 +149,11 @@ func (u *Page) Handler(data any) messages.Response {
 	case messages.UpdateMap:
 		u.chunkCount = m.ChunkCount
 		u.worldMap.Update(&m)
+		//u.Map3.Update(&m)
 		u.router.Invalidate()
 		r.Ok = true
+	case messages.MapLookup:
+		u.Map3.SetLookupTexture(m.Lookup)
 	case messages.SetVoidGen:
 		u.voidGen = m.Value
 		u.router.Invalidate()

@@ -13,7 +13,6 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/go-gl/mathgl/mgl32"
-	"github.com/thomaso-mirodin/intmath/i32"
 	"golang.design/x/lockfree"
 
 	"github.com/df-mc/dragonfly/server/world"
@@ -47,16 +46,16 @@ var MapItemPacket = packet.InventoryContent{
 	},
 }
 
-func (m *MapUI) GetBounds() (min, max protocol.ChunkPos) {
+func (m *MapUI) GetBounds() (Min, Max protocol.ChunkPos) {
 	if len(m.renderedChunks) == 0 {
 		return
 	}
-	min = protocol.ChunkPos{math.MaxInt32, math.MaxInt32}
+	Min = protocol.ChunkPos{math.MaxInt32, math.MaxInt32}
 	for chunk := range m.renderedChunks {
-		min[0] = i32.Min(min[0], chunk[0])
-		min[1] = i32.Min(min[1], chunk[1])
-		max[0] = i32.Max(max[0], chunk[0])
-		max[1] = i32.Max(max[1], chunk[1])
+		Min[0] = min(Min[0], chunk[0])
+		Min[1] = min(Min[1], chunk[1])
+		Max[0] = max(Max[0], chunk[0])
+		Max[1] = max(Max[1], chunk[1])
 	}
 	return
 }
@@ -118,7 +117,8 @@ func (m *MapUI) Start(ctx context.Context) {
 	m.ticker = time.NewTicker(33 * time.Millisecond)
 	m.wg.Add(1)
 	go func() {
-		utils.ResolveColors(m.w.customBlocks, m.w.serverState.packs, true)
+		lookup, _ := utils.ResolveColors(m.w.customBlocks, m.w.serverState.packs, true)
+		m.w.ui.Message(messages.MapLookup{Lookup: lookup})
 		m.wg.Done()
 	}()
 	go func() {
@@ -216,7 +216,10 @@ func (m *MapUI) processQueue() []protocol.ChunkPos {
 				}
 				draw.Draw(img, img.Rect, red, image.Point{}, draw.Over)
 			}
-			m.renderedChunks[r.pos] = img
+
+			img2 := image.NewRGBA(img.Rect)
+			draw.Draw(img2, img.Rect, img, image.Pt(0, 0), draw.Over)
+			m.renderedChunks[r.pos] = img2
 			updatedChunks = append(updatedChunks, r.pos)
 		} else {
 			if img, ok := m.oldRendered[r.pos]; ok {
