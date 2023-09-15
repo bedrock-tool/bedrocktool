@@ -17,20 +17,23 @@ import (
 
 const tileSize = 256
 
-type Map2 struct {
-	click f32.Point
-
+type mapInput struct {
+	click       f32.Point
 	scaleFactor float64
 	center      f32.Point
 	transform   f32.Affine2D
 	grabbed     bool
 	cursor      image.Point
+}
+
+type Map2 struct {
+	mapInput mapInput
 
 	images   map[image.Point]*image.RGBA
 	imageOps map[image.Point]paint.ImageOp
 }
 
-func (m *Map2) HandlePointerEvent(e pointer.Event) {
+func (m *mapInput) HandlePointerEvent(e pointer.Event) {
 	const WHEEL_DELTA = 120
 
 	switch e.Type {
@@ -52,7 +55,7 @@ func (m *Map2) HandlePointerEvent(e pointer.Event) {
 	}
 }
 
-func (m *Map2) Layout(gtx layout.Context) layout.Dimensions {
+func (m *mapInput) Layout(gtx layout.Context) {
 	if m.scaleFactor == 0 {
 		m.scaleFactor = 1
 	}
@@ -64,9 +67,13 @@ func (m *Map2) Layout(gtx layout.Context) layout.Dimensions {
 			m.HandlePointerEvent(e)
 		}
 	}
+}
+
+func (m *Map2) Layout(gtx layout.Context) layout.Dimensions {
+	m.mapInput.Layout(gtx)
 
 	for p, imageOp := range m.imageOps {
-		scaledSize := tileSize * m.scaleFactor
+		scaledSize := tileSize * m.mapInput.scaleFactor
 		pt := f32.Pt(float32(float64(p.X)*scaledSize), float32(float64(p.Y)*scaledSize))
 
 		// check if this needs to be drawn
@@ -76,19 +83,19 @@ func (m *Map2) Layout(gtx layout.Context) layout.Dimensions {
 			image.Rectangle{
 				Min: pt.Round(),
 				Max: pt.Add(f32.Pt(float32(scaledSize), float32(scaledSize))).Round(),
-			}.Add(m.center.Round()).Add(m.transform.Transform(f32.Pt(0, 0)).Round()),
+			}.Add(m.mapInput.center.Round()).Add(m.mapInput.transform.Transform(f32.Pt(0, 0)).Round()),
 		).Empty() {
 			continue
 		}
 
-		aff := op.Affine(m.transform.Offset(m.center).Offset(pt)).Push(gtx.Ops)
+		aff := op.Affine(m.mapInput.transform.Offset(m.mapInput.center).Offset(pt)).Push(gtx.Ops)
 		imageOp.Add(gtx.Ops)
 		paint.PaintOp{}.Add(gtx.Ops)
 		aff.Pop()
 	}
 
-	if m.cursor.In(image.Rectangle(gtx.Constraints)) {
-		if m.grabbed {
+	if m.mapInput.cursor.In(image.Rectangle(gtx.Constraints)) {
+		if m.mapInput.grabbed {
 			pointer.CursorGrabbing.Add(gtx.Ops)
 		} else {
 			pointer.CursorGrab.Add(gtx.Ops)

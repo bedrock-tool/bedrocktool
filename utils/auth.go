@@ -78,6 +78,7 @@ func (a *authsrv) GetTokenSource() (src oauth2.TokenSource, err error) {
 
 	// if the old token isnt valid save the new one
 	if !token.Valid() {
+		logrus.Debug("Refreshing token")
 		token, err = a.src.Token()
 		if err != nil {
 			return nil, err

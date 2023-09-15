@@ -22,11 +22,17 @@ type tile struct {
 	Tex gpu.Texture
 }
 
+type uniforms struct {
+	Transform [4]float32
+}
+
 type Map3 struct {
-	queue         *lockfree.Queue
+	queue    *lockfree.Queue
+	mapInput mapInput
+
 	verts         gpu.Buffer
 	pipe          gpu.Pipeline
-	uniformData   *gpu.BlitUniforms
+	uniformData   *uniforms
 	uniforms      *gpu.UniformBuffer
 	lookupTexture gpu.Texture
 	lookupImage   *image.RGBA
@@ -38,11 +44,13 @@ func NewMap3() *Map3 {
 		queue: lockfree.NewQueue(),
 		tiles: make(map[image.Point]*tile),
 	}
-	m.uniformData = new(gpu.BlitUniforms)
+	m.uniformData = new(uniforms)
 	return m
 }
 
 func (m *Map3) Layout(gtx layout.Context) layout.Dimensions {
+	m.mapInput.Layout(gtx)
+
 	r := clip.Rect{
 		Min: image.Pt(0, 0),
 		Max: gtx.Constraints.Max,
@@ -53,6 +61,7 @@ func (m *Map3) Layout(gtx layout.Context) layout.Dimensions {
 	}.Add(gtx.Ops)
 	paint.PaintOp{}.Add(gtx.Ops)
 	r.Pop()
+
 	return layout.Dimensions{
 		Size: gtx.Constraints.Max,
 	}
@@ -181,13 +190,31 @@ func (m *Map3) prepare(dev gpu.Device) {
 				precision mediump float;
 	
 				layout(location = 0) in highp vec2 vUV;
-	
 				layout(location = 0) out vec4 fragColor;
 
 				layout(binding=0) uniform sampler2D lookupTex;
+				layout(binding=1) uniform sampler2D mapTex;
+
+				const vec2 mapSize = vec2(256., 256.);
+				const vec2 atlasSize = vec2(1024., 512.);
+				const vec2 atlasBlockSize = vec2(16., 16.);
 	
 				void main() {
-					fragColor = texture(lookupTex, vUV);
+					vec4 blockIndex = texture(mapTex, vUV);
+					if(blockIndex.a < 1.) {
+						return;
+					}
+
+					vec2 blockPixel = vUV * mapSize;
+					vec2 off = blockPixel-floor(blockPixel);
+					vec2 blockPixelUV = (off)/atlasSize*atlasBlockSize;
+
+					vec2 blockBeginUV = vec2((blockIndex.xy * 255.0 * atlasBlockSize) / atlasSize);
+
+					vec4 blockColor = texture(lookupTex, blockBeginUV+blockPixelUV);
+
+					fragColor = blockColor;
+
 					//fragColor = vec4(vUV.x, vUV.y, 0.5, 1.0);
 				}
 			`,
@@ -232,16 +259,17 @@ func (m *Map3) render(dev gpu.Device, scale, off f32.Point) {
 		return
 	}
 
-	println("render")
 	dev.BindPipeline(m.pipe)
 	dev.BindVertexBuffer(m.verts, 0)
-
-	dev.BindUniforms(m.uniforms.Buf)
-	m.uniformData.Transform = [4]float32{scale.X, scale.Y, off.X, off.Y}
-	m.uniforms.Upload()
-
 	dev.BindTexture(0, m.lookupTexture)
-	dev.DrawArrays(0, 6)
+
+	for _, t := range m.tiles {
+		dev.BindTexture(1, t.Tex)
+		dev.BindUniforms(m.uniforms.Buf)
+		m.uniformData.Transform = [4]float32{scale.X, scale.Y, off.X, off.Y}
+		m.uniforms.Upload()
+		dev.DrawArrays(0, 6)
+	}
 }
 
 func (m *Map3) Release() {

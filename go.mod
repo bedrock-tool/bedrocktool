@@ -4,7 +4,9 @@ go 1.21
 
 require (
 	gioui.org v0.2.0
+	gioui.org/shader v1.0.6
 	gioui.org/x v0.2.0
+	github.com/OneOfOne/xxhash v1.2.2
 	github.com/beevik/ntp v1.3.0
 	github.com/cloudfoundry/jibber_jabber v0.0.0-20151120183258-bcc4c8345a21
 	github.com/dblezek/tga v0.0.0-20150626111426-80720cbc1017
@@ -39,7 +41,6 @@ require (
 
 require (
 	gioui.org/cpu v0.0.0-20220412190645-f1e9e8c3b1f7 // indirect
-	gioui.org/shader v1.0.6 // indirect
 	git.wow.st/gmp/jni v0.0.0-20210610011705-34026c7e22d0 // indirect
 	github.com/brentp/intintmap v0.0.0-20190211203843-30dc0ade9af9 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect

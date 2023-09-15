@@ -482,6 +482,8 @@ func (p *Context) connect(ctx context.Context) (err error) {
 	p.clientAddr = nil
 	p.transfer = nil
 	p.Client = nil
+	p.clientConnecting = make(chan struct{})
+	p.haveClientData = make(chan struct{})
 	ctx2, cancel := context.WithCancelCause(ctx)
 	err = p.doSession(ctx2, cancel)
 	cancel(nil)
