@@ -7,8 +7,8 @@ import (
 
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/ui"
-	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
+	"github.com/bedrock-tool/bedrocktool/utils/updater"
 	"github.com/sirupsen/logrus"
 )
 
@@ -19,17 +19,18 @@ func (*UpdateCMD) Synopsis() string           { return locale.Loc("update_synops
 func (c *UpdateCMD) SetFlags(f *flag.FlagSet) {}
 
 func (c *UpdateCMD) Execute(ctx context.Context, ui ui.UI) error {
-	newVersion, err := utils.Updater.UpdateAvailable()
+	update, err := updater.UpdateAvailable()
 	if err != nil {
 		return err
 	}
-	if newVersion == "" {
+	isNew := update.Version != updater.Version
+	if !isNew {
 		logrus.Info(locale.Loc("no_update", nil))
 		return nil
 	}
-	logrus.Infof(locale.Loc("updating", locale.Strmap{"Version": newVersion}))
+	logrus.Infof(locale.Loc("updating", locale.Strmap{"Version": update.Version}))
 
-	if err := utils.Updater.Update(); err != nil {
+	if err := updater.DoUpdate(); err != nil {
 		return err
 	}
 

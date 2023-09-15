@@ -10,7 +10,7 @@ import (
 	"gioui.org/x/component"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
-	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/updater"
 )
 
 type (
@@ -61,13 +61,18 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 	if p.startButton.Clicked() && !p.updating {
 		p.updating = true
 		go func() {
-			p.err = utils.Updater.Update()
+			p.err = updater.DoUpdate()
 			if p.err == nil {
 				p.State = messages.UIStateFinished
 			}
 			p.updating = false
 			p.Router.Invalidate()
 		}()
+	}
+
+	update, err := updater.UpdateAvailable()
+	if err != nil {
+		p.err = err
 	}
 
 	return layout.Inset{
@@ -86,7 +91,7 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 		case messages.UIStateMain:
 			// show the main ui
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-				layout.Rigid(material.Label(th, 20, fmt.Sprintf("Current: %s\nNew:     %s", utils.Version, utils.UpdateAvailable)).Layout),
+				layout.Rigid(material.Label(th, 20, fmt.Sprintf("Current: %s\nNew:     %s", updater.Version, update.Version)).Layout),
 				layout.Rigid(material.Button(th, &p.startButton, "Do Update").Layout),
 			)
 		case messages.UIStateFinished:

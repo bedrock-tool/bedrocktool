@@ -148,7 +148,7 @@ func drawPackEntry(gtx C, th *material.Theme, pack *packEntry) D {
 							}.Layout),
 							layout.Rigid(func(gtx C) D {
 								var c color.NRGBA
-								t := ""
+								var t string
 
 								if pack.Err != nil {
 									c = color.NRGBA{0xbb, 0x00, 0x00, 0xff}

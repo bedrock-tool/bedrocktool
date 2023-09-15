@@ -9,6 +9,7 @@ import (
 	"runtime/debug"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
+	"github.com/bedrock-tool/bedrocktool/utils/updater"
 	"github.com/sirupsen/logrus"
 )
 
@@ -21,7 +22,7 @@ func PrintPanic(err error) {
 	logrus.Errorf(locale.Loc("fatal_error", nil))
 	println("")
 	println("--COPY FROM HERE--")
-	logrus.Infof("Version: %s", Version)
+	logrus.Infof("Version: %s", updater.Version)
 	logrus.Infof("Cmdline: %s", os.Args)
 	logrus.Errorf("Error: %s", err)
 	println("stacktrace from panic: \n" + panicStack)
@@ -50,7 +51,7 @@ func UploadPanic() {
 
 func UploadError(err error) {
 	report := errorReport{
-		Version:     Version,
+		Version:     updater.Version,
 		OS:          runtime.GOOS,
 		ErrorString: err.Error(),
 		Error:       err,
@@ -64,7 +65,7 @@ func UploadError(err error) {
 		return
 	}
 
-	errorServer := updateServer + "errors/"
+	errorServer := updater.UpdateServer + "errors/"
 	req, err := http.NewRequest("PUT", errorServer+"/submit", body)
 	if err != nil {
 		logrus.Error(err)

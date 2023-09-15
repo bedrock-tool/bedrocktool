@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"runtime/pprof"
 	"syscall"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
@@ -16,6 +17,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/bedrock-tool/bedrocktool/utils/proxy"
+	"github.com/bedrock-tool/bedrocktool/utils/updater"
 	"github.com/gregwebs/go-recovery"
 	"gopkg.in/square/go-jose.v2/json"
 
@@ -45,28 +47,30 @@ func selectUI() ui.UI {
 }
 
 func updateCheck(ui ui.UI) {
-	newVersion, err := utils.Updater.UpdateAvailable()
+	update, err := updater.UpdateAvailable()
 	if err != nil {
+		logrus.Warn(err)
 		return
-		//logrus.Error(err)
 	}
+	isNew := update.Version != updater.Version
 
-	if newVersion != "" {
-		logrus.Infof(locale.Loc("update_available", locale.Strmap{"Version": newVersion}))
-		utils.UpdateAvailable = newVersion
-		ui.Message(messages.UpdateAvailable{Version: newVersion})
+	if isNew {
+		logrus.Infof(locale.Loc("update_available", locale.Strmap{"Version": update.Version}))
+		ui.Message(messages.UpdateAvailable{Version: update.Version})
 	}
 }
 
 func main() {
-	/*
+	isDebug := updater.Version == ""
+
+	if isDebug {
 		f, err := os.Create("cpu.pprof")
 		if err != nil {
 			panic(err)
 		}
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
-	*/
+	}
 
 	recovery.ErrorHandler = func(err error) {
 		utils.PrintPanic(err)
@@ -75,7 +79,7 @@ func main() {
 
 	defer func() {
 		// dont catch panic if not release verion
-		if utils.Version == "" {
+		if updater.Version == "" {
 			logrus.Warn("no version set")
 			return
 		}
@@ -93,8 +97,8 @@ func main() {
 	}()
 
 	logrus.SetLevel(logrus.DebugLevel)
-	if utils.Version != "" {
-		logrus.Infof(locale.Loc("bedrocktool_version", locale.Strmap{"Version": utils.Version}))
+	if !isDebug {
+		logrus.Infof(locale.Loc("bedrocktool_version", locale.Strmap{"Version": updater.Version}))
 	}
 
 	ctx, cancel := context.WithCancelCause(context.Background())
@@ -114,7 +118,7 @@ func main() {
 
 	ui := selectUI()
 
-	if utils.Version != "" {
+	if !isDebug {
 		go updateCheck(ui)
 	}
 

@@ -22,6 +22,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages/worlds"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/updater"
 	"github.com/sirupsen/logrus"
 )
 
@@ -69,7 +70,7 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelCauseFunc) (err er
 	}
 
 	w := app.NewWindow(
-		app.Title("Bedrocktool " + utils.Version),
+		app.Title("Bedrocktool " + updater.Version),
 	)
 
 	g.router = pages.NewRouter(ctx, w.Invalidate, th)

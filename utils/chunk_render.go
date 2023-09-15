@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"strings"
 
+	"github.com/bedrock-tool/bedrocktool/utils/updater"
 	"github.com/df-mc/dragonfly/server/block"
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"
@@ -118,7 +119,7 @@ func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.R
 		}
 
 		if blockColor.R == 0xffff && blockColor.G == 0x0 && blockColor.B == 0xffff {
-			if Version == "" {
+			if updater.Version == "" {
 				println(b.EncodeBlock())
 				b.Color()
 			}

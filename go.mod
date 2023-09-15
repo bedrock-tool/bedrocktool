@@ -19,8 +19,8 @@ require (
 	github.com/google/subcommands v1.2.0
 	github.com/google/uuid v1.3.1
 	github.com/gregwebs/go-recovery v0.2.1
+	github.com/minio/selfupdate v0.6.0
 	github.com/nicksnyder/go-i18n/v2 v2.2.1
-	github.com/sanbornm/go-selfupdate v0.0.0-20230714125711-e1c03e3d6ac7
 	github.com/sandertv/go-raknet v1.12.1
 	github.com/sandertv/gophertunnel v1.31.0
 	github.com/shirou/gopsutil/v3 v3.23.7
@@ -40,6 +40,7 @@ require (
 )
 
 require (
+	aead.dev/minisign v0.2.0 // indirect
 	gioui.org/cpu v0.0.0-20220412190645-f1e9e8c3b1f7 // indirect
 	git.wow.st/gmp/jni v0.0.0-20210610011705-34026c7e22d0 // indirect
 	github.com/brentp/intintmap v0.0.0-20190211203843-30dc0ade9af9 // indirect
@@ -57,7 +58,6 @@ require (
 	github.com/google/pprof v0.0.0-20230207041349-798e818bf904 // indirect
 	github.com/gregwebs/errors v1.1.0 // indirect
 	github.com/klauspost/compress v1.16.7 // indirect
-	github.com/kr/binarydist v0.1.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20230326075908-cb1d2100619a // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect

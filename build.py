@@ -25,7 +25,7 @@ with open("./subcommands/resourcepack-d/resourcepack-d.go", "rb") as f:
 print(f"Pack Support: {PACK_SUPPORT}")
 print(flush=True)
 
-LDFLAGS = f"-s -w -X github.com/bedrock-tool/bedrocktool/utils.Version={TAG}"
+LDFLAGS = f"-s -w -X github.com/bedrock-tool/bedrocktool/utils/updater.Version={TAG}"
 
 PLATFORMS = [
     ("windows", ["amd64"], ".exe"),
@@ -159,7 +159,7 @@ def build_all(platform_filter: str, arch_filter: str):
                 CmdName = "bedrocktool-gui"
             else:
                 CmdName = "bedrocktool"
-            ldflags += f" -X github.com/bedrock-tool/bedrocktool/utils.CmdName={CmdName}"
+            ldflags += f" -X github.com/bedrock-tool/bedrocktool/utils/updater.CmdName={CmdName}"
 
 
             for arch in archs:
