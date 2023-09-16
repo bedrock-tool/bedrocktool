@@ -78,7 +78,10 @@ type worldsHandler struct {
 
 	scripting *scripting.VM
 
-	worldState   *worldState
+	// lock used for when the worldState gets swapped
+	worldState     *worldState
+	worldStateLock sync.Mutex
+
 	serverState  serverState
 	settings     WorldSettings
 	customBlocks []protocol.BlockEntry
@@ -170,7 +173,7 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 
 			w.proxy.AddCommand(func(s []string) bool {
 				go recovery.Go(func() error {
-					return w.SaveAndReset(false)
+					return w.SaveAndReset(false, nil)
 				})
 				return true
 			}, protocol.Command{
@@ -234,7 +237,11 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 
 		PacketCB: w.packetCB,
 		OnEnd: func() {
-			w.SaveAndReset(true)
+			w.wg.Add(1)
+			go recovery.Go(func() error {
+				defer w.wg.Done()
+				return w.SaveAndReset(true, nil)
+			})
 			w.wg.Wait()
 			resetGlobals()
 		},
@@ -423,14 +430,18 @@ func (w *worldsHandler) defaultName() string {
 	return worldName
 }
 
-func (w *worldsHandler) SaveAndReset(end bool) (err error) {
-	if len(w.worldState.storedChunks) == 0 {
-		w.reset()
-		return nil
+func (w *worldsHandler) SaveAndReset(end bool, dim world.Dimension) (err error) {
+	// replacing the current world state if it needs to be reset
+	w.worldStateLock.Lock()
+	if dim == nil {
+		dim = w.worldState.dimension
 	}
 
-	playerPos := w.proxy.Player.Position
-	spawnPos := cube.Pos{int(playerPos.X()), int(playerPos.Y()), int(playerPos.Z())}
+	if len(w.worldState.storedChunks) == 0 {
+		w.reset(dim)
+		w.worldStateLock.Unlock()
+		return nil
+	}
 
 	if w.settings.SaveImage {
 		f, _ := os.Create(w.worldState.folder + ".png")
@@ -438,32 +449,37 @@ func (w *worldsHandler) SaveAndReset(end bool) (err error) {
 		f.Close()
 	}
 
-	text := locale.Loc("saving_world", locale.Strmap{"Name": w.worldState.Name, "Count": len(w.worldState.storedChunks)})
-	logrus.Info(text)
-	w.proxy.SendMessage(text)
-
-	filename := w.worldState.folder + ".mcworld"
-
-	w.ui.Message(messages.SavingWorld{
-		World: &messages.SavedWorld{
-			Name:     w.worldState.Name,
-			Path:     filename,
-			Chunks:   len(w.worldState.storedChunks),
-			Entities: len(w.worldState.state.entities),
-		},
-	})
-
 	w.wg.Add(1)
-	w.worldState.excludeMobs = w.settings.ExcludeMobs
+	defer w.wg.Done()
 	worldState := w.worldState
 	w.serverState.worldCounter += 1
 	if !end {
-		w.reset()
+		w.reset(dim)
 	} else {
 		w.worldState = nil
 	}
+	w.worldStateLock.Unlock()
+	// do not access w.worldState after this
+	worldState.excludeMobs = w.settings.ExcludeMobs
 
-	defer w.wg.Done()
+	playerPos := w.proxy.Player.Position
+	spawnPos := cube.Pos{int(playerPos.X()), int(playerPos.Y()), int(playerPos.Z())}
+
+	text := locale.Loc("saving_world", locale.Strmap{"Name": worldState.Name, "Count": len(worldState.storedChunks)})
+	logrus.Info(text)
+	w.proxy.SendMessage(text)
+
+	filename := worldState.folder + ".mcworld"
+
+	w.ui.Message(messages.SavingWorld{
+		World: &messages.SavedWorld{
+			Name:     worldState.Name,
+			Path:     filename,
+			Chunks:   len(worldState.storedChunks),
+			Entities: len(worldState.state.entities),
+		},
+	})
+
 	err = worldState.Finish(w.playerData(), spawnPos, w.proxy.Server.GameData(), w.bp)
 	if err != nil {
 		logrus.Error(err)
@@ -488,12 +504,10 @@ func init() {
 	gob.Register(map[string][]float32{})
 }
 
-func (w *worldsHandler) reset() error {
+func (w *worldsHandler) reset(dim world.Dimension) error {
 	// carry over deffered and dim from previous
-	var dim world.Dimension = world.Overworld
 	var deferred bool
 	if w.worldState != nil {
-		dim = w.worldState.dimension
 		deferred = w.worldState.useDeferred
 	}
 

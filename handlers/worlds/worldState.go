@@ -245,7 +245,16 @@ func newWorldState(cf func(world.ChunkPos, *chunk.Chunk)) (*worldState, error) {
 }
 
 func (w *worldState) storeChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cube.Pos]dummyBlock) {
-	w.storedChunks[pos] = true
+	empty := true
+	for _, sc := range ch.Sub() {
+		if !sc.Empty() {
+			empty = false
+			break
+		}
+	}
+	if !empty {
+		w.storedChunks[pos] = true
+	}
 	w.State().storeChunk(pos, w.dimension, ch, blockNBT)
 }
 

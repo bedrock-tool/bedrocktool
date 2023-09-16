@@ -16,13 +16,17 @@ import (
 
 func (w *worldsHandler) processChangeDimension(pk *packet.ChangeDimension) {
 	go recovery.Go(func() error {
-		return w.SaveAndReset(false)
+		dimensionID := pk.Dimension
+		if w.serverState.useOldBiomes && dimensionID == 0 {
+			dimensionID += 10
+		}
+		dim, _ := world.DimensionByID(int(dimensionID))
+		err := w.SaveAndReset(false, dim)
+		if err != nil {
+			return err
+		}
+		return nil
 	})
-	dimensionID := pk.Dimension
-	if w.serverState.useOldBiomes && dimensionID == 0 {
-		dimensionID += 10
-	}
-	w.worldState.dimension, _ = world.DimensionByID(int(dimensionID))
 }
 
 func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
@@ -39,7 +43,8 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 		subChunkCount = int(pk.SubChunkCount)
 	}
 
-	//os.WriteFile("chunk.bin", pk.RawPayload, 0777)
+	w.worldStateLock.Lock()
+	defer w.worldStateLock.Unlock()
 
 	ch, blockNBTs, err := chunk.NetworkDecode(world.AirRID(), pk.RawPayload, subChunkCount, w.serverState.useOldBiomes, w.serverState.useHashedRids, w.worldState.dimension.Range())
 	if err != nil {
@@ -116,6 +121,9 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) error {
 	var chunks = make(map[world.ChunkPos]*chunk.Chunk)
 	var blockNBTs = make(map[world.ChunkPos]map[cube.Pos]dummyBlock)
+
+	w.worldStateLock.Lock()
+	defer w.worldStateLock.Unlock()
 
 	for _, ent := range pk.SubChunkEntries {
 		if ent.Result != protocol.SubChunkResultSuccess {
@@ -196,10 +204,6 @@ func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) error {
 	return nil
 }
 
-func blockPosInChunk(pos protocol.BlockPos) (uint8, int16, uint8) {
-	return uint8(pos.X() & 0x0f), int16(pos.Y() & 0x0f), uint8(pos.Z() & 0x0f)
-}
-
 func (w *worldsHandler) handleChunkPackets(pk packet.Packet) packet.Packet {
 	switch pk := pk.(type) {
 	case *packet.ChangeDimension:
@@ -213,7 +217,7 @@ func (w *worldsHandler) handleChunkPackets(pk packet.Packet) packet.Packet {
 	case *packet.BlockActorData:
 		p := pk.Position
 		pos := cube.Pos{int(p.X()), int(p.Y()), int(p.Z())}
-		w.worldState.state.SetBlockNBT(pos, pk.NBTData, false)
+		w.worldState.State().SetBlockNBT(pos, pk.NBTData, false)
 		/*
 			case *packet.UpdateBlock:
 				if w.settings.BlockUpdates {
