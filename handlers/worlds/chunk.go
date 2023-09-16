@@ -33,9 +33,7 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 
 	var subChunkCount int
 	switch pk.SubChunkCount {
-	case protocol.SubChunkRequestModeLimited:
-		fallthrough
-	case protocol.SubChunkRequestModeLimitless:
+	case protocol.SubChunkRequestModeLimited, protocol.SubChunkRequestModeLimitless:
 		subChunkCount = 0
 	default:
 		subChunkCount = int(pk.SubChunkCount)

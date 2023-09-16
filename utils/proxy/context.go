@@ -430,12 +430,11 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 		}
 
 		for _, handler := range p.handlers {
-			if handler.ConnectCB == nil {
-				continue
-			}
-			if handler.ConnectCB(nil) {
-				logrus.Info("Disconnecting")
-				return nil
+			if handler.ConnectCB != nil {
+				if handler.ConnectCB() {
+					logrus.Info("Disconnecting")
+					return nil
+				}
 			}
 		}
 	}

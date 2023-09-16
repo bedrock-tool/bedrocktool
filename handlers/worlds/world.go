@@ -203,15 +203,12 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 			gd.ClientSideGeneration = false
 		},
 
-		ConnectCB: func(err error) bool {
-			if err != nil {
-				return true
-			}
+		ConnectCB: func() bool {
+			w.ui.Message(messages.SetUIState(messages.UIStateMain))
 
 			w.ui.Message(messages.SetWorldName{
 				WorldName: w.worldState.Name,
 			})
-			w.ui.Message(messages.SetUIState(messages.UIStateMain))
 
 			w.proxy.ClientWritePacket(&packet.ChunkRadiusUpdated{
 				ChunkRadius: w.settings.ChunkRadius,
@@ -482,8 +479,6 @@ func (w *worldsHandler) SaveAndReset(end bool) (err error) {
 	}
 	logrus.Info(locale.Loc("saved", locale.Strmap{"Name": filename}))
 	//os.RemoveAll(folder)
-	w.ui.Message(messages.SetUIState(messages.UIStateMain))
-
 	return err
 }
 

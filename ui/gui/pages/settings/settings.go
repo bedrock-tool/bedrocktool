@@ -186,10 +186,8 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 						Top:    unit.Dp(15),
 						Bottom: unit.Dp(15),
 					}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						gtx.Constraints = layout.Constraints{
-							Min: image.Pt(300, gtx.Constraints.Max.Y),
-							Max: image.Pt(gtx.Constraints.Max.X/3, gtx.Constraints.Max.Y),
-						}
+						gtx.Constraints.Min = image.Pt(300, 40)
+						gtx.Constraints.Max = image.Pt(gtx.Constraints.Max.X/3, 40)
 						return material.Button(th, &p.startButton, "Start").Layout(gtx)
 					})
 				})

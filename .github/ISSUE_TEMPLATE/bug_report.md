@@ -9,7 +9,7 @@ assignees: ''
 
 **Describe the bug**
 A clear and concise description of what the bug is,
-and what server it occurs on.
+and optionally what server it occurs on.
 
 **To Reproduce**
 Steps to reproduce the behavior:
@@ -28,11 +28,6 @@ If applicable, add screenshots to help explain your problem.
  - OS: [e.g. windows]
  - Version [e.g. 1.28.0-36]
  - Minecraft Version [e.g. 1.19.73]
-
-**Smartphone (please complete the following information):**
- - Device: [e.g. iPhone6]
- - OS: [e.g. iOS12]
- - Version [e.g. 1.28.0-36]
 
 **Additional context**
 Add any other context about the problem here.

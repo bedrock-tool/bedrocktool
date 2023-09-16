@@ -41,7 +41,7 @@ type Handler struct {
 	// called after server connected & downloaded resource packs
 	OnServerConnect func() (cancel bool, err error)
 	// called after game started
-	ConnectCB func(err error) bool
+	ConnectCB func() bool
 
 	// called when the proxy session stops or is reconnected
 	OnEnd func()
