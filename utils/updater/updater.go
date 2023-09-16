@@ -15,7 +15,6 @@ import (
 
 	"github.com/minio/selfupdate"
 	"github.com/shirou/gopsutil/v3/mem"
-	"github.com/sirupsen/logrus"
 )
 
 var Version string
@@ -82,7 +81,6 @@ func DoUpdate() error {
 	if err != nil {
 		return err
 	}
-	logrus.Debugf("updating to %s", update.Version)
 
 	checksum, err := base64.StdEncoding.DecodeString(update.Sha256)
 	if err != nil {
@@ -102,7 +100,6 @@ func DoUpdate() error {
 	err = selfupdate.Apply(gr, selfupdate.Options{
 		Checksum: checksum,
 		Hash:     crypto.SHA256,
-		Verifier: selfupdate.NewVerifier(),
 	})
 	if err != nil {
 		return err
