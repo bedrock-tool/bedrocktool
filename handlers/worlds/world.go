@@ -2,7 +2,6 @@ package worlds
 
 import (
 	"context"
-	"encoding/gob"
 	"errors"
 	"fmt"
 	"image/png"
@@ -264,7 +263,6 @@ func (w *worldsHandler) packetCB(pk packet.Packet, toServer bool, timeReceived t
 	case *packet.StartGame:
 		w.worldState.timeSync = time.Now()
 		w.worldState.time = int(pk.Time)
-		w.worldState.dimension, _ = world.DimensionByID(int(pk.Dimension))
 		w.serverState.useHashedRids = pk.UseBlockNetworkIDHashes
 		if w.serverState.useHashedRids {
 			return nil, errors.New("this server uses the new hashed block id system, this hasnt been implemented yet, sorry")
@@ -496,12 +494,6 @@ func (w *worldsHandler) SaveAndReset(end bool, dim world.Dimension) (err error) 
 	logrus.Info(locale.Loc("saved", locale.Strmap{"Name": filename}))
 	//os.RemoveAll(folder)
 	return err
-}
-
-func init() {
-	gob.Register(map[string]any{})
-	gob.Register([]any{})
-	gob.Register(map[string][]float32{})
 }
 
 func (w *worldsHandler) reset(dim world.Dimension) error {

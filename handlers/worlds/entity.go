@@ -97,7 +97,7 @@ func (w *worldsHandler) processAddActor(pk *packet.AddActor) {
 	if w.scripting.CB.OnEntityAdd != nil {
 		var ignore bool
 		err := recovery.Call(func() error {
-			w.scripting.OnEntityAdd(e, e.Metadata)
+			ignore = w.scripting.OnEntityAdd(e, e.Metadata)
 			return nil
 		})
 		if err != nil {
