@@ -102,6 +102,7 @@ func (w *worldsHandler) processAddActor(pk *packet.AddActor) {
 			logrus.Errorf("scripting: %s", err)
 		}
 		if ignore {
+			logrus.Infof("Ignoring Entity: %s %d", e.EntityType, e.UniqueID)
 			return
 		}
 	}
