@@ -15,18 +15,12 @@ import (
 )
 
 func (w *worldsHandler) processChangeDimension(pk *packet.ChangeDimension) {
-	go recovery.Go(func() error {
-		dimensionID := pk.Dimension
-		if w.serverState.useOldBiomes && dimensionID == 0 {
-			dimensionID += 10
-		}
-		dim, _ := world.DimensionByID(int(dimensionID))
-		err := w.SaveAndReset(false, dim)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
+	dimensionID := pk.Dimension
+	if w.serverState.useOldBiomes && dimensionID == 0 {
+		dimensionID += 10
+	}
+	dim, _ := world.DimensionByID(int(dimensionID))
+	w.SaveAndReset(false, dim)
 }
 
 func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
@@ -46,7 +40,7 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 	w.worldStateLock.Lock()
 	defer w.worldStateLock.Unlock()
 
-	ch, blockNBTs, err := chunk.NetworkDecode(world.AirRID(), pk.RawPayload, subChunkCount, w.serverState.useOldBiomes, w.serverState.useHashedRids, w.worldState.dimension.Range())
+	ch, blockNBTs, err := chunk.NetworkDecode(world.AirRID(), pk.RawPayload, subChunkCount, w.serverState.useOldBiomes, w.serverState.useHashedRids, w.currentWorldState.dimension.Range())
 	if err != nil {
 		logrus.Error(err)
 		return
@@ -76,21 +70,21 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 			return
 		}
 	}
-	w.worldState.storeChunk(pos, ch, chunkBlockNBT)
+	w.currentWorldState.storeChunk(pos, ch, chunkBlockNBT)
 
-	max := w.worldState.dimension.Range().Height() / 16
+	max := w.currentWorldState.dimension.Range().Height() / 16
 	switch pk.SubChunkCount {
 	case protocol.SubChunkRequestModeLimited:
 		max = int(pk.HighestSubChunk)
 		fallthrough
 	case protocol.SubChunkRequestModeLimitless:
 		var offsetTable []protocol.SubChunkOffset
-		r := w.worldState.dimension.Range()
+		r := w.currentWorldState.dimension.Range()
 		for y := int8(r.Min() / 16); y < int8(r.Max()/16)+1; y++ {
 			offsetTable = append(offsetTable, protocol.SubChunkOffset{0, y, 0})
 		}
 
-		dimId, _ := world.DimensionID(w.worldState.dimension)
+		dimId, _ := world.DimensionID(w.currentWorldState.dimension)
 		_ = w.proxy.Server.WritePacket(&packet.SubChunkRequest{
 			Dimension: int32(dimId),
 			Position: protocol.SubChunkPos{
@@ -108,14 +102,14 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 			}
 		}
 		if !empty {
-			w.mapUI.SetChunk((world.ChunkPos)(pk.Position), ch, w.worldState.useDeferred)
+			w.mapUI.SetChunk((world.ChunkPos)(pk.Position), ch, w.currentWorldState.deferredState != nil)
 		}
 	}
 
 	w.proxy.SendPopup(locale.Locm("popup_chunk_count", locale.Strmap{
-		"Count": len(w.worldState.storedChunks),
-		"Name":  w.worldState.Name,
-	}, len(w.worldState.storedChunks)))
+		"Count": len(w.currentWorldState.storedChunks),
+		"Name":  w.currentWorldState.Name,
+	}, len(w.currentWorldState.storedChunks)))
 }
 
 func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) error {
@@ -138,7 +132,7 @@ func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) error {
 		if _, ok := chunks[pos]; ok {
 			continue
 		}
-		col, err := w.worldState.state.provider.LoadColumn(pos, w.worldState.dimension)
+		col, err := w.currentWorldState.state.provider.LoadColumn(pos, w.currentWorldState.dimension)
 		if err != nil {
 			return err
 		}
@@ -162,7 +156,7 @@ func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) error {
 			sub, err := chunk.DecodeSubChunk(
 				buf,
 				world.AirRID(),
-				w.worldState.dimension.Range(),
+				w.currentWorldState.dimension.Range(),
 				&index,
 				chunk.NetworkEncoding,
 			)
@@ -196,15 +190,15 @@ func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) error {
 	}
 
 	for cp, c := range chunks {
-		w.worldState.storeChunk(cp, c, blockNBTs[cp])
-		w.mapUI.SetChunk(cp, c, w.worldState.useDeferred)
+		w.currentWorldState.storeChunk(cp, c, blockNBTs[cp])
+		w.mapUI.SetChunk(cp, c, w.currentWorldState.deferredState != nil)
 	}
 
 	w.mapUI.SchedRedraw()
 	return nil
 }
 
-func (w *worldsHandler) handleChunkPackets(pk packet.Packet) packet.Packet {
+func (w *worldsHandler) handleChunkPackets(pk packet.Packet) (packet.Packet, error) {
 	switch pk := pk.(type) {
 	case *packet.ChangeDimension:
 		w.processChangeDimension(pk)
@@ -217,7 +211,7 @@ func (w *worldsHandler) handleChunkPackets(pk packet.Packet) packet.Packet {
 	case *packet.BlockActorData:
 		p := pk.Position
 		pos := cube.Pos{int(p.X()), int(p.Y()), int(p.Z())}
-		w.worldState.State().SetBlockNBT(pos, pk.NBTData, false)
+		w.currentWorldState.State().SetBlockNBT(pos, pk.NBTData, false)
 		/*
 			case *packet.UpdateBlock:
 				if w.settings.BlockUpdates {
@@ -247,5 +241,5 @@ func (w *worldsHandler) handleChunkPackets(pk packet.Packet) packet.Packet {
 				}
 		*/
 	}
-	return pk
+	return pk, nil
 }

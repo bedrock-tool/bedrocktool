@@ -237,11 +237,12 @@ func (m *MapUI) Redraw() {
 	m.l.Lock()
 	defer m.l.Unlock()
 	updatedChunks := m.processQueue()
+
+	// draw ingame map
 	middle := protocol.ChunkPos{
 		int32(m.w.proxy.Player.Position.X()),
 		int32(m.w.proxy.Player.Position.Z()),
 	}
-
 	chunksPerLine := float64(128 / m.zoomLevel)
 	pxPerBlock := 128 / chunksPerLine / 16 // how many pixels per block
 	pxSizeChunk := int(math.Floor(pxPerBlock * 16))
@@ -249,7 +250,6 @@ func (m *MapUI) Redraw() {
 	for i := 0; i < len(m.img.Pix); i++ { // clear canvas
 		m.img.Pix[i] = 0
 	}
-
 	for _ch := range m.renderedChunks {
 		relativeMiddleX := float64(_ch.X()*16 - middle.X())
 		relativeMiddleZ := float64(_ch.Z()*16 - middle.Z())
@@ -262,6 +262,8 @@ func (m *MapUI) Redraw() {
 			utils.DrawImgScaledPos(m.img, m.renderedChunks[_ch], px, pxSizeChunk)
 		}
 	}
+
+	// send tiles to gui map
 	if m.showOnGui {
 		m.w.ui.Message(messages.UpdateMap{
 			ChunkCount:    len(m.renderedChunks),

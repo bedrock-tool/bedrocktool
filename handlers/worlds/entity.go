@@ -67,14 +67,12 @@ func (e serverEntity) Type() world.EntityType {
 }
 
 func (w *worldsHandler) addEntityLink(el protocol.EntityLink) {
-	w.worldState.State().addEntityLink(el)
+	w.currentWorldState.State().addEntityLink(el)
 }
 
 func (w *worldsHandler) processAddActor(pk *packet.AddActor) {
 	e, ok := w.getEntity(pk.EntityRuntimeID)
-	var new bool
 	if !ok {
-		new = true
 		e = &entityState{
 			RuntimeID:  pk.EntityRuntimeID,
 			UniqueID:   pk.EntityUniqueID,
@@ -108,17 +106,15 @@ func (w *worldsHandler) processAddActor(pk *packet.AddActor) {
 		}
 	}
 
-	if new {
-		w.worldState.State().storeEntity(uint64(pk.EntityUniqueID), e)
-		for _, el := range pk.EntityLinks {
-			w.addEntityLink(el)
-		}
-		w.bp.AddEntity(behaviourpack.EntityIn{
-			Identifier: pk.EntityType,
-			Attr:       pk.Attributes,
-			Meta:       pk.EntityMetadata,
-		})
+	w.currentWorldState.State().storeEntity(uint64(pk.EntityUniqueID), e)
+	for _, el := range pk.EntityLinks {
+		w.addEntityLink(el)
 	}
+	w.bp.AddEntity(behaviourpack.EntityIn{
+		Identifier: pk.EntityType,
+		Attr:       pk.Attributes,
+		Meta:       pk.EntityMetadata,
+	})
 }
 
 var flagNames = map[uint8]string{
@@ -314,7 +310,7 @@ func (s *entityState) ToServerEntity(links []int64) serverEntity {
 }
 
 func (w *worldsHandler) getEntity(id EntityRuntimeID) (*entityState, bool) {
-	e, ok := w.worldState.State().getEntity(id)
+	e, ok := w.currentWorldState.State().getEntity(id)
 	return e, ok
 }
 

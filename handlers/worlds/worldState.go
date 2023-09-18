@@ -214,7 +214,6 @@ type worldState struct {
 	deferredState *worldStateDefer
 	storedChunks  map[world.ChunkPos]bool
 	chunkFunc     func(world.ChunkPos, *chunk.Chunk)
-	useDeferred   bool
 
 	excludeMobs []string
 	VoidGen     bool
@@ -239,7 +238,6 @@ func newWorldState(cf func(world.ChunkPos, *chunk.Chunk)) (*worldState, error) {
 	}
 	w.state.l = &w.l
 	w.initDeferred()
-	w.useDeferred = true
 
 	return w, nil
 }
@@ -270,7 +268,7 @@ func (w *worldState) initDeferred() {
 }
 
 func (w *worldState) State() worldStateInt {
-	if w.useDeferred {
+	if w.deferredState != nil {
 		return w.deferredState
 	}
 	return w.state
@@ -278,12 +276,10 @@ func (w *worldState) State() worldStateInt {
 
 func (w *worldState) PauseCapture() {
 	w.initDeferred()
-	w.useDeferred = true
 }
 
 func (w *worldState) UnpauseCapture(around cube.Pos, radius int32, cf func(world.ChunkPos, *chunk.Chunk)) {
 	w.deferredState.ApplyTo(w.state, w.dimension, around, radius, cf)
-	w.useDeferred = false
 	w.deferredState = nil
 }
 
@@ -313,7 +309,6 @@ func (w *worldState) Open(name string, folder string, dim world.Dimension, defer
 
 	if !deferred && w.deferredState != nil {
 		w.deferredState.ApplyTo(w.state, w.dimension, cube.Pos{}, -1, w.chunkFunc)
-		w.useDeferred = false
 		w.deferredState = nil
 	}
 

@@ -138,7 +138,7 @@ func (p *Context) proxyLoop(ctx context.Context, toServer bool) error {
 
 	for {
 		if ctx.Err() != nil {
-			return context.Cause(ctx)
+			return ctx.Err()
 		}
 
 		pk, err := c1.ReadPacket()
@@ -445,7 +445,9 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 		doProxy := func(client bool) {
 			defer wg.Done()
 			if err := p.proxyLoop(ctx, client); err != nil {
-				cancel(err)
+				if !errors.Is(err, context.Canceled) {
+					cancel(err)
+				}
 				return
 			}
 			if p.transfer != nil {
