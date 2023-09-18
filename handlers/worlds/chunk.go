@@ -2,7 +2,9 @@ package worlds
 
 import (
 	"bytes"
+	"errors"
 
+	"github.com/bedrock-tool/bedrocktool/handlers/worlds/worldstate"
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"
@@ -40,19 +42,19 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 	w.worldStateLock.Lock()
 	defer w.worldStateLock.Unlock()
 
-	ch, blockNBTs, err := chunk.NetworkDecode(world.AirRID(), pk.RawPayload, subChunkCount, w.serverState.useOldBiomes, w.serverState.useHashedRids, w.currentWorldState.dimension.Range())
+	ch, blockNBTs, err := chunk.NetworkDecode(world.AirRID(), pk.RawPayload, subChunkCount, w.serverState.useOldBiomes, w.serverState.useHashedRids, w.currentWorld.Dimension().Range())
 	if err != nil {
 		logrus.Error(err)
 		return
 	}
-	var chunkBlockNBT = make(map[cube.Pos]dummyBlock)
+	var chunkBlockNBT = make(map[cube.Pos]worldstate.DummyBlock)
 	for _, blockNBT := range blockNBTs {
 		x := int(blockNBT["x"].(int32))
 		y := int(blockNBT["y"].(int32))
 		z := int(blockNBT["z"].(int32))
-		chunkBlockNBT[cube.Pos{x, y, z}] = dummyBlock{
-			id:  blockNBT["id"].(string),
-			nbt: blockNBT,
+		chunkBlockNBT[cube.Pos{x, y, z}] = worldstate.DummyBlock{
+			ID:  blockNBT["id"].(string),
+			NBT: blockNBT,
 		}
 	}
 
@@ -70,21 +72,21 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 			return
 		}
 	}
-	w.currentWorldState.storeChunk(pos, ch, chunkBlockNBT)
+	w.currentWorld.StoreChunk(pos, ch, chunkBlockNBT)
 
-	max := w.currentWorldState.dimension.Range().Height() / 16
+	max := w.currentWorld.Dimension().Range().Height() / 16
 	switch pk.SubChunkCount {
 	case protocol.SubChunkRequestModeLimited:
 		max = int(pk.HighestSubChunk)
 		fallthrough
 	case protocol.SubChunkRequestModeLimitless:
 		var offsetTable []protocol.SubChunkOffset
-		r := w.currentWorldState.dimension.Range()
+		r := w.currentWorld.Dimension().Range()
 		for y := int8(r.Min() / 16); y < int8(r.Max()/16)+1; y++ {
 			offsetTable = append(offsetTable, protocol.SubChunkOffset{0, y, 0})
 		}
 
-		dimId, _ := world.DimensionID(w.currentWorldState.dimension)
+		dimId, _ := world.DimensionID(w.currentWorld.Dimension())
 		_ = w.proxy.Server.WritePacket(&packet.SubChunkRequest{
 			Dimension: int32(dimId),
 			Position: protocol.SubChunkPos{
@@ -102,19 +104,19 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 			}
 		}
 		if !empty {
-			w.mapUI.SetChunk((world.ChunkPos)(pk.Position), ch, w.currentWorldState.deferredState != nil)
+			w.mapUI.SetChunk((world.ChunkPos)(pk.Position), ch, w.currentWorld.IsDeferred())
 		}
 	}
 
 	w.proxy.SendPopup(locale.Locm("popup_chunk_count", locale.Strmap{
-		"Count": len(w.currentWorldState.storedChunks),
-		"Name":  w.currentWorldState.Name,
-	}, len(w.currentWorldState.storedChunks)))
+		"Count": len(w.currentWorld.StoredChunks),
+		"Name":  w.currentWorld.Name,
+	}, len(w.currentWorld.StoredChunks)))
 }
 
 func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) error {
 	var chunks = make(map[world.ChunkPos]*chunk.Chunk)
-	var blockNBTs = make(map[world.ChunkPos]map[cube.Pos]dummyBlock)
+	var blockNBTs = make(map[world.ChunkPos]map[cube.Pos]worldstate.DummyBlock)
 
 	w.worldStateLock.Lock()
 	defer w.worldStateLock.Unlock()
@@ -132,12 +134,15 @@ func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) error {
 		if _, ok := chunks[pos]; ok {
 			continue
 		}
-		col, err := w.currentWorldState.state.provider.LoadColumn(pos, w.currentWorldState.dimension)
+		ch, ok, err := w.currentWorld.LoadChunk(pos)
 		if err != nil {
 			return err
 		}
-		chunks[pos] = col.Chunk
-		blockNBTs[pos] = make(map[cube.Pos]dummyBlock)
+		if !ok {
+			return errors.New("bug check: subchunk received before chunk")
+		}
+		chunks[pos] = ch
+		blockNBTs[pos] = make(map[cube.Pos]worldstate.DummyBlock)
 	}
 
 	for _, ent := range pk.SubChunkEntries {
@@ -156,7 +161,7 @@ func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) error {
 			sub, err := chunk.DecodeSubChunk(
 				buf,
 				world.AirRID(),
-				w.currentWorldState.dimension.Range(),
+				w.currentWorld.Dimension().Range(),
 				&index,
 				chunk.NetworkEncoding,
 			)
@@ -180,9 +185,9 @@ func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) error {
 					z := int(blockNBT["z"].(int32))
 					id := blockNBT["id"].(string)
 
-					blockNBTs[pos][cube.Pos{x, y, z}] = dummyBlock{
-						id:  id,
-						nbt: blockNBT,
+					blockNBTs[pos][cube.Pos{x, y, z}] = worldstate.DummyBlock{
+						ID:  id,
+						NBT: blockNBT,
 					}
 				}
 			}
@@ -190,56 +195,10 @@ func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) error {
 	}
 
 	for cp, c := range chunks {
-		w.currentWorldState.storeChunk(cp, c, blockNBTs[cp])
-		w.mapUI.SetChunk(cp, c, w.currentWorldState.deferredState != nil)
+		w.currentWorld.StoreChunk(cp, c, blockNBTs[cp])
+		w.mapUI.SetChunk(cp, c, w.currentWorld.IsDeferred())
 	}
 
 	w.mapUI.SchedRedraw()
 	return nil
-}
-
-func (w *worldsHandler) handleChunkPackets(pk packet.Packet) (packet.Packet, error) {
-	switch pk := pk.(type) {
-	case *packet.ChangeDimension:
-		w.processChangeDimension(pk)
-	case *packet.LevelChunk:
-		w.processLevelChunk(pk)
-	case *packet.SubChunk:
-		if err := w.processSubChunk(pk); err != nil {
-			logrus.Error(err)
-		}
-	case *packet.BlockActorData:
-		p := pk.Position
-		pos := cube.Pos{int(p.X()), int(p.Y()), int(p.Z())}
-		w.currentWorldState.State().SetBlockNBT(pos, pk.NBTData, false)
-		/*
-			case *packet.UpdateBlock:
-				if w.settings.BlockUpdates {
-					cp := world.ChunkPos{pk.Position.X() >> 4, pk.Position.Z() >> 4}
-					c, ok := w.worldState.state().chunks[cp]
-					if ok {
-						x, y, z := blockPosInChunk(pk.Position)
-						c.SetBlock(x, y, z, uint8(pk.Layer), pk.NewBlockRuntimeID)
-						w.mapUI.SetChunk(cp, c, w.worldState.useDeferred)
-					}
-				}
-			case *packet.UpdateSubChunkBlocks:
-				if w.settings.BlockUpdates {
-					cp := world.ChunkPos{pk.Position.X(), pk.Position.Z()}
-					c, ok := w.worldState.state().chunks[cp]
-					if ok {
-						for _, bce := range pk.Blocks {
-							x, y, z := blockPosInChunk(bce.BlockPos)
-							if bce.SyncedUpdateType == packet.BlockToEntityTransition {
-								c.SetBlock(x, y, z, 0, world.AirRID())
-							} else {
-								c.SetBlock(x, y, z, 0, bce.BlockRuntimeID)
-							}
-						}
-						w.mapUI.SetChunk(cp, c, w.worldState.useDeferred)
-					}
-				}
-		*/
-	}
-	return pk, nil
 }

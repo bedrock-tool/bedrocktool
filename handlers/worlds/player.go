@@ -1,6 +1,7 @@
 package worlds
 
 import (
+	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/nbtconv"
 	"github.com/df-mc/dragonfly/server/item/inventory"
 )
@@ -14,7 +15,7 @@ func (w *worldsHandler) playerData() (ret map[string]any) {
 	if len(w.serverState.playerInventory) > 0 && w.settings.SaveInventories {
 		inv := inventory.New(len(w.serverState.playerInventory), nil)
 		for i, ii := range w.serverState.playerInventory {
-			inv.SetItem(i, stackToItem(ii.Stack))
+			inv.SetItem(i, utils.StackToItem(ii.Stack))
 		}
 		ret["Inventory"] = nbtconv.InvToNBT(inv)
 	}

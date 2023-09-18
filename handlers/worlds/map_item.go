@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/go-gl/mathgl/mgl32"
@@ -305,26 +304,4 @@ func (m *MapUI) SetChunk(pos world.ChunkPos, ch *chunk.Chunk, isDeferredState bo
 		isDeferredState: isDeferredState,
 	})
 	m.SchedRedraw()
-}
-
-func (w *worldsHandler) ProcessAnimate(pk *packet.Animate) {
-	if pk.ActionType == packet.AnimateActionSwingArm {
-		w.mapUI.ChangeZoom()
-		w.proxy.SendPopup(locale.Loc("zoom_level", locale.Strmap{"Level": w.mapUI.zoomLevel}))
-	}
-}
-
-func (w *worldsHandler) handleMapPackets(pk packet.Packet, forward *bool, toServer bool) packet.Packet {
-	switch pk := pk.(type) {
-	case *packet.MapInfoRequest:
-		if pk.MapID == ViewMapID {
-			w.mapUI.SchedRedraw()
-			*forward = false
-		}
-	case *packet.Animate:
-		if toServer {
-			w.ProcessAnimate(pk)
-		}
-	}
-	return pk
 }

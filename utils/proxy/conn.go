@@ -31,7 +31,7 @@ func (p *Context) connectServer(ctx context.Context) (err error) {
 
 	p.ui.Message(messages.ConnectStateServerConnecting)
 	logrus.Info(locale.Loc("connecting", locale.Strmap{"Address": p.serverAddress}))
-	server, err := minecraft.Dialer{
+	d := minecraft.Dialer{
 		TokenSource: p.tokenSource,
 		PacketFunc:  p.packetFunc,
 		GetClientData: func() login.ClientData {
@@ -48,7 +48,19 @@ func (p *Context) connectServer(ctx context.Context) (err error) {
 			p.rpHandler.SetServer(c)
 			c.ResourcePackHandler = p.rpHandler
 		},
-	}.DialContext(ctx, "raknet", p.serverAddress)
+	}
+	for retry := 0; retry < 3; retry++ {
+		d.ChainKey, d.ChainData, err = minecraft.CreateChain(ctx, p.tokenSource)
+		if err != nil {
+			continue
+		}
+		break
+	}
+	if err != nil {
+		return err
+	}
+
+	server, err := d.DialContext(ctx, "raknet", p.serverAddress)
 	if err != nil {
 		return err
 	}

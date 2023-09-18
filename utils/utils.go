@@ -17,10 +17,15 @@ import (
 	"strings"
 	"unsafe"
 
+	"github.com/bedrock-tool/bedrocktool/utils/nbtconv"
+	"github.com/df-mc/dragonfly/server/block"
+	"github.com/df-mc/dragonfly/server/item"
+	"github.com/df-mc/dragonfly/server/world"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"github.com/tailscale/hujson"
 
+	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 )
 
@@ -175,4 +180,27 @@ func ParseJson(s []byte, out any) error {
 		return err
 	}
 	return nil
+}
+
+// stackToItem converts a network ItemStack representation back to an item.Stack.
+func StackToItem(it protocol.ItemStack) item.Stack {
+	t, ok := world.ItemByRuntimeID(it.NetworkID, int16(it.MetadataValue))
+	if !ok {
+		t = block.Air{}
+	}
+	if it.BlockRuntimeID > 0 {
+		// It shouldn't matter if it (for whatever reason) wasn't able to get the block runtime ID,
+		// since on the next line, we assert that the block is an item. If it didn't succeed, it'll
+		// return air anyway.
+		b, _ := world.BlockByRuntimeID(uint32(it.BlockRuntimeID))
+		if t, ok = b.(world.Item); !ok {
+			t = block.Air{}
+		}
+	}
+	//noinspection SpellCheckingInspection
+	if nbter, ok := t.(world.NBTer); ok && len(it.NBTData) != 0 {
+		t = nbter.DecodeNBT(it.NBTData).(world.Item)
+	}
+	s := item.NewStack(t, int(it.Count))
+	return nbtconv.Item(it.NBTData, &s)
 }

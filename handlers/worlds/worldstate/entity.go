@@ -1,21 +1,19 @@
-package worlds
+package worldstate
 
 import (
-	"slices"
-
+	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/behaviourpack"
 	"github.com/bedrock-tool/bedrocktool/utils/nbtconv"
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/go-gl/mathgl/mgl32"
-	"github.com/gregwebs/go-recovery"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/maps"
 )
 
-type entityState struct {
+type EntityState struct {
 	RuntimeID  uint64
 	UniqueID   int64
 	EntityType string
@@ -66,14 +64,10 @@ func (e serverEntity) Type() world.EntityType {
 	return e.EntityType
 }
 
-func (w *worldsHandler) addEntityLink(el protocol.EntityLink) {
-	w.currentWorldState.State().addEntityLink(el)
-}
-
-func (w *worldsHandler) processAddActor(pk *packet.AddActor) {
-	e, ok := w.getEntity(pk.EntityRuntimeID)
+func (w *World) ProcessAddActor(pk *packet.AddActor, ignoreCB func(*EntityState) bool, bpCB func(behaviourpack.EntityIn)) {
+	e, ok := w.GetEntity(pk.EntityRuntimeID)
 	if !ok {
-		e = &entityState{
+		e = &EntityState{
 			RuntimeID:  pk.EntityRuntimeID,
 			UniqueID:   pk.EntityUniqueID,
 			EntityType: pk.EntityType,
@@ -92,26 +86,18 @@ func (w *worldsHandler) processAddActor(pk *packet.AddActor) {
 	maps.Copy(metadata, pk.EntityMetadata)
 	e.Metadata = metadata
 
-	if w.scripting.CB.OnEntityAdd != nil {
-		var ignore bool
-		err := recovery.Call(func() error {
-			ignore = w.scripting.OnEntityAdd(e, e.Metadata)
-			return nil
-		})
-		if err != nil {
-			logrus.Errorf("scripting: %s", err)
-		}
-		if ignore {
-			logrus.Infof("Ignoring Entity: %s %d", e.EntityType, e.UniqueID)
-			return
-		}
+	ignore := ignoreCB(e)
+	if ignore {
+		logrus.Infof("Ignoring Entity: %s %d", e.EntityType, e.UniqueID)
+		return
 	}
 
-	w.currentWorldState.State().storeEntity(uint64(pk.EntityUniqueID), e)
+	w.StoreEntity(uint64(pk.EntityUniqueID), e)
 	for _, el := range pk.EntityLinks {
-		w.addEntityLink(el)
+		w.AddEntityLink(el)
 	}
-	w.bp.AddEntity(behaviourpack.EntityIn{
+
+	bpCB(behaviourpack.EntityIn{
 		Identifier: pk.EntityType,
 		Attr:       pk.Attributes,
 		Meta:       pk.EntityMetadata,
@@ -235,7 +221,7 @@ func vec3float32(x mgl32.Vec3) []float32 {
 	return []float32{float32(x[0]), float32(x[1]), float32(x[2])}
 }
 
-func (s *entityState) ToServerEntity(links []int64) serverEntity {
+func (s *EntityState) ToServerEntity(links []int64) serverEntity {
 	e := serverEntity{
 		EntityType: serverEntityType{
 			Encoded: s.EntityType,
@@ -263,16 +249,16 @@ func (s *entityState) ToServerEntity(links []int64) serverEntity {
 	if false {
 		armor := make([]map[string]any, 4)
 		if s.Helmet != nil {
-			armor[0] = nbtconv.WriteItem(stackToItem(s.Helmet.Stack), true)
+			armor[0] = nbtconv.WriteItem(utils.StackToItem(s.Helmet.Stack), true)
 		}
 		if s.Chestplate != nil {
-			armor[1] = nbtconv.WriteItem(stackToItem(s.Chestplate.Stack), true)
+			armor[1] = nbtconv.WriteItem(utils.StackToItem(s.Chestplate.Stack), true)
 		}
 		if s.Leggings != nil {
-			armor[2] = nbtconv.WriteItem(stackToItem(s.Leggings.Stack), true)
+			armor[2] = nbtconv.WriteItem(utils.StackToItem(s.Leggings.Stack), true)
 		}
 		if s.Boots != nil {
-			armor[3] = nbtconv.WriteItem(stackToItem(s.Boots.Stack), true)
+			armor[3] = nbtconv.WriteItem(utils.StackToItem(s.Boots.Stack), true)
 		}
 		e.EntityType.NBT["Armor"] = armor
 	}
@@ -308,101 +294,4 @@ func (s *entityState) ToServerEntity(links []int64) serverEntity {
 	}
 
 	return e
-}
-
-func (w *worldsHandler) getEntity(id EntityRuntimeID) (*entityState, bool) {
-	e, ok := w.currentWorldState.State().getEntity(id)
-	return e, ok
-}
-
-func (w *worldsHandler) handleEntityPackets(pk packet.Packet) packet.Packet {
-	if !w.settings.SaveEntities {
-		return pk
-	}
-
-	switch pk := pk.(type) {
-	case *packet.AddActor:
-		w.processAddActor(pk)
-	case *packet.RemoveActor:
-		if slices.Contains(w.doNotRemove, pk.EntityUniqueID) {
-			pk.EntityUniqueID = 0xfffffff
-		}
-	case *packet.SetActorData:
-		e, ok := w.getEntity(pk.EntityRuntimeID)
-		if ok {
-			metadata := make(protocol.EntityMetadata)
-			maps.Copy(metadata, pk.EntityMetadata)
-			if w.scripting.CB.OnEntityDataUpdate != nil {
-				err := recovery.Call(func() error {
-					w.scripting.OnEntityDataUpdate(e, metadata)
-					return nil
-				})
-				if err != nil {
-					logrus.Errorf("Scripting %s", err)
-				}
-			}
-
-			e.Metadata = metadata
-			w.bp.AddEntity(behaviourpack.EntityIn{
-				Identifier: e.EntityType,
-				Attr:       nil,
-				Meta:       metadata,
-			})
-		}
-	case *packet.SetActorMotion:
-		e, ok := w.getEntity(pk.EntityRuntimeID)
-		if ok {
-			e.Velocity = pk.Velocity
-		}
-	case *packet.MoveActorDelta:
-		e, ok := w.getEntity(pk.EntityRuntimeID)
-		if ok {
-			if pk.Flags&packet.MoveActorDeltaFlagHasX != 0 {
-				e.Position[0] = pk.Position[0]
-			}
-			if pk.Flags&packet.MoveActorDeltaFlagHasY != 0 {
-				e.Position[1] = pk.Position[1]
-			}
-			if pk.Flags&packet.MoveActorDeltaFlagHasZ != 0 {
-				e.Position[2] = pk.Position[2]
-			}
-			if pk.Flags&packet.MoveActorDeltaFlagHasRotX != 0 {
-				e.Pitch = pk.Rotation.X()
-			}
-			if pk.Flags&packet.MoveActorDeltaFlagHasRotY != 0 {
-				e.Yaw = pk.Rotation.Y()
-			}
-			//if pk.Flags&packet.MoveActorDeltaFlagHasRotZ != 0 {
-			// no roll
-			//}
-		}
-	case *packet.MoveActorAbsolute:
-		e, ok := w.getEntity(pk.EntityRuntimeID)
-		if ok {
-			e.Position = pk.Position
-			e.Pitch = pk.Rotation.X()
-			e.Yaw = pk.Rotation.Y()
-		}
-	case *packet.MobEquipment:
-		e, ok := w.getEntity(pk.EntityRuntimeID)
-		if ok {
-			w, ok := e.Inventory[pk.WindowID]
-			if !ok {
-				w = make(map[byte]protocol.ItemInstance)
-				e.Inventory[pk.WindowID] = w
-			}
-			w[pk.HotBarSlot] = pk.NewItem
-		}
-	case *packet.MobArmourEquipment:
-		e, ok := w.getEntity(pk.EntityRuntimeID)
-		if ok {
-			e.Helmet = &pk.Helmet
-			e.Chestplate = &pk.Chestplate
-			e.Leggings = &pk.Chestplate
-			e.Boots = &pk.Boots
-		}
-	case *packet.SetActorLink:
-		w.addEntityLink(pk.EntityLink)
-	}
-	return pk
 }
