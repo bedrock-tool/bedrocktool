@@ -97,7 +97,7 @@ func (w *worldStateEnt) SetBlockNBT(pos cube.Pos, m map[string]any, merge bool) 
 }
 
 type worldStateInternal struct {
-	l        *sync.Mutex
+	l        sync.Mutex
 	provider *mcdb.DB
 	worldStateEnt
 }
@@ -208,7 +208,6 @@ func (w *worldStateDefer) ApplyTo(w2 worldStateInt, dimension world.Dimension, a
 }
 
 type worldState struct {
-	l             sync.Mutex
 	dimension     world.Dimension
 	state         *worldStateInternal
 	deferredState *worldStateDefer
@@ -221,22 +220,13 @@ type worldState struct {
 	time        int
 	Name        string
 	folder      string
-	provider    *mcdb.DB
 }
 
 func newWorldState(cf func(world.ChunkPos, *chunk.Chunk)) (*worldState, error) {
 	w := &worldState{
-		state: &worldStateInternal{
-			worldStateEnt: worldStateEnt{
-				entities:    make(map[EntityRuntimeID]*entityState),
-				entityLinks: make(map[EntityUniqueID]map[EntityUniqueID]struct{}),
-				blockNBTs:   make(map[world.ChunkPos]map[cube.Pos]dummyBlock),
-			},
-		},
 		storedChunks: make(map[world.ChunkPos]bool),
 		chunkFunc:    cf,
 	}
-	w.state.l = &w.l
 	w.initDeferred()
 
 	return w, nil
@@ -283,17 +273,15 @@ func (w *worldState) UnpauseCapture(around cube.Pos, radius int32, cf func(world
 	w.deferredState = nil
 }
 
-func (w *worldState) newProvider() error {
+func (w *worldState) newProvider() (*mcdb.DB, error) {
 	provider, err := mcdb.Config{
 		Log:         logrus.StandardLogger(),
 		Compression: opt.DefaultCompression,
 	}.Open(w.folder)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	w.provider = provider
-	w.state.provider = provider
-	return nil
+	return provider, nil
 }
 
 func (w *worldState) Open(name string, folder string, dim world.Dimension, deferred bool) error {
@@ -302,9 +290,18 @@ func (w *worldState) Open(name string, folder string, dim world.Dimension, defer
 	w.dimension = dim
 	os.RemoveAll(folder)
 	os.MkdirAll(folder, 0o777)
-	err := w.newProvider()
+	prov, err := w.newProvider()
 	if err != nil {
 		return err
+	}
+
+	w.state = &worldStateInternal{
+		worldStateEnt: worldStateEnt{
+			entities:    make(map[EntityRuntimeID]*entityState),
+			entityLinks: make(map[EntityUniqueID]map[EntityUniqueID]struct{}),
+			blockNBTs:   make(map[world.ChunkPos]map[cube.Pos]dummyBlock),
+		},
+		provider: prov,
 	}
 
 	if !deferred && w.deferredState != nil {
@@ -316,9 +313,9 @@ func (w *worldState) Open(name string, folder string, dim world.Dimension, defer
 }
 
 func (w *worldState) Rename(name, folder string) error {
-	w.l.Lock()
-	defer w.l.Unlock()
-	err := w.provider.Close()
+	w.state.l.Lock()
+	defer w.state.l.Unlock()
+	err := w.state.provider.Close()
 	if err != nil {
 		return err
 	}
@@ -328,7 +325,7 @@ func (w *worldState) Rename(name, folder string) error {
 	}
 	w.folder = folder
 	w.Name = name
-	err = w.newProvider()
+	w.state.provider, err = w.newProvider()
 	if err != nil {
 		return err
 	}
@@ -346,18 +343,18 @@ func (w *worldState) Finish(playerData map[string]any, spawn cube.Pos, gd minecr
 		return err
 	}
 
-	err = w.provider.SaveLocalPlayerData(playerData)
+	err = w.state.provider.SaveLocalPlayerData(playerData)
 	if err != nil {
 		return err
 	}
 
 	// write metadata
-	s := w.provider.Settings()
+	s := w.state.provider.Settings()
 	s.Spawn = spawn
 	s.Name = w.Name
 
 	// set gamerules
-	ld := w.provider.LevelDat()
+	ld := w.state.provider.LevelDat()
 	ld.CheatsEnabled = true
 	ld.RandomSeed = int64(gd.WorldSeed)
 	for _, gr := range gd.GameRules {
@@ -453,6 +450,6 @@ func (w *worldState) Finish(playerData map[string]any, spawn cube.Pos, gd minecr
 		ld.Experiments["saved_with_toggled_experiments"] = true
 	}
 
-	w.provider.SaveSettings(s)
-	return w.provider.Close()
+	w.state.provider.SaveSettings(s)
+	return w.state.provider.Close()
 }

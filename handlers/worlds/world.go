@@ -454,8 +454,7 @@ func (w *worldsHandler) SaveAndReset(end bool, dim world.Dimension) {
 	}
 
 	if len(w.currentWorldState.storedChunks) == 0 {
-		w.reset(dim)
-		w.mapUI.Reset()
+		w.currentWorldState.dimension = dim
 		w.worldStateLock.Unlock()
 		return
 	}
