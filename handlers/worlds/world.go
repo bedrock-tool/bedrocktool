@@ -191,6 +191,7 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 			if err != nil {
 				return err
 			}
+			worldState.VoidGen = w.settings.VoidGen
 			w.currentWorldState = worldState
 
 			if settings.Script != "" {
