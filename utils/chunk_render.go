@@ -115,7 +115,6 @@ func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.R
 			}
 		} else {
 			blockColor = RGBAToRGBA64(b.Color())
-
 		}
 
 		if blockColor.R == 0xffff && blockColor.G == 0x0 && blockColor.B == 0xffff {

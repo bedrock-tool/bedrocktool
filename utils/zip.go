@@ -57,17 +57,21 @@ func ZipFolder(filename, folder string) error {
 		return closePutback{w}, nil
 	})
 
-	folder = strings.ReplaceAll(folder, "./", "")
-	err = filepath.WalkDir(folder, func(path string, d fs.DirEntry, err error) error {
+	err = filepath.WalkDir(folder, func(fpath string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if d.Type().IsDir() {
 			return nil
 		}
-		rel := path[len(folder)+1:]
+		rel, err := filepath.Rel(folder, fpath)
+		if err != nil {
+			return err
+		}
+		rel = strings.ReplaceAll(rel, "\\", "/")
+
 		zwf, _ := zw.Create(rel)
-		f, err := os.Open(path)
+		f, err := os.Open(fpath)
 		if err != nil {
 			logrus.Error(err)
 			return nil
