@@ -34,6 +34,11 @@ type GUI struct {
 }
 
 func (g *GUI) Init() bool {
+	g.logger.list = widget.List{
+		List: layout.List{
+			Axis: layout.Vertical,
+		},
+	}
 	return true
 }
 
@@ -61,7 +66,7 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelCauseFunc) (err er
 	if err != nil {
 		logrus.Warn(err)
 	}
-	if dark || true {
+	if dark {
 		_th := th.WithPalette(paletteDark)
 		th = &_th
 	} else {
@@ -82,11 +87,6 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelCauseFunc) (err er
 	g.router.Register(update.New, update.ID)
 	g.router.SwitchTo(settings.ID)
 
-	g.logger.list = widget.List{
-		List: layout.List{
-			Axis: layout.Vertical,
-		},
-	}
 	g.logger.router = g.router
 	g.router.LogWidget = g.logger.Layout
 	logrus.AddHook(&g.logger)

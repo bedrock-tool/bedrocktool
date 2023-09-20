@@ -137,34 +137,25 @@ func (r *Router) Layout(gtx layout.Context, th *material.Theme) layout.Dimension
 	}
 	paint.Fill(gtx.Ops, th.Palette.Bg)
 
-	var children []layout.StackChild
-	children = append(children, layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+	content := layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				gtx.Constraints.Max.X /= 3
 				return r.ModalNavDrawer.NavDrawer.Layout(gtx, th, &r.NavAnim)
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				return r.current.Layout(gtx, th)
+				d := r.current.Layout(gtx, th)
+
+				for _, p := range r.popups {
+					p.Layout(gtx, th)
+				}
+
+				if r.logToggle.Value {
+					r.LogWidget(gtx, th)
+				}
+				return d
 			}),
 		)
-	}))
-
-	for _, p := range r.popups {
-		p := p
-		children = append(children, layout.Stacked(func(gtx layout.Context) layout.Dimensions {
-			return p.Layout(gtx, th)
-		}))
-	}
-
-	if r.logToggle.Value {
-		children = append(children, layout.Stacked(func(gtx layout.Context) layout.Dimensions {
-			return r.LogWidget(gtx, th)
-		}))
-	}
-
-	content := layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-		return layout.Stack{Alignment: layout.Center}.Layout(gtx, children...)
 	})
 	bar := layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 		return r.AppBar.Layout(gtx, th, "Menu", "Actions")

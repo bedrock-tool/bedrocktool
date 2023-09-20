@@ -55,31 +55,47 @@ func (m *mapInput) HandlePointerEvent(e pointer.Event) {
 	}
 }
 
-func (m *mapInput) Layout(gtx layout.Context) {
+func (m *mapInput) Layout(gtx layout.Context) func() {
 	if m.scaleFactor == 0 {
 		m.scaleFactor = 1
 	}
 	m.center = f32.Pt(float32(gtx.Constraints.Max.X), float32(gtx.Constraints.Max.Y)).Div(2)
-	defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
 
 	for _, e := range gtx.Events(m) {
 		if e, ok := e.(pointer.Event); ok {
 			m.HandlePointerEvent(e)
 		}
 	}
+
+	return func() {
+		if m.cursor.In(image.Rectangle(gtx.Constraints)) {
+			if m.grabbed {
+				pointer.CursorGrabbing.Add(gtx.Ops)
+			} else {
+				pointer.CursorGrab.Add(gtx.Ops)
+			}
+		}
+
+		size := gtx.Constraints.Max
+		pointer.InputOp{
+			Tag:          m,
+			Grab:         true,
+			Types:        pointer.Scroll | pointer.Drag | pointer.Press | pointer.Release,
+			ScrollBounds: image.Rect(-size.X, -size.Y, size.X, size.Y),
+		}.Add(gtx.Ops)
+	}
 }
 
 func (m *Map2) Layout(gtx layout.Context) layout.Dimensions {
-	m.mapInput.Layout(gtx)
+	defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
+	defer m.mapInput.Layout(gtx)()
 
 	for p, imageOp := range m.imageOps {
 		scaledSize := tileSize * m.mapInput.scaleFactor
 		pt := f32.Pt(float32(float64(p.X)*scaledSize), float32(float64(p.Y)*scaledSize))
 
 		// check if this needs to be drawn
-		if (image.Rectangle{
-			Max: gtx.Constraints.Max,
-		}).Intersect(
+		if (image.Rectangle{Max: gtx.Constraints.Max}).Intersect(
 			image.Rectangle{
 				Min: pt.Round(),
 				Max: pt.Add(f32.Pt(float32(scaledSize), float32(scaledSize))).Round(),
@@ -94,23 +110,7 @@ func (m *Map2) Layout(gtx layout.Context) layout.Dimensions {
 		aff.Pop()
 	}
 
-	if m.mapInput.cursor.In(image.Rectangle(gtx.Constraints)) {
-		if m.mapInput.grabbed {
-			pointer.CursorGrabbing.Add(gtx.Ops)
-		} else {
-			pointer.CursorGrab.Add(gtx.Ops)
-		}
-	}
-
-	size := gtx.Constraints.Max
-	pointer.InputOp{
-		Tag:          m,
-		Grab:         true,
-		Types:        pointer.Scroll | pointer.Drag | pointer.Press | pointer.Release,
-		ScrollBounds: image.Rect(-size.X, -size.Y, size.X, size.Y),
-	}.Add(gtx.Ops)
-
-	return layout.Dimensions{Size: size}
+	return layout.Dimensions{Size: gtx.Constraints.Max}
 }
 
 func chunkPosToTilePos(cp protocol.ChunkPos) (tile image.Point, offset image.Point) {

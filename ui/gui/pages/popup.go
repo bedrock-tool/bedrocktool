@@ -6,6 +6,7 @@ import (
 
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
+	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget/material"
@@ -21,6 +22,7 @@ type Popup interface {
 
 func layoutPopupBackground(gtx layout.Context, th *material.Theme, tag string, widget layout.Widget) layout.Dimensions {
 	// block events to other stacked below this
+	defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
 	pointer.InputOp{
 		Tag:   tag,
 		Types: pointer.Press | pointer.Release,
