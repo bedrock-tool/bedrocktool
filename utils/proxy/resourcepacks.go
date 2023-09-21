@@ -50,6 +50,7 @@ type rpHandler struct {
 	Server minecraft.IConn
 	Client minecraft.IConn
 	ctx    context.Context
+	dlwg   sync.WaitGroup
 
 	// gives access to stored resource packs in an abstract way so it can be replaced for replay
 	cache iPackCache
@@ -153,6 +154,31 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 			r.queue.serverPackAmount--
 			continue
 		}
+
+		idxURL := slices.IndexFunc(pk.PackURLs, func(pu protocol.PackURL) bool {
+			return pu.UUIDVersion == pack.UUID+"_"+pack.Version
+		})
+		if idxURL != -1 {
+			url := pk.PackURLs[idxURL]
+			r.ignoredResourcePacks = append(r.ignoredResourcePacks, exemptedResourcePack{
+				uuid:    pack.UUID,
+				version: pack.Version,
+			})
+			r.queue.serverPackAmount--
+			r.dlwg.Add(1)
+			go func() {
+				defer r.dlwg.Done()
+				newPack, err := resource.ReadURL(url.URL)
+				if err != nil {
+					logrus.Error(err)
+					return
+				}
+				newPack = newPack.WithContentKey(pack.ContentKey)
+				r.resourcePacks = append(r.resourcePacks, newPack)
+				r.OnFinishedPack(newPack)
+			}()
+		}
+
 		// This UUID_Version is a hack Mojang put in place.
 		packsToDownload = append(packsToDownload, pack.UUID+"_"+pack.Version)
 		r.queue.downloadingPacks[pack.UUID] = downloadingPack{
@@ -641,6 +667,7 @@ func (r *rpHandler) ResourcePacks() []*resource.Pack {
 	case <-r.ctx.Done():
 	case <-r.Server.OnDisconnect():
 	}
+	r.dlwg.Wait()
 	// wait for the whole receiving process to be done
 	return r.resourcePacks
 }
