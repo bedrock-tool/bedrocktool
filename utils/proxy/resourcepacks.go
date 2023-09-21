@@ -281,7 +281,7 @@ func (r *rpHandler) OnResourcePackDataInfo(pk *packet.ResourcePackDataInfo) erro
 			return
 		}
 		// First parse the resource pack from the total byte buffer we obtained.
-		newPack, err := resource.FromBytes(pack.buf.Bytes())
+		newPack, err := resource.Read(pack.buf)
 		newPack = newPack.WithContentKey(pack.contentKey)
 		if err != nil {
 			logrus.Warnf("invalid full resource pack data for UUID %v: %v\n", id, err)
@@ -421,7 +421,7 @@ func (r *rpHandler) nextResourcePackDownload() (ok bool, err error) {
 		}
 	}
 
-	logrus.Debug("next pack", pack.Name())
+	logrus.Debugf("next pack %s", pack.Name())
 
 	r.queue.currentPack = pack
 	r.queue.currentOffset = 0

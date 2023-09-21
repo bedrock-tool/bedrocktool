@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"archive/zip"
-	"io"
 	"path/filepath"
 	"strings"
 
@@ -32,12 +31,8 @@ func (r *replayCache) ReadFrom(z *zip.Reader) error {
 			if err != nil {
 				return err
 			}
-			data, err := io.ReadAll(f)
-			if err != nil {
-				return err
-			}
-			_ = f.Close()
-			pack, err := resource.FromBytes(data)
+			pack, err := resource.Read(f)
+			f.Close()
 			if err != nil {
 				return err
 			}

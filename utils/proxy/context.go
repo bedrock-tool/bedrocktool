@@ -548,7 +548,7 @@ func (p *Context) Run(ctx context.Context, serverAddress, name string) (err erro
 			ext := filepath.Ext(path)
 			switch ext {
 			case ".mcpack", ".zip":
-				pack, err := resource.Compile(path)
+				pack, err := resource.ReadPath(path)
 				if err != nil {
 					return err
 				}

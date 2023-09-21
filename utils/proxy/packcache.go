@@ -28,7 +28,7 @@ func (c *packCache) Get(id string) *resource.Pack {
 	if c.Ignore {
 		panic("not allowed")
 	}
-	return resource.MustCompile(c.cachedPath(id))
+	return resource.MustReadPath(c.cachedPath(id))
 }
 
 func (c *packCache) Has(id string) bool {

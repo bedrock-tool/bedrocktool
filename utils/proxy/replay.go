@@ -108,7 +108,7 @@ func (r *replayConnector) handleLoginSequence(pk packet.Packet) (bool, error) {
 			Yaw:                          pk.Yaw,
 			Dimension:                    pk.Dimension,
 			WorldSpawn:                   pk.WorldSpawn,
-			EditorWorld:                  pk.EditorWorld,
+			EditorWorldType:              pk.EditorWorldType,
 			WorldGameMode:                pk.WorldGameMode,
 			GameRules:                    pk.GameRules,
 			Time:                         pk.Time,

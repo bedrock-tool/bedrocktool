@@ -59,7 +59,7 @@ func (m *MapUI) GetBounds() (Min, Max protocol.ChunkPos) {
 	return
 }
 
-type RenderElem struct {
+type renderElem struct {
 	ch  *chunk.Chunk
 	pos protocol.ChunkPos
 
@@ -203,7 +203,7 @@ func (m *MapUI) processQueue() []protocol.ChunkPos {
 	m.wg.Wait()
 	updatedChunks := make([]protocol.ChunkPos, 0, m.renderQueue.Length())
 	for {
-		r, ok := m.renderQueue.Dequeue().(*RenderElem)
+		r, ok := m.renderQueue.Dequeue().(*renderElem)
 		if !ok {
 			break
 		}
@@ -298,7 +298,7 @@ func (m *MapUI) ToImage() *image.RGBA {
 }
 
 func (m *MapUI) SetChunk(pos world.ChunkPos, ch *chunk.Chunk, isDeferredState bool) {
-	m.renderQueue.Enqueue(&RenderElem{
+	m.renderQueue.Enqueue(&renderElem{
 		ch:              ch,
 		pos:             (protocol.ChunkPos)(pos),
 		isDeferredState: isDeferredState,

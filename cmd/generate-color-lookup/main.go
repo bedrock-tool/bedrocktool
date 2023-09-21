@@ -26,7 +26,7 @@ func main() {
 	var packs []utils.Pack
 	for _, fi := range packNames {
 		p := folder + "/" + fi.Name()
-		pack := resource.MustCompile(p)
+		pack := resource.MustReadPath(p)
 		packs = append(packs, utils.PackFromBase(pack))
 	}
 
