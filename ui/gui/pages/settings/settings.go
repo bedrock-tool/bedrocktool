@@ -104,13 +104,14 @@ func (p *Page) NavItem() component.NavItem {
 func (p *Page) Layout(gtx C, th *material.Theme) D {
 	if p.startButton.Clicked() {
 		if p.cmdMenu.selected != "" {
-			cmd, ok := commands.Registered[p.cmdMenu.selected]
+			cmdFunc, ok := commands.Registered[p.cmdMenu.selected]
 			if !ok {
 				logrus.Errorf("Cmd %s not found", p.cmdMenu.selected)
 			}
+			cmd := cmdFunc()
 
 			if s, ok := settings.Settings[p.cmdMenu.selected]; ok {
-				s.Apply()
+				s.Apply(cmd)
 			}
 
 			p.router.SwitchTo(p.cmdMenu.selected)

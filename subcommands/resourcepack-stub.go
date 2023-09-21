@@ -25,5 +25,7 @@ func (*ResourcePackCMD) Execute(ctx context.Context, ui ui.UI) error {
 }
 
 func init() {
-	commands.RegisterCommand(&ResourcePackCMD{})
+	commands.RegisterCommand(func() commands.Command {
+		return new(ResourcePackCMD)
+	})
 }

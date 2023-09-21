@@ -31,5 +31,7 @@ func (c *RealmAddressCMD) Execute(ctx context.Context, ui ui.UI) error {
 }
 
 func init() {
-	commands.RegisterCommand(&RealmAddressCMD{})
+	commands.RegisterCommand(func() commands.Command {
+		return new(RealmAddressCMD)
+	})
 }

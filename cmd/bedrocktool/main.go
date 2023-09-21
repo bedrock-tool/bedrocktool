@@ -197,6 +197,10 @@ func (c *CreateCustomDataCMD) Execute(_ context.Context, ui ui.UI) error {
 }
 
 func init() {
-	commands.RegisterCommand(&TransCMD{})
-	commands.RegisterCommand(&CreateCustomDataCMD{})
+	commands.RegisterCommand(func() commands.Command {
+		return new(TransCMD)
+	})
+	commands.RegisterCommand(func() commands.Command {
+		return new(CreateCustomDataCMD)
+	})
 }

@@ -9,7 +9,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var Registered = map[string]Command{}
+var Registered = map[string]func() Command{}
 
 type Command interface {
 	Name() string
@@ -40,7 +40,8 @@ func (c *cmdWrap) Execute(ctx context.Context, f *flag.FlagSet, args ...interfac
 	return 0
 }
 
-func RegisterCommand(sub Command) {
-	subcommands.Register(&cmdWrap{cmd: sub}, "")
-	Registered[sub.Name()] = sub
+func RegisterCommand(sub func() Command) {
+	f := sub()
+	subcommands.Register(&cmdWrap{cmd: f}, "")
+	Registered[f.Name()] = sub
 }

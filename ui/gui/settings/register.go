@@ -7,7 +7,7 @@ import (
 
 type SettingsUI interface {
 	Init()
-	Apply()
+	Apply(any)
 	Layout(layout.Context, *material.Theme) layout.Dimensions
 }
 

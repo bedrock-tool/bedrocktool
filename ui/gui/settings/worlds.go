@@ -7,14 +7,10 @@ import (
 	"gioui.org/x/outlay"
 	"github.com/bedrock-tool/bedrocktool/subcommands/world"
 	"github.com/bedrock-tool/bedrocktool/utils"
-	"github.com/bedrock-tool/bedrocktool/utils/commands"
 )
 
 type worldSettings struct {
-	worlds *world.WorldCMD
-
-	grid outlay.Grid
-
+	grid          outlay.Grid
 	withPacks     widget.Bool
 	voidGen       widget.Bool
 	saveImage     widget.Bool
@@ -22,18 +18,18 @@ type worldSettings struct {
 }
 
 func (s *worldSettings) Init() {
-	s.worlds = commands.Registered["worlds"].(*world.WorldCMD)
 	s.voidGen.Value = true
 	s.packetCapture.Value = false
 }
 
-func (s *worldSettings) Apply() {
-	s.worlds.Packs = s.withPacks.Value
-	s.worlds.EnableVoid = s.voidGen.Value
-	s.worlds.SaveImage = s.saveImage.Value
-	s.worlds.ServerAddress = AddressInput.Value()
-	s.worlds.SaveEntities = true
-	s.worlds.SaveInventories = true
+func (s *worldSettings) Apply(c any) {
+	cmd := c.(*world.WorldCMD)
+	cmd.Packs = s.withPacks.Value
+	cmd.EnableVoid = s.voidGen.Value
+	cmd.SaveImage = s.saveImage.Value
+	cmd.ServerAddress = AddressInput.Value()
+	cmd.SaveEntities = true
+	cmd.SaveInventories = true
 	utils.Options.Capture = s.packetCapture.Value
 }
 

@@ -99,5 +99,7 @@ func (c *BlindProxyCMD) Execute(ctx context.Context, ui ui.UI) error {
 }
 
 func init() {
-	commands.RegisterCommand(&BlindProxyCMD{})
+	commands.RegisterCommand(func() commands.Command {
+		return new(BlindProxyCMD)
+	})
 }

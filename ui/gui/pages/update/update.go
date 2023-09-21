@@ -21,7 +21,7 @@ type (
 const ID = "update"
 
 type Page struct {
-	*pages.Router
+	router *pages.Router
 
 	State       messages.UIState
 	startButton widget.Clickable
@@ -31,7 +31,7 @@ type Page struct {
 
 func New(router *pages.Router) pages.Page {
 	return &Page{
-		Router: router,
+		router: router,
 		State:  messages.UIStateMain,
 	}
 }
@@ -66,7 +66,7 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 				p.State = messages.UIStateFinished
 			}
 			p.updating = false
-			p.Router.Invalidate()
+			p.router.Invalidate()
 		}()
 	}
 

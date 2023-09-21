@@ -6,28 +6,24 @@ import (
 	"gioui.org/widget/material"
 	"gioui.org/x/outlay"
 	"github.com/bedrock-tool/bedrocktool/subcommands/skins"
-	"github.com/bedrock-tool/bedrocktool/utils/commands"
 )
 
 type skinsSettings struct {
-	skins *skins.SkinCMD
-
-	grid outlay.Grid
-
+	grid   outlay.Grid
 	Filter widget.Editor
 	Proxy  widget.Bool
 }
 
 func (s *skinsSettings) Init() {
-	s.skins = commands.Registered["skins"].(*skins.SkinCMD)
 	s.Filter.SingleLine = true
 	s.Proxy.Value = true
 }
 
-func (s *skinsSettings) Apply() {
-	s.skins.Filter = s.Filter.Text()
-	s.skins.NoProxy = !s.Proxy.Value
-	s.skins.ServerAddress = AddressInput.Value()
+func (s *skinsSettings) Apply(c any) {
+	cmd := c.(*skins.SkinCMD)
+	cmd.Filter = s.Filter.Text()
+	cmd.NoProxy = !s.Proxy.Value
+	cmd.ServerAddress = AddressInput.Value()
 }
 
 func (s *skinsSettings) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {

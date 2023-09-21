@@ -39,5 +39,7 @@ func (c *UpdateCMD) Execute(ctx context.Context, ui ui.UI) error {
 }
 
 func init() {
-	commands.RegisterCommand(&UpdateCMD{})
+	commands.RegisterCommand(func() commands.Command {
+		return new(UpdateCMD)
+	})
 }

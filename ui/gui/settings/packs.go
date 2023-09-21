@@ -5,19 +5,15 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget/material"
 	"github.com/bedrock-tool/bedrocktool/subcommands"
-	"github.com/bedrock-tool/bedrocktool/utils/commands"
 )
 
-type packsSettings struct {
-	packs *subcommands.ResourcePackCMD
-}
+type packsSettings struct {}
 
-func (s *packsSettings) Init() {
-	s.packs = commands.Registered["packs"].(*subcommands.ResourcePackCMD)
-}
+func (s *packsSettings) Init() {}
 
-func (s *packsSettings) Apply() {
-	s.packs.ServerAddress = AddressInput.Value()
+func (s *packsSettings) Apply(c any) {
+	cmd := c.(*subcommands.ResourcePackCMD)
+	cmd.ServerAddress = AddressInput.Value()
 }
 
 func (s *packsSettings) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
