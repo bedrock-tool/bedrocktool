@@ -164,7 +164,6 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 				uuid:    pack.UUID,
 				version: pack.Version,
 			})
-			r.queue.serverPackAmount--
 			r.dlwg.Add(1)
 			go func() {
 				defer r.dlwg.Done()
@@ -177,6 +176,8 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 				r.resourcePacks = append(r.resourcePacks, newPack)
 				r.OnFinishedPack(newPack)
 			}()
+			r.queue.serverPackAmount--
+			continue
 		}
 
 		// This UUID_Version is a hack Mojang put in place.
@@ -633,7 +634,15 @@ func (r *rpHandler) OnResourcePackClientResponse(pk *packet.ResourcePackClientRe
 }
 
 func (r *rpHandler) GetResourcePacksInfo(texturePacksRequired bool) *packet.ResourcePacksInfo {
-	pk := &packet.ResourcePacksInfo{}
+	select {
+	case <-r.receivedRemotePackInfo:
+	case <-r.ctx.Done():
+	}
+
+	var pk packet.ResourcePacksInfo
+	if r.remotePacks != nil {
+		pk = *r.remotePacks
+	}
 
 	// add r.addedPacks to the info
 	for _, p := range r.addedPacks {
@@ -649,16 +658,7 @@ func (r *rpHandler) GetResourcePacksInfo(texturePacksRequired bool) *packet.Reso
 		})
 	}
 
-	select {
-	case <-r.receivedRemotePackInfo:
-		pk.BehaviourPacks = append(pk.BehaviourPacks, r.remotePacks.BehaviourPacks...)
-		pk.ForcingServerPacks = r.remotePacks.ForcingServerPacks
-		pk.HasScripts = r.remotePacks.HasScripts
-		pk.TexturePackRequired = r.remotePacks.TexturePackRequired
-		pk.TexturePacks = append(pk.TexturePacks, r.remotePacks.TexturePacks...)
-	case <-r.ctx.Done():
-	}
-	return pk
+	return &pk
 }
 
 func (r *rpHandler) ResourcePacks() []*resource.Pack {
