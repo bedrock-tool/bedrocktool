@@ -58,6 +58,7 @@ type rpHandler struct {
 	// used to decide what packs to send next
 	// when these all are done the client must not expect any more resource packs
 	nextPack       chan *resource.Pack
+	httpNextpack   chan *resource.Pack
 	packsFromCache []*resource.Pack
 	addedPacks     []*resource.Pack
 	addedPacksDone int
@@ -121,6 +122,7 @@ func (r *rpHandler) SetServer(c minecraft.IConn) {
 func (r *rpHandler) SetClient(c minecraft.IConn) {
 	r.Client = c
 	r.nextPack = make(chan *resource.Pack)
+	r.httpNextpack = make(chan *resource.Pack)
 	r.knowPacksRequestedFromServer = make(chan struct{})
 }
 
@@ -156,7 +158,7 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 		}
 
 		idxURL := slices.IndexFunc(pk.PackURLs, func(pu protocol.PackURL) bool {
-			return pu.UUIDVersion == pack.UUID+"_"+pack.Version
+			return pack.UUID+"_"+pack.Version == pu.UUIDVersion
 		})
 		if idxURL != -1 {
 			url := pk.PackURLs[idxURL]
@@ -175,6 +177,9 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 				newPack = newPack.WithContentKey(pack.ContentKey)
 				r.resourcePacks = append(r.resourcePacks, newPack)
 				r.OnFinishedPack(newPack)
+				if r.httpNextpack != nil {
+					r.httpNextpack <- newPack
+				}
 			}()
 			r.queue.serverPackAmount--
 			continue
@@ -238,6 +243,14 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 	if r.nextPack != nil {
 		close(r.nextPack)
 	}
+
+	go func() {
+		r.dlwg.Wait()
+		if r.httpNextpack != nil {
+			close(r.httpNextpack)
+		}
+	}()
+
 	r.Server.Expect(packet.IDResourcePackStack)
 	_ = r.Server.WritePacket(&packet.ResourcePackClientResponse{Response: packet.PackResponseAllPacksDownloaded})
 	return nil
@@ -431,12 +444,11 @@ func (r *rpHandler) nextResourcePackDownload() (ok bool, err error) {
 		pack = r.addedPacks[r.addedPacksDone]
 		r.addedPacksDone++
 	} else {
-		if r.nextPack != nil {
-			select {
-			case pack, ok = <-r.nextPack:
-			case <-r.ctx.Done():
-				return false, r.ctx.Err()
-			}
+		select {
+		case pack, ok = <-r.nextPack:
+		case pack, ok = <-r.httpNextpack:
+		case <-r.ctx.Done():
+			return false, r.ctx.Err()
 		}
 
 		if !ok {
@@ -558,6 +570,10 @@ func (r *rpHandler) Request(packs []string) error {
 			return pack.UUID()+"_"+pack.Version() == packUUID
 		}) {
 			found = true
+		} else if slices.ContainsFunc(r.remotePacks.PackURLs, func(pu protocol.PackURL) bool {
+			return packUUID == pu.UUIDVersion
+		}) {
+			found = true
 		} else {
 			for _, pack := range r.remotePacks.TexturePacks {
 				if pack.UUID+"_"+pack.Version == packUUID {
@@ -609,9 +625,11 @@ func (r *rpHandler) OnResourcePackClientResponse(pk *packet.ResourcePackClientRe
 		}
 	case packet.PackResponseAllPacksDownloaded:
 		if !r.clientHasRequested {
-			close(r.knowPacksRequestedFromServer)
+			close(r.httpNextpack)
+			r.httpNextpack = nil
 			close(r.nextPack)
 			r.nextPack = nil
+			close(r.knowPacksRequestedFromServer)
 		}
 
 		logrus.Debug("waiting for remote stack")
