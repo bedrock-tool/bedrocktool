@@ -3,11 +3,14 @@ package proxy
 import (
 	"context"
 	"fmt"
+	"net"
+	"time"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/login"
+	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 	"github.com/sirupsen/logrus"
 )
@@ -72,9 +75,23 @@ func (p *Context) connectServer(ctx context.Context) (err error) {
 }
 
 func (p *Context) connectClient(ctx context.Context, serverAddress string) (err error) {
+	debugLog := false
+	d := NewDebugLogger(true, true)
+
 	p.listener, err = minecraft.ListenConfig{
 		StatusProvider: minecraft.NewStatusProvider(fmt.Sprintf("%s Proxy", serverAddress)),
-		//PacketFunc:     p.packetFunc,
+		PacketFunc: func(header packet.Header, payload []byte, src, dst net.Addr) {
+			if !debugLog {
+				return
+			}
+			if dst.String() == "[::]:19132" || src.String() == "[::]:19132" {
+				pk, ok := DecodePacket(header, payload)
+				if !ok {
+					return
+				}
+				d.PacketCB(pk, dst.String() == "[::]:19132", time.Now(), true)
+			}
+		},
 		OnClientData: func(c *minecraft.Conn) {
 			p.clientData = c.ClientData()
 			close(p.haveClientData)

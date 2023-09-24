@@ -50,7 +50,6 @@ type Handler struct {
 }
 
 var NewPacketCapturer func() *Handler
-var d *Handler
 
 var errCancelConnect = fmt.Errorf("cancelled connecting")
 

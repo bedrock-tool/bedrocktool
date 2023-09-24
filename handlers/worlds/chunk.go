@@ -109,8 +109,9 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 	}
 
 	w.proxy.SendPopup(locale.Locm("popup_chunk_count", locale.Strmap{
-		"Count": len(w.currentWorld.StoredChunks),
-		"Name":  w.currentWorld.Name,
+		"Chunks":   len(w.currentWorld.StoredChunks),
+		"Entities": w.currentWorld.EntityCount(),
+		"Name":     w.currentWorld.Name,
 	}, len(w.currentWorld.StoredChunks)))
 }
 

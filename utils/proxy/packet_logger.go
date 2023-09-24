@@ -47,19 +47,23 @@ var mutedPackets = []uint32{
 var dirS2C = color.GreenString("S") + "->" + color.CyanString("C")
 var dirC2S = color.CyanString("C") + "->" + color.GreenString("S")
 
-func NewDebugLogger(extraVerbose bool) *Handler {
+func NewDebugLogger(extraVerbose bool, client bool) *Handler {
 	var logPlain, logCrypt, logCryptEnc io.WriteCloser
 	var packetsLogF *bufio.Writer
 	var dmpLock sync.Mutex
 
 	if extraVerbose {
+		name := "packets.log"
+		if client {
+			name = "packets-client.log"
+		}
 		// open plain text log
-		logPlain, err := os.Create("packets.log")
+		logPlain, err := os.Create(name)
 		if err != nil {
 			logrus.Error(err)
 		}
 		// open gpg log
-		logCryptEnc, err = crypt.Encer("packets.log.gpg")
+		logCryptEnc, err = crypt.Encer(name + ".gpg")
 		if err != nil {
 			logrus.Error(err)
 		}

@@ -222,17 +222,6 @@ func (p *Context) IsClient(addr net.Addr) bool {
 }
 
 func (p *Context) packetFunc(header packet.Header, payload []byte, src, dst net.Addr) {
-	/* for logging the to client packets
-	if dst.String() == "[::]:19132" || src.String() == "[::]:19132" {
-		pk, ok := decodePacket(header, payload)
-		if !ok {
-			return
-		}
-		d.PacketCB(pk, dst.String() == "[::]:19132", time.Now(), true)
-		return
-	}
-	*/
-
 	if header.PacketID == packet.IDRequestNetworkSettings {
 		p.clientAddr = src
 	}
@@ -503,8 +492,7 @@ func (p *Context) Run(ctx context.Context, serverAddress, name string) (err erro
 	p.serverName = name
 
 	if utils.Options.Debug || utils.Options.ExtraDebug {
-		d = NewDebugLogger(utils.Options.ExtraDebug)
-		p.AddHandler(d)
+		p.AddHandler(NewDebugLogger(utils.Options.ExtraDebug, false))
 	}
 	if utils.Options.Capture {
 		p.AddHandler(NewPacketCapturer())

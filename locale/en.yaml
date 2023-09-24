@@ -129,8 +129,7 @@ setname_desc:
 void_desc:
   other: "toggle if void generator should be used"
 popup_chunk_count:
-  one: "{{.Count}} Chunk loaded\nName: {{.Name}}"
-  other: "{{.Count}} Chunks loaded\nName: {{.Name}}"
+  other: "{{.Chunks}} Chunks\n{{.Entities}} Entities\nName: {{.Name}}"
 warn_window_closed_not_open:
   other: "Closed window that wasnt open"
 saved_block_inv:

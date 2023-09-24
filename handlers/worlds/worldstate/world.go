@@ -146,6 +146,10 @@ func (w *World) GetEntity(id EntityRuntimeID) (*EntityState, bool) {
 	}
 }
 
+func (w *World) EntityCount() int {
+	return len(w.worldEntities.entities)
+}
+
 func (w *World) AddEntityLink(el protocol.EntityLink) {
 	if w.deferredState != nil {
 		w.deferredState.AddEntityLink(el)
