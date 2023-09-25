@@ -98,7 +98,7 @@ func (p *Context) AddHandler(handler *Handler) {
 	p.handlers = append(p.handlers, handler)
 }
 
-func (p *Context) CommandHandlerPacketCB(pk packet.Packet, toServer bool, _ time.Time, _ bool) (packet.Packet, error) {
+func (p *Context) commandHandlerPacketCB(pk packet.Packet, toServer bool, _ time.Time, _ bool) (packet.Packet, error) {
 	switch _pk := pk.(type) {
 	case *packet.CommandRequest:
 		cmd := strings.Split(_pk.CommandLine, " ")
@@ -112,16 +112,7 @@ func (p *Context) CommandHandlerPacketCB(pk packet.Packet, toServer bool, _ time
 		for _, ic := range p.commands {
 			cmds = append(cmds, ic.Cmd)
 		}
-		pk = &packet.AvailableCommands{
-			EnumValues:              _pk.EnumValues,
-			ChainedSubcommandValues: _pk.ChainedSubcommandValues,
-			Suffixes:                _pk.Suffixes,
-			Enums:                   _pk.Enums,
-			ChainedSubcommands:      _pk.ChainedSubcommands,
-			Commands:                append(_pk.Commands, cmds...),
-			DynamicEnums:            _pk.DynamicEnums,
-			Constraints:             _pk.Constraints,
-		}
+		_pk.Commands = append(_pk.Commands, cmds...)
 	}
 	return pk, nil
 }
@@ -499,7 +490,7 @@ func (p *Context) Run(ctx context.Context, serverAddress, name string) (err erro
 	}
 	p.AddHandler(&Handler{
 		Name:     "Commands",
-		PacketCB: p.CommandHandlerPacketCB,
+		PacketCB: p.commandHandlerPacketCB,
 	})
 	p.AddHandler(&Handler{
 		Name: "Player",

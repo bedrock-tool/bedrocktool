@@ -9,8 +9,8 @@ import (
 )
 
 type iPackCache interface {
-	Get(id string) *resource.Pack
-	Has(id string) bool
+	Get(id, ver string) *resource.Pack
+	Has(id, ver string) bool
 	Put(pack *resource.Pack)
 	Close()
 }
@@ -20,22 +20,22 @@ type packCache struct {
 	commit chan struct{}
 }
 
-func (packCache) cachedPath(id string) string {
-	return filepath.Join("packcache", id+".zip")
+func (packCache) cachedPath(id, ver string) string {
+	return filepath.Join("packcache", id+"_"+ver+".zip")
 }
 
-func (c *packCache) Get(id string) *resource.Pack {
+func (c *packCache) Get(id, ver string) *resource.Pack {
 	if c.Ignore {
 		panic("not allowed")
 	}
-	return resource.MustReadPath(c.cachedPath(id))
+	return resource.MustReadPath(c.cachedPath(id, ver))
 }
 
-func (c *packCache) Has(id string) bool {
+func (c *packCache) Has(id, ver string) bool {
 	if c.Ignore {
 		return false
 	}
-	_, err := os.Stat(c.cachedPath(id))
+	_, err := os.Stat(c.cachedPath(id, ver))
 	return err == nil
 }
 
@@ -45,7 +45,7 @@ func (c *packCache) Put(pack *resource.Pack) {
 	}
 	go func() {
 		<-c.commit
-		p := c.cachedPath(pack.UUID() + "_" + pack.Version())
+		p := c.cachedPath(pack.UUID(), pack.Version())
 		_ = os.MkdirAll(filepath.Dir(p), 0777)
 		f, err := os.Create(p)
 		if err != nil {

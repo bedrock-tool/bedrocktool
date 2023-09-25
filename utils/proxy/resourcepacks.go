@@ -145,12 +145,12 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 			r.queue.serverPackAmount--
 			continue
 		}
-		if r.cache.Has(pack.UUID + "_" + pack.Version) {
+		if r.cache.Has(pack.UUID, pack.Version) {
 			r.ignoredResourcePacks = append(r.ignoredResourcePacks, exemptedResourcePack{
 				uuid:    pack.UUID,
 				version: pack.Version,
 			})
-			newPack := r.cache.Get(pack.UUID + "_" + pack.Version).WithContentKey(pack.ContentKey)
+			newPack := r.cache.Get(pack.UUID, pack.Version).WithContentKey(pack.ContentKey)
 			r.resourcePacks = append(r.resourcePacks, newPack)
 			r.OnFinishedPack(newPack)
 			r.queue.serverPackAmount--
@@ -200,12 +200,12 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 			r.queue.serverPackAmount--
 			continue
 		}
-		if r.cache.Has(pack.UUID + "_" + pack.Version) {
+		if r.cache.Has(pack.UUID, pack.Version) {
 			r.ignoredResourcePacks = append(r.ignoredResourcePacks, exemptedResourcePack{
 				uuid:    pack.UUID,
 				version: pack.Version,
 			})
-			newPack := r.cache.Get(pack.UUID + "_" + pack.Version).WithContentKey(pack.ContentKey)
+			newPack := r.cache.Get(pack.UUID, pack.Version).WithContentKey(pack.ContentKey)
 			r.resourcePacks = append(r.resourcePacks, newPack)
 			r.OnFinishedPack(newPack)
 			r.queue.serverPackAmount--
@@ -540,11 +540,12 @@ func (r *rpHandler) Request(packs []string) error {
 	<-r.receivedRemotePackInfo
 
 	for _, packUUID := range packs {
+		uuid_ver := strings.Split(packUUID, "_")
 		found := false
-		if r.cache.Has(packUUID) {
+		if r.cache.Has(uuid_ver[0], uuid_ver[1]) {
 			logrus.Debug("using", packUUID, "from cache")
 
-			pack := r.cache.Get(packUUID)
+			pack := r.cache.Get(uuid_ver[0], uuid_ver[1])
 			for _, pack2 := range r.remotePacks.TexturePacks {
 				if pack2.UUID+"_"+pack2.Version == packUUID {
 					if pack2.ContentKey != "" {

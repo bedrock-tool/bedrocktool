@@ -12,11 +12,11 @@ type replayCache struct {
 	packs map[string]*resource.Pack
 }
 
-func (r *replayCache) Get(id string) *resource.Pack {
-	return r.packs[id]
+func (r *replayCache) Get(id, ver string) *resource.Pack {
+	return r.packs[id+"_"+ver]
 }
-func (r *replayCache) Has(id string) bool {
-	_, ok := r.packs[id]
+func (r *replayCache) Has(id, ver string) bool {
+	_, ok := r.packs[id+"_"+ver]
 	return ok
 }
 func (r *replayCache) Put(pack *resource.Pack) {}

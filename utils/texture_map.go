@@ -7,8 +7,8 @@ import (
 	"os"
 
 	"github.com/OneOfOne/xxhash"
+	"github.com/bedrock-tool/bedrocktool/utils/updater"
 	"github.com/df-mc/dragonfly/server/world"
-	"github.com/thomaso-mirodin/intmath/i32"
 )
 
 type TextureMap struct {
@@ -59,13 +59,13 @@ func (t *TextureMap) SetTextures(blocks []world.Block, resolvedTextures map[stri
 		}
 	}
 
-	sx := int(i32.Sqrt(int32(len(hashes)))) + 1
-	t.Lookup = image.NewRGBA(image.Rect(0, 0, sx*t.BlockSize, sx*t.BlockSize))
+	t.Lookup = image.NewRGBA(image.Rect(0, 0, 1024, 512))
 	i := 0
 	for k, he := range hashToRids {
 		tex := hashes[k]
 
-		x, y := i%sx*t.BlockSize, i/sx*t.BlockSize
+		x := (i * t.BlockSize) % t.Lookup.Rect.Dx()
+		y := (i * t.BlockSize) / t.Lookup.Rect.Dx() * t.BlockSize
 		draw.Draw(t.Lookup, image.Rect(x, y, x+t.BlockSize, y+t.BlockSize), tex, image.Point{}, draw.Over)
 
 		for _, v := range he {
@@ -79,11 +79,14 @@ func (t *TextureMap) SetTextures(blocks []world.Block, resolvedTextures map[stri
 		i++
 	}
 
-	f, err := os.Create("tex.png")
-	if err != nil {
-		panic(err)
+	if updater.Version == "" {
+		f, err := os.Create("tex.png")
+		if err != nil {
+			panic(err)
+		}
+		png.Encode(f, t.Lookup)
+		f.Close()
 	}
-	png.Encode(f, t.Lookup)
-	f.Close()
+
 	return ridToIdx
 }
