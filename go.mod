@@ -47,8 +47,8 @@ require (
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/changkun/lockfree v0.0.1 // indirect
 	github.com/df-mc/atomic v1.10.0 // indirect
-	github.com/df-mc/worldupgrader v1.0.8 // indirect
-	github.com/dlclark/regexp2 v1.7.0 // indirect
+	github.com/df-mc/worldupgrader v1.0.9 // indirect
+	github.com/dlclark/regexp2 v1.9.0 // indirect
 	github.com/ftrvxmtrx/tga v0.0.0-20150524081124-bd8e8d5be13a // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
