@@ -158,7 +158,12 @@ func (s *settingsPage) Layout(gtx layout.Context, th *material.Theme) layout.Dim
 				}
 			}
 
-			return s.grid.Layout(gtx, 2, 3, func(axis layout.Axis, index, constraint int) int {
+			rows, cols := len(widgets)/3, 3
+			if len(widgets) == 4 {
+				rows, cols = 2, 2
+			}
+
+			return s.grid.Layout(gtx, rows, cols, func(axis layout.Axis, index, constraint int) int {
 				switch axis {
 				case layout.Horizontal:
 					return 130
@@ -167,11 +172,8 @@ func (s *settingsPage) Layout(gtx layout.Context, th *material.Theme) layout.Dim
 				}
 				return 0
 			}, func(gtx layout.Context, row, col int) layout.Dimensions {
-				idx := col + 3*row
-				if idx < len(widgets) {
-					return widgets[idx](gtx)
-				}
-				return layout.Dimensions{}
+				idx := col + cols*row
+				return widgets[idx](gtx)
 			})
 		}),
 
