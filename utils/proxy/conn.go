@@ -76,7 +76,10 @@ func (p *Context) connectServer(ctx context.Context) (err error) {
 
 func (p *Context) connectClient(ctx context.Context, serverAddress string) (err error) {
 	debugLog := false
-	d := NewDebugLogger(true, true)
+	var d *Handler
+	if debugLog {
+		d = NewDebugLogger(true, true)
+	}
 
 	p.listener, err = minecraft.ListenConfig{
 		StatusProvider: minecraft.NewStatusProvider(fmt.Sprintf("%s Proxy", serverAddress)),

@@ -23,14 +23,16 @@ func (l *logger) Layout(gtx layout.Context, th *material.Theme) layout.Dimension
 	gtx.Constraints.Min = gtx.Constraints.Max
 	return layout.UniformInset(20).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		component.Rect{
-			Color: color.NRGBA{A: 230},
+			Color: color.NRGBA{A: 240},
 			Size:  gtx.Constraints.Max,
 			Radii: 15,
 		}.Layout(gtx)
 		return layout.UniformInset(8).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 			return material.List(th, &l.list).Layout(gtx, len(l.lines), func(gtx layout.Context, index int) layout.Dimensions {
 				line := l.lines[index]
-				return material.Body1(th, line.Message).Layout(gtx)
+				t := material.Body1(th, line.Message)
+				t.Color = color.NRGBA{0xff, 0xff, 0xff, 0xff}
+				return t.Layout(gtx)
 			})
 		})
 	})

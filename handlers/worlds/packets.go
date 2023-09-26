@@ -63,7 +63,7 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 				w.bp.AddBlock(be)
 			}
 			// telling the chunk code what custom blocks there are so it can generate offsets
-			world.InsertCustomBlocks(pk.Blocks)
+			w.blockStates = world.InsertCustomBlocks(pk.Blocks)
 			w.customBlocks = pk.Blocks
 		}
 

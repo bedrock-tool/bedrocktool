@@ -10,6 +10,7 @@ token*.json
 *.log
 *.gpg
 *.syso
+*.pprof
 
 /bedrocktool
 /bedrocktool-*

@@ -44,7 +44,7 @@ func (w *worldsHandler) AddPacks(folder string) {
 			w.bp.CheckAddLink(p)
 		}
 
-		w.bp.Save(packFolder)
+		w.bp.Save(packFolder, w.blockStates)
 		addPacksJSON("world_behavior_packs.json", []dep{{
 			PackID:  w.bp.Manifest.Header.UUID,
 			Version: w.bp.Manifest.Header.Version,

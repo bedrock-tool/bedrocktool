@@ -2,7 +2,6 @@ package settings
 
 import (
 	"image"
-	"image/color"
 	"sort"
 
 	"gioui.org/layout"
@@ -155,7 +154,7 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 							b := material.Button(th, c.Clickable, c.Text)
 							if p.cmdMenu.selected == name {
 								b.Background = th.ContrastFg
-								b.Color = color.NRGBA{R: 0, G: 0, B: 0, A: 0xff}
+								b.Color = th.Bg
 							}
 							return layout.Inset{Left: 5, Right: 5}.Layout(gtx, b.Layout)
 						},
@@ -181,7 +180,7 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 			}),
 
 			// Start Button
-			layout.Flexed(0.15, func(gtx layout.Context) layout.Dimensions {
+			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.Inset{
 						Top:    unit.Dp(15),

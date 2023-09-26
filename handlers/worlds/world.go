@@ -81,6 +81,7 @@ type worldsHandler struct {
 
 	serverState  serverState
 	settings     WorldSettings
+	blockStates  []world.BlockState
 	customBlocks []protocol.BlockEntry
 	err          chan error
 }

@@ -261,15 +261,6 @@ func (p *Context) onServerConnect() error {
 	return nil
 }
 
-func (p *Context) onClientConnect() {
-	for _, handler := range p.handlers {
-		if handler.OnClientConnect == nil {
-			continue
-		}
-		handler.OnClientConnect(p.Client)
-	}
-}
-
 func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc) (err error) {
 	defer func() {
 		for _, handler := range p.handlers {
@@ -325,7 +316,12 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 					cancel(err)
 					return
 				}
-				p.onClientConnect()
+				for _, handler := range p.handlers {
+					if handler.OnClientConnect == nil {
+						continue
+					}
+					handler.OnClientConnect(p.Client)
+				}
 			}()
 		}
 		wg.Add(1)
