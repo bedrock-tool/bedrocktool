@@ -87,7 +87,5 @@ func (c *WorldCMD) Execute(ctx context.Context, ui ui.UI) error {
 }
 
 func init() {
-	commands.RegisterCommand(func() commands.Command {
-		return new(WorldCMD)
-	})
+	commands.RegisterCommand(&WorldCMD{})
 }

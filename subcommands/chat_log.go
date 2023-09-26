@@ -39,7 +39,5 @@ func (c *ChatLogCMD) Execute(ctx context.Context, ui ui.UI) error {
 }
 
 func init() {
-	commands.RegisterCommand(func() commands.Command {
-		return new(ChatLogCMD)
-	})
+	commands.RegisterCommand(&ChatLogCMD{})
 }

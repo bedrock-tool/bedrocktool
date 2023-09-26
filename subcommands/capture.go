@@ -35,7 +35,5 @@ func (c *CaptureCMD) Execute(ctx context.Context, ui ui.UI) error {
 	return p.Run(ctx, address, hostname)
 }
 func init() {
-	commands.RegisterCommand(func() commands.Command {
-		return new(CaptureCMD)
-	})
+	commands.RegisterCommand(&CaptureCMD{})
 }

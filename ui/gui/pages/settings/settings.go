@@ -2,6 +2,7 @@ package settings
 
 import (
 	"image"
+	"slices"
 	"sort"
 
 	"gioui.org/layout"
@@ -39,19 +40,26 @@ type Page struct {
 		selected   string
 	}
 
+	settings map[string]*settings.SettingsPage
+
 	startButton widget.Clickable
 	debugButton widget.Bool
 }
 
 func New(router *pages.Router) pages.Page {
 	p := &Page{
-		router: router,
+		router:   router,
+		settings: make(map[string]*settings.SettingsPage),
 	}
 
-	for k := range commands.Registered {
-		if _, ok := settings.Settings[k]; !ok {
+	for k, cmd := range commands.Registered {
+		if !slices.Contains([]string{"worlds", "skins", "packs"}, k) {
 			continue
 		}
+
+		settingUI := settings.NewPage(cmd)
+		settingUI.Init()
+		p.settings[k] = settingUI
 		p.cmdMenu.names = append(p.cmdMenu.names, k)
 	}
 	sort.Strings(p.cmdMenu.names)
@@ -64,10 +72,6 @@ func New(router *pages.Router) pages.Page {
 		}
 	}
 
-	for _, su := range settings.Settings {
-		su.Init()
-	}
-
 	return p
 }
 
@@ -78,15 +82,7 @@ func (p *Page) ID() string {
 }
 
 func (p *Page) Actions() []component.AppBarAction {
-	return []component.AppBarAction{
-		/*
-			{
-				Layout: func(gtx layout.Context, bg, fg color.NRGBA) layout.Dimensions {
-					return material.Switch(p.router.Theme, &p.debugButton, "debug").Layout(gtx)
-				},
-			},
-		*/
-	}
+	return []component.AppBarAction{}
 }
 
 func (p *Page) Overflow() []component.OverflowAction {
@@ -103,15 +99,13 @@ func (p *Page) NavItem() component.NavItem {
 func (p *Page) Layout(gtx C, th *material.Theme) D {
 	if p.startButton.Clicked() {
 		if p.cmdMenu.selected != "" {
-			cmdFunc, ok := commands.Registered[p.cmdMenu.selected]
+			cmd, ok := commands.Registered[p.cmdMenu.selected]
 			if !ok {
 				logrus.Errorf("Cmd %s not found", p.cmdMenu.selected)
 			}
-			cmd := cmdFunc()
 
-			if s, ok := settings.Settings[p.cmdMenu.selected]; ok {
-				s.Apply(cmd)
-			}
+			settingsUI := p.settings[p.cmdMenu.selected]
+			settingsUI.Apply()
 
 			p.router.SwitchTo(p.cmdMenu.selected)
 			p.router.Execute(cmd)
@@ -166,14 +160,8 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 				if p.cmdMenu.selected == "" {
 					d = layout.Center.Layout(gtx, material.H5(th, "Select a Mode").Layout)
 				} else {
-					s, ok := settings.Settings[p.cmdMenu.selected]
-					if !ok {
-						d = layout.Center.Layout(gtx, material.H5(th, "No Settings Yet (Use CLI)").Layout)
-					} else {
-						d = layout.UniformInset(15).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-							return s.Layout(gtx, th)
-						})
-					}
+					s := p.settings[p.cmdMenu.selected]
+					d = s.Layout(gtx, th)
 				}
 				d.Size.Y = gtx.Constraints.Max.Y
 				return d

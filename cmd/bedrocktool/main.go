@@ -109,7 +109,7 @@ func main() {
 	flag.BoolVar(&utils.Options.ExtraDebug, "extra-debug", false, locale.Loc("extra_debug", nil))
 	flag.StringVar(&utils.Options.PathCustomUserData, "userdata", "", locale.Loc("custom_user_data", nil))
 	flag.String("lang", "", "lang")
-	flag.BoolVar(&utils.Options.Capture, "capture", false, "Capture Packet log")
+	flag.BoolVar(&utils.Options.Capture, "capture", false, "Capture pcap2 file")
 
 	subcommands.Register(subcommands.HelpCommand(), "")
 	subcommands.ImportantFlag("debug")
@@ -197,10 +197,6 @@ func (c *CreateCustomDataCMD) Execute(_ context.Context, ui ui.UI) error {
 }
 
 func init() {
-	commands.RegisterCommand(func() commands.Command {
-		return new(TransCMD)
-	})
-	commands.RegisterCommand(func() commands.Command {
-		return new(CreateCustomDataCMD)
-	})
+	commands.RegisterCommand(&TransCMD{})
+	commands.RegisterCommand(&CreateCustomDataCMD{})
 }

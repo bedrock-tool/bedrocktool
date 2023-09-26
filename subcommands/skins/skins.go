@@ -59,7 +59,5 @@ func (c *SkinCMD) Execute(ctx context.Context, ui ui.UI) error {
 }
 
 func init() {
-	commands.RegisterCommand(func() commands.Command {
-		return new(SkinCMD)
-	})
+	commands.RegisterCommand(&SkinCMD{})
 }

@@ -79,6 +79,7 @@ func (w *World) saveEntities(exclude []string, dimension world.Dimension) error 
 	chunkEntities := make(map[world.ChunkPos][]world.Entity)
 	for _, es := range w.worldEntities.entities {
 		if slices.Contains(exclude, es.EntityType) {
+			logrus.Debugf("Excluding: %s %v", es.EntityType, es.Position)
 			continue
 		}
 		cp := world.ChunkPos{int32(es.Position.X()) >> 4, int32(es.Position.Z()) >> 4}

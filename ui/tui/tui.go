@@ -33,7 +33,7 @@ func (c *TUI) Start(ctx context.Context, cancel context.CancelCauseFunc) error {
 	default:
 		fmt.Println(locale.Loc("available_commands", nil))
 		for name, cmd := range commands.Registered {
-			fmt.Printf("\t%s\t%s\n", name, cmd().Synopsis())
+			fmt.Printf("\t%s\t%s\n", name, cmd.Synopsis())
 		}
 		fmt.Println(locale.Loc("use_to_run_command", nil))
 
