@@ -16,7 +16,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type SettingsPage struct {
+type settingsPage struct {
 	cmd     commands.Command
 	f       *flag.FlagSet
 	widgets map[string]any
@@ -30,7 +30,7 @@ type SettingsPage struct {
 	setters  map[string]func(string) error
 }
 
-func (s *SettingsPage) Init() {
+func (s *settingsPage) Init() {
 	s.list.Axis = layout.Vertical
 	s.widgets = make(map[string]any)
 	s.tooltips = make(map[string]*component.TipArea)
@@ -60,7 +60,11 @@ func (s *SettingsPage) Init() {
 			}
 			s.widgets[f.Name] = e
 		case "boolValue":
-			s.widgets[f.Name] = &widget.Bool{}
+			e := &widget.Bool{}
+			if f.DefValue == "true" {
+				e.Value = true
+			}
+			s.widgets[f.Name] = e
 		default:
 			logrus.Warnf("%s unknown flag type", t)
 		}
@@ -89,7 +93,7 @@ func (s *SettingsPage) Init() {
 	}
 }
 
-func (s *SettingsPage) Apply() error {
+func (s *settingsPage) Apply() error {
 	for k, set := range s.setters {
 		w := s.widgets[k]
 		switch w := w.(type) {
@@ -116,7 +120,7 @@ func (s *SettingsPage) Apply() error {
 	return nil
 }
 
-func (s *SettingsPage) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
+func (s *settingsPage) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
 	return layout.Flex{
 		Axis: layout.Vertical,
 	}.Layout(gtx,
@@ -187,11 +191,4 @@ func (s *SettingsPage) Layout(gtx layout.Context, th *material.Theme) layout.Dim
 				}
 			})
 		}))
-
-}
-
-func NewPage(cmd commands.Command) *SettingsPage {
-	return &SettingsPage{
-		cmd: cmd,
-	}
 }

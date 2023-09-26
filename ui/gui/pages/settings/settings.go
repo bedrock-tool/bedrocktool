@@ -11,7 +11,6 @@ import (
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages"
-	"github.com/bedrock-tool/bedrocktool/ui/gui/settings"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
@@ -40,7 +39,7 @@ type Page struct {
 		selected   string
 	}
 
-	settings map[string]*settings.SettingsPage
+	settings map[string]*settingsPage
 
 	startButton widget.Clickable
 	debugButton widget.Bool
@@ -49,7 +48,7 @@ type Page struct {
 func New(router *pages.Router) pages.Page {
 	p := &Page{
 		router:   router,
-		settings: make(map[string]*settings.SettingsPage),
+		settings: make(map[string]*settingsPage),
 	}
 
 	for k, cmd := range commands.Registered {
@@ -57,7 +56,7 @@ func New(router *pages.Router) pages.Page {
 			continue
 		}
 
-		settingUI := settings.NewPage(cmd)
+		settingUI := &settingsPage{cmd: cmd}
 		settingUI.Init()
 		p.settings[k] = settingUI
 		p.cmdMenu.names = append(p.cmdMenu.names, k)
