@@ -3,6 +3,7 @@ package settings
 import (
 	"errors"
 	"flag"
+	"fmt"
 	"reflect"
 	"strings"
 
@@ -50,13 +51,20 @@ func (s *settingsPage) Init() {
 		switch t {
 		case "stringValue", "intValue":
 			e := &component.TextField{
-				Helper: f.Name,
+				Helper: f.Usage,
 			}
+			if f.DefValue != "" && f.DefValue != "0" {
+				e.Helper = fmt.Sprintf("%s (Default: '%s')", f.Usage, f.DefValue)
+			}
+
 			e.SetText(f.DefValue)
 			e.SingleLine = true
 			if t == "intValue" {
 				e.Filter = "0123456789"
 				e.InputHint = key.HintNumeric
+				if f.DefValue == "0" {
+					e.SetText("")
+				}
 			}
 			s.widgets[f.Name] = e
 		case "boolValue":
@@ -121,12 +129,8 @@ func (s *settingsPage) Apply() error {
 }
 
 func (s *settingsPage) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
-	return layout.Flex{
-		Axis: layout.Vertical,
-	}.Layout(gtx,
-
-		// address input
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+	return material.List(th, &s.list).Layout(gtx, len(s.flags)+2, func(gtx layout.Context, index int) layout.Dimensions {
+		if index == 0 { // address input
 			w, ok := s.widgets["address"].(*addressInput)
 			if ok {
 				return layout.Flex{
@@ -141,10 +145,8 @@ func (s *settingsPage) Layout(gtx layout.Context, th *material.Theme) layout.Dim
 				)
 			}
 			return layout.Dimensions{}
-		}),
-
-		// bool flags
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+		}
+		if index == 1 { // bool flags
 			var widgets []layout.Widget
 			for _, name := range s.flags {
 				name := name
@@ -175,22 +177,18 @@ func (s *settingsPage) Layout(gtx layout.Context, th *material.Theme) layout.Dim
 				idx := col + cols*row
 				return widgets[idx](gtx)
 			})
-		}),
+		}
 
-		// text flags
-		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			return material.List(th, &s.list).Layout(gtx, len(s.flags), func(gtx layout.Context, index int) layout.Dimensions {
-				name := s.flags[index]
-				w := s.widgets[name]
+		name := s.flags[index-2]
+		w := s.widgets[name]
 
-				switch w := w.(type) {
-				case *widget.Bool:
-					return layout.Dimensions{}
-				case *component.TextField:
-					return w.Layout(gtx, th, s.hints[name])
-				default:
-					return layout.Dimensions{}
-				}
-			})
-		}))
+		switch w := w.(type) {
+		case *widget.Bool:
+			return layout.Dimensions{}
+		case *component.TextField:
+			return w.Layout(gtx, th, w.Helper)
+		default:
+			return layout.Dimensions{}
+		}
+	})
 }
