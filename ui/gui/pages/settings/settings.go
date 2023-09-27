@@ -130,8 +130,8 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 			layout.Rigid(func(gtx C) D {
 				return layout.Inset{
 					Top:   10,
-					Left:  unit.Dp(gtx.Constraints.Max.X / 10),
-					Right: unit.Dp(gtx.Constraints.Max.X / 10),
+					Left:  unit.Dp(gtx.Constraints.Max.X / gtx.Dp(10)),
+					Right: unit.Dp(gtx.Constraints.Max.X / gtx.Dp(10)),
 				}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return component.Grid(th, &p.cmdMenu.state).Layout(gtx, 1, len(p.cmdMenu.clickables),
 						func(axis layout.Axis, index, constraint int) int {
@@ -161,8 +161,8 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 				} else {
 					s := p.settings[p.cmdMenu.selected]
 					return layout.Inset{
-						Left:  unit.Dp(gtx.Constraints.Max.X / 10),
-						Right: unit.Dp(gtx.Constraints.Max.X / 10),
+						Left:  unit.Dp(gtx.Constraints.Max.X / gtx.Dp(10)),
+						Right: unit.Dp(gtx.Constraints.Max.X / gtx.Dp(10)),
 					}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						return s.Layout(gtx, th)
 					})
@@ -174,11 +174,11 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.Inset{
-						Top:    unit.Dp(15),
-						Bottom: unit.Dp(15),
+						Top:    15,
+						Bottom: 15,
 					}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-						gtx.Constraints.Min = image.Pt(300, 40)
-						gtx.Constraints.Max = image.Pt(gtx.Constraints.Max.X/3, 40)
+						gtx.Constraints.Min = image.Pt(gtx.Dp(300), gtx.Dp(40))
+						gtx.Constraints.Max = image.Pt(gtx.Constraints.Max.X/3, gtx.Dp(40))
 						return material.Button(th, &p.startButton, "Start").Layout(gtx)
 					})
 				})
