@@ -129,10 +129,9 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 			// Select Command Button
 			layout.Rigid(func(gtx C) D {
 				return layout.Inset{
-					Top:    10,
-					Bottom: 10,
-					Left:   unit.Dp(gtx.Constraints.Max.X / 10),
-					Right:  unit.Dp(gtx.Constraints.Max.X / 10),
+					Top:   10,
+					Left:  unit.Dp(gtx.Constraints.Max.X / 10),
+					Right: unit.Dp(gtx.Constraints.Max.X / 10),
 				}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return component.Grid(th, &p.cmdMenu.state).Layout(gtx, 1, len(p.cmdMenu.clickables),
 						func(axis layout.Axis, index, constraint int) int {
@@ -155,14 +154,19 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 				})
 			}),
 
-			layout.Flexed(0.8, func(gtx layout.Context) (d layout.Dimensions) {
+			layout.Flexed(1, func(gtx layout.Context) (d layout.Dimensions) {
 				if p.cmdMenu.selected == "" {
 					d = layout.Center.Layout(gtx, material.H5(th, "Select a Mode").Layout)
+					d.Size.Y = gtx.Constraints.Max.Y
 				} else {
 					s := p.settings[p.cmdMenu.selected]
-					d = s.Layout(gtx, th)
+					return layout.Inset{
+						Left:  unit.Dp(gtx.Constraints.Max.X / 10),
+						Right: unit.Dp(gtx.Constraints.Max.X / 10),
+					}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return s.Layout(gtx, th)
+					})
 				}
-				d.Size.Y = gtx.Constraints.Max.Y
 				return d
 			}),
 
