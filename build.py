@@ -32,7 +32,7 @@ PLATFORMS = [
     ("linux", ["amd64"], ""),
     #("darwin", ["amd64", "arm64"], ""),
     #("android", ["arm64"], ".apk"),
-    #("js", ["wasm"], "")
+    #("js", ["wasip1"], "")
 ]
 
 

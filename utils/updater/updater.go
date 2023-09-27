@@ -1,9 +1,6 @@
 package updater
 
 import (
-	"compress/gzip"
-	"crypto"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"hash/crc32"
@@ -13,7 +10,6 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/minio/selfupdate"
 	"github.com/shirou/gopsutil/v3/mem"
 )
 
@@ -59,6 +55,14 @@ func UpdateAvailable() (*Update, error) {
 		return updateAvailable, nil
 	}
 
+	if runtime.GOOS == "js" {
+		updateAvailable = &Update{
+			Version: Version,
+			Sha256:  "",
+		}
+		return updateAvailable, nil
+	}
+
 	r, err := fetch(fmt.Sprintf("%s%s/%s-%s.json", UpdateServer, CmdName, runtime.GOOS, runtime.GOARCH))
 	if err != nil {
 		return nil, err
@@ -74,35 +78,4 @@ func UpdateAvailable() (*Update, error) {
 
 	updateAvailable = &update
 	return updateAvailable, nil
-}
-
-func DoUpdate() error {
-	update, err := UpdateAvailable()
-	if err != nil {
-		return err
-	}
-
-	checksum, err := base64.StdEncoding.DecodeString(update.Sha256)
-	if err != nil {
-		return err
-	}
-
-	r, err := fetch(fmt.Sprintf("%s%s/%s/%s-%s.gz", UpdateServer, CmdName, update.Version, runtime.GOOS, runtime.GOARCH))
-	if err != nil {
-		return err
-	}
-	gr, err := gzip.NewReader(r)
-	if err != nil {
-		return err
-	}
-	defer gr.Close()
-
-	err = selfupdate.Apply(gr, selfupdate.Options{
-		Checksum: checksum,
-		Hash:     crypto.SHA256,
-	})
-	if err != nil {
-		return err
-	}
-	return nil
 }

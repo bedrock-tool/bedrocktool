@@ -7,3 +7,6 @@
 [submodule "gio"]
 	path = gio
 	url = https://github.com/olebeck/gio.git
+[submodule "goleveldb"]
+	path = goleveldb
+	url = https://github.com/olebeck/goleveldb
