@@ -160,11 +160,7 @@ func (s *settingsPage) Layout(gtx layout.Context, th *material.Theme) layout.Dim
 				}
 			}
 
-			rows, cols := len(widgets)/3, 3
-			if len(widgets) == 4 {
-				rows, cols = 2, 2
-			}
-
+			rows, cols := max(1, len(widgets)/4), min(len(widgets), 4)
 			return s.grid.Layout(gtx, rows, cols, func(axis layout.Axis, index, constraint int) int {
 				switch axis {
 				case layout.Horizontal:
