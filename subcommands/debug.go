@@ -22,17 +22,12 @@ func (c *DebugProxyCMD) SetFlags(f *flag.FlagSet) {
 }
 
 func (c *DebugProxyCMD) Execute(ctx context.Context, ui ui.UI) error {
-	address, hostname, err := utils.ServerInput(ctx, c.ServerAddress)
-	if err != nil {
-		return err
-	}
-
 	proxy, err := proxy.New(ui, true)
 	if err != nil {
 		return err
 	}
 	utils.Options.Debug = true
-	return proxy.Run(ctx, address, hostname)
+	return proxy.Run(ctx, c.ServerAddress)
 }
 
 func init() {

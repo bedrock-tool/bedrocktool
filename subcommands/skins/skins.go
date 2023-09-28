@@ -8,7 +8,6 @@ import (
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/ui"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
-	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/bedrock-tool/bedrocktool/utils/proxy"
 )
@@ -29,11 +28,6 @@ func (c *SkinCMD) SetFlags(f *flag.FlagSet) {
 }
 
 func (c *SkinCMD) Execute(ctx context.Context, ui ui.UI) error {
-	address, hostname, err := utils.ServerInput(ctx, c.ServerAddress)
-	if err != nil {
-		return err
-	}
-
 	p, err := proxy.New(ui, !c.NoProxy)
 	if err != nil {
 		return err
@@ -54,7 +48,7 @@ func (c *SkinCMD) Execute(ctx context.Context, ui ui.UI) error {
 		},
 	})
 
-	err = p.Run(ctx, address, hostname)
+	err = p.Run(ctx, c.ServerAddress)
 	return err
 }
 

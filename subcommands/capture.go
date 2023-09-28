@@ -22,17 +22,12 @@ func (c *CaptureCMD) SetFlags(f *flag.FlagSet) {
 }
 
 func (c *CaptureCMD) Execute(ctx context.Context, ui ui.UI) error {
-	address, hostname, err := utils.ServerInput(ctx, c.ServerAddress)
-	if err != nil {
-		return err
-	}
-
 	p, err := proxy.New(ui, true)
 	if err != nil {
 		return err
 	}
 	utils.Options.Capture = true
-	return p.Run(ctx, address, hostname)
+	return p.Run(ctx, c.ServerAddress)
 }
 func init() {
 	commands.RegisterCommand(&CaptureCMD{})

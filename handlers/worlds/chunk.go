@@ -177,17 +177,15 @@ func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) error {
 				dec := nbt.NewDecoderWithEncoding(buf, nbt.NetworkLittleEndian)
 				for buf.Len() > 0 {
 					blockNBT := make(map[string]any, 0)
-					err = dec.Decode(&blockNBT)
-					if err != nil {
+					if err = dec.Decode(&blockNBT); err != nil {
 						return err
 					}
-					x := int(blockNBT["x"].(int32))
-					y := int(blockNBT["y"].(int32))
-					z := int(blockNBT["z"].(int32))
-					id := blockNBT["id"].(string)
-
-					blockNBTs[pos][cube.Pos{x, y, z}] = worldstate.DummyBlock{
-						ID:  id,
+					blockNBTs[pos][cube.Pos{
+						int(blockNBT["x"].(int32)),
+						int(blockNBT["y"].(int32)),
+						int(blockNBT["z"].(int32)),
+					}] = worldstate.DummyBlock{
+						ID:  blockNBT["id"].(string),
 						NBT: blockNBT,
 					}
 				}

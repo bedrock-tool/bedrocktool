@@ -36,14 +36,12 @@ import (
 )
 
 type WorldSettings struct {
-	// settings
 	VoidGen         bool
 	WithPacks       bool
 	SaveImage       bool
 	SaveEntities    bool
 	SaveInventories bool
-	BlockUpdates    bool
-	ExcludeMobs     []string
+	ExcludedMobs    []string
 	StartPaused     bool
 	PreloadReplay   string
 	ChunkRadius     int32
@@ -99,7 +97,7 @@ func resetGlobals() {
 }
 
 func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
-	settings.ExcludeMobs = slices.DeleteFunc(settings.ExcludeMobs, func(mob string) bool {
+	settings.ExcludedMobs = slices.DeleteFunc(settings.ExcludedMobs, func(mob string) bool {
 		return mob == ""
 	})
 
@@ -146,8 +144,8 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 			})
 
 			w.proxy.AddCommand(func(s []string) bool {
-				w.settings.ExcludeMobs = append(w.settings.ExcludeMobs, s...)
-				w.proxy.SendMessage(fmt.Sprintf("Exluding: %s", strings.Join(w.settings.ExcludeMobs, ", ")))
+				w.settings.ExcludedMobs = append(w.settings.ExcludedMobs, s...)
+				w.proxy.SendMessage(fmt.Sprintf("Exluding: %s", strings.Join(w.settings.ExcludedMobs, ", ")))
 				return true
 			}, protocol.Command{
 				Name:        "exclude-mob",
@@ -387,7 +385,7 @@ func (w *worldsHandler) SaveAndReset(end bool, dim world.Dimension) {
 			},
 		})
 
-		err := worldState.Finish(w.playerData(), w.settings.ExcludeMobs, spawnPos, w.proxy.Server.GameData(), w.bp)
+		err := worldState.Finish(w.playerData(), w.settings.ExcludedMobs, spawnPos, w.proxy.Server.GameData(), w.bp)
 		if err != nil {
 			w.err <- err
 			return

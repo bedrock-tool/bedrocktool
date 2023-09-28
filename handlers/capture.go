@@ -36,35 +36,34 @@ type packetCapturer struct {
 	wPacket  io.Writer
 	tempBuf  *bytes.Buffer
 	dumpLock sync.Mutex
+	hostname string
 }
 
 func (p *packetCapturer) AddressAndName(address, hostname string) (err error) {
-	os.Mkdir("captures", 0o775)
-	p.file, err = os.Create(fmt.Sprintf("captures/%s-%s.pcap2", hostname, time.Now().Format("2006-01-02_15-04-05")))
-	if err != nil {
-		return err
-	}
-	p.zip = zip.NewWriter(p.file)
-	if err != nil {
-		return err
-	}
-
-	{
-		f, err := p.zip.Create("version")
-		if err != nil {
-			return err
-		}
-		binary.Write(f, binary.LittleEndian, uint32(3))
-	}
-
+	p.hostname = hostname
 	// temporary buffer
 	p.tempBuf = bytes.NewBuffer(nil)
 	p.wPacket = p.tempBuf
-
 	return nil
 }
 
-func (p *packetCapturer) OnServerConnect() (bool, error) {
+func (p *packetCapturer) OnServerConnect() (disconnect bool, err error) {
+	os.Mkdir("captures", 0o775)
+	p.file, err = os.Create(fmt.Sprintf("captures/%s-%s.pcap2", p.hostname, time.Now().Format("2006-01-02_15-04-05")))
+	if err != nil {
+		return false, err
+	}
+	p.zip = zip.NewWriter(p.file)
+	if err != nil {
+		return false, err
+	}
+
+	f, err := p.zip.Create("version")
+	if err != nil {
+		return false, err
+	}
+	binary.Write(f, binary.LittleEndian, uint32(3))
+
 	packs := p.proxy.Server.ResourcePacks()
 	select {
 	case <-p.proxy.Server.OnDisconnect():
@@ -72,7 +71,6 @@ func (p *packetCapturer) OnServerConnect() (bool, error) {
 		return true, err
 	default:
 	}
-
 	written := make(map[string]bool)
 	for _, pack := range packs {
 		filename := filepath.Join("packcache", pack.UUID()+"_"+pack.Version()+".zip")
@@ -95,7 +93,7 @@ func (p *packetCapturer) OnServerConnect() (bool, error) {
 	// create the packets.bin file and dump already received packets into it
 	p.dumpLock.Lock()
 	// DO NOT OPEN ANY FILES IN THE ZIP AFTER THIS
-	f, err := p.zip.Create("packets.bin")
+	f, err = p.zip.Create("packets.bin")
 	if err != nil {
 		panic(err)
 	}

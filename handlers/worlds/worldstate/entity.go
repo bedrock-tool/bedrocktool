@@ -14,8 +14,8 @@ import (
 )
 
 type EntityState struct {
-	RuntimeID  uint64
-	UniqueID   int64
+	RuntimeID  EntityRuntimeID
+	UniqueID   EntityUniqueID
 	EntityType string
 
 	Position         mgl32.Vec3

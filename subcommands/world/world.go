@@ -55,11 +55,6 @@ func (c *WorldCMD) Execute(ctx context.Context, ui ui.UI) error {
 		script = string(data)
 	}
 
-	serverAddress, hostname, err := ui.ServerInput(ctx, c.ServerAddress)
-	if err != nil {
-		return err
-	}
-
 	proxy, err := proxy.New(ui, true)
 	if err != nil {
 		return err
@@ -71,14 +66,14 @@ func (c *WorldCMD) Execute(ctx context.Context, ui ui.UI) error {
 		SaveEntities:    c.SaveEntities,
 		SaveInventories: c.SaveInventories,
 		SaveImage:       c.SaveImage,
-		ExcludeMobs:     strings.Split(c.ExcludeMobs, ","),
+		ExcludedMobs:    strings.Split(c.ExcludeMobs, ","),
 		StartPaused:     c.StartPaused,
 		PreloadReplay:   c.PreloadReplay,
 		ChunkRadius:     int32(c.ChunkRadius),
 		Script:          script,
 	}))
 
-	err = proxy.Run(ctx, serverAddress, hostname)
+	err = proxy.Run(ctx, c.ServerAddress)
 	if err != nil {
 		return err
 	}

@@ -7,7 +7,6 @@ import (
 	"github.com/bedrock-tool/bedrocktool/handlers"
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/ui"
-	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/bedrock-tool/bedrocktool/utils/proxy"
 )
@@ -25,17 +24,12 @@ func (c *ChatLogCMD) SetFlags(f *flag.FlagSet) {
 }
 
 func (c *ChatLogCMD) Execute(ctx context.Context, ui ui.UI) error {
-	address, hostname, err := utils.ServerInput(ctx, c.ServerAddress)
-	if err != nil {
-		return err
-	}
-
 	proxy, err := proxy.New(ui, true)
 	if err != nil {
 		return err
 	}
 	proxy.AddHandler(handlers.NewChatLogger())
-	return proxy.Run(ctx, address, hostname)
+	return proxy.Run(ctx, c.ServerAddress)
 }
 
 func init() {

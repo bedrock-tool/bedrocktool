@@ -474,9 +474,11 @@ func (p *Context) connect(ctx context.Context) (err error) {
 	return err
 }
 
-func (p *Context) Run(ctx context.Context, serverAddress, name string) (err error) {
-	p.serverAddress = serverAddress
-	p.serverName = name
+func (p *Context) Run(ctx context.Context, connectString string) (err error) {
+	p.serverAddress, p.serverName, err = p.ui.ServerInput(ctx, connectString)
+	if err != nil {
+		return err
+	}
 
 	if utils.Options.Debug || utils.Options.ExtraDebug {
 		p.AddHandler(NewDebugLogger(utils.Options.ExtraDebug, false))

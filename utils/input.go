@@ -123,16 +123,7 @@ func regexGetParams(r *regexp.Regexp, s string) (params map[string]string) {
 	return params
 }
 
-func ServerInput(ctx context.Context, server string) (string, string, error) {
-	// no arg provided, interactive input
-	if server == "" {
-		var cancelled bool
-		server, cancelled = UserInput(ctx, locale.Loc("enter_server", nil), ValidateServerInput)
-		if cancelled {
-			return "", "", context.Canceled
-		}
-	}
-
+func ParseServer(ctx context.Context, server string) (address, name string, err error) {
 	// realm
 	if realmRegex.MatchString(server) {
 		p := regexGetParams(realmRegex, server)
@@ -143,13 +134,7 @@ func ServerInput(ctx context.Context, server string) (string, string, error) {
 		return address, CleanupName(name), nil
 	}
 
-	// old pcap format
-	if match, _ := regexp.MatchString(`.*\.pcap$`, server); match {
-		return "", "", fmt.Errorf(locale.Loc("not_supported_anymore", nil))
-	}
-
-	// new pcap format
-
+	// pcap replay
 	if pcapRegex.MatchString(server) {
 		p := regexGetParams(pcapRegex, server)
 		return "PCAP!" + p["Filename"], p["Name"], nil
@@ -162,7 +147,19 @@ func ServerInput(ctx context.Context, server string) (string, string, error) {
 	return server, serverGetHostname(server), nil
 }
 
-func ValidateServerInput(server string) bool {
+func ServerInput(ctx context.Context, server string) (string, string, error) {
+	// no arg provided, interactive input
+	if server == "" {
+		var cancelled bool
+		server, cancelled = UserInput(ctx, locale.Loc("enter_server", nil), validateServerInput)
+		if cancelled {
+			return "", "", context.Canceled
+		}
+	}
+	return ParseServer(ctx, server)
+}
+
+func validateServerInput(server string) bool {
 	if pcapRegex.MatchString(server) {
 		return true
 	}
