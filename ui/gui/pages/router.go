@@ -101,6 +101,15 @@ func (r *Router) PushPopup(p Popup) {
 	r.Invalidate()
 }
 
+func (r *Router) GetPopup(id string) (p Popup) {
+	for _, p := range r.popups {
+		if p.ID() == id {
+			return p
+		}
+	}
+	return nil
+}
+
 func (r *Router) RemovePopup(id string) {
 	r.popups = slices.DeleteFunc(r.popups, func(p Popup) bool {
 		return p.ID() == id
@@ -110,7 +119,13 @@ func (r *Router) RemovePopup(id string) {
 
 func (r *Router) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
 	if r.updateButton.Clicked() {
-		r.SwitchTo("update")
+		if p, ok := r.GetPopup("update").(*UpdatePopup); ok {
+			if !p.updating {
+				r.RemovePopup("update")
+			}
+		} else {
+			r.PushPopup(NewUpdatePopup(r))
+		}
 	}
 
 	if r.logToggle.Changed() {
