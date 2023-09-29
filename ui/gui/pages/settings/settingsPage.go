@@ -101,6 +101,17 @@ func (s *settingsPage) Init() {
 	}
 }
 
+func (s *settingsPage) Valid() bool {
+	addr, ok := s.widgets["address"].(*addressInput)
+	if !ok {
+		return true
+	}
+	if addr.Value() == "" {
+		return false
+	}
+	return true
+}
+
 func (s *settingsPage) Apply() error {
 	for k, set := range s.setters {
 		w := s.widgets[k]

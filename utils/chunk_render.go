@@ -10,6 +10,7 @@ import (
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/df-mc/dragonfly/server/world/chunk"
+	"github.com/sirupsen/logrus"
 )
 
 func isBlockLightblocking(b world.Block) bool {
@@ -119,7 +120,7 @@ func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.R
 
 		if blockColor.R == 0xffff && blockColor.G == 0x0 && blockColor.B == 0xffff {
 			if updater.Version == "" {
-				println(b.EncodeBlock())
+				logrus.Println(b.EncodeBlock())
 				b.Color()
 			}
 		}

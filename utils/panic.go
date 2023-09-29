@@ -20,17 +20,17 @@ func PrintPanic(err error) {
 	panicStack = string(debug.Stack())
 	panicErr = err
 	logrus.Errorf(locale.Loc("fatal_error", nil))
-	println("")
-	println("--COPY FROM HERE--")
+	logrus.Println("")
+	logrus.Println("--COPY FROM HERE--")
 	logrus.Infof("Version: %s", updater.Version)
 	logrus.Infof("Cmdline: %s", os.Args)
 	logrus.Errorf("Error: %s", err)
-	println("stacktrace from panic: \n" + panicStack)
-	println("--END COPY HERE--")
-	println("")
-	println(locale.Loc("report_issue", nil))
+	logrus.Println("stacktrace from panic: \n" + panicStack)
+	logrus.Println("--END COPY HERE--")
+	logrus.Println("")
+	logrus.Println(locale.Loc("report_issue", nil))
 	if Options.ExtraDebug {
-		println(locale.Loc("used_extra_debug_report", nil))
+		logrus.Println(locale.Loc("used_extra_debug_report", nil))
 	}
 }
 

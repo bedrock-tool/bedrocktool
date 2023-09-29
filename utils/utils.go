@@ -160,7 +160,7 @@ func ShowFile(path string) {
 		return
 	}
 	if runtime.GOOS == "linux" {
-		println(path)
+		logrus.Println(path)
 	}
 }
 

@@ -2,6 +2,7 @@ package settings
 
 import (
 	"image"
+	"image/color"
 	"slices"
 	"sort"
 
@@ -96,7 +97,13 @@ func (p *Page) NavItem() component.NavItem {
 }
 
 func (p *Page) Layout(gtx C, th *material.Theme) D {
-	if p.startButton.Clicked() {
+	var validSettings = true
+	if p.cmdMenu.selected != "" {
+		s := p.settings[p.cmdMenu.selected]
+		validSettings = s.Valid()
+	}
+
+	if p.startButton.Clicked() && validSettings {
 		if p.cmdMenu.selected != "" {
 			cmd, ok := commands.Registered[p.cmdMenu.selected]
 			if !ok {
@@ -179,7 +186,12 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 					}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 						gtx.Constraints.Min = image.Pt(gtx.Dp(300), gtx.Dp(40))
 						gtx.Constraints.Max = image.Pt(gtx.Constraints.Max.X/3, gtx.Dp(40))
-						return material.Button(th, &p.startButton, "Start").Layout(gtx)
+						b := material.Button(th, &p.startButton, "Start")
+						if !validSettings {
+							b.Color = component.Interpolate(th.Fg, th.Bg, 80)
+							b.Background = color.NRGBA{0x20, 0x20, 0x20, 0xff}
+						}
+						return b.Layout(gtx)
 					})
 				})
 			}),

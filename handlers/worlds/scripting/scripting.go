@@ -32,12 +32,12 @@ func New() *VM {
 	console := v.vm.NewObject()
 	console.Set("log", func(val goja.Value) {
 		if val.SameAs(goja.Undefined()) {
-			println("undefined")
+			logrus.Println("undefined")
 			return
 		}
 
 		if val.ExportType().Kind() == reflect.String {
-			println(val.String())
+			logrus.Println(val.String())
 			return
 		}
 		obj := val.ToObject(v.vm)
@@ -45,7 +45,7 @@ func New() *VM {
 		if err != nil {
 			panic(err)
 		}
-		println(string(data))
+		logrus.Println(string(data))
 	})
 
 	v.vm.GlobalObject().Set("console", console)

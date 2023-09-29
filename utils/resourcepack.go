@@ -5,11 +5,11 @@ import (
 	"errors"
 	"io/fs"
 	"path"
-	"sort"
 	"strings"
 
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
+	"golang.org/x/exp/slices"
 )
 
 type Pack interface {
@@ -47,7 +47,7 @@ func (p *packBase) FS() (fs.FS, []string, error) {
 		}
 		names = append(names, path.Clean(strings.ReplaceAll(f.Name, "\\", "/")))
 	}
-	sort.Strings(names)
+	slices.Sort(names)
 
 	return r, names, err
 }

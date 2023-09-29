@@ -19,6 +19,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/utils/proxy"
 	"github.com/bedrock-tool/bedrocktool/utils/updater"
 	"github.com/gregwebs/go-recovery"
+	"github.com/rifflock/lfshook"
 	"gopkg.in/square/go-jose.v2/json"
 
 	_ "github.com/bedrock-tool/bedrocktool/subcommands"
@@ -61,6 +62,17 @@ func updateCheck(ui ui.UI) {
 }
 
 func main() {
+	{
+		f, err := os.Create("bedrocktool.log")
+		if err != nil {
+			logrus.Warn(err)
+		} else {
+			logrus.AddHook(lfshook.NewHook(f, &logrus.TextFormatter{
+				DisableColors: true,
+			}))
+		}
+	}
+
 	isDebug := updater.Version == ""
 
 	if isDebug {
@@ -127,7 +139,6 @@ func main() {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigs
-		println("cancelling")
 		cancel(errors.New("program closing"))
 	}()
 

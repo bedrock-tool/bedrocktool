@@ -177,9 +177,18 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 				newPack = newPack.WithContentKey(pack.ContentKey)
 				r.resourcePacks = append(r.resourcePacks, newPack)
 				r.OnFinishedPack(newPack)
-				if r.httpNextpack != nil {
-					r.httpNextpack <- newPack
+
+				if r.Client != nil {
+					select {
+					case <-r.knowPacksRequestedFromServer:
+					case <-r.ctx.Done():
+						return
+					}
+					if slices.Contains(r.packsRequestedFromServer, newPack.UUID()) {
+						r.httpNextpack <- newPack
+					}
 				}
+
 			}()
 			r.queue.serverPackAmount--
 			continue
