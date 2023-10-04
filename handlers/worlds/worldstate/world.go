@@ -220,6 +220,7 @@ func (w *World) Rename(name, folder string) error {
 	if err != nil {
 		return err
 	}
+	os.RemoveAll(folder)
 	err = os.Rename(w.Folder, folder)
 	if err != nil {
 		return err
