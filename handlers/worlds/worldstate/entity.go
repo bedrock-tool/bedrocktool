@@ -18,10 +18,9 @@ type EntityState struct {
 	UniqueID   EntityUniqueID
 	EntityType string
 
-	Position         mgl32.Vec3
-	Pitch, Yaw       float32
-	HeadYaw, BodyYaw float32
-	Velocity         mgl32.Vec3
+	Position            mgl32.Vec3
+	Pitch, Yaw, HeadYaw float32
+	Velocity            mgl32.Vec3
 
 	Metadata  protocol.EntityMetadata
 	Inventory map[byte]map[byte]protocol.ItemInstance
@@ -78,7 +77,6 @@ func (w *World) ProcessAddActor(pk *packet.AddActor, ignoreCB func(*EntityState)
 	e.Position = pk.Position
 	e.Pitch = pk.Pitch
 	e.Yaw = pk.Yaw
-	e.BodyYaw = pk.BodyYaw
 	e.HeadYaw = pk.HeadYaw
 	e.Velocity = pk.Velocity
 

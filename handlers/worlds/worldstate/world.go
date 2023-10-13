@@ -14,6 +14,7 @@ import (
 	"github.com/df-mc/dragonfly/server/world/mcdb"
 	"github.com/df-mc/goleveldb/leveldb"
 	"github.com/df-mc/goleveldb/leveldb/opt"
+	"github.com/google/uuid"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sirupsen/logrus"
@@ -37,6 +38,7 @@ type World struct {
 	l             sync.Mutex
 	provider      *mcdb.DB
 	worldEntities worldEntities
+	players       worldPlayers
 
 	VoidGen  bool
 	timeSync time.Time
@@ -53,6 +55,9 @@ func New(cf func(world.ChunkPos, *chunk.Chunk)) (*World, error) {
 			entities:    make(map[EntityRuntimeID]*EntityState),
 			entityLinks: make(map[EntityUniqueID]map[EntityUniqueID]struct{}),
 			blockNBTs:   make(map[world.ChunkPos]map[cube.Pos]DummyBlock),
+		},
+		players: worldPlayers{
+			players: make(map[uuid.UUID]*player),
 		},
 	}
 	w.initDeferred()
@@ -235,7 +240,9 @@ func (w *World) Rename(name, folder string) error {
 }
 
 func (w *World) Finish(playerData map[string]any, excludedMobs []string, spawn cube.Pos, gd minecraft.GameData, bp *behaviourpack.BehaviourPack) error {
-	err := w.saveEntities(excludedMobs, w.dimension)
+	w.playersToEntities()
+
+	err := w.saveEntities(excludedMobs)
 	if err != nil {
 		return err
 	}

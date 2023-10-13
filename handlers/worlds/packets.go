@@ -119,6 +119,192 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 		w.bp.AddBiomes(w.serverState.biomes)
 	}
 
+	_pk = w.itemPackets(_pk)
+	_pk = w.mapPackets(_pk, toServer)
+	w.playersPackets(_pk)
+	w.chunkPackets(_pk)
+
+	// entity
+	if w.settings.SaveEntities {
+		w.entityPackets(_pk)
+	}
+
+	return _pk, nil
+}
+
+func (w *worldsHandler) playersPackets(_pk packet.Packet) {
+	switch pk := _pk.(type) {
+	case *packet.AddPlayer:
+		w.currentWorld.AddPlayer(pk)
+	}
+}
+
+func (w *worldsHandler) entityPackets(_pk packet.Packet) {
+	switch pk := _pk.(type) {
+	case *packet.AddActor:
+		w.currentWorld.ProcessAddActor(pk, func(es *worldstate.EntityState) bool {
+			var ignore bool
+			if w.scripting.CB.OnEntityAdd != nil {
+				err := recovery.Call(func() error {
+					ignore = w.scripting.OnEntityAdd(es, es.Metadata)
+					return nil
+				})
+				if err != nil {
+					logrus.Errorf("scripting: %s", err)
+				}
+			}
+			return ignore
+		}, w.bp.AddEntity)
+
+	case *packet.SetActorData:
+		e, ok := w.getEntity(pk.EntityRuntimeID)
+		if ok {
+			metadata := make(protocol.EntityMetadata)
+			maps.Copy(metadata, pk.EntityMetadata)
+			if w.scripting.CB.OnEntityDataUpdate != nil {
+				err := recovery.Call(func() error {
+					w.scripting.OnEntityDataUpdate(e, metadata)
+					return nil
+				})
+				if err != nil {
+					logrus.Errorf("Scripting %s", err)
+				}
+			}
+
+			e.Metadata = metadata
+			w.bp.AddEntity(behaviourpack.EntityIn{
+				Identifier: e.EntityType,
+				Attr:       nil,
+				Meta:       metadata,
+			})
+		}
+
+	case *packet.SetActorMotion:
+		e, ok := w.getEntity(pk.EntityRuntimeID)
+		if ok {
+			e.Velocity = pk.Velocity
+		}
+
+	case *packet.MoveActorDelta:
+		e, ok := w.getEntity(pk.EntityRuntimeID)
+		if ok {
+			if pk.Flags&packet.MoveActorDeltaFlagHasX != 0 {
+				e.Position[0] = pk.Position[0]
+			}
+			if pk.Flags&packet.MoveActorDeltaFlagHasY != 0 {
+				e.Position[1] = pk.Position[1]
+			}
+			if pk.Flags&packet.MoveActorDeltaFlagHasZ != 0 {
+				e.Position[2] = pk.Position[2]
+			}
+			if pk.Flags&packet.MoveActorDeltaFlagHasRotX != 0 {
+				e.Pitch = pk.Rotation.X()
+			}
+			if pk.Flags&packet.MoveActorDeltaFlagHasRotY != 0 {
+				e.Yaw = pk.Rotation.Y()
+			}
+		}
+
+	case *packet.MoveActorAbsolute:
+		e, ok := w.getEntity(pk.EntityRuntimeID)
+		if ok {
+			e.Position = pk.Position
+			e.Pitch = pk.Rotation.X()
+			e.Yaw = pk.Rotation.Y()
+		}
+
+	case *packet.MobEquipment:
+		e, ok := w.getEntity(pk.EntityRuntimeID)
+		if ok {
+			w, ok := e.Inventory[pk.WindowID]
+			if !ok {
+				w = make(map[byte]protocol.ItemInstance)
+				e.Inventory[pk.WindowID] = w
+			}
+			w[pk.HotBarSlot] = pk.NewItem
+		}
+
+	case *packet.MobArmourEquipment:
+		e, ok := w.getEntity(pk.EntityRuntimeID)
+		if ok {
+			e.Helmet = &pk.Helmet
+			e.Chestplate = &pk.Chestplate
+			e.Leggings = &pk.Chestplate
+			e.Boots = &pk.Boots
+		}
+
+	case *packet.SetActorLink:
+		w.currentWorld.AddEntityLink(pk.EntityLink)
+	}
+}
+
+func (w *worldsHandler) chunkPackets(_pk packet.Packet) {
+	// chunk
+	switch pk := _pk.(type) {
+	case *packet.ChangeDimension:
+		w.processChangeDimension(pk)
+
+	case *packet.LevelChunk:
+		w.processLevelChunk(pk)
+
+	case *packet.SubChunk:
+		if err := w.processSubChunk(pk); err != nil {
+			logrus.Error(err)
+		}
+
+	case *packet.BlockActorData:
+		p := pk.Position
+		pos := cube.Pos{int(p.X()), int(p.Y()), int(p.Z())}
+		w.currentWorld.SetBlockNBT(pos, pk.NBTData, false)
+		/*
+			case *packet.UpdateBlock:
+				if w.settings.BlockUpdates {
+					cp := world.ChunkPos{pk.Position.X() >> 4, pk.Position.Z() >> 4}
+					c, ok := w.worldState.state().chunks[cp]
+					if ok {
+						x, y, z := blockPosInChunk(pk.Position)
+						c.SetBlock(x, y, z, uint8(pk.Layer), pk.NewBlockRuntimeID)
+						w.mapUI.SetChunk(cp, c, w.worldState.useDeferred)
+					}
+				}
+			case *packet.UpdateSubChunkBlocks:
+				if w.settings.BlockUpdates {
+					cp := world.ChunkPos{pk.Position.X(), pk.Position.Z()}
+					c, ok := w.worldState.state().chunks[cp]
+					if ok {
+						for _, bce := range pk.Blocks {
+							x, y, z := blockPosInChunk(bce.BlockPos)
+							if bce.SyncedUpdateType == packet.BlockToEntityTransition {
+								c.SetBlock(x, y, z, 0, world.AirRID())
+							} else {
+								c.SetBlock(x, y, z, 0, bce.BlockRuntimeID)
+							}
+						}
+						w.mapUI.SetChunk(cp, c, w.worldState.useDeferred)
+					}
+				}
+		*/
+	}
+}
+
+func (w *worldsHandler) mapPackets(_pk packet.Packet, toServer bool) packet.Packet {
+	// map
+	switch pk := _pk.(type) {
+	case *packet.MapInfoRequest:
+		if pk.MapID == ViewMapID {
+			w.mapUI.SchedRedraw()
+			_pk = nil
+		}
+	case *packet.Animate:
+		if toServer && pk.ActionType == packet.AnimateActionSwingArm {
+			w.mapUI.ChangeZoom()
+			w.proxy.SendPopup(locale.Loc("zoom_level", locale.Strmap{"Level": w.mapUI.zoomLevel}))
+		}
+	}
+	return _pk
+}
+
+func (w *worldsHandler) itemPackets(_pk packet.Packet) packet.Packet {
 	// items
 	switch pk := _pk.(type) {
 	case *packet.ItemStackRequest:
@@ -244,167 +430,5 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 			delete(w.serverState.openItemContainers, byte(pk.WindowID))
 		}
 	}
-
-	// map
-	switch pk := _pk.(type) {
-	case *packet.MapInfoRequest:
-		if pk.MapID == ViewMapID {
-			w.mapUI.SchedRedraw()
-			_pk = nil
-		}
-	case *packet.Animate:
-		if toServer && pk.ActionType == packet.AnimateActionSwingArm {
-			w.mapUI.ChangeZoom()
-			w.proxy.SendPopup(locale.Loc("zoom_level", locale.Strmap{"Level": w.mapUI.zoomLevel}))
-		}
-	}
-
-	// chunk
-	switch pk := _pk.(type) {
-	case *packet.ChangeDimension:
-		w.processChangeDimension(pk)
-
-	case *packet.LevelChunk:
-		w.processLevelChunk(pk)
-
-	case *packet.SubChunk:
-		if err := w.processSubChunk(pk); err != nil {
-			logrus.Error(err)
-		}
-
-	case *packet.BlockActorData:
-		p := pk.Position
-		pos := cube.Pos{int(p.X()), int(p.Y()), int(p.Z())}
-		w.currentWorld.SetBlockNBT(pos, pk.NBTData, false)
-		/*
-			case *packet.UpdateBlock:
-				if w.settings.BlockUpdates {
-					cp := world.ChunkPos{pk.Position.X() >> 4, pk.Position.Z() >> 4}
-					c, ok := w.worldState.state().chunks[cp]
-					if ok {
-						x, y, z := blockPosInChunk(pk.Position)
-						c.SetBlock(x, y, z, uint8(pk.Layer), pk.NewBlockRuntimeID)
-						w.mapUI.SetChunk(cp, c, w.worldState.useDeferred)
-					}
-				}
-			case *packet.UpdateSubChunkBlocks:
-				if w.settings.BlockUpdates {
-					cp := world.ChunkPos{pk.Position.X(), pk.Position.Z()}
-					c, ok := w.worldState.state().chunks[cp]
-					if ok {
-						for _, bce := range pk.Blocks {
-							x, y, z := blockPosInChunk(bce.BlockPos)
-							if bce.SyncedUpdateType == packet.BlockToEntityTransition {
-								c.SetBlock(x, y, z, 0, world.AirRID())
-							} else {
-								c.SetBlock(x, y, z, 0, bce.BlockRuntimeID)
-							}
-						}
-						w.mapUI.SetChunk(cp, c, w.worldState.useDeferred)
-					}
-				}
-		*/
-	}
-
-	// entity
-	if w.settings.SaveEntities {
-		switch pk := _pk.(type) {
-		case *packet.AddActor:
-			w.currentWorld.ProcessAddActor(pk, func(es *worldstate.EntityState) bool {
-				var ignore bool
-				if w.scripting.CB.OnEntityAdd != nil {
-					err := recovery.Call(func() error {
-						ignore = w.scripting.OnEntityAdd(es, es.Metadata)
-						return nil
-					})
-					if err != nil {
-						logrus.Errorf("scripting: %s", err)
-					}
-				}
-				return ignore
-			}, w.bp.AddEntity)
-
-		case *packet.SetActorData:
-			e, ok := w.getEntity(pk.EntityRuntimeID)
-			if ok {
-				metadata := make(protocol.EntityMetadata)
-				maps.Copy(metadata, pk.EntityMetadata)
-				if w.scripting.CB.OnEntityDataUpdate != nil {
-					err := recovery.Call(func() error {
-						w.scripting.OnEntityDataUpdate(e, metadata)
-						return nil
-					})
-					if err != nil {
-						logrus.Errorf("Scripting %s", err)
-					}
-				}
-
-				e.Metadata = metadata
-				w.bp.AddEntity(behaviourpack.EntityIn{
-					Identifier: e.EntityType,
-					Attr:       nil,
-					Meta:       metadata,
-				})
-			}
-
-		case *packet.SetActorMotion:
-			e, ok := w.getEntity(pk.EntityRuntimeID)
-			if ok {
-				e.Velocity = pk.Velocity
-			}
-
-		case *packet.MoveActorDelta:
-			e, ok := w.getEntity(pk.EntityRuntimeID)
-			if ok {
-				if pk.Flags&packet.MoveActorDeltaFlagHasX != 0 {
-					e.Position[0] = pk.Position[0]
-				}
-				if pk.Flags&packet.MoveActorDeltaFlagHasY != 0 {
-					e.Position[1] = pk.Position[1]
-				}
-				if pk.Flags&packet.MoveActorDeltaFlagHasZ != 0 {
-					e.Position[2] = pk.Position[2]
-				}
-				if pk.Flags&packet.MoveActorDeltaFlagHasRotX != 0 {
-					e.Pitch = pk.Rotation.X()
-				}
-				if pk.Flags&packet.MoveActorDeltaFlagHasRotY != 0 {
-					e.Yaw = pk.Rotation.Y()
-				}
-			}
-
-		case *packet.MoveActorAbsolute:
-			e, ok := w.getEntity(pk.EntityRuntimeID)
-			if ok {
-				e.Position = pk.Position
-				e.Pitch = pk.Rotation.X()
-				e.Yaw = pk.Rotation.Y()
-			}
-
-		case *packet.MobEquipment:
-			e, ok := w.getEntity(pk.EntityRuntimeID)
-			if ok {
-				w, ok := e.Inventory[pk.WindowID]
-				if !ok {
-					w = make(map[byte]protocol.ItemInstance)
-					e.Inventory[pk.WindowID] = w
-				}
-				w[pk.HotBarSlot] = pk.NewItem
-			}
-
-		case *packet.MobArmourEquipment:
-			e, ok := w.getEntity(pk.EntityRuntimeID)
-			if ok {
-				e.Helmet = &pk.Helmet
-				e.Chestplate = &pk.Chestplate
-				e.Leggings = &pk.Chestplate
-				e.Boots = &pk.Boots
-			}
-
-		case *packet.SetActorLink:
-			w.currentWorld.AddEntityLink(pk.EntityLink)
-		}
-	}
-
-	return _pk, nil
+	return _pk
 }

@@ -15,7 +15,6 @@ import (
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/exp/slices"
 )
 
 func getTexturePaths(entries []protocol.BlockEntry) map[string]string {
@@ -180,10 +179,17 @@ func ResolveColors(entries []protocol.BlockEntry, packs []Pack, addToBlocks bool
 	images := make(map[string]image.Image)
 	texture_names := getTexturePaths(entries)
 	for _, p := range packs {
-		fs, names, err := p.FS()
+		fs, filenames, err := p.FS()
 		if err != nil {
 			logrus.Error(err)
 			continue
+		}
+
+		files := make(map[string]string)
+		for _, v := range filenames {
+			n := strings.Split(v, "/")
+			nn, _, _ := strings.Cut(n[len(n)-1], ".")
+			files[nn] = v
 		}
 
 		blocksJson, err := readBlocksJson(fs)
@@ -219,18 +225,10 @@ func ResolveColors(entries []protocol.BlockEntry, packs []Pack, addToBlocks bool
 					texture_name = terrain_texture
 				}
 			}
-			if !ok {
-				texture_name = toTexturePath(texture_name)
-			}
 
-			texturePath := texture_name + ".png"
-			_, hasFile := slices.BinarySearch(names, texturePath)
-			if !hasFile {
-				texturePath = texture_name + ".tga"
-				_, hasFile := slices.BinarySearch(names, texturePath)
-				if !hasFile {
-					continue
-				}
+			texturePath, ok := files[texture_name]
+			if !ok {
+				continue
 			}
 			delete(texture_names, texture_name)
 
