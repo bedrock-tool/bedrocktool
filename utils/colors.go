@@ -17,34 +17,32 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func getTexturePaths(entries []protocol.BlockEntry) map[string]string {
-	var paths = map[string]string{}
+func getTextureNames(entries []protocol.BlockEntry) map[string]string {
+	var res = map[string]string{}
 	for _, be := range entries {
 		if components, ok := be.Properties["components"].(map[string]any); ok {
 			mats, ok := components["minecraft:material_instances"].(map[string]any)
-			if !ok {
-				paths[be.Name] = ""
-				continue
-			}
-			instance, ok := mats["*"].(map[string]any)
-			if !ok {
-				if instance, ok = mats["up"].(map[string]any); !ok {
-					continue
+			if ok {
+				instance, ok := mats["*"].(map[string]any)
+				if !ok {
+					instance, _ = mats["up"].(map[string]any)
+				}
+				if instance != nil {
+					texture, ok := instance["texture"].(string)
+					if ok {
+						res[be.Name] = texture
+					}
 				}
 			}
-
-			texture, ok := instance["texture"].(string)
-			if !ok {
-				continue
-			}
-			paths[be.Name] = texture
+			continue
 		}
+		res[be.Name] = be.Name
 	}
-	return paths
+	return res
 }
 
-func readBlocksJson(f fs.FS) (map[string]string, error) {
-	blocksJsonContent, err := fs.ReadFile(f, "blocks.json")
+func readBlocksJson(f fs.FS, baseDir string) (map[string]string, error) {
+	blocksJsonContent, err := fs.ReadFile(f, filepath.Join(baseDir, "blocks.json"))
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, nil
@@ -85,8 +83,8 @@ func readBlocksJson(f fs.FS) (map[string]string, error) {
 	return out, nil
 }
 
-func loadFlipbooks(f fs.FS) (map[string]string, error) {
-	flipbookContent, err := fs.ReadFile(f, "textures/flipbook_textures.json")
+func loadFlipbooks(f fs.FS, baseDir string) (map[string]string, error) {
+	flipbookContent, err := fs.ReadFile(f, filepath.Join(baseDir, "textures/flipbook_textures.json"))
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, nil
@@ -109,8 +107,8 @@ func loadFlipbooks(f fs.FS) (map[string]string, error) {
 	return o, nil
 }
 
-func loadTerrainTexture(f fs.FS) (map[string]string, error) {
-	terrainContent, err := fs.ReadFile(f, "textures/terrain_texture.json")
+func loadTerrainTexture(f fs.FS, baseDir string) (map[string]string, error) {
+	terrainContent, err := fs.ReadFile(f, filepath.Join(baseDir, "textures/terrain_texture.json"))
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, nil
@@ -177,7 +175,8 @@ var ridToIdx map[BlockRID]TexMapEntry
 func ResolveColors(entries []protocol.BlockEntry, packs []Pack, addToBlocks bool) (*image.RGBA, map[string]color.RGBA64) {
 	colors := make(map[string]color.RGBA64)
 	images := make(map[string]image.Image)
-	texture_names := getTexturePaths(entries)
+
+	texture_names := getTextureNames(entries)
 	for _, p := range packs {
 		fs, filenames, err := p.FS()
 		if err != nil {
@@ -185,14 +184,9 @@ func ResolveColors(entries []protocol.BlockEntry, packs []Pack, addToBlocks bool
 			continue
 		}
 
-		files := make(map[string]string)
-		for _, v := range filenames {
-			n := strings.Split(v, "/")
-			nn, _, _ := strings.Cut(n[len(n)-1], ".")
-			files[nn] = v
-		}
+		baseDir := p.Base().BaseDir()
 
-		blocksJson, err := readBlocksJson(fs)
+		blocksJson, err := readBlocksJson(fs, baseDir)
 		if err != nil {
 			logrus.Error(err)
 			continue
@@ -202,36 +196,51 @@ func ResolveColors(entries []protocol.BlockEntry, packs []Pack, addToBlocks bool
 			texture_names[block] = name
 		}
 
-		flipbooks, err := loadFlipbooks(fs)
+		flipbooks, err := loadFlipbooks(fs, baseDir)
 		if err != nil {
 			logrus.Error(err)
 			continue
 		}
 
-		terrainTextures, err := loadTerrainTexture(fs)
+		terrainTextures, err := loadTerrainTexture(fs, baseDir)
 		if err != nil {
 			logrus.Error(err)
 			continue
 		}
 
 		for block, texture_name := range texture_names {
-			flipbook_texture, ok := flipbooks[texture_name]
-			if ok {
-				texture_name = flipbook_texture
+			var texturePath string
+			if flipbook_texture, ok := flipbooks[texture_name]; ok {
+				texturePath = flipbook_texture
 			} else {
-				var terrain_texture string
-				terrain_texture, ok = terrainTextures[texture_name]
+				terrain_texture, ok := terrainTextures[texture_name]
 				if ok {
-					texture_name = terrain_texture
+					texturePath = terrain_texture
 				}
 			}
 
-			texturePath, ok := files[texture_name]
-			if !ok {
+			if texturePath == "" {
+				texturePath = toTexturePath(texture_name)
+			}
+			var found bool
+			for _, ext := range []string{".png", ".tga"} {
+				if found {
+					break
+				}
+				p := filepath.Join(baseDir, texturePath+ext)
+				for _, v := range filenames {
+					if strings.HasSuffix(v, p) {
+						texturePath = v
+						found = true
+						break
+					}
+				}
+			}
+			if !found {
 				continue
 			}
-			delete(texture_names, texture_name)
 
+			delete(texture_names, block)
 			r, err := fs.Open(texturePath)
 			if err != nil {
 				logrus.Error(err)
@@ -258,6 +267,10 @@ func ResolveColors(entries []protocol.BlockEntry, packs []Pack, addToBlocks bool
 			colors[block] = RGBAToRGBA64(calculateMeanAverageColour(img))
 			images[block] = img
 		}
+	}
+
+	if len(texture_names) > 0 {
+		println("")
 	}
 
 	if addToBlocks {
