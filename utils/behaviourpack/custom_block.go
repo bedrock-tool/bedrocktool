@@ -75,8 +75,8 @@ func parseBlock(block protocol.BlockEntry) MinecraftBlock {
 				}
 			}
 			if v, ok := perm.Components["minecraft:geometry"].(map[string]any); ok {
-				if _, ok := v["bone_visibility"]; !ok {
-					perm.Components["minecraft:geometry"] = v["identifier"].(string)
+				if identifier, ok := v["identifier"].(string); ok {
+					perm.Components["minecraft:geometry"] = identifier
 				}
 			}
 			entry.Permutations = append(entry.Permutations, perm)
