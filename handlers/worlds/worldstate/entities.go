@@ -78,17 +78,21 @@ func (w *World) saveEntities(exclude []string) error {
 
 	chunkEntities := make(map[world.ChunkPos][]world.Entity)
 	for _, es := range w.worldEntities.entities {
+		var ignore bool
 		for _, ex := range exclude {
 			if ok, err := path.Match(ex, es.EntityType); ok {
 				logrus.Debugf("Excluding: %s %v", es.EntityType, es.Position)
-				continue
+				ignore = true
+				break
 			} else if err != nil {
 				logrus.Warn(err)
 			}
 		}
-		cp := world.ChunkPos{int32(es.Position.X()) >> 4, int32(es.Position.Z()) >> 4}
-		links := maps.Keys(w.worldEntities.entityLinks[es.UniqueID])
-		chunkEntities[cp] = append(chunkEntities[cp], es.ToServerEntity(links))
+		if !ignore {
+			cp := world.ChunkPos{int32(es.Position.X()) >> 4, int32(es.Position.Z()) >> 4}
+			links := maps.Keys(w.worldEntities.entityLinks[es.UniqueID])
+			chunkEntities[cp] = append(chunkEntities[cp], es.ToServerEntity(links))
+		}
 	}
 
 	for cp, v := range chunkEntities {
