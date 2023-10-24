@@ -4,6 +4,6 @@ use (
 	.
 	./dragonfly
 	./gio
-	./gophertunnel
 	./goleveldb
+	./gophertunnel
 )

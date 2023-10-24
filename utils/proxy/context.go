@@ -117,7 +117,7 @@ func (p *Context) commandHandlerPacketCB(pk packet.Packet, toServer bool, _ time
 	return pk, nil
 }
 
-func (p *Context) proxyLoop(ctx context.Context, toServer bool) error {
+func (p *Context) proxyLoop(ctx context.Context, toServer bool) (err error) {
 	var c1, c2 minecraft.IConn
 	if toServer {
 		c1 = p.Client
@@ -126,6 +126,16 @@ func (p *Context) proxyLoop(ctx context.Context, toServer bool) error {
 		c1 = p.Server
 		c2 = p.Client
 	}
+
+	defer func() {
+		rec := recover()
+		if rec != nil {
+			if s, ok := rec.(string); ok {
+				rec = errors.New(s)
+			}
+			err = rec.(error)
+		}
+	}()
 
 	for {
 		if ctx.Err() != nil {

@@ -54,19 +54,19 @@ func parseBlock(block protocol.BlockEntry) MinecraftBlock {
 			perm := permutation_from_map(v.(map[string]any))
 			if v, ok := perm.Components["minecraft:transformation"].(map[string]any); ok {
 				// rotation
-				rx := v["RX"].(int32)
-				ry := v["RY"].(int32)
-				rz := v["RZ"].(int32)
+				rx, _ := v["RX"].(int32)
+				ry, _ := v["RY"].(int32)
+				rz, _ := v["RZ"].(int32)
 
 				// scale
-				sx := v["SX"].(float32)
-				sy := v["SY"].(float32)
-				sz := v["SZ"].(float32)
+				sx, _ := v["SX"].(float32)
+				sy, _ := v["SY"].(float32)
+				sz, _ := v["SZ"].(float32)
 
 				// translation
-				tx := v["TX"].(float32)
-				ty := v["TY"].(float32)
-				tz := v["TZ"].(float32)
+				tx, _ := v["TX"].(float32)
+				ty, _ := v["TY"].(float32)
+				tz, _ := v["TZ"].(float32)
 
 				perm.Components["minecraft:transformation"] = map[string][]float32{
 					"translation": {tx, ty, tz},

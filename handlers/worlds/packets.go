@@ -47,56 +47,59 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 		w.currentWorld.SetTime(time.Now(), int(pk.Time))
 
 	case *packet.StartGame:
-		w.currentWorld.SetTime(time.Now(), int(pk.Time))
-		w.serverState.useHashedRids = pk.UseBlockNetworkIDHashes
-		if w.serverState.useHashedRids {
-			return nil, errors.New("this server uses the new hashed block id system, this hasnt been implemented yet, sorry")
-		}
-
-		world.InsertCustomItems(pk.Items)
-		for _, ie := range pk.Items {
-			w.bp.AddItem(ie)
-		}
-		if len(pk.Blocks) > 0 {
-			logrus.Info(locale.Loc("using_customblocks", nil))
-			for _, be := range pk.Blocks {
-				w.bp.AddBlock(be)
-			}
-			// telling the chunk code what custom blocks there are so it can generate offsets
-			w.blockStates = world.InsertCustomBlocks(pk.Blocks)
-			w.customBlocks = pk.Blocks
-		}
-
-		w.serverState.WorldName = pk.WorldName
-		if pk.WorldName != "" {
-			w.currentWorld.Name = pk.WorldName
-		}
-
-		var dim world.Dimension
-		{ // check game version
-			gv := strings.Split(pk.BaseGameVersion, ".")
-			var err error
-			if len(gv) > 1 {
-				var ver int
-				ver, err = strconv.Atoi(gv[1])
-				w.serverState.useOldBiomes = ver < 18
-			}
-			if err != nil || len(gv) <= 1 {
-				logrus.Info(locale.Loc("guessing_version", nil))
+		if !w.serverState.haveStartGame {
+			w.serverState.haveStartGame = true
+			w.currentWorld.SetTime(time.Now(), int(pk.Time))
+			w.serverState.useHashedRids = pk.UseBlockNetworkIDHashes
+			if w.serverState.useHashedRids {
+				return nil, errors.New("this server uses the new hashed block id system, this hasnt been implemented yet, sorry")
 			}
 
-			dimensionID := pk.Dimension
-			if w.serverState.useOldBiomes {
-				logrus.Info(locale.Loc("using_under_118", nil))
-				if dimensionID == 0 {
-					dimensionID += 10
+			world.InsertCustomItems(pk.Items)
+			for _, ie := range pk.Items {
+				w.bp.AddItem(ie)
+			}
+			if len(pk.Blocks) > 0 {
+				logrus.Info(locale.Loc("using_customblocks", nil))
+				for _, be := range pk.Blocks {
+					w.bp.AddBlock(be)
 				}
+				// telling the chunk code what custom blocks there are so it can generate offsets
+				w.blockStates = world.InsertCustomBlocks(pk.Blocks)
+				w.customBlocks = pk.Blocks
 			}
-			dim, _ = world.DimensionByID(int(dimensionID))
-		}
-		err := w.openWorldState(dim, w.settings.StartPaused)
-		if err != nil {
-			return nil, err
+
+			w.serverState.WorldName = pk.WorldName
+			if pk.WorldName != "" {
+				w.currentWorld.Name = pk.WorldName
+			}
+
+			var dim world.Dimension
+			{ // check game version
+				gv := strings.Split(pk.BaseGameVersion, ".")
+				var err error
+				if len(gv) > 1 {
+					var ver int
+					ver, err = strconv.Atoi(gv[1])
+					w.serverState.useOldBiomes = ver < 18
+				}
+				if err != nil || len(gv) <= 1 {
+					logrus.Info(locale.Loc("guessing_version", nil))
+				}
+
+				dimensionID := pk.Dimension
+				if w.serverState.useOldBiomes {
+					logrus.Info(locale.Loc("using_under_118", nil))
+					if dimensionID == 0 {
+						dimensionID += 10
+					}
+				}
+				dim, _ = world.DimensionByID(int(dimensionID))
+			}
+			err := w.openWorldState(dim, w.settings.StartPaused)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 	case *packet.ItemComponent:

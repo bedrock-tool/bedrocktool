@@ -51,6 +51,7 @@ type WorldSettings struct {
 type serverState struct {
 	useOldBiomes  bool
 	useHashedRids bool
+	haveStartGame bool
 	worldCounter  int
 	WorldName     string
 	biomes        map[string]any
