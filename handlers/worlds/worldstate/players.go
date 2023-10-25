@@ -4,7 +4,6 @@ import (
 	"github.com/go-gl/mathgl/mgl32"
 	"github.com/google/uuid"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
-	"github.com/sirupsen/logrus"
 )
 
 type player struct {
@@ -20,7 +19,7 @@ type worldPlayers struct {
 func (w *World) AddPlayer(pk *packet.AddPlayer) {
 	_, ok := w.players.players[pk.UUID]
 	if ok {
-		logrus.Debugf("duplicate player %v", pk)
+		//logrus.Debugf("duplicate player %v", pk)
 		return
 	}
 	w.players.players[pk.UUID] = &player{
