@@ -167,14 +167,16 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 				version: pack.Version,
 			})
 			r.dlwg.Add(1)
+			contentKey := pack.ContentKey
 			go func() {
 				defer r.dlwg.Done()
+				logrus.Infof("Downloading Resourcepack: %s", url.URL)
 				newPack, err := resource.ReadURL(url.URL)
 				if err != nil {
 					logrus.Error(err)
 					return
 				}
-				newPack = newPack.WithContentKey(pack.ContentKey)
+				newPack = newPack.WithContentKey(contentKey)
 				r.resourcePacks = append(r.resourcePacks, newPack)
 				r.OnFinishedPack(newPack)
 
