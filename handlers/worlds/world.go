@@ -246,6 +246,7 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 		PacketCB: w.packetCB,
 		OnEnd: func() {
 			w.SaveAndReset(true, nil)
+			w.wg.Wait()
 			resetGlobals()
 		},
 		Deferred: cancel,
