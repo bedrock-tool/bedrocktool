@@ -34,7 +34,7 @@ func (p *UpdatePopup) ID() string {
 }
 
 func (p *UpdatePopup) Layout(gtx C, th *material.Theme) D {
-	if p.startButton.Clicked() && !p.updating {
+	if p.startButton.Clicked(gtx) && !p.updating {
 		p.updating = true
 		go func() {
 			p.err = updater.DoUpdate()

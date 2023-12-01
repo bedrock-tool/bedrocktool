@@ -25,7 +25,7 @@ func layoutPopupBackground(gtx layout.Context, th *material.Theme, tag string, w
 	defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
 	pointer.InputOp{
 		Tag:   tag,
-		Types: pointer.Press | pointer.Release,
+		Kinds: pointer.Press | pointer.Release,
 	}.Add(gtx.Ops)
 	for _, ev := range gtx.Queue.Events(tag) {
 		_ = ev

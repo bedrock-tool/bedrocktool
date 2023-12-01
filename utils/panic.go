@@ -3,6 +3,7 @@ package utils
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"runtime"
@@ -19,18 +20,18 @@ var panicErr error
 func PrintPanic(err error) {
 	panicStack = string(debug.Stack())
 	panicErr = err
-	logrus.Errorf(locale.Loc("fatal_error", nil))
-	logrus.Println("")
-	logrus.Println("--COPY FROM HERE--")
-	logrus.Infof("Version: %s", updater.Version)
-	logrus.Infof("Cmdline: %s", os.Args)
-	logrus.Errorf("Error: %s", err)
-	logrus.Println("stacktrace from panic: \n" + panicStack)
-	logrus.Println("--END COPY HERE--")
-	logrus.Println("")
-	logrus.Println(locale.Loc("report_issue", nil))
+	fmt.Printf(locale.Loc("fatal_error", nil))
+	fmt.Println("")
+	fmt.Println("--COPY FROM HERE--")
+	fmt.Printf("Version: %s", updater.Version)
+	fmt.Printf("Cmdline: %s", os.Args)
+	fmt.Printf("Error: %s", err)
+	fmt.Println("stacktrace from panic: \n" + panicStack)
+	fmt.Println("--END COPY HERE--")
+	fmt.Println("")
+	fmt.Println(locale.Loc("report_issue", nil))
 	if Options.ExtraDebug {
-		logrus.Println(locale.Loc("used_extra_debug_report", nil))
+		fmt.Println(locale.Loc("used_extra_debug_report", nil))
 	}
 }
 

@@ -121,9 +121,6 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 		settings: settings,
 		err:      make(chan error),
 	}
-	if settings.StartPaused {
-		w.currentWorld.PauseCapture()
-	}
 	w.mapUI = NewMapUI(w)
 	w.scripting = scripting.New()
 
@@ -197,6 +194,9 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 			}
 			worldState.VoidGen = w.settings.VoidGen
 			w.currentWorld = worldState
+			if settings.StartPaused {
+				w.currentWorld.PauseCapture()
+			}
 
 			if settings.Script != "" {
 				err := w.scripting.Load(settings.Script)
@@ -345,7 +345,11 @@ func (w *worldsHandler) SaveAndReset(end bool, dim world.Dimension) {
 	}
 
 	if len(w.currentWorld.StoredChunks) == 0 {
-		w.reset(dim)
+		if end {
+			w.currentWorld = nil
+		} else {
+			w.reset(dim)
+		}
 		w.worldStateLock.Unlock()
 		return
 	}

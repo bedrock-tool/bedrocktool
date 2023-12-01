@@ -62,7 +62,7 @@ func (p *Page) NavItem() component.NavItem {
 }
 
 func (p *Page) Layout(gtx C, th *material.Theme) D {
-	if p.back.Clicked() {
+	if p.back.Clicked(gtx) {
 		p.router.SwitchTo("settings")
 		return D{}
 	}

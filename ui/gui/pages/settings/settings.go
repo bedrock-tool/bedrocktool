@@ -103,7 +103,7 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 		validSettings = s.Valid()
 	}
 
-	if p.startButton.Clicked() && validSettings {
+	if p.startButton.Clicked(gtx) && validSettings {
 		if p.cmdMenu.selected != "" {
 			cmd, ok := commands.Registered[p.cmdMenu.selected]
 			if !ok {
@@ -118,12 +118,12 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 		}
 	}
 
-	if p.debugButton.Changed() {
+	if p.debugButton.Update(gtx) {
 		utils.Options.Debug = p.debugButton.Value
 	}
 
 	for k, c := range p.cmdMenu.clickables {
-		if c.Clickable.Clicked() {
+		if c.Clickable.Clicked(gtx) {
 			p.cmdMenu.selected = k
 		}
 	}

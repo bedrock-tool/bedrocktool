@@ -36,7 +36,7 @@ type Map2 struct {
 func (m *mapInput) HandlePointerEvent(e pointer.Event) {
 	const WHEEL_DELTA = 120
 
-	switch e.Type {
+	switch e.Kind {
 	case pointer.Press:
 		m.click = e.Position
 		m.grabbed = true
@@ -80,7 +80,7 @@ func (m *mapInput) Layout(gtx layout.Context) func() {
 		pointer.InputOp{
 			Tag:          m,
 			Grab:         true,
-			Types:        pointer.Scroll | pointer.Drag | pointer.Press | pointer.Release,
+			Kinds:        pointer.Scroll | pointer.Drag | pointer.Press | pointer.Release,
 			ScrollBounds: image.Rect(-size.X, -size.Y, size.X, size.Y),
 		}.Add(gtx.Ops)
 	}
@@ -156,6 +156,8 @@ func (m *Map2) Update(u *messages.UpdateMap) {
 	}
 
 	for _, p := range updatedTiles {
-		m.imageOps[p] = paint.NewImageOpFilter(m.images[p], paint.FilterNearest)
+		op := paint.NewImageOp(m.images[p])
+		op.Filter = paint.FilterNearest
+		m.imageOps[p] = op
 	}
 }

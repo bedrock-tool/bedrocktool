@@ -32,13 +32,13 @@ func (errorPopup) ID() string {
 }
 
 func (e *errorPopup) Layout(gtx C, th *material.Theme) D {
-	if e.close.Clicked() {
+	if e.close.Clicked(gtx) {
 		e.router.RemovePopup(e.ID())
 		e.onClose()
 		return D{}
 	}
 
-	if e.submitPanic.Clicked() {
+	if e.submitPanic.Clicked(gtx) {
 		e.haveSubmittedPanic = true
 		go utils.UploadPanic()
 	}

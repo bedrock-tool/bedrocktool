@@ -195,14 +195,14 @@ func drawPackEntry(gtx C, th *material.Theme, pack *packEntry) D {
 
 func (p *Page) Layout(gtx C, th *material.Theme) D {
 	for _, pack := range p.Packs {
-		if pack.button.Clicked() {
+		if pack.button.Clicked(gtx) {
 			if pack.IsFinished {
 				utils.ShowFile(pack.Path)
 			}
 		}
 	}
 
-	if p.back.Clicked() {
+	if p.back.Clicked(gtx) {
 		p.router.SwitchTo("settings")
 		return D{}
 	}
@@ -295,7 +295,8 @@ func (p *Page) Handler(data interface{}) messages.Response {
 		for _, pe := range p.Packs {
 			if pe.UUID == m.Pack.UUID() {
 				if m.Pack.Icon() != nil {
-					pe.Icon = paint.NewImageOpFilter(m.Pack.Icon(), paint.FilterNearest)
+					pe.Icon = paint.NewImageOp(m.Pack.Icon())
+					pe.Icon.Filter = paint.FilterNearest
 					pe.HasIcon = true
 				}
 				pe.Name = m.Pack.Name() + " v" + m.Pack.Version()

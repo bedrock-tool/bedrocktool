@@ -99,26 +99,32 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelCauseFunc) (err er
 }
 
 func (g *GUI) loop(w *app.Window) error {
+	var closing = false
 	var ops op.Ops
+
+	go func() {
+		<-g.ctx.Done()
+		w.Invalidate()
+	}()
+
 	for {
-		select {
-		case e := <-w.Events():
-			switch e := e.(type) {
-			case system.DestroyEvent:
-				logrus.Info("Closing")
-				g.cancel(errors.New("Closing"))
-				g.router.Wg.Wait()
-				return e.Err
-			case system.FrameEvent:
-				gtx := layout.NewContext(&ops, e)
-				g.router.Layout(gtx, g.router.Theme)
-				e.Frame(gtx.Ops)
-			}
-		case <-g.ctx.Done():
+		e := w.NextEvent()
+		if g.ctx.Err() != nil && !closing {
 			logrus.Info("Closing")
 			g.cancel(errors.New("Closing"))
 			g.router.Wg.Wait()
-			return nil
+			closing = true
+		}
+		switch e := e.(type) {
+		case system.DestroyEvent:
+			logrus.Info("Closing")
+			g.cancel(errors.New("Closing"))
+			g.router.Wg.Wait()
+			return e.Err
+		case system.FrameEvent:
+			gtx := layout.NewContext(&ops, e)
+			g.router.Layout(gtx, g.router.Theme)
+			e.Frame(gtx.Ops)
 		}
 	}
 }

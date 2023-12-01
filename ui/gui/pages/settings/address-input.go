@@ -79,7 +79,7 @@ func (a *addressInput) Layout(gtx layout.Context, th *material.Theme) layout.Dim
 
 func (a *addressInput) LayoutRealms(gtx layout.Context, th *material.Theme) layout.Dimensions {
 	for k, c := range a.realmsButtons {
-		if c.Clicked() {
+		if c.Clicked(gtx) {
 			for _, r := range a.realms {
 				if r.ID == k {
 					a.Editor.SetText(fmt.Sprintf("realm:%s:%d", r.Name, r.ID))
@@ -108,7 +108,7 @@ func (a *addressInput) LayoutRealms(gtx layout.Context, th *material.Theme) layo
 			}
 
 			if a.showRealmsList.Value {
-				if a.showRealmsList.Changed() {
+				if a.showRealmsList.Update(gtx) {
 					go a.getRealms()
 				}
 				a.l.Lock()

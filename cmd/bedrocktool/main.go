@@ -16,11 +16,9 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
-	"github.com/bedrock-tool/bedrocktool/utils/proxy"
 	"github.com/bedrock-tool/bedrocktool/utils/updater"
 	"github.com/gregwebs/go-recovery"
 	"github.com/rifflock/lfshook"
-	"gopkg.in/square/go-jose.v2/json"
 
 	_ "github.com/bedrock-tool/bedrocktool/subcommands"
 	_ "github.com/bedrock-tool/bedrocktool/subcommands/skins"
@@ -182,6 +180,7 @@ func (c *TransCMD) Execute(_ context.Context, ui ui.UI) error {
 	return nil
 }
 
+/*
 type CreateCustomDataCMD struct {
 	path string
 }
@@ -206,8 +205,9 @@ func (c *CreateCustomDataCMD) Execute(_ context.Context, ui ui.UI) error {
 	}
 	return nil
 }
+*/
 
 func init() {
 	commands.RegisterCommand(&TransCMD{})
-	commands.RegisterCommand(&CreateCustomDataCMD{})
+	//commands.RegisterCommand(&CreateCustomDataCMD{})
 }

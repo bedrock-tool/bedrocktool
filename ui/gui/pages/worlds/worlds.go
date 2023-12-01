@@ -91,7 +91,7 @@ func displayWorldEntry(gtx C, th *material.Theme, entry *messages.SavedWorld) D 
 }
 
 func (p *Page) Layout(gtx C, th *material.Theme) D {
-	if p.back.Clicked() {
+	if p.back.Clicked(gtx) {
 		p.router.SwitchTo("settings")
 		return D{}
 	}

@@ -118,7 +118,7 @@ func (r *Router) RemovePopup(id string) {
 }
 
 func (r *Router) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
-	if r.updateButton.Clicked() {
+	if r.updateButton.Clicked(gtx) {
 		if p, ok := r.GetPopup("update").(*UpdatePopup); ok {
 			if !p.updating {
 				r.RemovePopup("update")
@@ -128,7 +128,7 @@ func (r *Router) Layout(gtx layout.Context, th *material.Theme) layout.Dimension
 		}
 	}
 
-	if r.logToggle.Changed() {
+	if r.logToggle.Update(gtx) {
 		r.setActions()
 	}
 
