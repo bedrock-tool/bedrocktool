@@ -74,7 +74,6 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 				w.currentWorld.Name = pk.WorldName
 			}
 
-			var dim world.Dimension
 			{ // check game version
 				gv := strings.Split(pk.BaseGameVersion, ".")
 				var err error
@@ -87,18 +86,28 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 					logrus.Info(locale.Loc("guessing_version", nil))
 				}
 
-				dimensionID := pk.Dimension
 				if w.serverState.useOldBiomes {
 					logrus.Info(locale.Loc("using_under_118", nil))
-					if dimensionID == 0 {
-						dimensionID += 10
+					w.serverState.dimensions[0] = protocol.DimensionDefinition{
+						Name:      "minecraft:overworld",
+						Range:     [2]int32{0, 256},
+						Generator: 1,
 					}
 				}
-				dim, _ = world.DimensionByID(int(dimensionID))
 			}
-			err := w.openWorldState(dim, w.settings.StartPaused)
+			dim, _ := world.DimensionByID(int(pk.Dimension))
+			w.currentWorld.SetDimension(dim)
+
+			err := w.openWorldState(w.settings.StartPaused)
 			if err != nil {
 				return nil, err
+			}
+		}
+
+	case *packet.DimensionData:
+		for _, dd := range pk.Definitions {
+			if dd.Name == "minecraft:overworld" {
+				w.serverState.dimensions[0] = dd
 			}
 		}
 

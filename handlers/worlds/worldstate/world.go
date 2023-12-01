@@ -30,10 +30,12 @@ type worldStateInterface interface {
 }
 
 type World struct {
-	dimension     world.Dimension
-	deferredState *worldStateDefer
-	StoredChunks  map[world.ChunkPos]bool
-	chunkFunc     func(world.ChunkPos, *chunk.Chunk)
+	dimension            world.Dimension
+	dimRange             cube.Range
+	dimensionDefinitions map[int]protocol.DimensionDefinition
+	deferredState        *worldStateDefer
+	StoredChunks         map[world.ChunkPos]bool
+	chunkFunc            func(world.ChunkPos, *chunk.Chunk)
 
 	l             sync.Mutex
 	provider      *mcdb.DB
@@ -47,10 +49,11 @@ type World struct {
 	Folder   string
 }
 
-func New(cf func(world.ChunkPos, *chunk.Chunk)) (*World, error) {
+func New(cf func(world.ChunkPos, *chunk.Chunk), dimensionDefinitions map[int]protocol.DimensionDefinition) (*World, error) {
 	w := &World{
-		StoredChunks: make(map[world.ChunkPos]bool),
-		chunkFunc:    cf,
+		StoredChunks:         make(map[world.ChunkPos]bool),
+		dimensionDefinitions: dimensionDefinitions,
+		chunkFunc:            cf,
 		worldEntities: worldEntities{
 			entities:    make(map[EntityRuntimeID]*EntityState),
 			entityLinks: make(map[EntityUniqueID]map[EntityUniqueID]struct{}),
@@ -71,6 +74,18 @@ func (w *World) Dimension() world.Dimension {
 
 func (w *World) SetDimension(dim world.Dimension) {
 	w.dimension = dim
+
+	w.dimRange = dim.Range()
+	id, _ := world.DimensionID(dim)
+	if d, ok := w.dimensionDefinitions[id]; ok {
+		w.dimRange = cube.Range{
+			int(d.Range[1]), int(d.Range[0]) - 1,
+		}
+	}
+}
+
+func (w *World) Range() cube.Range {
+	return w.dimRange
 }
 
 func (w *World) SetTime(real time.Time, ingame int) {
@@ -198,10 +213,9 @@ func (w *World) newProvider() (*mcdb.DB, error) {
 	return provider, nil
 }
 
-func (w *World) Open(name string, folder string, dim world.Dimension, deferred bool) (err error) {
+func (w *World) Open(name string, folder string, deferred bool) (err error) {
 	w.Name = name
 	w.Folder = folder
-	w.dimension = dim
 	os.RemoveAll(folder)
 	os.MkdirAll(folder, 0o777)
 

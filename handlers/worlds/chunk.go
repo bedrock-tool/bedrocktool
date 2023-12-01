@@ -17,11 +17,7 @@ import (
 )
 
 func (w *worldsHandler) processChangeDimension(pk *packet.ChangeDimension) {
-	dimensionID := pk.Dimension
-	if w.serverState.useOldBiomes && dimensionID == 0 {
-		dimensionID += 10
-	}
-	dim, _ := world.DimensionByID(int(dimensionID))
+	dim, _ := world.DimensionByID(int(pk.Dimension))
 	w.SaveAndReset(false, dim)
 }
 
@@ -42,7 +38,7 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 	w.worldStateLock.Lock()
 	defer w.worldStateLock.Unlock()
 
-	ch, blockNBTs, err := chunk.NetworkDecode(world.AirRID(), pk.RawPayload, subChunkCount, w.serverState.useOldBiomes, w.serverState.useHashedRids, w.currentWorld.Dimension().Range())
+	ch, blockNBTs, err := chunk.NetworkDecode(world.AirRID(), pk.RawPayload, subChunkCount, w.serverState.useOldBiomes, w.serverState.useHashedRids, w.currentWorld.Range())
 	if err != nil {
 		logrus.Error(err)
 		return

@@ -60,6 +60,7 @@ type serverState struct {
 	openItemContainers map[byte]*itemContainer
 	playerInventory    []protocol.ItemInstance
 	packs              []utils.Pack
+	dimensions         map[int]protocol.DimensionDefinition
 
 	Name string
 }
@@ -115,6 +116,7 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 			useOldBiomes:       false,
 			worldCounter:       0,
 			openItemContainers: make(map[byte]*itemContainer),
+			dimensions:         make(map[int]protocol.DimensionDefinition),
 		},
 		settings: settings,
 		err:      make(chan error),
@@ -189,7 +191,7 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 		AddressAndName: func(address, hostname string) error {
 			w.bp = behaviourpack.New(hostname)
 			w.serverState.Name = hostname
-			worldState, err := worldstate.New(w.chunkCB)
+			worldState, err := worldstate.New(w.chunkCB, w.serverState.dimensions)
 			if err != nil {
 				return err
 			}
@@ -343,7 +345,7 @@ func (w *worldsHandler) SaveAndReset(end bool, dim world.Dimension) {
 	}
 
 	if len(w.currentWorld.StoredChunks) == 0 {
-		w.currentWorld.SetDimension(dim)
+		w.reset(dim)
 		w.worldStateLock.Unlock()
 		return
 	}
@@ -408,14 +410,15 @@ func (w *worldsHandler) chunkCB(cp world.ChunkPos, c *chunk.Chunk) {
 }
 
 func (w *worldsHandler) reset(dim world.Dimension) error {
-	worldState, err := worldstate.New(w.chunkCB)
+	worldState, err := worldstate.New(w.chunkCB, w.serverState.dimensions)
 	if err != nil {
 		return err
 	}
 	worldState.VoidGen = w.settings.VoidGen
-	w.currentWorld = worldState
+	worldState.SetDimension(dim)
 
-	err = w.openWorldState(dim, false)
+	w.currentWorld = worldState
+	err = w.openWorldState(false)
 	if err != nil {
 		return err
 	}
@@ -432,10 +435,10 @@ func (w *worldsHandler) defaultWorldName() string {
 	return worldName
 }
 
-func (w *worldsHandler) openWorldState(dim world.Dimension, deferred bool) error {
+func (w *worldsHandler) openWorldState(deferred bool) error {
 	name := w.defaultWorldName()
 	folder := fmt.Sprintf("worlds/%s/%s", w.serverState.Name, name)
-	err := w.currentWorld.Open(name, folder, dim, deferred)
+	err := w.currentWorld.Open(name, folder, deferred)
 	if err != nil {
 		return err
 	}
