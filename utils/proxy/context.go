@@ -35,6 +35,7 @@ type Context struct {
 	withClient bool
 	addedPacks []*resource.Pack
 
+	dimensionData    *packet.DimensionData
 	tokenSource      oauth2.TokenSource
 	clientConnecting chan struct{}
 	haveClientData   chan struct{}
@@ -242,6 +243,11 @@ func (p *Context) packetFunc(header packet.Header, payload []byte, src, dst net.
 			return
 		}
 
+		switch pk := pk.(type) {
+		case *packet.DimensionData:
+			p.dimensionData = pk
+		}
+
 		var err error
 		toServer := p.IsClient(src)
 		for _, handler := range p.handlers {
@@ -390,6 +396,9 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
+				if p.dimensionData != nil {
+					p.Client.WritePacket(p.dimensionData)
+				}
 				err := p.Client.StartGameContext(ctx, gd)
 				if err != nil {
 					cancel(err)
