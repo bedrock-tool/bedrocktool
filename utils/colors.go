@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"math"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -167,13 +168,13 @@ func calculateMeanAverageColour(img image.Image) (c color.RGBA) {
 }
 
 func toTexturePath(name string) string {
-	return "textures/blocks/" + strings.Replace(name, ":", "/", 1)
+	return strings.Replace(name, ":", "/", 1)
 }
 
 var ridToIdx map[BlockRID]TexMapEntry
 
-func ResolveColors(entries []protocol.BlockEntry, packs []Pack, addToBlocks bool) (*image.RGBA, map[string]color.RGBA64) {
-	colors := make(map[string]color.RGBA64)
+func ResolveColors(entries []protocol.BlockEntry, packs []Pack, addToBlocks bool) (*image.RGBA, map[string]color.RGBA) {
+	colors := make(map[string]color.RGBA)
 	images := make(map[string]image.Image)
 
 	texture_names := getTextureNames(entries)
@@ -227,7 +228,7 @@ func ResolveColors(entries []protocol.BlockEntry, packs []Pack, addToBlocks bool
 				if found {
 					break
 				}
-				p := filepath.Join(baseDir, texturePath+ext)
+				p := path.Join(baseDir, texturePath+ext)
 				for _, v := range filenames {
 					if strings.HasSuffix(v, p) {
 						texturePath = v
@@ -264,7 +265,7 @@ func ResolveColors(entries []protocol.BlockEntry, packs []Pack, addToBlocks bool
 				continue
 			}
 
-			colors[block] = RGBAToRGBA64(calculateMeanAverageColour(img))
+			colors[block] = calculateMeanAverageColour(img)
 			images[block] = img
 		}
 	}

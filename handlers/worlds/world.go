@@ -21,7 +21,6 @@ import (
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/behaviourpack"
 	"github.com/bedrock-tool/bedrocktool/utils/proxy"
-	"github.com/gregwebs/go-recovery"
 
 	"github.com/df-mc/dragonfly/server/block"
 	"github.com/df-mc/dragonfly/server/block/cube"
@@ -174,10 +173,7 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 			})
 
 			w.proxy.AddCommand(func(s []string) bool {
-				go recovery.Go(func() error {
-					w.SaveAndReset(false, nil)
-					return nil
-				})
+				w.SaveAndReset(false, nil)
 				return true
 			}, protocol.Command{
 				Name:        "save-world",
@@ -185,15 +181,16 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 			})
 		},
 
-		AddressAndName: func(address, hostname string) error {
+		AddressAndName: func(address, hostname string) (err error) {
 			w.bp = behaviourpack.New(hostname)
 			w.serverState.Name = hostname
-			worldState, err := worldstate.New(w.chunkCB, w.serverState.dimensions)
+
+			// initialize a worldstate
+			w.currentWorld, err = worldstate.New(w.chunkCB, w.serverState.dimensions)
 			if err != nil {
 				return err
 			}
-			worldState.VoidGen = w.settings.VoidGen
-			w.currentWorld = worldState
+			w.currentWorld.VoidGen = w.settings.VoidGen
 			if settings.StartPaused {
 				w.currentWorld.PauseCapture()
 			}
@@ -248,13 +245,7 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 
 		PacketCB: w.packetCB,
 		OnEnd: func() {
-			w.wg.Add(1)
-			go recovery.Go(func() error {
-				defer w.wg.Done()
-				w.SaveAndReset(true, nil)
-				return nil
-			})
-			w.wg.Wait()
+			w.SaveAndReset(true, nil)
 			resetGlobals()
 		},
 		Deferred: cancel,
@@ -344,6 +335,7 @@ func (w *worldsHandler) SaveAndReset(end bool, dim world.Dimension) {
 		dim = w.currentWorld.Dimension()
 	}
 
+	// if empty just reset and dont save anything
 	if len(w.currentWorld.StoredChunks) == 0 {
 		if end {
 			w.currentWorld = nil
@@ -354,78 +346,82 @@ func (w *worldsHandler) SaveAndReset(end bool, dim world.Dimension) {
 		return
 	}
 
+	// save image of the map
 	if w.settings.SaveImage {
 		f, _ := os.Create(w.currentWorld.Folder + ".png")
 		png.Encode(f, w.mapUI.ToImage())
 		f.Close()
 	}
 
-	w.wg.Add(1)
-	worldState := w.currentWorld
+	// reset map, increase counter for
 	w.serverState.worldCounter += 1
-	if !end {
-		w.reset(dim)
-	} else {
-		w.currentWorld = nil
-	}
 	w.mapUI.Reset()
+
+	// swap states
+	worldState := w.currentWorld
+	if end {
+		w.currentWorld = nil
+	} else {
+		w.reset(dim)
+	}
 	w.worldStateLock.Unlock()
 
+	w.wg.Add(1)
 	go func() {
 		defer w.wg.Done()
-		// do not access w.worldState after this
-		playerPos := w.proxy.Player.Position
-		spawnPos := cube.Pos{int(playerPos.X()), int(playerPos.Y()), int(playerPos.Z())}
-
-		text := locale.Loc("saving_world", locale.Strmap{"Name": worldState.Name, "Count": len(worldState.StoredChunks)})
-		logrus.Info(text)
-		w.proxy.SendMessage(text)
-
-		filename := worldState.Folder + ".mcworld"
-
-		w.ui.Message(messages.SavingWorld{
-			World: &messages.SavedWorld{
-				Name:     worldState.Name,
-				Path:     filename,
-				Chunks:   len(worldState.StoredChunks),
-				Entities: len(worldState.StoredChunks),
-			},
-		})
-
-		err := worldState.Finish(w.playerData(), w.settings.ExcludedMobs, spawnPos, w.proxy.Server.GameData(), w.bp)
-		if err != nil {
-			w.err <- err
-			return
-		}
-		w.AddPacks(worldState.Folder)
-
-		// zip it
-		err = utils.ZipFolder(filename, worldState.Folder)
-		if err != nil {
-			w.err <- err
-			return
-		}
-		logrus.Info(locale.Loc("saved", locale.Strmap{"Name": filename}))
+		w.saveWorldState(worldState)
 	}()
+}
+
+func (w *worldsHandler) saveWorldState(worldState *worldstate.World) {
+	playerPos := w.proxy.Player.Position
+	spawnPos := cube.Pos{int(playerPos.X()), int(playerPos.Y()), int(playerPos.Z())}
+
+	text := locale.Loc("saving_world", locale.Strmap{"Name": worldState.Name, "Count": len(worldState.StoredChunks)})
+	logrus.Info(text)
+	w.proxy.SendMessage(text)
+
+	filename := worldState.Folder + ".mcworld"
+
+	w.ui.Message(messages.SavingWorld{
+		World: &messages.SavedWorld{
+			Name:     worldState.Name,
+			Path:     filename,
+			Chunks:   len(worldState.StoredChunks),
+			Entities: len(worldState.StoredChunks),
+		},
+	})
+
+	err := worldState.Finish(w.playerData(), w.settings.ExcludedMobs, spawnPos, w.proxy.Server.GameData(), w.bp)
+	if err != nil {
+		w.err <- err
+		return
+	}
+	w.AddPacks(worldState.Folder)
+
+	// zip it
+	err = utils.ZipFolder(filename, worldState.Folder)
+	if err != nil {
+		w.err <- err
+		return
+	}
+	logrus.Info(locale.Loc("saved", locale.Strmap{"Name": filename}))
 }
 
 func (w *worldsHandler) chunkCB(cp world.ChunkPos, c *chunk.Chunk) {
 	w.mapUI.SetChunk(cp, c, false)
 }
 
-func (w *worldsHandler) reset(dim world.Dimension) error {
-	worldState, err := worldstate.New(w.chunkCB, w.serverState.dimensions)
+func (w *worldsHandler) reset(dim world.Dimension) (err error) {
+	// create new world state
+	w.currentWorld, err = worldstate.New(w.chunkCB, w.serverState.dimensions)
 	if err != nil {
 		return err
 	}
-	worldState.VoidGen = w.settings.VoidGen
-	worldState.SetDimension(dim)
+	w.currentWorld.VoidGen = w.settings.VoidGen
+	w.currentWorld.SetDimension(dim)
 
-	w.currentWorld = worldState
-	err = w.openWorldState(false)
-	if err != nil {
-		return err
-	}
+	w.openWorldState(false)
 	return nil
 }
 
@@ -439,14 +435,10 @@ func (w *worldsHandler) defaultWorldName() string {
 	return worldName
 }
 
-func (w *worldsHandler) openWorldState(deferred bool) error {
+func (w *worldsHandler) openWorldState(deferred bool) {
 	name := w.defaultWorldName()
 	folder := fmt.Sprintf("worlds/%s/%s", w.serverState.Name, name)
-	err := w.currentWorld.Open(name, folder, deferred)
-	if err != nil {
-		return err
-	}
-	return nil
+	w.currentWorld.Open(name, folder, deferred)
 }
 
 func (w *worldsHandler) renameWorldState(name string) error {

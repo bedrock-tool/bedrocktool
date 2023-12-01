@@ -68,7 +68,10 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 			return
 		}
 	}
-	w.currentWorld.StoreChunk(pos, ch, chunkBlockNBT)
+	err = w.currentWorld.StoreChunk(pos, ch, chunkBlockNBT)
+	if err != nil {
+		logrus.Error(err)
+	}
 
 	max := w.currentWorld.Dimension().Range().Height() / 16
 	switch pk.SubChunkCount {

@@ -22,7 +22,7 @@ import (
 )
 
 type worldStateInterface interface {
-	StoreChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cube.Pos]DummyBlock)
+	StoreChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cube.Pos]DummyBlock) error
 	SetBlockNBT(pos cube.Pos, nbt map[string]any, merge bool)
 	StoreEntity(id EntityRuntimeID, es *EntityState)
 	GetEntity(id EntityRuntimeID) (*EntityState, bool)
@@ -93,7 +93,7 @@ func (w *World) SetTime(real time.Time, ingame int) {
 	w.time = ingame
 }
 
-func (w *World) StoreChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cube.Pos]DummyBlock) {
+func (w *World) StoreChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cube.Pos]DummyBlock) (err error) {
 	empty := true
 	for _, sc := range ch.Sub() {
 		if !sc.Empty() {
@@ -108,6 +108,16 @@ func (w *World) StoreChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cub
 	if w.deferredState != nil {
 		w.deferredState.StoreChunk(pos, ch, blockNBT)
 	} else {
+		if w.provider == nil { // open provider on first chunk
+			w.provider, err = mcdb.Config{
+				Log:         logrus.StandardLogger(),
+				Compression: opt.DefaultCompression,
+			}.Open(w.Folder)
+			if err != nil {
+				return err
+			}
+		}
+
 		if len(blockNBT) > 0 {
 			if _, ok := w.worldEntities.blockNBTs[pos]; !ok {
 				w.worldEntities.blockNBTs[pos] = blockNBT
@@ -125,6 +135,7 @@ func (w *World) StoreChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cub
 		}
 		w.l.Unlock()
 	}
+	return nil
 }
 
 func (m *World) LoadChunk(pos world.ChunkPos) (*chunk.Chunk, bool, error) {
@@ -202,34 +213,16 @@ func (w *World) IsDeferred() bool {
 	return w.deferredState != nil
 }
 
-func (w *World) newProvider() (*mcdb.DB, error) {
-	provider, err := mcdb.Config{
-		Log:         logrus.StandardLogger(),
-		Compression: opt.DefaultCompression,
-	}.Open(w.Folder)
-	if err != nil {
-		return nil, err
-	}
-	return provider, nil
-}
-
-func (w *World) Open(name string, folder string, deferred bool) (err error) {
+func (w *World) Open(name string, folder string, deferred bool) {
 	w.Name = name
 	w.Folder = folder
-	os.RemoveAll(folder)
-	os.MkdirAll(folder, 0o777)
-
-	w.provider, err = w.newProvider()
-	if err != nil {
-		return err
-	}
+	os.RemoveAll(w.Folder)
+	os.MkdirAll(w.Folder, 0o777)
 
 	if !deferred && w.deferredState != nil {
 		w.deferredState.ApplyTo(w, cube.Pos{}, -1, w.chunkFunc)
 		w.deferredState = nil
 	}
-
-	return nil
 }
 
 func (w *World) Rename(name, folder string) error {
@@ -246,7 +239,11 @@ func (w *World) Rename(name, folder string) error {
 	}
 	w.Folder = folder
 	w.Name = name
-	w.provider, err = w.newProvider()
+
+	w.provider, err = mcdb.Config{
+		Log:         logrus.StandardLogger(),
+		Compression: opt.DefaultCompression,
+	}.Open(w.Folder)
 	if err != nil {
 		return err
 	}

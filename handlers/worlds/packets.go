@@ -98,10 +98,7 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 			dim, _ := world.DimensionByID(int(pk.Dimension))
 			w.currentWorld.SetDimension(dim)
 
-			err := w.openWorldState(w.settings.StartPaused)
-			if err != nil {
-				return nil, err
-			}
+			w.openWorldState(w.settings.StartPaused)
 		}
 
 	case *packet.DimensionData:
