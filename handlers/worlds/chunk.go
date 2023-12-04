@@ -38,6 +38,8 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 	w.worldStateLock.Lock()
 	defer w.worldStateLock.Unlock()
 
+	//os.WriteFile("chunk.bin", pk.RawPayload, 0777)
+
 	ch, blockNBTs, err := chunk.NetworkDecode(world.AirRID(), pk.RawPayload, subChunkCount, w.serverState.useOldBiomes, w.serverState.useHashedRids, w.currentWorld.Range())
 	if err != nil {
 		logrus.Error(err)
@@ -164,6 +166,7 @@ func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) error {
 				w.currentWorld.Dimension().Range(),
 				&index,
 				chunk.NetworkEncoding,
+				w.serverState.useHashedRids,
 			)
 			if err != nil {
 				return err

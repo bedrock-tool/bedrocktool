@@ -1,7 +1,6 @@
 package worlds
 
 import (
-	"errors"
 	"maps"
 	"strconv"
 	"strings"
@@ -44,16 +43,13 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 		pk.ChunkRadius = w.settings.ChunkRadius
 
 	case *packet.SetTime:
-		w.currentWorld.SetTime(time.Now(), int(pk.Time))
+		w.currentWorld.SetTime(timeReceived, int(pk.Time))
 
 	case *packet.StartGame:
 		if !w.serverState.haveStartGame {
 			w.serverState.haveStartGame = true
-			w.currentWorld.SetTime(time.Now(), int(pk.Time))
+			w.currentWorld.SetTime(timeReceived, int(pk.Time))
 			w.serverState.useHashedRids = pk.UseBlockNetworkIDHashes
-			if w.serverState.useHashedRids {
-				return nil, errors.New("this server uses the new hashed block id system, this hasnt been implemented yet, sorry")
-			}
 
 			world.InsertCustomItems(pk.Items)
 			for _, ie := range pk.Items {
