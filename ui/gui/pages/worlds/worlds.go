@@ -80,7 +80,7 @@ func displayWorldEntry(gtx C, th *material.Theme, entry *messages.SavedWorld) D 
 			Palette: material.Palette{
 				Bg: component.WithAlpha(th.ContrastFg, 8),
 			},
-		}).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		}).Layout(gtx, func(gtx C) D {
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 				layout.Rigid(material.Label(th, th.TextSize, entry.Name).Layout),
 				layout.Rigid(material.Label(th, th.TextSize, fmt.Sprintf("%d Chunks", entry.Chunks)).Layout),
@@ -123,7 +123,7 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 						)
 					})
 				}),
-				layout.Flexed(0.1, func(gtx layout.Context) layout.Dimensions {
+				layout.Flexed(0.1, func(gtx C) D {
 					gtx.Constraints.Max.Y = gtx.Dp(40)
 					gtx.Constraints.Max.X = gtx.Constraints.Max.X / 6
 					return material.Button(th, &p.back, "Return").Layout(gtx)

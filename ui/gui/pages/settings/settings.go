@@ -2,7 +2,6 @@ package settings
 
 import (
 	"image"
-	"image/color"
 	"slices"
 	"sort"
 
@@ -13,7 +12,6 @@ import (
 	"gioui.org/x/component"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
-	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/sirupsen/logrus"
 )
@@ -43,7 +41,6 @@ type Page struct {
 	settings map[string]*settingsPage
 
 	startButton widget.Clickable
-	debugButton widget.Bool
 }
 
 func New(router *pages.Router) pages.Page {
@@ -57,7 +54,7 @@ func New(router *pages.Router) pages.Page {
 			continue
 		}
 
-		settingUI := &settingsPage{cmd: cmd}
+		settingUI := &settingsPage{router: router, cmd: cmd}
 		settingUI.Init()
 		p.settings[k] = settingUI
 		p.cmdMenu.names = append(p.cmdMenu.names, k)
@@ -118,17 +115,13 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 		}
 	}
 
-	if p.debugButton.Update(gtx) {
-		utils.Options.Debug = p.debugButton.Value
-	}
-
 	for k, c := range p.cmdMenu.clickables {
 		if c.Clickable.Clicked(gtx) {
 			p.cmdMenu.selected = k
 		}
 	}
 
-	return layout.UniformInset(7).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+	return layout.UniformInset(7).Layout(gtx, func(gtx C) D {
 		d := layout.Flex{
 			Axis:    layout.Vertical,
 			Spacing: layout.SpaceBetween,
@@ -139,7 +132,7 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 					Top:   10,
 					Left:  unit.Dp(gtx.Constraints.Max.X / gtx.Dp(10)),
 					Right: unit.Dp(gtx.Constraints.Max.X / gtx.Dp(10)),
-				}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				}.Layout(gtx, func(gtx C) D {
 					return component.Grid(th, &p.cmdMenu.state).Layout(gtx, 1, len(p.cmdMenu.clickables),
 						func(axis layout.Axis, index, constraint int) int {
 							if axis == layout.Horizontal {
@@ -152,8 +145,8 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 							c := p.cmdMenu.clickables[name]
 							b := material.Button(th, c.Clickable, c.Text)
 							if p.cmdMenu.selected == name {
-								b.Background = th.ContrastFg
-								b.Color = th.Bg
+								b.Background = component.WithAlpha(th.Fg, 70)
+								b.Color = th.Fg
 							}
 							return layout.Inset{Left: 5, Right: 5}.Layout(gtx, b.Layout)
 						},
@@ -170,7 +163,7 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 					return layout.Inset{
 						Left:  unit.Dp(gtx.Constraints.Max.X / gtx.Dp(10)),
 						Right: unit.Dp(gtx.Constraints.Max.X / gtx.Dp(10)),
-					}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					}.Layout(gtx, func(gtx C) D {
 						return s.Layout(gtx, th)
 					})
 				}
@@ -178,18 +171,18 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 			}),
 
 			// Start Button
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			layout.Rigid(func(gtx C) D {
+				return layout.Center.Layout(gtx, func(gtx C) D {
 					return layout.Inset{
 						Top:    15,
 						Bottom: 15,
-					}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+					}.Layout(gtx, func(gtx C) D {
 						gtx.Constraints.Min = image.Pt(gtx.Dp(300), gtx.Dp(40))
 						gtx.Constraints.Max = image.Pt(gtx.Constraints.Max.X/3, gtx.Dp(40))
 						b := material.Button(th, &p.startButton, "Start")
 						if !validSettings {
-							b.Color = component.Interpolate(th.Fg, th.Bg, 80)
-							b.Background = color.NRGBA{0x20, 0x20, 0x20, 0xff}
+							b.Color = th.ContrastFg
+							b.Background = th.ContrastBg
 						}
 						return b.Layout(gtx)
 					})

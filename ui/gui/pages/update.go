@@ -51,7 +51,7 @@ func (p *UpdatePopup) Layout(gtx C, th *material.Theme) D {
 		p.err = err
 	}
 
-	return layoutPopupBackground(gtx, th, p.ID(), func(gtx C) D {
+	return LayoutPopupBackground(gtx, th, p.ID(), func(gtx C) D {
 		return layout.Inset{
 			Top:    unit.Dp(25),
 			Bottom: unit.Dp(25),

@@ -43,7 +43,7 @@ func (p *ConnectPopup) Layout(gtx C, th *material.Theme) D {
 		return ifb(b, material.Label(th, 40, text).Layout)
 	}
 
-	return layoutPopupBackground(gtx, th, "connect", func(gtx C) D {
+	return LayoutPopupBackground(gtx, th, "connect", func(gtx C) D {
 		return layout.Center.Layout(gtx, func(gtx C) D {
 			return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
 				layout.Rigid(

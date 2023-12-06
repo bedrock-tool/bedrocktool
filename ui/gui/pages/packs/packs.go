@@ -131,7 +131,7 @@ func drawPackEntry(gtx C, th *material.Theme, pack *packEntry) D {
 				Palette: material.Palette{
 					Bg: component.WithAlpha(th.Fg, 10),
 				},
-			}).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			}).Layout(gtx, func(gtx C) D {
 				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 					layout.Rigid(func(gtx C) D {
 						return drawPackIcon(gtx, pack.HasIcon, pack.Icon, image.Pt(50, 50))

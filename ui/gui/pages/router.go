@@ -9,6 +9,7 @@ import (
 
 	"gioui.org/layout"
 	"gioui.org/op/paint"
+	"gioui.org/text"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
@@ -45,6 +46,7 @@ type Router struct {
 	updateAvailable bool
 
 	logToggle widget.Bool
+	showLogs  bool
 
 	popups []Popup
 }
@@ -96,9 +98,16 @@ func (r *Router) SwitchTo(tag string) {
 	r.Invalidate()
 }
 
-func (r *Router) PushPopup(p Popup) {
+func (r *Router) PushPopup(p Popup) bool {
+	for _, p2 := range r.popups {
+		if p2.ID() == p.ID() {
+			//logrus.Debugf("Attempted to push popup already open %s", p.ID())
+			return false
+		}
+	}
 	r.popups = append(r.popups, p)
 	r.Invalidate()
+	return true
 }
 
 func (r *Router) GetPopup(id string) (p Popup) {
@@ -117,7 +126,7 @@ func (r *Router) RemovePopup(id string) {
 	r.Invalidate()
 }
 
-func (r *Router) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
+func (r *Router) Layout(gtx layout.Context) layout.Dimensions {
 	if r.updateButton.Clicked(gtx) {
 		if p, ok := r.GetPopup("update").(*UpdatePopup); ok {
 			if !p.updating {
@@ -128,7 +137,8 @@ func (r *Router) Layout(gtx layout.Context, th *material.Theme) layout.Dimension
 		}
 	}
 
-	if r.logToggle.Update(gtx) {
+	if r.logToggle.Value != r.showLogs {
+		r.showLogs = r.logToggle.Value
 		r.setActions()
 	}
 
@@ -150,30 +160,30 @@ func (r *Router) Layout(gtx layout.Context, th *material.Theme) layout.Dimension
 	if r.ModalNavDrawer.NavDestinationChanged() {
 		r.SwitchTo(r.ModalNavDrawer.CurrentNavDestination().(string))
 	}
-	paint.Fill(gtx.Ops, th.Palette.Bg)
+	paint.Fill(gtx.Ops, r.Theme.Palette.Bg)
 
-	content := layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+	content := layout.Flexed(1, func(gtx C) D {
 		return layout.Flex{}.Layout(gtx,
-			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+			layout.Rigid(func(gtx C) D {
 				gtx.Constraints.Max.X /= 3
-				return r.ModalNavDrawer.NavDrawer.Layout(gtx, th, &r.NavAnim)
+				return r.ModalNavDrawer.NavDrawer.Layout(gtx, r.Theme, &r.NavAnim)
 			}),
-			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				d := r.current.Layout(gtx, th)
+			layout.Flexed(1, func(gtx C) D {
+				d := r.current.Layout(gtx, r.Theme)
 
 				for _, p := range r.popups {
-					p.Layout(gtx, th)
+					p.Layout(gtx, r.Theme)
 				}
 
 				if r.logToggle.Value {
-					r.LogWidget(gtx, th)
+					r.LogWidget(gtx, r.Theme)
 				}
 				return d
 			}),
 		)
 	})
-	bar := layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-		return r.AppBar.Layout(gtx, th, "Menu", "Actions")
+	bar := layout.Rigid(func(gtx C) D {
+		return r.AppBar.Layout(gtx, r.Theme, "Menu", "Actions")
 	})
 	flex := layout.Flex{Axis: layout.Vertical}
 	if r.BottomBar {
@@ -181,21 +191,23 @@ func (r *Router) Layout(gtx layout.Context, th *material.Theme) layout.Dimension
 	} else {
 		flex.Layout(gtx, bar, content)
 	}
-	r.ModalLayer.Layout(gtx, th)
+	r.ModalLayer.Layout(gtx, r.Theme)
 	return layout.Dimensions{Size: gtx.Constraints.Max}
 }
 
 func (r *Router) setActions() {
 	var extra []component.AppBarAction
 	extra = append(extra, component.AppBarAction{Layout: func(gtx layout.Context, bg, fg color.NRGBA) layout.Dimensions {
-		return layout.UniformInset(5).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return layout.UniformInset(5).Layout(gtx, func(gtx C) D {
 			return layout.Flex{
 				Axis:      layout.Horizontal,
 				Alignment: layout.Middle,
 			}.Layout(gtx,
 				layout.Rigid(material.Switch(r.Theme, &r.logToggle, "logs").Layout),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					return layout.UniformInset(5).Layout(gtx, material.Label(r.Theme, 12, "logs").Layout)
+				layout.Rigid(func(gtx C) D {
+					l := material.Label(r.Theme, 12, "Logs")
+					l.Alignment = text.Middle
+					return layout.UniformInset(5).Layout(gtx, l.Layout)
 				}),
 			)
 		})

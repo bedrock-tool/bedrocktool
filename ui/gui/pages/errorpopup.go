@@ -48,7 +48,7 @@ func (e *errorPopup) Layout(gtx C, th *material.Theme) D {
 		title = "Fatal Panic"
 	}
 
-	return layoutPopupBackground(gtx, th, "error", func(gtx C) D {
+	return LayoutPopupBackground(gtx, th, "error", func(gtx C) D {
 		return layout.UniformInset(10).Layout(gtx, func(gtx C) D {
 			return layout.Flex{
 				Axis:      layout.Vertical,

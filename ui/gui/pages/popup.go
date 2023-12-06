@@ -1,8 +1,8 @@
 package pages
 
 import (
+	"image"
 	"image/color"
-	"math"
 
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
@@ -20,9 +20,8 @@ type Popup interface {
 	Handler(data any) messages.Response
 }
 
-func layoutPopupBackground(gtx layout.Context, th *material.Theme, tag string, widget layout.Widget) layout.Dimensions {
+func LayoutPopupBackground(gtx layout.Context, th *material.Theme, tag string, widget layout.Widget) layout.Dimensions {
 	// block events to other stacked below this
-	defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
 	pointer.InputOp{
 		Tag:   tag,
 		Kinds: pointer.Press | pointer.Release,
@@ -33,25 +32,20 @@ func layoutPopupBackground(gtx layout.Context, th *material.Theme, tag string, w
 
 	paint.ColorOp{Color: color.NRGBA{A: 170}}.Add(gtx.Ops)
 	paint.PaintOp{}.Add(gtx.Ops)
-	return layout.UniformInset(unit.Dp(16)).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-		return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			width := 500
-			if width > gtx.Constraints.Max.X {
-				width = int(math.Floor(float64(gtx.Constraints.Max.X)/50)) * 50
-			}
 
-			gtx.Constraints.Min.X = gtx.Dp(unit.Dp(width))
-			gtx.Constraints.Max.X = gtx.Constraints.Min.X
-			gtx.Constraints.Min.Y = gtx.Dp(unit.Dp(250))
-			gtx.Constraints.Max.Y = gtx.Constraints.Min.Y
+	width := min(500, gtx.Constraints.Max.X)
+	return layout.Center.Layout(gtx, func(gtx C) D {
+		defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
+		component.Rect{
+			Color: th.Bg,
+			Size:  image.Pt(width, 250),
+			Radii: gtx.Dp(15),
+		}.Layout(gtx)
 
-			component.Rect{
-				Color: th.Bg,
-				Size:  gtx.Constraints.Max,
-				Radii: gtx.Dp(15),
-			}.Layout(gtx)
-
-			return layout.UniformInset(unit.Dp(5)).Layout(gtx, widget)
-		})
+		gtx.Constraints.Min.X = gtx.Dp(unit.Dp(width))
+		gtx.Constraints.Max.X = gtx.Constraints.Min.X
+		gtx.Constraints.Min.Y = gtx.Dp(unit.Dp(250))
+		gtx.Constraints.Max.Y = gtx.Constraints.Min.Y
+		return layout.UniformInset(8).Layout(gtx, widget)
 	})
 }

@@ -34,8 +34,8 @@ func (g *guiAuth) PollError(err error) error {
 }
 
 func (g *guiAuth) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
-	return layoutPopupBackground(gtx, th, "guiAuth", func(gtx layout.Context) layout.Dimensions {
-		return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+	return LayoutPopupBackground(gtx, th, "guiAuth", func(gtx C) D {
+		return layout.Center.Layout(gtx, func(gtx C) D {
 			return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
 				layout.Rigid(material.Body1(g.router.Theme, "Authenticate at: "+g.uri).Layout),
 				layout.Rigid(material.Body1(g.router.Theme, "Using Code: "+g.code).Layout),

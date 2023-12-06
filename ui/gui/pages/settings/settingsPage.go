@@ -13,11 +13,13 @@ import (
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
 	"gioui.org/x/outlay"
+	"github.com/bedrock-tool/bedrocktool/ui/gui/pages"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/sirupsen/logrus"
 )
 
 type settingsPage struct {
+	router  *pages.Router
 	cmd     commands.Command
 	f       *flag.FlagSet
 	widgets map[string]any
@@ -144,16 +146,7 @@ func (s *settingsPage) Layout(gtx layout.Context, th *material.Theme) layout.Dim
 		if index == 0 { // address input
 			w, ok := s.widgets["address"].(*addressInput)
 			if ok {
-				return layout.Flex{
-					Axis: layout.Vertical,
-				}.Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return w.Layout(gtx, th)
-					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						return w.LayoutRealms(gtx, th)
-					}),
-				)
+				return w.Layout(gtx, th, s.router)
 			}
 			return layout.Dimensions{}
 		}
@@ -162,7 +155,7 @@ func (s *settingsPage) Layout(gtx layout.Context, th *material.Theme) layout.Dim
 			for _, name := range s.flags {
 				name := name
 				if w, ok := s.widgets[name].(*widget.Bool); ok {
-					widgets = append(widgets, func(gtx layout.Context) layout.Dimensions {
+					widgets = append(widgets, func(gtx C) D {
 						return s.tooltips[name].Layout(gtx,
 							component.PlatformTooltip(th, s.hints[name]),
 							material.CheckBox(th, w, name).Layout,

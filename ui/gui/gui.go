@@ -123,7 +123,7 @@ func (g *GUI) loop(w *app.Window) error {
 			return e.Err
 		case system.FrameEvent:
 			gtx := layout.NewContext(&ops, e)
-			g.router.Layout(gtx, g.router.Theme)
+			g.router.Layout(gtx)
 			e.Frame(gtx.Ops)
 		}
 	}

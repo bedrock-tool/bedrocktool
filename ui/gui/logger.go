@@ -19,15 +19,18 @@ type logger struct {
 	list   widget.List
 }
 
+type C = layout.Context
+type D = layout.Dimensions
+
 func (l *logger) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
 	gtx.Constraints.Min = gtx.Constraints.Max
-	return layout.UniformInset(20).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+	return layout.UniformInset(20).Layout(gtx, func(gtx C) D {
 		component.Rect{
 			Color: color.NRGBA{A: 240},
 			Size:  gtx.Constraints.Max,
 			Radii: 15,
 		}.Layout(gtx)
-		return layout.UniformInset(8).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		return layout.UniformInset(8).Layout(gtx, func(gtx C) D {
 			return material.List(th, &l.list).Layout(gtx, len(l.lines), func(gtx layout.Context, index int) layout.Dimensions {
 				line := l.lines[index]
 				t := material.Body1(th, line.Message)
