@@ -176,7 +176,7 @@ func (w *worldsHandler) entityPackets(_pk packet.Packet) {
 				}
 			}
 
-			e.Metadata = metadata
+			maps.Copy(e.Metadata, metadata)
 			w.bp.AddEntity(behaviourpack.EntityIn{
 				Identifier: e.EntityType,
 				Attr:       nil,
