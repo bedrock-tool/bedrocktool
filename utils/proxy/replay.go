@@ -2,12 +2,12 @@ package proxy
 
 import (
 	"archive/zip"
+	"compress/flate"
 	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"maps"
 	"net"
 	"os"
@@ -24,8 +24,7 @@ import (
 
 type replayConnector struct {
 	f       *os.File
-	z       *zip.Reader
-	packetF fs.File
+	packetF io.Reader
 	ver     uint32
 
 	packets chan packet.Packet
@@ -210,37 +209,45 @@ func CreateReplayConnector(ctx context.Context, filename string, packetFunc Pack
 
 	logrus.Infof("Reading replay %s", filename)
 
-	// open zip
 	r.f, err = os.Open(filename)
 	if err != nil {
 		return nil, err
 	}
-	s, _ := r.f.Stat()
-	r.z, err = zip.NewReader(r.f, s.Size())
-	if err != nil {
-		return nil, err
-	}
 
-	f, err := r.z.Open("version")
+	var head = make([]byte, 16)
+	r.f.Read(head)
+	magic := string(head[0:4])
+	if magic != "BTCP" {
+		return nil, errors.New("capture is old format")
+	}
+	r.ver = binary.LittleEndian.Uint32(head[4:8])
+	zipSize := binary.LittleEndian.Uint64(head[8:16])
+
+	z, err := zip.NewReader(io.NewSectionReader(r.f, 16, int64(zipSize)), int64(zipSize))
 	if err != nil {
 		return nil, err
 	}
-	binary.Read(f, binary.LittleEndian, &r.ver)
-	//r.ver = 1
 
 	// read all packs
-	err = cache.ReadFrom(r.z)
+	err = cache.ReadFrom(z)
 	if err != nil {
 		return nil, err
 	}
 
-	// open packets bin
-	r.packetF, err = r.z.Open("packets.bin")
-	if err != nil {
-		return nil, err
+	if r.ver < 4 {
+		// open packets bin
+		r.packetF, err = z.Open("packets.bin")
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		r.f.Seek(int64(zipSize+16), 0)
+		fr := flate.NewReader(r.f)
+		if err != nil {
+			return nil, err
+		}
+		r.packetF = fr
 	}
-
-	//io.CopyN(io.Discard, r.packetF, 8)
 
 	go r.loop()
 	return r, nil

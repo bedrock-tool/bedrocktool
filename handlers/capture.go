@@ -3,6 +3,7 @@ package handlers
 import (
 	"archive/zip"
 	"bytes"
+	"compress/flate"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -26,14 +27,17 @@ func (p *packetCapturer) dumpPacket(toServer bool, payload []byte) {
 	binary.Write(p.wPacket, binary.LittleEndian, time.Now().UnixMilli())
 	p.wPacket.Write(payload)
 	p.wPacket.Write([]byte{0xBB, 0xBB, 0xBB, 0xBB})
+	if p.fw != nil {
+		p.fw.Flush()
+	}
 	p.dumpLock.Unlock()
 }
 
 type packetCapturer struct {
 	proxy    *proxy.Context
 	file     *os.File
-	zip      *zip.Writer
 	wPacket  io.Writer
+	fw       *flate.Writer
 	tempBuf  *bytes.Buffer
 	dumpLock sync.Mutex
 	hostname string
@@ -53,16 +57,6 @@ func (p *packetCapturer) OnServerConnect() (disconnect bool, err error) {
 	if err != nil {
 		return false, err
 	}
-	p.zip = zip.NewWriter(p.file)
-	if err != nil {
-		return false, err
-	}
-
-	f, err := p.zip.Create("version")
-	if err != nil {
-		return false, err
-	}
-	binary.Write(f, binary.LittleEndian, uint32(3))
 
 	packs := p.proxy.Server.ResourcePacks()
 	select {
@@ -71,38 +65,60 @@ func (p *packetCapturer) OnServerConnect() (disconnect bool, err error) {
 		return true, err
 	default:
 	}
-	written := make(map[string]bool)
-	for _, pack := range packs {
-		filename := filepath.Join("packcache", pack.UUID()+"_"+pack.Version()+".zip")
-		if _, ok := written[filename]; ok {
-			continue
-		}
-		logrus.Debugf("Writing %s to capture", pack.Name())
-		f, err := p.zip.CreateHeader(&zip.FileHeader{
-			Name:   filename,
-			Method: zip.Store,
-		})
+
+	p.file.WriteString("BTCP")
+	binary.Write(p.file, binary.LittleEndian, uint32(4))
+	binary.Write(p.file, binary.LittleEndian, uint64(0))
+
+	{
+		z := zip.NewWriter(p.file)
 		if err != nil {
-			panic(err)
+			return false, err
 		}
-		pack.WriteTo(f)
-		pack.Seek(0, 0)
-		written[filename] = true
+		z.SetOffset(16)
+
+		written := make(map[string]bool)
+		for _, pack := range packs {
+			filename := filepath.Join("packcache", pack.UUID()+"_"+pack.Version()+".zip")
+			if _, ok := written[filename]; ok {
+				continue
+			}
+			logrus.Debugf("Writing %s to capture", pack.Name())
+			f, err := z.CreateHeader(&zip.FileHeader{
+				Name:   filename,
+				Method: zip.Store,
+			})
+			if err != nil {
+				panic(err)
+			}
+			pack.WriteTo(f)
+			pack.Seek(0, 0)
+			written[filename] = true
+		}
+		err = z.Close()
+		if err != nil {
+			return false, err
+		}
+	}
+	// write size of zip
+	endZip, _ := p.file.Seek(0, 1)
+	p.file.Seek(8, 0)
+	binary.Write(p.file, binary.LittleEndian, uint64(endZip-16))
+	p.file.Seek(endZip, 0)
+
+	p.dumpLock.Lock()
+	fw, err := flate.NewWriter(p.file, 4)
+	if err != nil {
+		return false, err
 	}
 
-	// create the packets.bin file and dump already received packets into it
-	p.dumpLock.Lock()
-	// DO NOT OPEN ANY FILES IN THE ZIP AFTER THIS
-	f, err = p.zip.Create("packets.bin")
-	if err != nil {
-		panic(err)
-	}
-	_, err = p.tempBuf.WriteTo(f)
+	_, err = p.tempBuf.WriteTo(fw)
 	if err != nil {
 		panic(err)
 	}
 	p.tempBuf = nil
-	p.wPacket = f
+	p.wPacket = fw
+	p.fw = fw
 	p.dumpLock.Unlock()
 	return false, nil
 }
@@ -127,11 +143,8 @@ func NewPacketCapturer() *proxy.Handler {
 		OnEnd: func() {
 			p.dumpLock.Lock()
 			defer p.dumpLock.Unlock()
-			if p.zip != nil {
-				err := p.zip.Close()
-				if err != nil {
-					logrus.Error(err)
-				}
+			if p.file != nil {
+				p.fw.Close()
 				p.file.Close()
 			}
 		},
