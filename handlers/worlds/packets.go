@@ -27,12 +27,6 @@ func (w *worldsHandler) getEntity(id worldstate.EntityRuntimeID) (*worldstate.En
 }
 
 func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
-	select {
-	case err := <-w.err:
-		return nil, err
-	default:
-	}
-
 	// general / startup
 	switch pk := _pk.(type) {
 	case *packet.RequestChunkRadius:

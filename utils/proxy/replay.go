@@ -229,7 +229,7 @@ func CreateReplayConnector(ctx context.Context, filename string, packetFunc Pack
 		}
 	} else {
 		r.ver = binary.LittleEndian.Uint32(head[4:8])
-		zipSize := binary.LittleEndian.Uint64(head[8:16])
+		zipSize = binary.LittleEndian.Uint64(head[8:16])
 		z, err = zip.NewReader(io.NewSectionReader(r.f, 16, int64(zipSize)), int64(zipSize))
 		if err != nil {
 			return nil, err

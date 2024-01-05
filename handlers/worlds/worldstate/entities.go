@@ -73,9 +73,10 @@ func (w *worldEntities) SetBlockNBT(pos cube.Pos, m map[string]any, merge bool) 
 }
 
 func (w *World) saveEntities(exclude []string) error {
-	w.l.Lock()
-	defer w.l.Unlock()
-
+	provider, err := w.provider()
+	if err != nil {
+		return err
+	}
 	chunkEntities := make(map[world.ChunkPos][]world.Entity)
 	for _, es := range w.worldEntities.entities {
 		var ignore bool
@@ -96,7 +97,7 @@ func (w *World) saveEntities(exclude []string) error {
 	}
 
 	for cp, v := range chunkEntities {
-		err := w.provider.StoreEntities(cp, w.dimension, v)
+		err := provider.StoreEntities(cp, w.dimension, v)
 		if err != nil {
 			logrus.Error(err)
 		}
@@ -106,12 +107,16 @@ func (w *World) saveEntities(exclude []string) error {
 }
 
 func (w *World) saveBlockNBTs(dim world.Dimension) error {
+	provider, err := w.provider()
+	if err != nil {
+		return err
+	}
 	for cp, v := range w.worldEntities.blockNBTs {
 		vv := make(map[cube.Pos]world.Block, len(v))
 		for p, db := range v {
 			vv[p] = &db
 		}
-		err := w.provider.StoreBlockNBTs(cp, dim, vv)
+		err := provider.StoreBlockNBTs(cp, dim, vv)
 		if err != nil {
 			return err
 		}

@@ -82,7 +82,6 @@ type worldsHandler struct {
 	settings     WorldSettings
 	blockStates  []world.BlockState
 	customBlocks []protocol.BlockEntry
-	err          chan error
 }
 
 type itemContainer struct {
@@ -118,7 +117,6 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 			dimensions:         make(map[int]protocol.DimensionDefinition),
 		},
 		settings: settings,
-		err:      make(chan error),
 	}
 	w.mapUI = NewMapUI(w)
 	w.scripting = scripting.New()
@@ -315,7 +313,7 @@ func (w *worldsHandler) setVoidGen(val bool, fromUI bool) bool {
 func (w *worldsHandler) setWorldName(val string, fromUI bool) bool {
 	err := w.renameWorldState(val)
 	if err != nil {
-		w.err <- err
+		logrus.Error(err)
 		return false
 	}
 	w.proxy.SendMessage(locale.Loc("worldname_set", locale.Strmap{"Name": w.currentWorld.Name}))
@@ -374,7 +372,7 @@ func (w *worldsHandler) SaveAndReset(end bool, dim world.Dimension) {
 	}()
 }
 
-func (w *worldsHandler) saveWorldState(worldState *worldstate.World) {
+func (w *worldsHandler) saveWorldState(worldState *worldstate.World) error {
 	playerPos := w.proxy.Player.Position
 	spawnPos := cube.Pos{int(playerPos.X()), int(playerPos.Y()), int(playerPos.Z())}
 
@@ -395,18 +393,17 @@ func (w *worldsHandler) saveWorldState(worldState *worldstate.World) {
 
 	err := worldState.Finish(w.playerData(), w.settings.ExcludedMobs, spawnPos, w.proxy.Server.GameData(), w.bp)
 	if err != nil {
-		w.err <- err
-		return
+		return err
 	}
 	w.AddPacks(worldState.Folder)
 
 	// zip it
 	err = utils.ZipFolder(filename, worldState.Folder)
 	if err != nil {
-		w.err <- err
-		return
+		return err
 	}
 	logrus.Info(locale.Loc("saved", locale.Strmap{"Name": filename}))
+	return nil
 }
 
 func (w *worldsHandler) chunkCB(cp world.ChunkPos, c *chunk.Chunk) {

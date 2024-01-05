@@ -38,7 +38,7 @@ type World struct {
 	chunkFunc            func(world.ChunkPos, *chunk.Chunk)
 
 	l             sync.Mutex
-	provider      *mcdb.DB
+	provider      func() (*mcdb.DB, error)
 	worldEntities worldEntities
 	players       worldPlayers
 
@@ -63,7 +63,13 @@ func New(cf func(world.ChunkPos, *chunk.Chunk), dimensionDefinitions map[int]pro
 			players: make(map[uuid.UUID]*player),
 		},
 	}
-	w.initDeferred()
+	w.provider = sync.OnceValues(func() (*mcdb.DB, error) {
+		return mcdb.Config{
+			Log:         logrus.StandardLogger(),
+			Compression: opt.DefaultCompression,
+		}.Open(w.Folder)
+	})
+	w.PauseCapture()
 
 	return w, nil
 }
@@ -101,23 +107,14 @@ func (w *World) StoreChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cub
 			break
 		}
 	}
-	if !empty {
-		w.StoredChunks[pos] = true
+	if empty {
+		return nil
 	}
+	w.StoredChunks[pos] = true
 
 	if w.deferredState != nil {
 		w.deferredState.StoreChunk(pos, ch, blockNBT)
 	} else {
-		if w.provider == nil { // open provider on first chunk
-			w.provider, err = mcdb.Config{
-				Log:         logrus.StandardLogger(),
-				Compression: opt.DefaultCompression,
-			}.Open(w.Folder)
-			if err != nil {
-				return err
-			}
-		}
-
 		if len(blockNBT) > 0 {
 			if _, ok := w.worldEntities.blockNBTs[pos]; !ok {
 				w.worldEntities.blockNBTs[pos] = blockNBT
@@ -127,13 +124,17 @@ func (w *World) StoreChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cub
 		}
 
 		w.l.Lock()
-		err := w.provider.StoreColumn(pos, w.dimension, &world.Column{
+		defer w.l.Unlock()
+		provider, err := w.provider()
+		if err != nil {
+			return err
+		}
+		err = provider.StoreColumn(pos, w.dimension, &world.Column{
 			Chunk: ch,
 		})
 		if err != nil {
 			logrus.Error("storeChunk", err)
 		}
-		w.l.Unlock()
 	}
 	return nil
 }
@@ -143,7 +144,13 @@ func (m *World) LoadChunk(pos world.ChunkPos) (*chunk.Chunk, bool, error) {
 		c, ok := m.deferredState.chunks[pos]
 		return c, ok, nil
 	} else {
-		col, err := m.provider.LoadColumn(pos, m.dimension)
+		m.l.Lock()
+		defer m.l.Unlock()
+		provider, err := m.provider()
+		if err != nil {
+			return nil, false, err
+		}
+		col, err := provider.LoadColumn(pos, m.dimension)
 		if err != nil {
 			if errors.Is(err, leveldb.ErrNotFound) {
 				return nil, false, nil
@@ -189,7 +196,7 @@ func (w *World) AddEntityLink(el protocol.EntityLink) {
 	}
 }
 
-func (w *World) initDeferred() {
+func (w *World) PauseCapture() {
 	w.deferredState = &worldStateDefer{
 		chunks: make(map[world.ChunkPos]*chunk.Chunk),
 		worldEntities: worldEntities{
@@ -198,10 +205,6 @@ func (w *World) initDeferred() {
 			blockNBTs:   make(map[world.ChunkPos]map[cube.Pos]DummyBlock),
 		},
 	}
-}
-
-func (w *World) PauseCapture() {
-	w.initDeferred()
 }
 
 func (w *World) UnpauseCapture(around cube.Pos, radius int32, cf func(world.ChunkPos, *chunk.Chunk)) {
@@ -228,7 +231,11 @@ func (w *World) Open(name string, folder string, deferred bool) {
 func (w *World) Rename(name, folder string) error {
 	w.l.Lock()
 	defer w.l.Unlock()
-	err := w.provider.Close()
+	provider, err := w.provider()
+	if err != nil {
+		return err
+	}
+	err = provider.Close()
 	if err != nil {
 		return err
 	}
@@ -240,17 +247,19 @@ func (w *World) Rename(name, folder string) error {
 	w.Folder = folder
 	w.Name = name
 
-	w.provider, err = mcdb.Config{
-		Log:         logrus.StandardLogger(),
-		Compression: opt.DefaultCompression,
-	}.Open(w.Folder)
-	if err != nil {
-		return err
-	}
+	w.provider = sync.OnceValues(func() (*mcdb.DB, error) {
+		return mcdb.Config{
+			Log:         logrus.StandardLogger(),
+			Compression: opt.DefaultCompression,
+		}.Open(w.Folder)
+	})
 	return nil
 }
 
 func (w *World) Finish(playerData map[string]any, excludedMobs []string, spawn cube.Pos, gd minecraft.GameData, bp *behaviourpack.BehaviourPack) error {
+	w.l.Lock()
+	defer w.l.Unlock()
+
 	w.playersToEntities()
 
 	err := w.saveEntities(excludedMobs)
@@ -263,18 +272,23 @@ func (w *World) Finish(playerData map[string]any, excludedMobs []string, spawn c
 		return err
 	}
 
-	err = w.provider.SaveLocalPlayerData(playerData)
+	provider, err := w.provider()
+	if err != nil {
+		return err
+	}
+
+	err = provider.SaveLocalPlayerData(playerData)
 	if err != nil {
 		return err
 	}
 
 	// write metadata
-	s := w.provider.Settings()
+	s := provider.Settings()
 	s.Spawn = spawn
 	s.Name = w.Name
 
 	// set gamerules
-	ld := w.provider.LevelDat()
+	ld := provider.LevelDat()
 	ld.CheatsEnabled = true
 	ld.RandomSeed = int64(gd.WorldSeed)
 	for _, gr := range gd.GameRules {
@@ -370,6 +384,6 @@ func (w *World) Finish(playerData map[string]any, excludedMobs []string, spawn c
 		ld.Experiments["saved_with_toggled_experiments"] = true
 	}
 
-	w.provider.SaveSettings(s)
-	return w.provider.Close()
+	provider.SaveSettings(s)
+	return provider.Close()
 }
