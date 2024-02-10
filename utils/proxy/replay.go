@@ -227,6 +227,12 @@ func CreateReplayConnector(ctx context.Context, filename string, packetFunc Pack
 		if err != nil {
 			return nil, err
 		}
+		f, err := z.Open("version")
+		if err != nil {
+			return nil, err
+		}
+		binary.Read(f, binary.LittleEndian, &r.ver)
+		f.Close()
 	} else {
 		r.ver = binary.LittleEndian.Uint32(head[4:8])
 		zipSize := binary.LittleEndian.Uint64(head[8:16])
