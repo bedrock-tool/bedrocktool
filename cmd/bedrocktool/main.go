@@ -112,7 +112,7 @@ func main() {
 	}
 
 	ctx, cancel := context.WithCancelCause(context.Background())
-	utils.Auth.Ctx = ctx
+	utils.Auth.InitCtx(ctx)
 
 	flag.StringVar(&utils.RealmsEnv, "realms-env", "", "realms env")
 	flag.BoolVar(&utils.Options.Debug, "debug", false, locale.Loc("debug_mode", nil))

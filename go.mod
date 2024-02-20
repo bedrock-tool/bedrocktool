@@ -49,6 +49,7 @@ require (
 	github.com/df-mc/worldupgrader v1.0.12 // indirect
 	github.com/dlclark/regexp2 v1.10.0 // indirect
 	github.com/ftrvxmtrx/tga v0.0.0-20150524081124-bd8e8d5be13a // indirect
+	github.com/gioui-plugins/gio-plugins v0.0.0-20230625001848-8f18aae6c91c // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
 	github.com/go-text/typesetting v0.0.0-20231201171600-344014252a3f // indirect

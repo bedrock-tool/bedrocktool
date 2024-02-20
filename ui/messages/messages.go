@@ -117,3 +117,5 @@ type ProcessingPack struct {
 type UpdateAvailable struct {
 	Version string
 }
+
+type Exit struct{}

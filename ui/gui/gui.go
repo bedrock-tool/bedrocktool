@@ -22,6 +22,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/updater"
+	"github.com/gioui-plugins/gio-plugins/plugin"
 	"github.com/sirupsen/logrus"
 )
 
@@ -109,6 +110,8 @@ func (g *GUI) loop(w *app.Window) error {
 
 	for {
 		e := w.NextEvent()
+		plugin.Install(w, e)
+
 		if g.ctx.Err() != nil && !closing {
 			logrus.Info("Closing")
 			g.cancel(errors.New("Closing"))
