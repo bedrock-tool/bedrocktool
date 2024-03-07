@@ -15,6 +15,7 @@ require (
 	github.com/dop251/goja v0.0.0-20231027120936-b396bb4c349d
 	github.com/fatih/color v1.16.0
 	github.com/flytam/filenamify v1.2.0
+	github.com/gioui-plugins/gio-plugins v0.0.0-20230625001848-8f18aae6c91c
 	github.com/go-gl/mathgl v1.1.0
 	github.com/google/subcommands v1.2.0
 	github.com/google/uuid v1.5.0
@@ -34,6 +35,7 @@ require (
 	golang.org/x/exp v0.0.0-20231127185646-65229373498e
 	golang.org/x/exp/shiny v0.0.0-20231127185646-65229373498e
 	golang.org/x/oauth2 v0.15.0
+	golang.org/x/sys v0.15.0
 	golang.org/x/term v0.15.0
 	golang.org/x/text v0.14.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -49,7 +51,6 @@ require (
 	github.com/df-mc/worldupgrader v1.0.12 // indirect
 	github.com/dlclark/regexp2 v1.10.0 // indirect
 	github.com/ftrvxmtrx/tga v0.0.0-20150524081124-bd8e8d5be13a // indirect
-	github.com/gioui-plugins/gio-plugins v0.0.0-20230625001848-8f18aae6c91c // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-sourcemap/sourcemap v2.1.3+incompatible // indirect
 	github.com/go-text/typesetting v0.0.0-20231201171600-344014252a3f // indirect
@@ -70,7 +71,6 @@ require (
 	go.uber.org/atomic v1.11.0 // indirect
 	golang.org/x/image v0.14.0 // indirect
 	golang.org/x/net v0.19.0 // indirect
-	golang.org/x/sys v0.15.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/protobuf v1.32.0 // indirect
 	gopkg.in/square/go-jose.v2 v2.6.0 // indirect

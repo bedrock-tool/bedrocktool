@@ -1,14 +1,11 @@
 package pages
 
 import (
-	"net/url"
-
 	"gioui.org/layout"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
-	"github.com/gioui-plugins/gio-plugins/hyperlink/giohyperlink"
 )
 
 type guiAuth struct {
@@ -43,8 +40,7 @@ func (g *guiAuth) PollError(err error) error {
 
 func (g *guiAuth) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
 	if g.click.Clicked(gtx) {
-		_url, _ := url.Parse(g.uri)
-		giohyperlink.OpenOp{URI: _url}.Add(gtx.Ops)
+		openUrl(g.uri)
 	}
 
 	if g.close.Clicked(gtx) {
