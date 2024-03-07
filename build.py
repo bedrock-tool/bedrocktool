@@ -45,9 +45,9 @@ def clean():
             os.remove(f"./cmd/bedrocktool/{file}")
 
 def make_dirs():
-    os.mkdir("./tmp")
-    os.mkdir("./builds")
-    os.mkdir("./updates")
+    os.makedirs("./tmp", exist_ok=True)
+    os.makedirs("./builds", exist_ok=True)
+    os.makedirs("./updates", exist_ok=True)
 
 
 def build_cli(platform: str, arch: str, env_in: dict[str,str], tags: list[str], ldflags, compiled_path: str):

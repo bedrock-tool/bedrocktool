@@ -6,6 +6,7 @@ import (
 
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/updater"
 	"github.com/google/subcommands"
 )
 
@@ -16,6 +17,10 @@ func (c *CLI) Init() bool {
 }
 
 func (c *CLI) Start(ctx context.Context, cancel context.CancelCauseFunc) error {
+	isDebug := updater.Version == ""
+	if !isDebug {
+		go updater.UpdateCheck(c)
+	}
 	flag.Parse()
 	subcommands.Execute(ctx, c)
 	cancel(nil)

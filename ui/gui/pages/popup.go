@@ -4,7 +4,6 @@ import (
 	"image"
 	"image/color"
 
-	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
@@ -21,15 +20,6 @@ type Popup interface {
 }
 
 func LayoutPopupBackground(gtx layout.Context, th *material.Theme, tag string, widget layout.Widget) layout.Dimensions {
-	// block events to other stacked below this
-	pointer.InputOp{
-		Tag:   tag,
-		Kinds: pointer.Press | pointer.Release,
-	}.Add(gtx.Ops)
-	for _, ev := range gtx.Queue.Events(tag) {
-		_ = ev
-	}
-
 	paint.ColorOp{Color: color.NRGBA{A: 170}}.Add(gtx.Ops)
 	paint.PaintOp{}.Add(gtx.Ops)
 

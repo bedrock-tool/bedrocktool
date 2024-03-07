@@ -61,10 +61,14 @@ func (m *mapInput) Layout(gtx layout.Context) func() {
 	}
 	m.center = f32.Pt(float32(gtx.Constraints.Max.X), float32(gtx.Constraints.Max.Y)).Div(2)
 
-	for _, e := range gtx.Events(m) {
-		if e, ok := e.(pointer.Event); ok {
-			m.HandlePointerEvent(e)
-		}
+	size := gtx.Constraints.Max
+	ev, ok := gtx.Event(pointer.Filter{
+		Target:       m,
+		Kinds:        pointer.Scroll | pointer.Drag | pointer.Press | pointer.Release,
+		ScrollBounds: image.Rect(-size.X, -size.Y, size.X, size.Y),
+	})
+	if ok {
+		m.HandlePointerEvent(ev.(pointer.Event))
 	}
 
 	return func() {
@@ -75,14 +79,6 @@ func (m *mapInput) Layout(gtx layout.Context) func() {
 				pointer.CursorGrab.Add(gtx.Ops)
 			}
 		}
-
-		size := gtx.Constraints.Max
-		pointer.InputOp{
-			Tag:          m,
-			Grab:         true,
-			Kinds:        pointer.Scroll | pointer.Drag | pointer.Press | pointer.Release,
-			ScrollBounds: image.Rect(-size.X, -size.Y, size.X, size.Y),
-		}.Add(gtx.Ops)
 	}
 }
 

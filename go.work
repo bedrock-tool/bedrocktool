@@ -3,7 +3,5 @@ go 1.21
 use (
 	.
 	./dragonfly
-	./gio
-	./goleveldb
 	./gophertunnel
 )

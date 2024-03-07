@@ -7,7 +7,6 @@ import (
 
 	"gioui.org/app"
 	"gioui.org/font/gofont"
-	"gioui.org/io/system"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/text"
@@ -22,7 +21,6 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/updater"
-	"github.com/gioui-plugins/gio-plugins/plugin"
 	"github.com/sirupsen/logrus"
 )
 
@@ -39,6 +37,15 @@ func (g *GUI) Init() bool {
 			Axis: layout.Vertical,
 		},
 	}
+	g.router = pages.NewRouter()
+	g.router.UI = g
+	g.router.Register(settings.New, settings.ID)
+	g.router.Register(worlds.New, worlds.ID)
+	g.router.Register(skins.New, skins.ID)
+	g.router.Register(packs.New, packs.ID)
+	g.logger.router = g.router
+	g.router.LogWidget = g.logger.Layout
+	utils.Auth.MSHandler = g.router.MSAuth
 	return true
 }
 
@@ -57,6 +64,7 @@ var paletteDark = material.Palette{
 }
 
 func (g *GUI) Start(ctx context.Context, cancel context.CancelCauseFunc) (err error) {
+	g.router.Ctx = ctx
 	g.ctx = ctx
 	g.cancel = cancel
 
@@ -73,27 +81,22 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelCauseFunc) (err er
 		_th := th.WithPalette(paletteLight)
 		th = &_th
 	}
+	g.router.Theme = th
 
-	w := app.NewWindow(
-		app.Title("Bedrocktool " + updater.Version),
-	)
-
-	g.router = pages.NewRouter(ctx, w.Invalidate, th)
-	g.router.UI = g
-	g.router.Register(settings.New, settings.ID)
-	g.router.Register(worlds.New, worlds.ID)
-	g.router.Register(skins.New, skins.ID)
-	g.router.Register(packs.New, packs.ID)
+	w := app.NewWindow()
+	g.router.Invalidate = w.Invalidate
+	logrus.AddHook(&g.logger)
 	g.router.SwitchTo(settings.ID)
 
-	g.logger.router = g.router
-	g.router.LogWidget = g.logger.Layout
-	logrus.AddHook(&g.logger)
-
-	utils.Auth.MSHandler = g.router.MSAuth
+	isDebug := updater.Version == ""
+	if !isDebug {
+		w.Option(app.Title("Bedrocktool " + updater.Version))
+		go updater.UpdateCheck(g)
+	}
 
 	go func() {
 		app.Main()
+
 	}()
 
 	return g.loop(w)
@@ -110,7 +113,6 @@ func (g *GUI) loop(w *app.Window) error {
 
 	for {
 		e := w.NextEvent()
-		plugin.Install(w, e)
 
 		if g.ctx.Err() != nil && !closing {
 			logrus.Info("Closing")
@@ -119,13 +121,13 @@ func (g *GUI) loop(w *app.Window) error {
 			closing = true
 		}
 		switch e := e.(type) {
-		case system.DestroyEvent:
+		case app.DestroyEvent:
 			logrus.Info("Closing")
 			g.cancel(errors.New("Closing"))
 			g.router.Wg.Wait()
 			return e.Err
-		case system.FrameEvent:
-			gtx := layout.NewContext(&ops, e)
+		case app.FrameEvent:
+			gtx := app.NewContext(&ops, e)
 			g.router.Layout(gtx)
 			e.Frame(gtx.Ops)
 		}

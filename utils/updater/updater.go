@@ -10,7 +10,11 @@ import (
 	"runtime"
 	"sync"
 
+	"github.com/bedrock-tool/bedrocktool/locale"
+	"github.com/bedrock-tool/bedrocktool/ui"
+	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/shirou/gopsutil/v3/mem"
+	"github.com/sirupsen/logrus"
 )
 
 var Version string
@@ -78,4 +82,18 @@ func UpdateAvailable() (*Update, error) {
 
 	updateAvailable = &update
 	return updateAvailable, nil
+}
+
+func UpdateCheck(ui ui.UI) {
+	update, err := UpdateAvailable()
+	if err != nil {
+		logrus.Warn(err)
+		return
+	}
+	isNew := update.Version != Version
+
+	if isNew {
+		logrus.Infof(locale.Loc("update_available", locale.Strmap{"Version": update.Version}))
+		ui.Message(messages.UpdateAvailable{Version: update.Version})
+	}
 }

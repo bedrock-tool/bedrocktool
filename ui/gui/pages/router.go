@@ -24,12 +24,14 @@ import (
 )
 
 type Router struct {
-	UI         ui.UI
-	ctx        context.Context
-	Wg         sync.WaitGroup
-	MSAuth     *guiAuth
-	Invalidate func()
-	LogWidget  func(C, *material.Theme) D
+	UI           ui.UI
+	Ctx          context.Context
+	cmdCtx       context.Context
+	cmdCtxCancel context.CancelFunc
+	Wg           sync.WaitGroup
+	MSAuth       *guiAuth
+	Invalidate   func()
+	LogWidget    func(C, *material.Theme) D
 
 	Theme   *material.Theme
 	pages   map[string]func(*Router) Page
@@ -51,23 +53,19 @@ type Router struct {
 	popups []Popup
 }
 
-func NewRouter(ctx context.Context, invalidate func(), th *material.Theme) *Router {
+func NewRouter() *Router {
 	modal := component.NewModal()
 
 	nav := component.NewNav("Navigation Drawer", "This is an example.")
 	modalNav := component.ModalNavFrom(&nav, modal)
 
 	bar := component.NewAppBar(modal)
-	//bar.NavigationIcon = icon.MenuIcon
 
 	na := component.VisibilityAnimation{
 		State:    component.Invisible,
 		Duration: time.Millisecond * 250,
 	}
 	r := &Router{
-		ctx:            ctx,
-		Invalidate:     invalidate,
-		Theme:          th,
 		pages:          make(map[string]func(*Router) Page),
 		MSAuth:         &guiAuth{},
 		ModalLayer:     modal,
@@ -228,11 +226,15 @@ func (r *Router) Handler(data interface{}) messages.Response {
 	case messages.UpdateAvailable:
 		r.updateAvailable = true
 		r.setActions()
-		r.Invalidate()
+		if r.Invalidate != nil {
+			r.Invalidate()
+		}
 	case messages.ConnectState:
 		if data == messages.ConnectStateBegin {
 			r.PushPopup(NewConnect(r))
 		}
+	case messages.Exit:
+		r.exitCommand()
 	}
 
 	for _, p := range r.popups {
@@ -246,6 +248,7 @@ func (r *Router) Execute(cmd commands.Command) {
 	r.Wg.Add(1)
 	go func() {
 		defer r.Wg.Done()
+		r.cmdCtx, r.cmdCtxCancel = context.WithCancel(r.Ctx)
 
 		recovery.ErrorHandler = func(err error) {
 			utils.PrintPanic(err)
@@ -261,7 +264,7 @@ func (r *Router) Execute(cmd commands.Command) {
 			}
 		}()
 
-		err := cmd.Execute(r.ctx, r.UI)
+		err := cmd.Execute(r.cmdCtx, r.UI)
 		if err != nil {
 			logrus.Error(err)
 			r.PushPopup(NewErrorPopup(r, err, func() {
@@ -270,4 +273,10 @@ func (r *Router) Execute(cmd commands.Command) {
 			}, false))
 		}
 	}()
+}
+
+func (r *Router) exitCommand() {
+	if r.cmdCtxCancel != nil {
+		r.cmdCtxCancel()
+	}
 }

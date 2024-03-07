@@ -1,3 +1,4 @@
+//go:build false
 // experimental 3d stuff
 
 package worlds

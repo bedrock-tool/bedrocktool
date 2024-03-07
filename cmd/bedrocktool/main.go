@@ -13,7 +13,6 @@ import (
 
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/ui"
-	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/bedrock-tool/bedrocktool/utils/updater"
@@ -43,20 +42,6 @@ func selectUI() ui.UI {
 		ui = uis["cli"]
 	}
 	return ui
-}
-
-func updateCheck(ui ui.UI) {
-	update, err := updater.UpdateAvailable()
-	if err != nil {
-		logrus.Warn(err)
-		return
-	}
-	isNew := update.Version != updater.Version
-
-	if isNew {
-		logrus.Infof(locale.Loc("update_available", locale.Strmap{"Version": update.Version}))
-		ui.Message(messages.UpdateAvailable{Version: update.Version})
-	}
 }
 
 func main() {
@@ -127,10 +112,6 @@ func main() {
 	subcommands.HelpCommand()
 
 	ui := selectUI()
-
-	if !isDebug {
-		go updateCheck(ui)
-	}
 
 	// exit cleanup
 	sigs := make(chan os.Signal, 1)

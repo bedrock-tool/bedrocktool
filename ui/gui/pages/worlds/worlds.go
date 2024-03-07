@@ -24,8 +24,8 @@ const ID = "worlds"
 type Page struct {
 	router *pages.Router
 
-	worldMap   *Map2
-	Map3       *Map3
+	worldMap *Map2
+	//Map3       *Map3
 	worlds     []*messages.SavedWorld
 	worldsList widget.List
 	l          sync.Mutex
@@ -44,7 +44,7 @@ func New(router *pages.Router) pages.Page {
 			images:   make(map[image.Point]*image.RGBA),
 			imageOps: make(map[image.Point]paint.ImageOp),
 		},
-		Map3: NewMap3(),
+		//Map3: NewMap3(),
 		worldsList: widget.List{
 			List: layout.List{
 				Axis: layout.Vertical,
@@ -153,7 +153,7 @@ func (u *Page) Handler(data any) messages.Response {
 		u.router.Invalidate()
 		r.Ok = true
 	case messages.MapLookup:
-		u.Map3.SetLookupTexture(m.Lookup)
+		//u.Map3.SetLookupTexture(m.Lookup)
 	case messages.SetVoidGen:
 		u.voidGen = m.Value
 		u.router.Invalidate()
