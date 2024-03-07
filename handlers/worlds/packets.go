@@ -21,9 +21,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func (w *worldsHandler) getEntity(id worldstate.EntityRuntimeID) (*worldstate.EntityState, bool) {
-	e, ok := w.currentWorld.GetEntity(id)
-	return e, ok
+func (w *worldsHandler) getEntity(id worldstate.EntityRuntimeID) *worldstate.EntityState {
+	return w.currentWorld.GetEntity(id)
 }
 
 func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
@@ -55,7 +54,7 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 					w.bp.AddBlock(be)
 				}
 				// telling the chunk code what custom blocks there are so it can generate offsets
-				w.blockStates = world.InsertCustomBlocks(pk.Blocks)
+				world.InsertCustomBlocks(pk.Blocks)
 				w.customBlocks = pk.Blocks
 			}
 
@@ -156,8 +155,7 @@ func (w *worldsHandler) entityPackets(_pk packet.Packet) {
 		}, w.bp.AddEntity)
 
 	case *packet.SetActorData:
-		e, ok := w.getEntity(pk.EntityRuntimeID)
-		if ok {
+		if e := w.getEntity(pk.EntityRuntimeID); e != nil {
 			metadata := make(protocol.EntityMetadata)
 			maps.Copy(metadata, pk.EntityMetadata)
 			if w.scripting.CB.OnEntityDataUpdate != nil {
@@ -179,14 +177,12 @@ func (w *worldsHandler) entityPackets(_pk packet.Packet) {
 		}
 
 	case *packet.SetActorMotion:
-		e, ok := w.getEntity(pk.EntityRuntimeID)
-		if ok {
+		if e := w.getEntity(pk.EntityRuntimeID); e != nil {
 			e.Velocity = pk.Velocity
 		}
 
 	case *packet.MoveActorDelta:
-		e, ok := w.getEntity(pk.EntityRuntimeID)
-		if ok {
+		if e := w.getEntity(pk.EntityRuntimeID); e != nil {
 			if pk.Flags&packet.MoveActorDeltaFlagHasX != 0 {
 				e.Position[0] = pk.Position[0]
 			}
@@ -205,16 +201,14 @@ func (w *worldsHandler) entityPackets(_pk packet.Packet) {
 		}
 
 	case *packet.MoveActorAbsolute:
-		e, ok := w.getEntity(pk.EntityRuntimeID)
-		if ok {
+		if e := w.getEntity(pk.EntityRuntimeID); e != nil {
 			e.Position = pk.Position
 			e.Pitch = pk.Rotation.X()
 			e.Yaw = pk.Rotation.Y()
 		}
 
 	case *packet.MobEquipment:
-		e, ok := w.getEntity(pk.EntityRuntimeID)
-		if ok {
+		if e := w.getEntity(pk.EntityRuntimeID); e != nil {
 			w, ok := e.Inventory[pk.WindowID]
 			if !ok {
 				w = make(map[byte]protocol.ItemInstance)
@@ -224,8 +218,7 @@ func (w *worldsHandler) entityPackets(_pk packet.Packet) {
 		}
 
 	case *packet.MobArmourEquipment:
-		e, ok := w.getEntity(pk.EntityRuntimeID)
-		if ok {
+		if e := w.getEntity(pk.EntityRuntimeID); e != nil {
 			e.Helmet = &pk.Helmet
 			e.Chestplate = &pk.Chestplate
 			e.Leggings = &pk.Chestplate

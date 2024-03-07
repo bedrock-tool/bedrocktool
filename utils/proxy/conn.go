@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"time"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
@@ -75,24 +74,21 @@ func (p *Context) connectServer(ctx context.Context) (err error) {
 }
 
 func (p *Context) connectClient(ctx context.Context, serverAddress string) (err error) {
-	clientDebugLog := false
-	var d *Handler
-	if clientDebugLog {
-		d = NewDebugLogger(true, true)
+	var extraClientDebug func(pk packet.Packet)
+	var extraClientDebugEnd func()
+	if p.ExtraDebug {
+		extraClientDebug, extraClientDebugEnd = newExtraDebug("packets-client.log")
 	}
 
 	p.listener, err = minecraft.ListenConfig{
 		StatusProvider: minecraft.NewStatusProvider(fmt.Sprintf("%s Proxy", serverAddress)),
 		PacketFunc: func(header packet.Header, payload []byte, src, dst net.Addr) {
-			if !clientDebugLog {
-				return
-			}
-			if dst.String() == "[::]:19132" || src.String() == "[::]:19132" {
+			if extraClientDebug != nil {
 				pk, ok := DecodePacket(header, payload)
 				if !ok {
 					return
 				}
-				d.PacketCB(pk, dst.String() == "[::]:19132", time.Now(), true)
+				extraClientDebug(pk)
 			}
 		},
 		OnClientData: func(c *minecraft.Conn) {
@@ -118,6 +114,9 @@ func (p *Context) connectClient(ctx context.Context, serverAddress string) (err 
 
 	go func() {
 		<-ctx.Done()
+		if extraClientDebugEnd != nil {
+			extraClientDebugEnd()
+		}
 		if !accepted {
 			_ = p.listener.Close()
 		}

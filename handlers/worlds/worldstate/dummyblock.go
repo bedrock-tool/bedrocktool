@@ -2,6 +2,7 @@ package worldstate
 
 import (
 	"image/color"
+	"math"
 
 	"github.com/df-mc/dragonfly/server/world"
 )
@@ -15,8 +16,12 @@ func (d *DummyBlock) EncodeBlock() (string, map[string]any) {
 	return d.ID, d.NBT
 }
 
-func (d *DummyBlock) Hash() uint64 {
+func (d *DummyBlock) BaseHash() uint64 {
 	return 0
+}
+
+func (d *DummyBlock) Hash() uint64 {
+	return math.MaxUint64
 }
 
 func (d *DummyBlock) Model() world.BlockModel {

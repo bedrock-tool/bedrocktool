@@ -80,7 +80,6 @@ type worldsHandler struct {
 
 	serverState  serverState
 	settings     WorldSettings
-	blockStates  []world.BlockState
 	customBlocks []protocol.BlockEntry
 }
 
@@ -89,10 +88,12 @@ type itemContainer struct {
 	Content    *packet.InventoryContent
 }
 
+// resets dragonfly globals
 func resetGlobals() {
 	world.ClearStates()
 	world.LoadBlockStates()
 	block.InitBlocks()
+	world.FinaliseBlockRegistry()
 	world.ResetBiomes()
 }
 

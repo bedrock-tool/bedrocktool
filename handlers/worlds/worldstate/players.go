@@ -33,7 +33,7 @@ func (w *World) AddPlayer(pk *packet.AddPlayer) {
 
 func (w *World) playersToEntities() {
 	for _, p := range w.players.players {
-		w.worldEntities.StoreEntity(p.add.EntityRuntimeID, &EntityState{
+		w.currState().StoreEntity(p.add.EntityRuntimeID, &EntityState{
 			RuntimeID:  p.add.EntityRuntimeID,
 			UniqueID:   int64(p.add.EntityRuntimeID),
 			EntityType: "bedrocktool:fake_player",

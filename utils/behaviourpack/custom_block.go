@@ -102,6 +102,33 @@ func parseBlock(block protocol.BlockEntry) MinecraftBlock {
 					if m, ok := v["materials"].(map[string]any); ok {
 						comps[k] = m
 					}
+					materials := comps[k].(map[string]any)
+					for _, material := range materials {
+						material, ok := material.(map[string]any)
+						if !ok {
+							continue
+						}
+						for prop, value := range material {
+							switch prop {
+							case "ambient_occlusion", "face_dimming":
+								if value, ok := value.(uint8); ok {
+									material[prop] = value > 0
+								}
+							}
+						}
+					}
+					if _, ok := materials["*"]; !ok {
+						up, ok := materials["up"]
+						if ok {
+							materials["*"] = up
+						} else {
+							for _, side := range materials {
+								materials["*"] = side
+								break
+							}
+						}
+
+					}
 				}
 				// fix {"identifier": "name"} -> "name"
 				if v, ok := v["identifier"]; ok {

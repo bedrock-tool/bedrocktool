@@ -64,8 +64,8 @@ func (e serverEntity) Type() world.EntityType {
 }
 
 func (w *World) ProcessAddActor(pk *packet.AddActor, ignoreCB func(*EntityState) bool, bpCB func(behaviourpack.EntityIn)) {
-	e, ok := w.GetEntity(pk.EntityRuntimeID)
-	if !ok {
+	e := w.GetEntity(pk.EntityRuntimeID)
+	if e == nil {
 		e = &EntityState{
 			RuntimeID:  pk.EntityRuntimeID,
 			UniqueID:   pk.EntityUniqueID,
