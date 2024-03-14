@@ -29,6 +29,7 @@ type GUI struct {
 	ctx    context.Context
 	cancel context.CancelCauseFunc
 	logger logger
+	th     *material.Theme
 }
 
 func (g *GUI) Init() bool {
@@ -79,7 +80,7 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelCauseFunc) (err er
 		_th := th.WithPalette(paletteLight)
 		th = &_th
 	}
-	g.router.Theme = th
+	g.th = th
 
 	w := app.NewWindow()
 	w.Option(app.Title("Bedrocktool " + updater.Version))
@@ -125,7 +126,7 @@ func (g *GUI) loop(w *app.Window) error {
 			return e.Err
 		case app.FrameEvent:
 			gtx := app.NewContext(&ops, e)
-			g.router.Layout(gtx)
+			g.router.Layout(gtx, g.th)
 			e.Frame(gtx.Ops)
 		}
 	}

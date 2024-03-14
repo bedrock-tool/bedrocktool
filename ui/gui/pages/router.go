@@ -21,6 +21,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
+	"github.com/bedrock-tool/bedrocktool/utils/updater"
 	"github.com/gregwebs/go-recovery"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
@@ -28,6 +29,7 @@ import (
 
 type Router struct {
 	ui           ui.UI
+	th           *material.Theme
 	Ctx          context.Context
 	cmdCtx       context.Context
 	cmdCtxCancel context.CancelFunc
@@ -36,7 +38,6 @@ type Router struct {
 	Invalidate   func()
 	LogWidget    func(layout.Context, *material.Theme) layout.Dimensions
 
-	Theme       *material.Theme
 	pages       map[string]func(ui.UI) Page
 	currentPage Page
 
@@ -45,7 +46,6 @@ type Router struct {
 	AppBar         *component.AppBar
 	ModalLayer     *component.ModalLayer
 	NonModalDrawer bool
-	BottomBar      bool
 
 	updateButton    widget.Clickable
 	updateAvailable bool
@@ -123,7 +123,8 @@ func (r *Router) RemovePopup(id string) {
 	r.Invalidate()
 }
 
-func (r *Router) Layout(gtx layout.Context) layout.Dimensions {
+func (r *Router) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
+	r.th = th
 	if r.updateButton.Clicked(gtx) {
 		p := r.GetPopup("update")
 		if p == nil {
@@ -154,58 +155,55 @@ func (r *Router) Layout(gtx layout.Context) layout.Dimensions {
 	if r.ModalNavDrawer.NavDestinationChanged() {
 		r.SwitchTo(r.ModalNavDrawer.CurrentNavDestination().(string))
 	}
-	paint.Fill(gtx.Ops, r.Theme.Palette.Bg)
+	paint.Fill(gtx.Ops, th.Palette.Bg)
 
 	content := layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
 		return layout.Flex{}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 				gtx.Constraints.Max.X /= 3
-				return r.ModalNavDrawer.NavDrawer.Layout(gtx, r.Theme, &r.NavAnim)
+				return r.ModalNavDrawer.NavDrawer.Layout(gtx, th, &r.NavAnim)
 			}),
 			layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
-				d := r.currentPage.Layout(gtx, r.Theme)
+				d := r.currentPage.Layout(gtx, th)
 
 				for _, p := range r.popups {
-					p.Layout(gtx, r.Theme)
+					p.Layout(gtx, th)
 				}
 
 				if r.logToggle.Value {
-					r.LogWidget(gtx, r.Theme)
+					r.LogWidget(gtx, th)
 				}
 				return d
 			}),
 		)
 	})
 	bar := layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-		return r.AppBar.Layout(gtx, r.Theme, "Menu", "Actions")
+		return r.AppBar.Layout(gtx, th, "Menu", "Actions")
 	})
-	flex := layout.Flex{Axis: layout.Vertical}
-	if r.BottomBar {
-		flex.Layout(gtx, content, bar)
-	} else {
-		flex.Layout(gtx, bar, content)
-	}
-	r.ModalLayer.Layout(gtx, r.Theme)
+	layout.Flex{Axis: layout.Vertical}.Layout(gtx, bar, content)
+	r.ModalLayer.Layout(gtx, th)
 	return layout.Dimensions{Size: gtx.Constraints.Max}
 }
 
 func (r *Router) setActions() {
 	var extra []component.AppBarAction
-	extra = append(extra, component.AppBarAction{Layout: func(gtx layout.Context, bg, fg color.NRGBA) layout.Dimensions {
-		return layout.UniformInset(5).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-			return layout.Flex{
-				Axis:      layout.Horizontal,
-				Alignment: layout.Middle,
-			}.Layout(gtx,
-				layout.Rigid(material.Switch(r.Theme, &r.logToggle, "logs").Layout),
-				layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-					l := material.Label(r.Theme, 12, "Logs")
-					l.Alignment = text.Middle
-					return layout.UniformInset(5).Layout(gtx, l.Layout)
-				}),
-			)
-		})
-	}})
+	extra = append(extra, component.AppBarAction{
+		Layout: func(gtx layout.Context, bg, fg color.NRGBA) layout.Dimensions {
+			return layout.UniformInset(5).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{
+					Axis:      layout.Horizontal,
+					Alignment: layout.Middle,
+				}.Layout(gtx,
+					layout.Rigid(material.Switch(r.th, &r.logToggle, "logs").Layout),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						l := material.Label(r.th, 12, "Logs")
+						l.Alignment = text.Middle
+						return layout.UniformInset(5).Layout(gtx, l.Layout)
+					}),
+				)
+			})
+		},
+	})
 
 	if r.updateAvailable {
 		extra = append(extra, component.SimpleIconAction(&r.updateButton, &icons.ActionUpdate, component.OverflowAction{}))
@@ -218,7 +216,7 @@ func (r *Router) setActions() {
 }
 
 func (r *Router) HandleMessage(msg *messages.Message) *messages.Message {
-	if true {
+	if updater.Version == "" {
 		tm := reflect.TypeOf(msg.Data)
 		logrus.Debugf("Message from: %s, %s", msg.Source, tm.String())
 	}

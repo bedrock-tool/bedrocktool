@@ -65,7 +65,7 @@ func (s *settingsPage) Init() {
 				e.Filter = "0123456789"
 				e.InputHint = key.HintNumeric
 				if f.DefValue == "0" {
-					e.SetText("")
+					e.SetText("0")
 				}
 			}
 			s.widgets[f.Name] = e
@@ -98,6 +98,7 @@ func (s *settingsPage) Init() {
 		}
 	})
 
+	println(hasAddress)
 	if hasAddress {
 		s.flags = append([]string{"address"}, s.flags...)
 	}
@@ -114,6 +115,15 @@ func (s *settingsPage) Valid() bool {
 	return true
 }
 
+type settingError struct {
+	name string
+	err  error
+}
+
+func (e settingError) Error() string {
+	return fmt.Sprintf("%s: %s", e.name, e.err)
+}
+
 func (s *settingsPage) Apply() error {
 	for k, set := range s.setters {
 		w := s.widgets[k]
@@ -124,15 +134,15 @@ func (s *settingsPage) Apply() error {
 				v = "true"
 			}
 			if err := set(v); err != nil {
-				return err
+				return settingError{name: k, err: err}
 			}
 		case *component.TextField:
 			if err := set(w.Text()); err != nil {
-				return err
+				return settingError{name: k, err: err}
 			}
 		case *addressInput:
 			if err := set(w.Value()); err != nil {
-				return err
+				return settingError{name: k, err: err}
 			}
 		default:
 			return errors.New("unknown widget " + k)

@@ -4,6 +4,7 @@ import (
 	"image"
 	"image/draw"
 	"math"
+	"sync"
 
 	"gioui.org/f32"
 	"gioui.org/io/pointer"
@@ -31,6 +32,7 @@ type Map2 struct {
 
 	images   map[image.Point]*image.RGBA
 	imageOps map[image.Point]paint.ImageOp
+	l        sync.Mutex
 }
 
 func (m *mapInput) HandlePointerEvent(e pointer.Event) {
@@ -85,6 +87,8 @@ func (m *mapInput) Layout(gtx layout.Context) func() {
 func (m *Map2) Layout(gtx layout.Context) layout.Dimensions {
 	defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
 	defer m.mapInput.Layout(gtx)()
+	m.l.Lock()
+	defer m.l.Unlock()
 
 	for p, imageOp := range m.imageOps {
 		scaledSize := tileSize * m.mapInput.scaleFactor
@@ -131,6 +135,8 @@ func chunkPosToTilePos(cp protocol.ChunkPos) (tile image.Point, offset image.Poi
 }
 
 func (m *Map2) Update(u *messages.UpdateMap) {
+	m.l.Lock()
+	defer m.l.Unlock()
 	if u.ChunkCount == -1 {
 		m.images = make(map[image.Point]*image.RGBA)
 		m.imageOps = make(map[image.Point]paint.ImageOp)

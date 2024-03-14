@@ -12,6 +12,7 @@ import (
 	"gioui.org/x/component"
 	"github.com/bedrock-tool/bedrocktool/ui"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages"
+	"github.com/bedrock-tool/bedrocktool/ui/gui/popups"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/sirupsen/logrus"
@@ -45,7 +46,7 @@ type Page struct {
 }
 
 func New(ui ui.UI) pages.Page {
-	AddressInput.Init(ui)
+	AddressInput.ui = ui
 
 	p := &Page{
 		ui:       ui,
@@ -111,14 +112,22 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 			}
 
 			settingsUI := p.settings[p.cmdMenu.selected]
-			settingsUI.Apply()
-
-			p.ui.HandleMessage(&messages.Message{
-				Source: p.ID(),
-				Data: messages.StartSubcommand{
-					Command: cmd,
-				},
-			})
+			err := settingsUI.Apply()
+			if err != nil {
+				p.ui.HandleMessage(&messages.Message{
+					Source: p.ID(),
+					Data: messages.ShowPopup{
+						Popup: popups.NewErrorPopup(p.ui, err, func() {}, false),
+					},
+				})
+			} else {
+				p.ui.HandleMessage(&messages.Message{
+					Source: p.ID(),
+					Data: messages.StartSubcommand{
+						Command: cmd,
+					},
+				})
+			}
 		}
 	}
 
