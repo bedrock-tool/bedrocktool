@@ -312,7 +312,10 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 		}
 	}
 
-	p.ui.Message(messages.ConnectStateBegin)
+	p.ui.HandleMessage(&messages.Message{
+		Source: "proxy",
+		Data:   messages.ConnectStateBegin,
+	})
 
 	// setup Client and Server Connections
 	wg := sync.WaitGroup{}
@@ -439,7 +442,10 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 		}
 	}
 
-	p.ui.Message(messages.ConnectState(messages.ConnectStateDone))
+	p.ui.HandleMessage(&messages.Message{
+		Source: "proxy",
+		Data:   messages.ConnectStateDone,
+	})
 
 	{ // packet loop
 		doProxy := func(client bool) {
@@ -535,7 +541,10 @@ func (p *Context) Run(ctx context.Context, connectString string) (err error) {
 				handler.Deferred()
 			}
 		}
-		p.ui.Message(messages.SetUIState(messages.UIStateFinished))
+		p.ui.HandleMessage(&messages.Message{
+			Source: "proxy",
+			Data:   messages.UIStateFinished,
+		})
 	}()
 
 	// load forced packs

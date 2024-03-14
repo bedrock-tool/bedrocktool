@@ -14,6 +14,7 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
+	"github.com/bedrock-tool/bedrocktool/ui"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
@@ -27,13 +28,13 @@ type (
 const ID = "packs"
 
 type Page struct {
-	router    *pages.Router
+	ui        ui.UI
 	Packs     []*packEntry
 	packsList widget.List
 	l         sync.Mutex
 
-	finished bool
-	back     widget.Clickable
+	State messages.UIState
+	back  widget.Clickable
 }
 
 type packEntry struct {
@@ -52,9 +53,9 @@ type packEntry struct {
 	Err    error
 }
 
-func New(router *pages.Router) pages.Page {
+func New(ui ui.UI) pages.Page {
 	return &Page{
-		router: router,
+		ui: ui,
 		packsList: widget.List{
 			List: layout.List{
 				Axis: layout.Vertical,
@@ -203,12 +204,14 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 	}
 
 	if p.back.Clicked(gtx) {
-		p.router.SwitchTo("settings")
-		return D{}
+		p.ui.HandleMessage(&messages.Message{
+			Source: p.ID(),
+			Data:   messages.ExitSubcommand{},
+		})
 	}
 
 	var title = "Downloading Packs"
-	if p.finished {
+	if p.State == messages.UIStateFinished {
 		title = "Downloaded Packs"
 	}
 
@@ -243,7 +246,7 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 				)
 			}),
 			layout.Flexed(0.1, func(gtx C) D {
-				if !p.finished {
+				if p.State != messages.UIStateFinished {
 					return D{}
 				}
 				return layout.UniformInset(5).Layout(gtx, func(gtx C) D {
@@ -256,16 +259,24 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 	})
 }
 
-func (p *Page) Handler(data interface{}) messages.Response {
-	r := messages.Response{
-		Ok:   false,
-		Data: nil,
-	}
+func (p *Page) HandleMessage(msg *messages.Message) *messages.Message {
+	switch m := msg.Data.(type) {
+	case messages.HaveFinishScreen:
+		return &messages.Message{
+			Source: "packs",
+			Data:   true,
+		}
 
-	switch m := data.(type) {
+	case messages.UIState:
+		p.State = m
+
 	case messages.ConnectState:
 		if m == messages.ConnectStateReceivingResources {
-			p.router.RemovePopup("connect")
+			p.ui.HandleMessage(&messages.Message{
+				Source:     "connect",
+				SourceType: "popup",
+				Data:       messages.Close{},
+			})
 		}
 	case messages.InitialPacksInfo:
 		p.l.Lock()
@@ -278,7 +289,6 @@ func (p *Page) Handler(data interface{}) messages.Response {
 			})
 		}
 		p.l.Unlock()
-		p.router.Invalidate()
 
 	case messages.PackDownloadProgress:
 		p.l.Lock()
@@ -289,7 +299,6 @@ func (p *Page) Handler(data interface{}) messages.Response {
 			}
 		}
 		p.l.Unlock()
-		p.router.Invalidate()
 
 	case messages.FinishedPack:
 		for _, pe := range p.Packs {
@@ -307,7 +316,6 @@ func (p *Page) Handler(data interface{}) messages.Response {
 
 	case messages.ProcessingPack:
 		p.l.Lock()
-		allFinished := true
 		for _, pe := range p.Packs {
 			if pe.UUID == m.ID {
 				pe.Processing = m.Processing
@@ -317,17 +325,9 @@ func (p *Page) Handler(data interface{}) messages.Response {
 					pe.IsFinished = true
 				}
 			}
-			if !pe.IsFinished {
-				allFinished = false
-			}
-		}
-		if allFinished {
-			p.finished = true
 		}
 		p.l.Unlock()
-		p.router.Invalidate()
-		r.Ok = true
 	}
 
-	return r
+	return nil
 }

@@ -8,50 +8,44 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
-	"github.com/bedrock-tool/bedrocktool/ui/gui/pages"
+	"github.com/bedrock-tool/bedrocktool/ui"
+	"github.com/bedrock-tool/bedrocktool/ui/gui/popups"
+	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/sandertv/gophertunnel/minecraft/realms"
 )
 
 type addressInput struct {
-	Editor         widget.Editor
+	ui             ui.UI
+	editor         widget.Editor
 	showRealmsList widget.Clickable
-	RealmsList     RealmsList
+	realmsList     popups.Popup
 }
 
 var AddressInput = &addressInput{
-	Editor: widget.Editor{
+	editor: widget.Editor{
 		SingleLine: true,
 	},
-	RealmsList: RealmsList{
-		buttons: make(map[int]*widget.Clickable),
-		list: widget.List{
-			List: layout.List{
-				Axis: layout.Vertical,
-			},
-		},
-	},
 }
 
-func init() {
-	AddressInput.Init()
-}
-
-func (a *addressInput) Init() {
-	a.RealmsList.SetRealm = func(realm realms.Realm) {
-		a.Editor.SetText(fmt.Sprintf("realm:%s:%d", realm.Name, realm.ID))
-	}
+func (a *addressInput) Init(ui ui.UI) {
+	a.ui = ui
+	a.realmsList = popups.NewRealmsList(a.ui, func(realm realms.Realm) {
+		a.editor.SetText(fmt.Sprintf("realm:%s:%d", realm.Name, realm.ID))
+	})
 }
 
 func (a *addressInput) Value() string {
-	return a.Editor.Text()
+	return a.editor.Text()
 }
 
-func (a *addressInput) Layout(gtx layout.Context, th *material.Theme, r *pages.Router) layout.Dimensions {
-	a.RealmsList.router = r
+func (a *addressInput) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
 	if a.showRealmsList.Clicked(gtx) {
-		if !r.PushPopup(&a.RealmsList) {
-			a.RealmsList.close.Click()
-		}
+		a.ui.HandleMessage(&messages.Message{
+			Source: "addressInput",
+			Data: messages.ShowPopup{
+				Popup: a.realmsList,
+			},
+		})
 	}
 
 	return layout.UniformInset(5).Layout(gtx, func(gtx C) D {
@@ -61,7 +55,7 @@ func (a *addressInput) Layout(gtx layout.Context, th *material.Theme, r *pages.R
 			layout.Rigid(func(gtx C) D {
 				macro := op.Record(gtx.Ops)
 				d := layout.UniformInset(8).Layout(gtx, func(gtx C) D {
-					e := material.Editor(th, &a.Editor, "Enter Server Address")
+					e := material.Editor(th, &a.editor, "Enter Server Address")
 					e.LineHeight += 4
 					return e.Layout(gtx)
 				})

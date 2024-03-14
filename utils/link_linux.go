@@ -1,7 +1,7 @@
-package pages
+package utils
 
 import "os/exec"
 
-func openUrl(uri string) error {
+func OpenUrl(uri string) error {
 	return exec.Command("xdg-open", uri).Run()
 }

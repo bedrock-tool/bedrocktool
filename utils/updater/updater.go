@@ -94,6 +94,9 @@ func UpdateCheck(ui ui.UI) {
 
 	if isNew {
 		logrus.Infof(locale.Loc("update_available", locale.Strmap{"Version": update.Version}))
-		ui.Message(messages.UpdateAvailable{Version: update.Version})
+		ui.HandleMessage(&messages.Message{
+			Source: "updater",
+			Data:   messages.UpdateAvailable{Version: update.Version},
+		})
 	}
 }

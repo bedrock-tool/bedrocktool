@@ -7,26 +7,26 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 )
 
-type Response struct {
-	Data any
-	Ok   bool
+type Message struct {
+	Source     string
+	SourceType string
+	Data       any
+	Ok         bool
 }
 
 type UIState int
 
 const (
-	UIStateInvalid = iota
+	UIStateInvalid UIState = iota
 	UIStateMain
 	UIStateFinished
 )
 
-type HandlerFunc = func(data any) Response
+type HandlerFunc = func(msg *Message) *Message
 
-//
-
-type SetUIState = UIState
-
-//
+type Handler interface {
+	HandleMessage(msg *Message) *Message
+}
 
 type ConnectState int
 
@@ -118,4 +118,19 @@ type UpdateAvailable struct {
 	Version string
 }
 
-type Exit struct{}
+// close self
+type Close struct{}
+
+type ShowPopup struct {
+	Popup any
+}
+
+type StartSubcommand struct {
+	Command any
+}
+
+type ExitSubcommand struct{}
+
+type HaveFinishScreen struct{}
+
+type Error error

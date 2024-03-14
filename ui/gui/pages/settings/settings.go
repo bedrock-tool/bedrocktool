@@ -10,6 +10,7 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
+	"github.com/bedrock-tool/bedrocktool/ui"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
@@ -29,7 +30,7 @@ type cmdItem struct {
 }
 
 type Page struct {
-	router *pages.Router
+	ui ui.UI
 
 	cmdMenu struct {
 		clickables map[string]cmdItem
@@ -43,9 +44,11 @@ type Page struct {
 	startButton widget.Clickable
 }
 
-func New(router *pages.Router) pages.Page {
+func New(ui ui.UI) pages.Page {
+	AddressInput.Init(ui)
+
 	p := &Page{
-		router:   router,
+		ui:       ui,
 		settings: make(map[string]*settingsPage),
 	}
 
@@ -54,7 +57,7 @@ func New(router *pages.Router) pages.Page {
 			continue
 		}
 
-		settingUI := &settingsPage{router: router, cmd: cmd}
+		settingUI := &settingsPage{ui: ui, cmd: cmd}
 		settingUI.Init()
 		p.settings[k] = settingUI
 		p.cmdMenu.names = append(p.cmdMenu.names, k)
@@ -110,8 +113,12 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 			settingsUI := p.settings[p.cmdMenu.selected]
 			settingsUI.Apply()
 
-			p.router.SwitchTo(p.cmdMenu.selected)
-			p.router.Execute(cmd)
+			p.ui.HandleMessage(&messages.Message{
+				Source: p.ID(),
+				Data: messages.StartSubcommand{
+					Command: cmd,
+				},
+			})
 		}
 	}
 
@@ -194,9 +201,6 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 	})
 }
 
-func (p *Page) Handler(m any) messages.Response {
-	return messages.Response{
-		Ok:   false,
-		Data: nil,
-	}
+func (p *Page) HandleMessage(msg *messages.Message) *messages.Message {
+	return nil
 }

@@ -1,4 +1,4 @@
-package settings
+package popups
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
-	"github.com/bedrock-tool/bedrocktool/ui/gui/pages"
+	"github.com/bedrock-tool/bedrocktool/ui"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/sandertv/gophertunnel/minecraft/realms"
@@ -17,7 +17,7 @@ import (
 )
 
 type RealmsList struct {
-	router   *pages.Router
+	ui       ui.UI
 	Show     widget.Bool
 	close    widget.Clickable
 	l        sync.Mutex
@@ -26,18 +26,25 @@ type RealmsList struct {
 	buttons  map[int]*widget.Clickable
 	loaded   bool
 	loading  bool
-	SetRealm func(realms.Realm)
+	setRealm func(realms.Realm)
 }
 
-func (*RealmsList) Handler(data any) messages.Response {
-	return messages.Response{Ok: false}
+func NewRealmsList(ui ui.UI, setRealm func(realms.Realm)) Popup {
+	return &RealmsList{
+		ui:       ui,
+		setRealm: setRealm,
+	}
+}
+
+func (*RealmsList) HandleMessage(msg *messages.Message) *messages.Message {
+	return nil
 }
 
 func (*RealmsList) ID() string {
 	return "Realms"
 }
 
-var _ pages.Popup = &RealmsList{}
+var _ Popup = &RealmsList{}
 
 func (r *RealmsList) Load() {
 	var err error
@@ -57,7 +64,7 @@ func (r *RealmsList) Layout(gtx layout.Context, th *material.Theme) layout.Dimen
 		if c.Clicked(gtx) {
 			for _, realm := range r.realms {
 				if realm.ID == k {
-					r.SetRealm(realm)
+					r.setRealm(realm)
 					r.close.Click()
 					break
 				}
@@ -66,10 +73,14 @@ func (r *RealmsList) Layout(gtx layout.Context, th *material.Theme) layout.Dimen
 	}
 
 	if r.close.Clicked(gtx) {
-		r.router.RemovePopup(r.ID())
+		r.ui.HandleMessage(&messages.Message{
+			Source:     r.ID(),
+			SourceType: "popup",
+			Data:       messages.Close{},
+		})
 	}
 
-	return pages.LayoutPopupBackground(gtx, th, "Realms", func(gtx C) D {
+	return LayoutPopupBackground(gtx, th, "Realms", func(gtx C) D {
 		return layout.Flex{
 			Axis: layout.Vertical,
 		}.Layout(gtx,

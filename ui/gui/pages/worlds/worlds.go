@@ -10,6 +10,7 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
+	"github.com/bedrock-tool/bedrocktool/ui"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 )
@@ -22,7 +23,7 @@ type (
 const ID = "worlds"
 
 type Page struct {
-	router *pages.Router
+	ui ui.UI
 
 	worldMap *Map2
 	//Map3       *Map3
@@ -37,9 +38,9 @@ type Page struct {
 	back       widget.Clickable
 }
 
-func New(router *pages.Router) pages.Page {
+func New(ui ui.UI) pages.Page {
 	return &Page{
-		router: router,
+		ui: ui,
 		worldMap: &Map2{
 			images:   make(map[image.Point]*image.RGBA),
 			imageOps: make(map[image.Point]paint.ImageOp),
@@ -92,13 +93,14 @@ func displayWorldEntry(gtx C, th *material.Theme, entry *messages.SavedWorld) D 
 
 func (p *Page) Layout(gtx C, th *material.Theme) D {
 	if p.back.Clicked(gtx) {
-		p.router.SwitchTo("settings")
-		return D{}
+		p.ui.HandleMessage(&messages.Message{
+			Source: p.ID(),
+			Data:   messages.ExitSubcommand{},
+		})
 	}
 
 	switch p.State {
 	case messages.UIStateMain:
-		// show the main ui
 		return p.worldMap.Layout(gtx)
 	case messages.UIStateFinished:
 		return layout.UniformInset(25).Layout(gtx, func(gtx C) D {
@@ -135,39 +137,29 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 	}
 }
 
-func (u *Page) Handler(data any) messages.Response {
-	r := messages.Response{
-		Ok:   false,
-		Data: nil,
-	}
-
-	switch m := data.(type) {
-	case messages.SetUIState:
+func (u *Page) HandleMessage(msg *messages.Message) *messages.Message {
+	switch m := msg.Data.(type) {
+	case messages.HaveFinishScreen:
+		return &messages.Message{
+			Source: "worlds",
+			Data:   true,
+		}
+	case messages.UIState:
 		u.State = m
-		u.router.Invalidate()
-		r.Ok = true
 	case messages.UpdateMap:
 		u.chunkCount = m.ChunkCount
 		u.worldMap.Update(&m)
 		//u.Map3.Update(&m)
-		u.router.Invalidate()
-		r.Ok = true
 	case messages.MapLookup:
 		//u.Map3.SetLookupTexture(m.Lookup)
 	case messages.SetVoidGen:
 		u.voidGen = m.Value
-		u.router.Invalidate()
-		r.Ok = true
 	case messages.SetWorldName:
 		u.worldName = m.WorldName
-		u.router.Invalidate()
-		r.Ok = true
 	case messages.SavingWorld:
 		u.l.Lock()
 		u.worlds = append(u.worlds, m.World)
 		u.l.Unlock()
-		u.router.Invalidate()
-		r.Ok = true
 	}
-	return r
+	return nil
 }

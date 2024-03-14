@@ -1,4 +1,4 @@
-package pages
+package popups
 
 import (
 	"image"
@@ -16,7 +16,7 @@ import (
 type Popup interface {
 	ID() string
 	Layout(gtx layout.Context, th *material.Theme) layout.Dimensions
-	Handler(data any) messages.Response
+	messages.Handler
 }
 
 func LayoutPopupBackground(gtx layout.Context, th *material.Theme, tag string, widget layout.Widget) layout.Dimensions {

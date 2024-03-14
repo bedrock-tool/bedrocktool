@@ -13,13 +13,13 @@ import (
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
 	"gioui.org/x/outlay"
-	"github.com/bedrock-tool/bedrocktool/ui/gui/pages"
+	"github.com/bedrock-tool/bedrocktool/ui"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/sirupsen/logrus"
 )
 
 type settingsPage struct {
-	router  *pages.Router
+	ui      ui.UI
 	cmd     commands.Command
 	f       *flag.FlagSet
 	widgets map[string]any
@@ -146,7 +146,7 @@ func (s *settingsPage) Layout(gtx layout.Context, th *material.Theme) layout.Dim
 		if index == 0 { // address input
 			w, ok := s.widgets["address"].(*addressInput)
 			if ok {
-				return w.Layout(gtx, th, s.router)
+				return w.Layout(gtx, th)
 			}
 			return layout.Dimensions{}
 		}

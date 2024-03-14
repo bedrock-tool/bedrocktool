@@ -214,10 +214,16 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 		},
 
 		ConnectCB: func() bool {
-			w.ui.Message(messages.SetUIState(messages.UIStateMain))
+			w.ui.HandleMessage(&messages.Message{
+				Source: "worlds",
+				Data:   messages.UIStateMain,
+			})
 
-			w.ui.Message(messages.SetWorldName{
-				WorldName: w.currentWorld.Name,
+			w.ui.HandleMessage(&messages.Message{
+				Source: "worlds",
+				Data: messages.SetWorldName{
+					WorldName: w.currentWorld.Name,
+				},
 			})
 
 			w.proxy.ClientWritePacket(&packet.ChunkRadiusUpdated{
@@ -303,8 +309,11 @@ func (w *worldsHandler) setVoidGen(val bool, fromUI bool) bool {
 	w.proxy.SendMessage(s)
 
 	if !fromUI {
-		w.ui.Message(messages.SetVoidGen{
-			Value: w.currentWorld.VoidGen,
+		w.ui.HandleMessage(&messages.Message{
+			Source: "worldsHandler",
+			Data: messages.SetVoidGen{
+				Value: w.currentWorld.VoidGen,
+			},
 		})
 	}
 
@@ -320,8 +329,11 @@ func (w *worldsHandler) setWorldName(val string, fromUI bool) bool {
 	w.proxy.SendMessage(locale.Loc("worldname_set", locale.Strmap{"Name": w.currentWorld.Name}))
 
 	if !fromUI {
-		w.ui.Message(messages.SetWorldName{
-			WorldName: w.currentWorld.Name,
+		w.ui.HandleMessage(&messages.Message{
+			Source: "worldsHandler",
+			Data: messages.SetWorldName{
+				WorldName: w.currentWorld.Name,
+			},
 		})
 	}
 
@@ -383,12 +395,15 @@ func (w *worldsHandler) saveWorldState(worldState *worldstate.World) error {
 
 	filename := worldState.Folder + ".mcworld"
 
-	w.ui.Message(messages.SavingWorld{
-		World: &messages.SavedWorld{
-			Name:     worldState.Name,
-			Path:     filename,
-			Chunks:   len(worldState.StoredChunks),
-			Entities: len(worldState.StoredChunks),
+	w.ui.HandleMessage(&messages.Message{
+		Source: "worldsHandler",
+		Data: messages.SavingWorld{
+			World: &messages.SavedWorld{
+				Name:     worldState.Name,
+				Path:     filename,
+				Chunks:   len(worldState.StoredChunks),
+				Entities: len(worldState.StoredChunks),
+			},
 		},
 	})
 
