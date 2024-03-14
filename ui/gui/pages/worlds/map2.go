@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"gioui.org/f32"
+	"gioui.org/io/event"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
@@ -64,12 +65,17 @@ func (m *mapInput) Layout(gtx layout.Context) func() {
 	m.center = f32.Pt(float32(gtx.Constraints.Max.X), float32(gtx.Constraints.Max.Y)).Div(2)
 
 	size := gtx.Constraints.Max
-	ev, ok := gtx.Event(pointer.Filter{
-		Target:       m,
-		Kinds:        pointer.Scroll | pointer.Drag | pointer.Press | pointer.Release,
-		ScrollBounds: image.Rect(-size.X, -size.Y, size.X, size.Y),
-	})
-	if ok {
+
+	event.Op(gtx.Ops, m)
+	for {
+		ev, ok := gtx.Event(pointer.Filter{
+			Target:       m,
+			Kinds:        pointer.Scroll | pointer.Drag | pointer.Press | pointer.Release,
+			ScrollBounds: image.Rect(-size.X, -size.Y, size.X, size.Y),
+		})
+		if !ok {
+			break
+		}
 		m.HandlePointerEvent(ev.(pointer.Event))
 	}
 
