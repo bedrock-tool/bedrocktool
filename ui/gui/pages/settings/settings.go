@@ -45,7 +45,7 @@ type Page struct {
 }
 
 func New(ui ui.UI) pages.Page {
-	AddressInput.Init(ui)
+	AddressInput.ui = ui
 
 	p := &Page{
 		ui:       ui,

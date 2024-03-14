@@ -18,7 +18,6 @@ type addressInput struct {
 	ui             ui.UI
 	editor         widget.Editor
 	showRealmsList widget.Clickable
-	realmsList     popups.Popup
 }
 
 var AddressInput = &addressInput{
@@ -27,15 +26,12 @@ var AddressInput = &addressInput{
 	},
 }
 
-func (a *addressInput) Init(ui ui.UI) {
-	a.ui = ui
-	a.realmsList = popups.NewRealmsList(a.ui, func(realm realms.Realm) {
-		a.editor.SetText(fmt.Sprintf("realm:%s:%d", realm.Name, realm.ID))
-	})
-}
-
 func (a *addressInput) Value() string {
 	return a.editor.Text()
+}
+
+func (a *addressInput) setRealm(realm realms.Realm) {
+	a.editor.SetText(fmt.Sprintf("realm:%s:%d", realm.Name, realm.ID))
 }
 
 func (a *addressInput) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
@@ -43,7 +39,7 @@ func (a *addressInput) Layout(gtx layout.Context, th *material.Theme) layout.Dim
 		a.ui.HandleMessage(&messages.Message{
 			Source: "addressInput",
 			Data: messages.ShowPopup{
-				Popup: a.realmsList,
+				Popup: popups.NewRealmsList(a.ui, a.setRealm),
 			},
 		})
 	}
