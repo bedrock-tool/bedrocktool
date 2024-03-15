@@ -12,7 +12,7 @@ report_issue:
   other: |
     if you want to report this error, please open an issue at
     https://github.com/bedrock-tool/bedrocktool/issues
-    And attach the error info, describe what you did to get this error.
+    And attach the error info, describe what you did to get this error and if possible the bedrocktool.log file.
     Thanks!
 used_extra_debug_report:
   other: |

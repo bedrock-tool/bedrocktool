@@ -70,7 +70,7 @@ func (p *Page) ID() string {
 
 var _ pages.Page = &Page{}
 
-func (p *Page) Actions() []component.AppBarAction {
+func (p *Page) Actions(th *material.Theme) []component.AppBarAction {
 	return []component.AppBarAction{}
 }
 

@@ -13,19 +13,23 @@ import (
 	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
+	"gioui.org/widget"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
+	"github.com/go-gl/mathgl/mgl32"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 )
 
 const tileSize = 256
 
 type mapInput struct {
-	click       f32.Point
-	scaleFactor float64
-	center      f32.Point
-	transform   f32.Affine2D
-	grabbed     bool
-	cursor      image.Point
+	click          f32.Point
+	scaleFactor    float64
+	center         f32.Point
+	transform      f32.Affine2D
+	grabbed        bool
+	cursor         image.Point
+	FollowPlayer   widget.Bool
+	playerPosition mgl32.Vec3
 }
 
 type Map2 struct {
@@ -78,6 +82,11 @@ func (m *mapInput) Layout(gtx layout.Context) func() {
 		}
 		m.HandlePointerEvent(ev.(pointer.Event))
 	}
+
+	/*
+		if m.FollowPlayer.Value {
+		}
+	*/
 
 	return func() {
 		if m.cursor.In(image.Rectangle(gtx.Constraints)) {

@@ -3,6 +3,7 @@ package messages
 import (
 	"image"
 
+	"github.com/go-gl/mathgl/mgl32"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 )
@@ -66,6 +67,10 @@ type UpdateMap struct {
 	UpdatedChunks []protocol.ChunkPos
 	ChunkCount    int
 	Rotation      float32
+}
+
+type PlayerPosition struct {
+	Position mgl32.Vec3
 }
 
 //

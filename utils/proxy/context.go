@@ -18,6 +18,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/gregwebs/go-recovery"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/login"
@@ -28,11 +29,12 @@ import (
 )
 
 type Context struct {
-	Server     minecraft.IConn
-	Client     minecraft.IConn
-	listener   *minecraft.Listener
-	Player     Player
-	ExtraDebug bool
+	Server       minecraft.IConn
+	Client       minecraft.IConn
+	listener     *minecraft.Listener
+	Player       Player
+	ExtraDebug   bool
+	PlayerMoveCB []func()
 
 	withClient bool
 	addedPacks []*resource.Pack
@@ -228,6 +230,12 @@ func (p *Context) IsClient(addr net.Addr) bool {
 }
 
 func (p *Context) packetFunc(header packet.Header, payload []byte, src, dst net.Addr) {
+	defer func() {
+		if err, ok := recover().(error); ok {
+			recovery.ErrorHandler(err)
+		}
+	}()
+
 	if header.PacketID == packet.IDRequestNetworkSettings {
 		p.clientAddr = src
 	}
@@ -524,7 +532,12 @@ func (p *Context) Run(ctx context.Context, connectString string) (err error) {
 	p.AddHandler(&Handler{
 		Name: "Player",
 		PacketCB: func(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
-			p.Player.handlePackets(pk)
+			haveMoved := p.Player.handlePackets(pk)
+			if haveMoved {
+				for _, cb := range p.PlayerMoveCB {
+					cb()
+				}
+			}
 			return pk, nil
 		},
 	})

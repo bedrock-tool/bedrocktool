@@ -60,8 +60,10 @@ func (p *Page) ID() string {
 	return ID
 }
 
-func (p *Page) Actions() []component.AppBarAction {
-	return []component.AppBarAction{}
+func (p *Page) Actions(th *material.Theme) []component.AppBarAction {
+	return []component.AppBarAction{
+		//pages.AppBarSwitch(&p.worldMap.mapInput.FollowPlayer, "Follow Player", th),
+	}
 }
 
 func (p *Page) Overflow() []component.OverflowAction {
@@ -150,6 +152,8 @@ func (u *Page) HandleMessage(msg *messages.Message) *messages.Message {
 		u.chunkCount = m.ChunkCount
 		u.worldMap.Update(&m)
 		//u.Map3.Update(&m)
+	case messages.PlayerPosition:
+		u.worldMap.mapInput.playerPosition = m.Position
 	case messages.MapLookup:
 		//u.Map3.SetLookupTexture(m.Lookup)
 	case messages.SetVoidGen:
