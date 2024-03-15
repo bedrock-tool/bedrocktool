@@ -185,7 +185,7 @@ func (r *Router) Layout(gtx layout.Context, th *material.Theme) layout.Dimension
 
 func (r *Router) setActions() {
 	var extra []component.AppBarAction
-	extra = append(extra, AppBarSwitch(&r.logToggle, "Logs", r.th))
+	extra = append(extra, AppBarSwitch(&r.logToggle, "Logs", &r.th))
 
 	if r.updateAvailable {
 		extra = append(extra, component.SimpleIconAction(&r.updateButton, &icons.ActionUpdate, component.OverflowAction{}))

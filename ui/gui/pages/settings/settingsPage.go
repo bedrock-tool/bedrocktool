@@ -98,7 +98,6 @@ func (s *settingsPage) Init() {
 		}
 	})
 
-	println(hasAddress)
 	if hasAddress {
 		s.flags = append([]string{"address"}, s.flags...)
 	}

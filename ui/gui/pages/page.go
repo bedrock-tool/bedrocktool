@@ -28,7 +28,7 @@ func Register(name string, fun func(*Router) Page) {
 	Pages[name] = fun
 }
 
-func AppBarSwitch(toggle *widget.Bool, label string, th *material.Theme) component.AppBarAction {
+func AppBarSwitch(toggle *widget.Bool, label string, th **material.Theme) component.AppBarAction {
 	return component.AppBarAction{
 		Layout: func(gtx layout.Context, bg, fg color.NRGBA) layout.Dimensions {
 			return layout.UniformInset(5).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
@@ -36,9 +36,9 @@ func AppBarSwitch(toggle *widget.Bool, label string, th *material.Theme) compone
 					Axis:      layout.Horizontal,
 					Alignment: layout.Middle,
 				}.Layout(gtx,
-					layout.Rigid(material.Switch(th, toggle, label).Layout),
+					layout.Rigid(material.Switch(*th, toggle, label).Layout),
 					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						l := material.Label(th, 12, label)
+						l := material.Label(*th, 12, label)
 						l.Alignment = text.Middle
 						return layout.UniformInset(5).Layout(gtx, l.Layout)
 					}),
