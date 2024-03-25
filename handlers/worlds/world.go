@@ -93,7 +93,6 @@ func resetGlobals() {
 	world.ClearStates()
 	world.LoadBlockStates()
 	block.InitBlocks()
-	world.FinaliseBlockRegistry()
 	world.ResetBiomes()
 }
 
