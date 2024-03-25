@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/bedrock-tool/bedrocktool/utils"
-	"github.com/df-mc/dragonfly/server/world"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
@@ -113,7 +112,7 @@ func ns_name_split(identifier string) (ns, name string) {
 	return ns_name[0], ns_name[len(ns_name)-1]
 }
 
-func (bp *BehaviourPack) Save(fpath string, blockStates []world.BlockState) error {
+func (bp *BehaviourPack) Save(fpath string) error {
 	if err := utils.WriteManifest(bp.Manifest, fpath); err != nil {
 		return err
 	}
@@ -146,25 +145,6 @@ func (bp *BehaviourPack) Save(fpath string, blockStates []world.BlockState) erro
 			if err != nil {
 				return err
 			}
-		}
-
-		var blockStatesJson = map[string][]any{}
-		for _, be := range blockStates {
-			if len(be.Properties) == 0 {
-				continue
-			}
-			blockStatesJson[be.Name] = append(blockStatesJson[be.Name], be.Properties)
-		}
-
-		f, err := os.Create(filepath.Join(fpath, "blockstates.json"))
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-		e := json.NewEncoder(f)
-		err = e.Encode(blockStatesJson)
-		if err != nil {
-			return err
 		}
 	}
 	if bp.HasItems() { // items

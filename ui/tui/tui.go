@@ -14,6 +14,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
+	"github.com/bedrock-tool/bedrocktool/utils/updater"
 	"github.com/google/subcommands"
 	"github.com/sirupsen/logrus"
 )
@@ -27,6 +28,10 @@ func (c *TUI) Init() bool {
 }
 
 func (c *TUI) Start(ctx context.Context, cancel context.CancelCauseFunc) error {
+	isDebug := updater.Version == ""
+	if !isDebug {
+		go updater.UpdateCheck(c)
+	}
 	select {
 	case <-ctx.Done():
 		return nil
@@ -65,9 +70,6 @@ func (c *TUI) ServerInput(ctx context.Context, server string) (string, string, e
 	return utils.ServerInput(ctx, server)
 }
 
-func (c *TUI) Message(data interface{}) messages.Response {
-	return messages.Response{
-		Ok:   false,
-		Data: nil,
-	}
+func (c *TUI) HandleMessage(msg *messages.Message) *messages.Message {
+	return nil
 }

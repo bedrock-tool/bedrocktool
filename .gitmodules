@@ -4,9 +4,3 @@
 [submodule "dragonfly"]
 	path = dragonfly
 	url = https://github.com/olebeck/dragonfly.git
-[submodule "gio"]
-	path = gio
-	url = https://github.com/olebeck/gio.git
-[submodule "goleveldb"]
-	path = goleveldb
-	url = https://github.com/olebeck/goleveldb

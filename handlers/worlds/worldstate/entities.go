@@ -1,12 +1,9 @@
 package worldstate
 
 import (
-	"path"
-
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/maps"
 )
 
@@ -23,9 +20,8 @@ func (w *worldEntities) StoreEntity(id EntityRuntimeID, es *EntityState) {
 	w.entities[id] = es
 }
 
-func (w *worldEntities) GetEntity(id EntityRuntimeID) (*EntityState, bool) {
-	e, ok := w.entities[id]
-	return e, ok
+func (w *worldEntities) GetEntity(id EntityRuntimeID) *EntityState {
+	return w.entities[id]
 }
 
 func (w *worldEntities) AddEntityLink(el protocol.EntityLink) {
@@ -70,51 +66,4 @@ func (w *worldEntities) SetBlockNBT(pos cube.Pos, m map[string]any, merge bool) 
 		b.NBT = m
 	}
 	chunkNBTs[pos] = b
-}
-
-func (w *World) saveEntities(exclude []string) error {
-	w.l.Lock()
-	defer w.l.Unlock()
-
-	chunkEntities := make(map[world.ChunkPos][]world.Entity)
-	for _, es := range w.worldEntities.entities {
-		var ignore bool
-		for _, ex := range exclude {
-			if ok, err := path.Match(ex, es.EntityType); ok {
-				logrus.Debugf("Excluding: %s %v", es.EntityType, es.Position)
-				ignore = true
-				break
-			} else if err != nil {
-				logrus.Warn(err)
-			}
-		}
-		if !ignore {
-			cp := world.ChunkPos{int32(es.Position.X()) >> 4, int32(es.Position.Z()) >> 4}
-			links := maps.Keys(w.worldEntities.entityLinks[es.UniqueID])
-			chunkEntities[cp] = append(chunkEntities[cp], es.ToServerEntity(links))
-		}
-	}
-
-	for cp, v := range chunkEntities {
-		err := w.provider.StoreEntities(cp, w.dimension, v)
-		if err != nil {
-			logrus.Error(err)
-		}
-	}
-
-	return nil
-}
-
-func (w *World) saveBlockNBTs(dim world.Dimension) error {
-	for cp, v := range w.worldEntities.blockNBTs {
-		vv := make(map[cube.Pos]world.Block, len(v))
-		for p, db := range v {
-			vv[p] = &db
-		}
-		err := w.provider.StoreBlockNBTs(cp, dim, vv)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }

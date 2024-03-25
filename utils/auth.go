@@ -16,11 +16,23 @@ const TokenFile = "token.json"
 
 type authsrv struct {
 	src       oauth2.TokenSource
-	Ctx       context.Context
+	baseCtx   context.Context
+	ctx       context.Context
+	cancel    context.CancelFunc
 	MSHandler auth.MSAuthHandler
 }
 
 var Auth authsrv
+
+func (a *authsrv) InitCtx(ctx context.Context) {
+	a.baseCtx = ctx
+	a.ctx, a.cancel = context.WithCancel(a.baseCtx)
+}
+
+func (a *authsrv) Cancel() {
+	a.cancel()
+	a.ctx, a.cancel = context.WithCancel(a.baseCtx)
+}
 
 func (a *authsrv) HaveToken() bool {
 	_, err := os.Stat(TokenFile)
@@ -65,7 +77,7 @@ func (a *authsrv) GetTokenSource() (src oauth2.TokenSource, err error) {
 		}
 	} else {
 		// request a new token
-		token, err = auth.RequestLiveTokenWriter(a.Ctx, a.MSHandler)
+		token, err = auth.RequestLiveTokenWriter(a.ctx, a.MSHandler)
 		if err != nil {
 			return nil, err
 		}

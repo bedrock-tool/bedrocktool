@@ -7,7 +7,6 @@ import (
 
 	"gioui.org/app"
 	"gioui.org/font/gofont"
-	"gioui.org/io/system"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/text"
@@ -30,6 +29,7 @@ type GUI struct {
 	ctx    context.Context
 	cancel context.CancelCauseFunc
 	logger logger
+	th     *material.Theme
 }
 
 func (g *GUI) Init() bool {
@@ -38,6 +38,13 @@ func (g *GUI) Init() bool {
 			Axis: layout.Vertical,
 		},
 	}
+	g.router = pages.NewRouter(g)
+	g.router.Register(settings.New, settings.ID)
+	g.router.Register(worlds.New, worlds.ID)
+	g.router.Register(skins.New, skins.ID)
+	g.router.Register(packs.New, packs.ID)
+	g.logger.router = g.router
+	g.router.LogWidget = g.logger.Layout
 	return true
 }
 
@@ -56,6 +63,7 @@ var paletteDark = material.Palette{
 }
 
 func (g *GUI) Start(ctx context.Context, cancel context.CancelCauseFunc) (err error) {
+	g.router.Ctx = ctx
 	g.ctx = ctx
 	g.cancel = cancel
 
@@ -73,23 +81,16 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelCauseFunc) (err er
 		th = &_th
 	}
 
-	w := app.NewWindow(
-		app.Title("Bedrocktool " + updater.Version),
-	)
-
-	g.router = pages.NewRouter(ctx, w.Invalidate, th)
-	g.router.UI = g
-	g.router.Register(settings.New, settings.ID)
-	g.router.Register(worlds.New, worlds.ID)
-	g.router.Register(skins.New, skins.ID)
-	g.router.Register(packs.New, packs.ID)
+	w := app.NewWindow()
+	w.Option(app.Title("Bedrocktool " + updater.Version))
+	g.router.Invalidate = w.Invalidate
+	logrus.AddHook(&g.logger)
 	g.router.SwitchTo(settings.ID)
 
-	g.logger.router = g.router
-	g.router.LogWidget = g.logger.Layout
-	logrus.AddHook(&g.logger)
-
-	utils.Auth.MSHandler = g.router.MSAuth
+	isDebug := updater.Version == ""
+	if !isDebug {
+		go updater.UpdateCheck(g)
+	}
 
 	go func() {
 		app.Main()
@@ -109,6 +110,7 @@ func (g *GUI) loop(w *app.Window) error {
 
 	for {
 		e := w.NextEvent()
+
 		if g.ctx.Err() != nil && !closing {
 			logrus.Info("Closing")
 			g.cancel(errors.New("Closing"))
@@ -116,26 +118,26 @@ func (g *GUI) loop(w *app.Window) error {
 			closing = true
 		}
 		switch e := e.(type) {
-		case system.DestroyEvent:
+		case app.DestroyEvent:
 			logrus.Info("Closing")
 			g.cancel(errors.New("Closing"))
 			g.router.Wg.Wait()
 			return e.Err
-		case system.FrameEvent:
-			gtx := layout.NewContext(&ops, e)
-			g.router.Layout(gtx)
+		case app.FrameEvent:
+			gtx := app.NewContext(&ops, e)
+			g.router.Layout(gtx, g.th)
 			e.Frame(gtx.Ops)
 		}
 	}
 }
 
-func (g *GUI) Message(data interface{}) messages.Response {
-	switch data.(type) {
+func (g *GUI) HandleMessage(msg *messages.Message) *messages.Message {
+	switch msg.Data.(type) {
 	case messages.CanShowImages:
-		return messages.Response{Ok: true}
+		return &messages.Message{Ok: true}
 	}
 
-	return g.router.Handler(data)
+	return g.router.HandleMessage(msg)
 }
 
 func (g *GUI) ServerInput(ctx context.Context, address string) (string, string, error) {

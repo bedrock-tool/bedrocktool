@@ -9,7 +9,6 @@ import (
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds"
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/ui"
-	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/bedrock-tool/bedrocktool/utils/proxy"
 )
@@ -77,7 +76,6 @@ func (c *WorldCMD) Execute(ctx context.Context, ui ui.UI) error {
 	if err != nil {
 		return err
 	}
-	ui.Message(messages.SetUIState(messages.UIStateFinished))
 	return nil
 }
 

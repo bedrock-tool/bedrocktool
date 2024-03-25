@@ -217,15 +217,29 @@ func CreateReplayConnector(ctx context.Context, filename string, packetFunc Pack
 	var head = make([]byte, 16)
 	r.f.Read(head)
 	magic := string(head[0:4])
-	if magic != "BTCP" {
-		return nil, errors.New("capture is old format")
-	}
-	r.ver = binary.LittleEndian.Uint32(head[4:8])
-	zipSize := binary.LittleEndian.Uint64(head[8:16])
 
-	z, err := zip.NewReader(io.NewSectionReader(r.f, 16, int64(zipSize)), int64(zipSize))
-	if err != nil {
-		return nil, err
+	var z *zip.Reader
+	var zipSize uint64
+	if magic != "BTCP" {
+		logrus.Warn("capture is old format")
+		stat, _ := r.f.Stat()
+		z, err = zip.NewReader(r.f, stat.Size())
+		if err != nil {
+			return nil, err
+		}
+		f, err := z.Open("version")
+		if err != nil {
+			return nil, err
+		}
+		binary.Read(f, binary.LittleEndian, &r.ver)
+		f.Close()
+	} else {
+		r.ver = binary.LittleEndian.Uint32(head[4:8])
+		zipSize = binary.LittleEndian.Uint64(head[8:16])
+		z, err = zip.NewReader(io.NewSectionReader(r.f, 16, int64(zipSize)), int64(zipSize))
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// read all packs

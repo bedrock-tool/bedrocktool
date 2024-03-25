@@ -96,8 +96,11 @@ func NewMapUI(w *worldsHandler) *MapUI {
 }
 
 func (m *MapUI) Start(ctx context.Context) {
-	r := m.w.ui.Message(messages.CanShowImages{})
-	if r.Ok {
+	r := m.w.ui.HandleMessage(&messages.Message{
+		Source: "mapui",
+		Data:   messages.CanShowImages{},
+	})
+	if r != nil && r.Ok {
 		m.showOnGui = true
 	}
 
@@ -117,7 +120,10 @@ func (m *MapUI) Start(ctx context.Context) {
 	m.wg.Add(1)
 	go func() {
 		lookup, _ := utils.ResolveColors(m.w.customBlocks, m.w.serverState.packs, true)
-		m.w.ui.Message(messages.MapLookup{Lookup: lookup})
+		m.w.ui.HandleMessage(&messages.Message{
+			Source: "mapui",
+			Data:   messages.MapLookup{Lookup: lookup},
+		})
 		m.wg.Done()
 	}()
 	go func() {
@@ -176,8 +182,11 @@ func (m *MapUI) Reset() {
 	m.l.Lock()
 	m.renderedChunks = make(map[protocol.ChunkPos]*image.RGBA)
 	m.oldRendered = make(map[protocol.ChunkPos]*image.RGBA)
-	m.w.ui.Message(messages.UpdateMap{
-		ChunkCount: -1,
+	m.w.ui.HandleMessage(&messages.Message{
+		Source: "mapui",
+		Data: messages.UpdateMap{
+			ChunkCount: -1,
+		},
 	})
 	m.l.Unlock()
 	m.SchedRedraw()
@@ -264,11 +273,14 @@ func (m *MapUI) Redraw() {
 
 	// send tiles to gui map
 	if m.showOnGui {
-		m.w.ui.Message(messages.UpdateMap{
-			ChunkCount:    len(m.renderedChunks),
-			Rotation:      m.w.proxy.Player.Yaw,
-			UpdatedChunks: updatedChunks,
-			Chunks:        m.renderedChunks,
+		m.w.ui.HandleMessage(&messages.Message{
+			Source: "mapui",
+			Data: messages.UpdateMap{
+				ChunkCount:    len(m.renderedChunks),
+				Rotation:      m.w.proxy.Player.Yaw,
+				UpdatedChunks: updatedChunks,
+				Chunks:        m.renderedChunks,
+			},
 		})
 	}
 }

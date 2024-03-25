@@ -49,8 +49,8 @@ func (w *worldStateDefer) ApplyTo(w2 worldStateInterface, around cube.Pos, radiu
 		x := int(es.Position[0])
 		z := int(es.Position[2])
 		dist := i32.Sqrt(i32.Pow(int32(x-around.X()), 2) + i32.Pow(int32(z-around.Z()), 2))
-		_, existsAlready := w2.GetEntity(k)
-		if existsAlready || dist < radius*16 || radius < 0 {
+		e2 := w2.GetEntity(k)
+		if e2 != nil || dist < radius*16 || radius < 0 {
 			w2.StoreEntity(k, es)
 		}
 	}

@@ -105,7 +105,7 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 			}
 		}
 		if !empty {
-			w.mapUI.SetChunk((world.ChunkPos)(pk.Position), ch, w.currentWorld.IsDeferred())
+			w.mapUI.SetChunk((world.ChunkPos)(pk.Position), ch, w.currentWorld.IsPaused())
 		}
 	}
 
@@ -197,7 +197,7 @@ func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) error {
 
 	for cp, c := range chunks {
 		w.currentWorld.StoreChunk(cp, c, blockNBTs[cp])
-		w.mapUI.SetChunk(cp, c, w.currentWorld.IsDeferred())
+		w.mapUI.SetChunk(cp, c, w.currentWorld.IsPaused())
 	}
 
 	w.mapUI.SchedRedraw()

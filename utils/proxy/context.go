@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"net"
 	"os"
+	"path"
 	"path/filepath"
 	"reflect"
 	"strconv"
@@ -27,10 +28,11 @@ import (
 )
 
 type Context struct {
-	Server   minecraft.IConn
-	Client   minecraft.IConn
-	listener *minecraft.Listener
-	Player   Player
+	Server     minecraft.IConn
+	Client     minecraft.IConn
+	listener   *minecraft.Listener
+	Player     Player
+	ExtraDebug bool
 
 	withClient bool
 	addedPacks []*resource.Pack
@@ -128,15 +130,17 @@ func (p *Context) proxyLoop(ctx context.Context, toServer bool) (err error) {
 		c2 = p.Client
 	}
 
-	defer func() {
-		rec := recover()
-		if rec != nil {
-			if s, ok := rec.(string); ok {
-				rec = errors.New(s)
+	if false {
+		defer func() {
+			rec := recover()
+			if rec != nil {
+				if s, ok := rec.(string); ok {
+					rec = errors.New(s)
+				}
+				err = rec.(error)
 			}
-			err = rec.(error)
-		}
-	}()
+		}()
+	}
 
 	for {
 		if ctx.Err() != nil {
@@ -286,6 +290,11 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 		}
 	}()
 
+	isReplay := strings.HasPrefix(p.serverAddress, "PCAP!")
+	if isReplay {
+		p.serverName = path.Base(p.serverName)
+	}
+
 	for _, handler := range p.handlers {
 		if handler.AddressAndName != nil {
 			err = handler.AddressAndName(p.serverAddress, p.serverName)
@@ -293,11 +302,6 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 				return err
 			}
 		}
-	}
-
-	isReplay := false
-	if strings.HasPrefix(p.serverAddress, "PCAP!") {
-		isReplay = true
 	}
 
 	if !isReplay {
@@ -308,12 +312,16 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 		}
 	}
 
-	p.ui.Message(messages.ConnectStateBegin)
+	p.ui.HandleMessage(&messages.Message{
+		Source: "proxy",
+		Data:   messages.ConnectStateBegin,
+	})
 
 	// setup Client and Server Connections
 	wg := sync.WaitGroup{}
 	if isReplay {
-		server, err := CreateReplayConnector(ctx, p.serverAddress[5:], p.packetFunc, p.onResourcePacksInfo, p.onFinishedPack)
+		filename := p.serverAddress[5:]
+		server, err := CreateReplayConnector(ctx, filename, p.packetFunc, p.onResourcePacksInfo, p.onFinishedPack)
 		if err != nil {
 			return err
 		}
@@ -434,7 +442,10 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 		}
 	}
 
-	p.ui.Message(messages.ConnectState(messages.ConnectStateDone))
+	p.ui.HandleMessage(&messages.Message{
+		Source: "proxy",
+		Data:   messages.ConnectStateDone,
+	})
 
 	{ // packet loop
 		doProxy := func(client bool) {
@@ -500,7 +511,8 @@ func (p *Context) Run(ctx context.Context, connectString string) (err error) {
 	}
 
 	if utils.Options.Debug || utils.Options.ExtraDebug {
-		p.AddHandler(NewDebugLogger(utils.Options.ExtraDebug, false))
+		p.ExtraDebug = utils.Options.ExtraDebug
+		p.AddHandler(NewDebugLogger(utils.Options.ExtraDebug))
 	}
 	if utils.Options.Capture {
 		p.AddHandler(NewPacketCapturer())
@@ -529,7 +541,10 @@ func (p *Context) Run(ctx context.Context, connectString string) (err error) {
 				handler.Deferred()
 			}
 		}
-		p.ui.Message(messages.SetUIState(messages.UIStateFinished))
+		p.ui.HandleMessage(&messages.Message{
+			Source: "proxy",
+			Data:   messages.UIStateFinished,
+		})
 	}()
 
 	// load forced packs

@@ -59,12 +59,6 @@ func (p *packetCapturer) OnServerConnect() (disconnect bool, err error) {
 	}
 
 	packs := p.proxy.Server.ResourcePacks()
-	select {
-	case <-p.proxy.Server.OnDisconnect():
-		_, err := p.proxy.Server.ReadPacket()
-		return true, err
-	default:
-	}
 
 	p.file.WriteString("BTCP")
 	binary.Write(p.file, binary.LittleEndian, uint32(4))
@@ -114,7 +108,7 @@ func (p *packetCapturer) OnServerConnect() (disconnect bool, err error) {
 
 	_, err = p.tempBuf.WriteTo(fw)
 	if err != nil {
-		panic(err)
+		return false, err
 	}
 	p.tempBuf = nil
 	p.wPacket = fw

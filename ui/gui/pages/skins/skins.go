@@ -8,6 +8,7 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
+	"github.com/bedrock-tool/bedrocktool/ui"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 )
@@ -20,8 +21,8 @@ type (
 const ID = "skins"
 
 type Page struct {
-	router *pages.Router
-	Skins  []messages.NewSkin
+	ui    ui.UI
+	Skins []messages.NewSkin
 
 	l         sync.Mutex
 	State     messages.UIState
@@ -29,9 +30,9 @@ type Page struct {
 	back      widget.Clickable
 }
 
-func New(router *pages.Router) pages.Page {
+func New(ui ui.UI) pages.Page {
 	return &Page{
-		router: router,
+		ui: ui,
 		SkinsList: widget.List{
 			List: layout.List{
 				Axis: layout.Vertical,
@@ -63,8 +64,10 @@ func (p *Page) NavItem() component.NavItem {
 
 func (p *Page) Layout(gtx C, th *material.Theme) D {
 	if p.back.Clicked(gtx) {
-		p.router.SwitchTo("settings")
-		return D{}
+		p.ui.HandleMessage(&messages.Message{
+			Source: p.ID(),
+			Data:   messages.ExitSubcommand{},
+		})
 	}
 
 	return layout.Inset{
@@ -97,36 +100,29 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 				)
 			}),
 			layout.Flexed(0.1, func(gtx C) D {
-				if p.State == messages.UIStateFinished {
-					return layout.UniformInset(5).Layout(gtx, func(gtx C) D {
-						gtx.Constraints.Max.Y = gtx.Dp(40)
-						gtx.Constraints.Max.X = gtx.Constraints.Max.X / 6
-						return material.Button(th, &p.back, "Return").Layout(gtx)
-					})
-				}
-				return D{}
+				return layout.UniformInset(5).Layout(gtx, func(gtx C) D {
+					gtx.Constraints.Max.Y = gtx.Dp(40)
+					gtx.Constraints.Max.X = gtx.Constraints.Max.X / 6
+					return material.Button(th, &p.back, "Return").Layout(gtx)
+				})
 			}),
 		)
 	})
 }
 
-func (p *Page) Handler(data interface{}) messages.Response {
-	r := messages.Response{
-		Ok:   false,
-		Data: nil,
-	}
-
-	switch m := data.(type) {
-	case messages.SetUIState:
+func (p *Page) HandleMessage(msg *messages.Message) *messages.Message {
+	switch m := msg.Data.(type) {
+	case messages.HaveFinishScreen:
+		return &messages.Message{
+			Source: "skins",
+			Data:   true,
+		}
+	case messages.UIState:
 		p.State = m
-		p.router.Invalidate()
-		r.Ok = true
 	case messages.NewSkin:
 		p.l.Lock()
 		p.Skins = append(p.Skins, m)
 		p.l.Unlock()
-		p.router.Invalidate()
-		r.Ok = true
 	}
-	return r
+	return nil
 }

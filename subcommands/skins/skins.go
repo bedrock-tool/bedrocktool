@@ -34,16 +34,22 @@ func (c *SkinCMD) Execute(ctx context.Context, ui ui.UI) error {
 	}
 
 	p.AddHandler(handlers.NewSkinSaver(func(sa handlers.SkinAdd) {
-		ui.Message(messages.NewSkin{
-			PlayerName: sa.PlayerName,
-			Skin:       sa.Skin,
+		ui.HandleMessage(&messages.Message{
+			Source: "skins",
+			Data: messages.NewSkin{
+				PlayerName: sa.PlayerName,
+				Skin:       sa.Skin,
+			},
 		})
 	}))
 
 	p.AddHandler(&proxy.Handler{
 		Name: "Skin CMD",
 		ConnectCB: func() bool {
-			ui.Message(messages.SetUIState(messages.UIStateMain))
+			ui.HandleMessage(&messages.Message{
+				Source: "skins",
+				Data:   messages.UIStateMain,
+			})
 			return false
 		},
 	})

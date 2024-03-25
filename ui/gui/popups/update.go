@@ -1,4 +1,4 @@
-package pages
+package popups
 
 import (
 	"fmt"
@@ -7,13 +7,13 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/bedrock-tool/bedrocktool/ui"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils/updater"
 )
 
 type UpdatePopup struct {
-	router *Router
-
+	ui          ui.UI
 	state       messages.UIState
 	startButton widget.Clickable
 	err         error
@@ -22,10 +22,10 @@ type UpdatePopup struct {
 
 var _ Popup = &UpdatePopup{}
 
-func NewUpdatePopup(router *Router) Popup {
+func NewUpdatePopup(ui ui.UI) Popup {
 	return &UpdatePopup{
-		router: router,
-		state:  messages.UIStateMain,
+		ui:    ui,
+		state: messages.UIStateMain,
 	}
 }
 
@@ -42,7 +42,11 @@ func (p *UpdatePopup) Layout(gtx C, th *material.Theme) D {
 				p.state = messages.UIStateFinished
 			}
 			p.updating = false
-			p.router.Invalidate()
+			p.ui.HandleMessage(&messages.Message{
+				Source:     p.ID(),
+				SourceType: "popup",
+				Data:       messages.Close{},
+			})
 		}()
 	}
 
@@ -85,10 +89,6 @@ func (p *UpdatePopup) Layout(gtx C, th *material.Theme) D {
 	})
 }
 
-func (p *UpdatePopup) Handler(data interface{}) messages.Response {
-	r := messages.Response{
-		Ok:   false,
-		Data: nil,
-	}
-	return r
+func (p *UpdatePopup) HandleMessage(msg *messages.Message) *messages.Message {
+	return nil
 }

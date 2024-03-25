@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"time"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
@@ -16,11 +15,17 @@ import (
 )
 
 func (p *Context) onResourcePacksInfo() {
-	p.ui.Message(messages.ConnectStateReceivingResources)
+	p.ui.HandleMessage(&messages.Message{
+		Source: "proxy",
+		Data:   messages.ConnectStateReceivingResources,
+	})
 }
 
 func (p *Context) onFinishedPack(pack *resource.Pack) {
-	p.ui.Message(messages.FinishedPack{Pack: pack})
+	p.ui.HandleMessage(&messages.Message{
+		Source: "proxy",
+		Data:   messages.FinishedPack{Pack: pack},
+	})
 }
 
 func (p *Context) connectServer(ctx context.Context) (err error) {
@@ -32,7 +37,10 @@ func (p *Context) connectServer(ctx context.Context) (err error) {
 		}
 	}
 
-	p.ui.Message(messages.ConnectStateServerConnecting)
+	p.ui.HandleMessage(&messages.Message{
+		Source: "proxy",
+		Data:   messages.ConnectStateServerConnecting,
+	})
 	logrus.Info(locale.Loc("connecting", locale.Strmap{"Address": p.serverAddress}))
 	d := minecraft.Dialer{
 		TokenSource: p.tokenSource,
@@ -69,30 +77,30 @@ func (p *Context) connectServer(ctx context.Context) (err error) {
 	}
 	p.Server = server
 
-	p.ui.Message(messages.ConnectState(messages.ConnectStateEstablished))
+	p.ui.HandleMessage(&messages.Message{
+		Source: "proxy",
+		Data:   messages.ConnectStateEstablished,
+	})
 	logrus.Debug(locale.Loc("connected", nil))
 	return nil
 }
 
 func (p *Context) connectClient(ctx context.Context, serverAddress string) (err error) {
-	clientDebugLog := false
-	var d *Handler
-	if clientDebugLog {
-		d = NewDebugLogger(true, true)
+	var extraClientDebug func(pk packet.Packet)
+	var extraClientDebugEnd func()
+	if p.ExtraDebug {
+		extraClientDebug, extraClientDebugEnd = newExtraDebug("packets-client.log")
 	}
 
 	p.listener, err = minecraft.ListenConfig{
 		StatusProvider: minecraft.NewStatusProvider(fmt.Sprintf("%s Proxy", serverAddress)),
 		PacketFunc: func(header packet.Header, payload []byte, src, dst net.Addr) {
-			if !clientDebugLog {
-				return
-			}
-			if dst.String() == "[::]:19132" || src.String() == "[::]:19132" {
+			if extraClientDebug != nil {
 				pk, ok := DecodePacket(header, payload)
 				if !ok {
 					return
 				}
-				d.PacketCB(pk, dst.String() == "[::]:19132", time.Now(), true)
+				extraClientDebug(pk)
 			}
 		},
 		OnClientData: func(c *minecraft.Conn) {
@@ -110,7 +118,10 @@ func (p *Context) connectClient(ctx context.Context, serverAddress string) (err 
 		return err
 	}
 
-	p.ui.Message(messages.ConnectStateListening)
+	p.ui.HandleMessage(&messages.Message{
+		Source: "proxy",
+		Data:   messages.ConnectStateListening,
+	})
 	logrus.Infof(locale.Loc("listening_on", locale.Strmap{"Address": p.listener.Addr()}))
 	logrus.Infof(locale.Loc("help_connect", nil))
 
@@ -118,6 +129,9 @@ func (p *Context) connectClient(ctx context.Context, serverAddress string) (err 
 
 	go func() {
 		<-ctx.Done()
+		if extraClientDebugEnd != nil {
+			extraClientDebugEnd()
+		}
 		if !accepted {
 			_ = p.listener.Close()
 		}
