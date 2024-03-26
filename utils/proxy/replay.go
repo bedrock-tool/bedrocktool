@@ -53,6 +53,9 @@ func (r *replayConnector) readPacket() (payload []byte, toServer bool, err error
 
 	err = binary.Read(r.packetF, binary.LittleEndian, &magic)
 	if err != nil {
+		if err == io.ErrUnexpectedEOF {
+			err = io.EOF
+		}
 		if errors.Is(err, io.EOF) {
 			logrus.Info("Reached End")
 			return nil, false, nil
