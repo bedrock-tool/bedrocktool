@@ -126,6 +126,17 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 		ProxyRef: func(pc *proxy.Context) {
 			w.proxy = pc
 
+			/*
+				w.proxy.PlayerMoveCB = append(w.proxy.PlayerMoveCB, func() {
+					ui.HandleMessage(&messages.Message{
+						Source: "worlds",
+						Data: messages.PlayerPosition{
+							Position: w.proxy.Player.Position,
+						},
+					})
+				})
+			*/
+
 			w.proxy.AddCommand(func(cmdline []string) bool {
 				return w.setWorldName(strings.Join(cmdline, " "), false)
 			}, protocol.Command{

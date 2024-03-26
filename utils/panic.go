@@ -20,12 +20,11 @@ var panicErr error
 func PrintPanic(err error) {
 	panicStack = string(debug.Stack())
 	panicErr = err
-	fmt.Printf(locale.Loc("fatal_error", nil))
-	fmt.Println("")
+	fmt.Println(locale.Loc("fatal_error", nil))
 	fmt.Println("--COPY FROM HERE--")
-	fmt.Printf("Version: %s", updater.Version)
-	fmt.Printf("Cmdline: %s", os.Args)
-	fmt.Printf("Error: %s", err)
+	fmt.Printf("Version: %s\n", updater.Version)
+	fmt.Printf("Cmdline: %s\n", os.Args)
+	fmt.Printf("Error: %s\n", err)
 	fmt.Println("stacktrace from panic: \n" + panicStack)
 	fmt.Println("--END COPY HERE--")
 	fmt.Println("")

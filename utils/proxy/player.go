@@ -11,7 +11,7 @@ type Player struct {
 	Pitch, Yaw, HeadYaw float32
 }
 
-func (p *Player) handlePackets(pk packet.Packet) {
+func (p *Player) handlePackets(pk packet.Packet) bool {
 	switch pk := pk.(type) {
 	case *packet.StartGame:
 		p.RuntimeID = pk.EntityRuntimeID
@@ -21,11 +21,14 @@ func (p *Player) handlePackets(pk packet.Packet) {
 			p.Pitch = pk.Pitch
 			p.Yaw = pk.Yaw
 			p.HeadYaw = pk.HeadYaw
+			return true
 		}
 	case *packet.PlayerAuthInput:
 		p.Position = pk.Position
 		p.Pitch = pk.Pitch
 		p.Yaw = pk.Yaw
 		p.HeadYaw = pk.HeadYaw
+		return true
 	}
+	return false
 }

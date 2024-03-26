@@ -4,26 +4,32 @@ import (
 	"image"
 	"image/draw"
 	"math"
+	"sync"
 
 	"gioui.org/f32"
+	"gioui.org/io/event"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
+	"gioui.org/widget"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
+	"github.com/go-gl/mathgl/mgl32"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 )
 
 const tileSize = 256
 
 type mapInput struct {
-	click       f32.Point
-	scaleFactor float64
-	center      f32.Point
-	transform   f32.Affine2D
-	grabbed     bool
-	cursor      image.Point
+	click          f32.Point
+	scaleFactor    float64
+	center         f32.Point
+	transform      f32.Affine2D
+	grabbed        bool
+	cursor         image.Point
+	FollowPlayer   widget.Bool
+	playerPosition mgl32.Vec3
 }
 
 type Map2 struct {
@@ -31,6 +37,7 @@ type Map2 struct {
 
 	images   map[image.Point]*image.RGBA
 	imageOps map[image.Point]paint.ImageOp
+	l        sync.Mutex
 }
 
 func (m *mapInput) HandlePointerEvent(e pointer.Event) {
@@ -62,14 +69,24 @@ func (m *mapInput) Layout(gtx layout.Context) func() {
 	m.center = f32.Pt(float32(gtx.Constraints.Max.X), float32(gtx.Constraints.Max.Y)).Div(2)
 
 	size := gtx.Constraints.Max
-	ev, ok := gtx.Event(pointer.Filter{
-		Target:       m,
-		Kinds:        pointer.Scroll | pointer.Drag | pointer.Press | pointer.Release,
-		ScrollBounds: image.Rect(-size.X, -size.Y, size.X, size.Y),
-	})
-	if ok {
+
+	event.Op(gtx.Ops, m)
+	for {
+		ev, ok := gtx.Event(pointer.Filter{
+			Target:       m,
+			Kinds:        pointer.Scroll | pointer.Drag | pointer.Press | pointer.Release,
+			ScrollBounds: image.Rect(-size.X, -size.Y, size.X, size.Y),
+		})
+		if !ok {
+			break
+		}
 		m.HandlePointerEvent(ev.(pointer.Event))
 	}
+
+	/*
+		if m.FollowPlayer.Value {
+		}
+	*/
 
 	return func() {
 		if m.cursor.In(image.Rectangle(gtx.Constraints)) {
@@ -85,6 +102,8 @@ func (m *mapInput) Layout(gtx layout.Context) func() {
 func (m *Map2) Layout(gtx layout.Context) layout.Dimensions {
 	defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
 	defer m.mapInput.Layout(gtx)()
+	m.l.Lock()
+	defer m.l.Unlock()
 
 	for p, imageOp := range m.imageOps {
 		scaledSize := tileSize * m.mapInput.scaleFactor
@@ -131,6 +150,8 @@ func chunkPosToTilePos(cp protocol.ChunkPos) (tile image.Point, offset image.Poi
 }
 
 func (m *Map2) Update(u *messages.UpdateMap) {
+	m.l.Lock()
+	defer m.l.Unlock()
 	if u.ChunkCount == -1 {
 		m.images = make(map[image.Point]*image.RGBA)
 		m.imageOps = make(map[image.Point]paint.ImageOp)

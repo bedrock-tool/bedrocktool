@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"runtime/pprof"
@@ -46,14 +47,27 @@ func selectUI() ui.UI {
 
 func main() {
 	{
-		f, err := os.Create("bedrocktool.log")
+		logFile, err := os.Create("bedrocktool.log")
 		if err != nil {
-			logrus.Warn(err)
-		} else {
-			logrus.AddHook(lfshook.NewHook(f, &logrus.TextFormatter{
-				DisableColors: true,
-			}))
+			panic(err)
 		}
+		originalStdout := os.Stdout
+		rOut, wOut, err := os.Pipe()
+		if err != nil {
+			panic(err)
+		}
+		os.Stdout = wOut
+		go func() {
+			m := io.MultiWriter(originalStdout, logFile)
+			io.Copy(m, rOut)
+		}()
+
+		redirectStderr(logFile)
+
+		logrus.SetOutput(originalStdout)
+		logrus.AddHook(lfshook.NewHook(logFile, &logrus.TextFormatter{
+			DisableColors: true,
+		}))
 	}
 
 	isDebug := updater.Version == ""
@@ -67,30 +81,6 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	recovery.ErrorHandler = func(err error) {
-		utils.PrintPanic(err)
-		utils.UploadPanic()
-	}
-
-	defer func() {
-		// dont catch panic if not release verion
-		if updater.Version == "" {
-			logrus.Warn("no version set")
-			return
-		}
-		if err := recover(); err != nil {
-			if s, ok := err.(string); ok {
-				err = errors.New(s)
-			}
-			recovery.ErrorHandler(err.(error))
-			if utils.Options.IsInteractive {
-				input := bufio.NewScanner(os.Stdin)
-				input.Scan()
-			}
-			os.Exit(1)
-		}
-	}()
-
 	logrus.SetLevel(logrus.DebugLevel)
 	if !isDebug {
 		logrus.Infof(locale.Loc("bedrocktool_version", locale.Strmap{"Version": updater.Version}))
@@ -98,6 +88,20 @@ func main() {
 
 	ctx, cancel := context.WithCancelCause(context.Background())
 	utils.Auth.InitCtx(ctx)
+
+	recovery.ErrorHandler = func(err error) {
+		if isDebug {
+			panic(err)
+		}
+		utils.PrintPanic(err)
+		utils.UploadPanic()
+		cancel(err)
+		if utils.Options.IsInteractive {
+			input := bufio.NewScanner(os.Stdin)
+			input.Scan()
+		}
+		os.Exit(1)
+	}
 
 	flag.StringVar(&utils.RealmsEnv, "realms-env", "", "realms env")
 	flag.BoolVar(&utils.Options.Debug, "debug", false, locale.Loc("debug_mode", nil))

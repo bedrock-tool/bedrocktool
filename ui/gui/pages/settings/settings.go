@@ -12,6 +12,7 @@ import (
 	"gioui.org/x/component"
 	"github.com/bedrock-tool/bedrocktool/ui"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages"
+	"github.com/bedrock-tool/bedrocktool/ui/gui/popups"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/sirupsen/logrus"
@@ -81,7 +82,7 @@ func (p *Page) ID() string {
 	return ID
 }
 
-func (p *Page) Actions() []component.AppBarAction {
+func (p *Page) Actions(th *material.Theme) []component.AppBarAction {
 	return []component.AppBarAction{}
 }
 
@@ -111,14 +112,22 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 			}
 
 			settingsUI := p.settings[p.cmdMenu.selected]
-			settingsUI.Apply()
-
-			p.ui.HandleMessage(&messages.Message{
-				Source: p.ID(),
-				Data: messages.StartSubcommand{
-					Command: cmd,
-				},
-			})
+			err := settingsUI.Apply()
+			if err != nil {
+				p.ui.HandleMessage(&messages.Message{
+					Source: p.ID(),
+					Data: messages.ShowPopup{
+						Popup: popups.NewErrorPopup(p.ui, err, func() {}, false),
+					},
+				})
+			} else {
+				p.ui.HandleMessage(&messages.Message{
+					Source: p.ID(),
+					Data: messages.StartSubcommand{
+						Command: cmd,
+					},
+				})
+			}
 		}
 	}
 

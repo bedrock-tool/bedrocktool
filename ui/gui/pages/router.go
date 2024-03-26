@@ -3,7 +3,6 @@ package pages
 import (
 	"context"
 	"errors"
-	"image/color"
 	"log"
 	"reflect"
 	"sync"
@@ -11,7 +10,6 @@ import (
 
 	"gioui.org/layout"
 	"gioui.org/op/paint"
-	"gioui.org/text"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
@@ -187,30 +185,14 @@ func (r *Router) Layout(gtx layout.Context, th *material.Theme) layout.Dimension
 
 func (r *Router) setActions() {
 	var extra []component.AppBarAction
-	extra = append(extra, component.AppBarAction{
-		Layout: func(gtx layout.Context, bg, fg color.NRGBA) layout.Dimensions {
-			return layout.UniformInset(5).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-				return layout.Flex{
-					Axis:      layout.Horizontal,
-					Alignment: layout.Middle,
-				}.Layout(gtx,
-					layout.Rigid(material.Switch(r.th, &r.logToggle, "logs").Layout),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-						l := material.Label(r.th, 12, "Logs")
-						l.Alignment = text.Middle
-						return layout.UniformInset(5).Layout(gtx, l.Layout)
-					}),
-				)
-			})
-		},
-	})
+	extra = append(extra, AppBarSwitch(&r.logToggle, "Logs", &r.th))
 
 	if r.updateAvailable {
 		extra = append(extra, component.SimpleIconAction(&r.updateButton, &icons.ActionUpdate, component.OverflowAction{}))
 	}
 
 	r.AppBar.SetActions(append(
-		r.currentPage.Actions(),
+		r.currentPage.Actions(r.th),
 		extra...,
 	), r.currentPage.Overflow())
 }

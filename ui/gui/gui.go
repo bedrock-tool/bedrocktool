@@ -80,6 +80,7 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelCauseFunc) (err er
 		_th := th.WithPalette(paletteLight)
 		th = &_th
 	}
+	g.th = th
 
 	w := app.NewWindow()
 	w.Option(app.Title("Bedrocktool " + updater.Version))
