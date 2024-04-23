@@ -390,7 +390,7 @@ func (r *replayConnector) ReadPacket() (pk packet.Packet, err error) {
 }
 
 func (r *replayConnector) Write(b []byte) (n int, err error) {
-	return 0, errors.New("not Implemented")
+	panic("unimplemented")
 }
 
 func (r *replayConnector) WritePacket(pk packet.Packet) error {

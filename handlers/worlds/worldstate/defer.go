@@ -1,20 +1,56 @@
 package worldstate
 
 import (
+	"image"
+	"image/draw"
+
+	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/df-mc/dragonfly/server/world/chunk"
+	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/thomaso-mirodin/intmath/i32"
 )
 
 type worldStateDefer struct {
 	chunks map[world.ChunkPos]*chunk.Chunk
 	worldEntities
+	maps map[int64]*Map
 }
 
 func (w *worldStateDefer) StoreChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cube.Pos]DummyBlock) {
 	w.chunks[pos] = ch
 	w.blockNBTs[pos] = blockNBT
+}
+
+func (w *worldStateDefer) StoreMap(m *packet.ClientBoundMapItemData) {
+	m1, ok := w.maps[m.MapID]
+	if !ok {
+		m1 = &Map{
+			MapID:     m.MapID,
+			Height:    128,
+			Width:     128,
+			Scale:     1,
+			Dimension: 0,
+			ZCenter:   m.Origin.Z(),
+			XCenter:   m.Origin.X(),
+		}
+		w.maps[m.MapID] = m1
+	}
+	draw.Draw(&image.RGBA{
+		Pix:    m1.Colors[:],
+		Rect:   image.Rect(0, 0, int(m.Width), int(m.Height)),
+		Stride: int(m.Width) * 4,
+	}, image.Rect(
+		int(m.XOffset), int(m.YOffset),
+		int(m.Width), int(m.Height),
+	), utils.RGBA2Img(
+		m.Pixels,
+		image.Rect(
+			0, 0,
+			int(m.Width), int(m.Height),
+		),
+	), image.Point{}, draw.Over)
 }
 
 func (w *worldStateDefer) cullChunks() {

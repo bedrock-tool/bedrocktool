@@ -86,6 +86,17 @@ func (w *worldsHandler) AddPacks(folder string) {
 				Version: pack.Base().Manifest().Header.Version,
 			})
 		}
+
+		if len(w.rp.Files) > 0 && w.settings.Players {
+			btPlayersFolder := path.Join(folder, "resource_packs", "bt_players")
+			os.MkdirAll(btPlayersFolder, 0755)
+			w.rp.WriteToDir(btPlayersFolder)
+			rdeps = append(rdeps, dep{
+				PackID:  w.rp.Manifest.Header.UUID,
+				Version: w.rp.Manifest.Header.Version,
+			})
+		}
+
 		if len(rdeps) > 0 {
 			addPacksJSON("world_resource_packs.json", rdeps)
 		}

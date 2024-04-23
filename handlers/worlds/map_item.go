@@ -23,8 +23,8 @@ import (
 
 const ViewMapID = 0x424242
 
-// MapItemPacket tells the client that it has a map with id 0x424242 in the offhand
-var MapItemPacket = packet.InventoryContent{
+// mapItemPacket tells the client that it has a map with id 0x424242 in the offhand
+var mapItemPacket = packet.InventoryContent{
 	WindowID: 119,
 	Content: []protocol.ItemInstance{
 		{
@@ -45,6 +45,7 @@ var MapItemPacket = packet.InventoryContent{
 	},
 }
 
+// GetBounds returns the outer bounds of what chunks are in this map
 func (m *MapUI) GetBounds() (Min, Max protocol.ChunkPos) {
 	if len(m.renderedChunks) == 0 {
 		return
@@ -140,7 +141,7 @@ func (m *MapUI) Start(ctx context.Context) {
 
 			if m.needRedraw {
 				m.needRedraw = false
-				m.Redraw()
+				m.redraw()
 
 				if err := m.w.proxy.ClientWritePacket(&packet.ClientBoundMapItemData{
 					MapID:       ViewMapID,
@@ -162,7 +163,7 @@ func (m *MapUI) Start(ctx context.Context) {
 			if m.w.proxy.Client == nil {
 				return
 			}
-			err := m.w.proxy.ClientWritePacket(&MapItemPacket)
+			err := m.w.proxy.ClientWritePacket(&mapItemPacket)
 			if err != nil {
 				logrus.Error(err)
 				return
@@ -225,9 +226,7 @@ func (m *MapUI) processQueue() []protocol.ChunkPos {
 				draw.Draw(img, img.Rect, red, image.Point{}, draw.Over)
 			}
 
-			img2 := image.NewRGBA(img.Rect)
-			draw.Draw(img2, img.Rect, img, image.Pt(0, 0), draw.Over)
-			m.renderedChunks[r.pos] = img2
+			m.renderedChunks[r.pos] = img
 			updatedChunks = append(updatedChunks, r.pos)
 		} else {
 			if img, ok := m.oldRendered[r.pos]; ok {
@@ -240,8 +239,8 @@ func (m *MapUI) processQueue() []protocol.ChunkPos {
 	return updatedChunks
 }
 
-// Redraw draws chunk images to the map image
-func (m *MapUI) Redraw() {
+// redraw draws chunk images to the map image
+func (m *MapUI) redraw() {
 	m.l.Lock()
 	defer m.l.Unlock()
 	updatedChunks := m.processQueue()

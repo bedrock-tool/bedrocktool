@@ -9,6 +9,13 @@ import (
 func Img2rgba(img *image.RGBA) []color.RGBA {
 	return unsafe.Slice((*color.RGBA)(unsafe.Pointer(unsafe.SliceData(img.Pix))), len(img.Pix)/4)
 }
+func RGBA2Img(colors []color.RGBA, rect image.Rectangle) *image.RGBA {
+	return &image.RGBA{
+		Pix:    unsafe.Slice((*uint8)(unsafe.Pointer(unsafe.SliceData(colors))), len(colors)*4),
+		Rect:   rect,
+		Stride: 4 * rect.Dx(),
+	}
+}
 
 // LERP is a linear interpolation function
 func LERP(p1, p2, alpha float64) float64 {

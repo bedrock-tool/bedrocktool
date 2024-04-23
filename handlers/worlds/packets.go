@@ -1,6 +1,7 @@
 package worlds
 
 import (
+	"image"
 	"maps"
 	"strconv"
 	"strings"
@@ -11,9 +12,11 @@ import (
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/behaviourpack"
 	"github.com/bedrock-tool/bedrocktool/utils/nbtconv"
+	"github.com/bedrock-tool/bedrocktool/utils/resourcepack"
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/item/inventory"
 	"github.com/df-mc/dragonfly/server/world"
+	"github.com/go-gl/mathgl/mgl32"
 	"github.com/gregwebs/go-recovery"
 	"github.com/sandertv/gophertunnel/minecraft/nbt"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
@@ -134,6 +137,65 @@ func (w *worldsHandler) playersPackets(_pk packet.Packet) {
 	switch pk := _pk.(type) {
 	case *packet.AddPlayer:
 		w.currentWorld.AddPlayer(pk)
+		skin, ok := w.serverState.playerSkins[pk.UUID]
+		if ok {
+			skinTexture := image.NewRGBA(image.Rect(0, 0, int(skin.SkinImageWidth), int(skin.SkinImageHeight)))
+			copy(skinTexture.Pix, skin.SkinData)
+
+			var capeTexture *image.RGBA
+			if skin.CapeID != "" {
+				capeTexture = image.NewRGBA(image.Rect(0, 0, int(skin.CapeImageWidth), int(skin.CapeImageHeight)))
+				copy(capeTexture.Pix, skin.CapeData)
+			}
+
+			var resourcePatch map[string]map[string]string
+			err := utils.ParseJson(skin.SkinResourcePatch, &resourcePatch)
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+
+			geometryName := resourcePatch["geometry"]["default"]
+
+			var geom *resourcepack.Geometry
+			var isDefault bool
+			if len(skin.SkinGeometry) > 0 {
+				skinGeometry, _, err := utils.ParseSkinGeometry(skin.SkinGeometry)
+				if err != nil {
+					logrus.Error(err)
+					return
+				}
+				geom = &resourcepack.Geometry{
+					Description: skinGeometry.Description,
+					Bones:       skinGeometry.Bones,
+				}
+			} else {
+				geom = &resourcepack.Geometry{
+					Description: utils.SkinGeometryDescription{
+						Identifier:    geometryName,
+						TextureWidth:  int(skin.SkinImageWidth),
+						TextureHeight: int(skin.SkinImageHeight),
+					},
+				}
+				isDefault = true
+			}
+
+			var geometry = resourcepack.GeometryFile{
+				FormatVersion: string(skin.GeometryDataEngineVersion),
+				Geometry:      []*resourcepack.Geometry{geom},
+			}
+
+			w.rp.AddPlayer(pk.UUID.String(), skinTexture, capeTexture, skin.CapeID, &geometry, isDefault)
+		}
+	case *packet.PlayerList:
+		if pk.ActionType == packet.PlayerListActionRemove { // remove
+			return
+		}
+		for _, player := range pk.Entries {
+			w.serverState.playerSkins[player.UUID] = &player.Skin
+		}
+	case *packet.PlayerSkin:
+		w.serverState.playerSkins[pk.UUID] = &pk.Skin
 	}
 }
 
@@ -198,6 +260,9 @@ func (w *worldsHandler) entityPackets(_pk packet.Packet) {
 			if pk.Flags&packet.MoveActorDeltaFlagHasRotY != 0 {
 				e.Yaw = pk.Rotation.Y()
 			}
+			if !e.Velocity.ApproxEqual(mgl32.Vec3{}) {
+				e.HasMoved = true
+			}
 		}
 
 	case *packet.MoveActorAbsolute:
@@ -205,6 +270,9 @@ func (w *worldsHandler) entityPackets(_pk packet.Packet) {
 			e.Position = pk.Position
 			e.Pitch = pk.Rotation.X()
 			e.Yaw = pk.Rotation.Y()
+			if !e.Velocity.ApproxEqual(mgl32.Vec3{}) {
+				e.HasMoved = true
+			}
 		}
 
 	case *packet.MobEquipment:
@@ -276,6 +344,8 @@ func (w *worldsHandler) chunkPackets(_pk packet.Packet) {
 					}
 				}
 		*/
+	case *packet.ClientBoundMapItemData:
+		w.currentWorld.StoreMap(pk)
 	}
 }
 
@@ -304,32 +374,32 @@ func (w *worldsHandler) itemPackets(_pk packet.Packet) packet.Packet {
 		for _, isr := range pk.Requests {
 			for _, sra := range isr.Actions {
 				if sra, ok := sra.(*protocol.TakeStackRequestAction); ok {
-					if sra.Source.StackNetworkID == MapItemPacket.Content[0].StackNetworkID {
+					if sra.Source.StackNetworkID == mapItemPacket.Content[0].StackNetworkID {
 						continue
 					}
 				}
 				if sra, ok := sra.(*protocol.DropStackRequestAction); ok {
-					if sra.Source.StackNetworkID == MapItemPacket.Content[0].StackNetworkID {
+					if sra.Source.StackNetworkID == mapItemPacket.Content[0].StackNetworkID {
 						continue
 					}
 				}
 				if sra, ok := sra.(*protocol.DestroyStackRequestAction); ok {
-					if sra.Source.StackNetworkID == MapItemPacket.Content[0].StackNetworkID {
+					if sra.Source.StackNetworkID == mapItemPacket.Content[0].StackNetworkID {
 						continue
 					}
 				}
 				if sra, ok := sra.(*protocol.PlaceInContainerStackRequestAction); ok {
-					if sra.Source.StackNetworkID == MapItemPacket.Content[0].StackNetworkID {
+					if sra.Source.StackNetworkID == mapItemPacket.Content[0].StackNetworkID {
 						continue
 					}
 				}
 				if sra, ok := sra.(*protocol.TakeOutContainerStackRequestAction); ok {
-					if sra.Source.StackNetworkID == MapItemPacket.Content[0].StackNetworkID {
+					if sra.Source.StackNetworkID == mapItemPacket.Content[0].StackNetworkID {
 						continue
 					}
 				}
 				if sra, ok := sra.(*protocol.DestroyStackRequestAction); ok {
-					if sra.Source.StackNetworkID == MapItemPacket.Content[0].StackNetworkID {
+					if sra.Source.StackNetworkID == mapItemPacket.Content[0].StackNetworkID {
 						continue
 					}
 				}

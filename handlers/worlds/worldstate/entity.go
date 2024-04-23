@@ -1,6 +1,8 @@
 package worldstate
 
 import (
+	"math"
+
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/behaviourpack"
 	"github.com/bedrock-tool/bedrocktool/utils/nbtconv"
@@ -21,6 +23,7 @@ type EntityState struct {
 	Position            mgl32.Vec3
 	Pitch, Yaw, HeadYaw float32
 	Velocity            mgl32.Vec3
+	HasMoved            bool
 
 	Metadata  protocol.EntityMetadata
 	Inventory map[byte]map[byte]protocol.ItemInstance
@@ -123,7 +126,9 @@ var flagNames = map[uint8]string{
 	protocol.EntityDataFlagRoaring:      "IsRoaring",
 }
 
-func entityMetadataToNBT(metadata protocol.EntityMetadata, nbt map[string]any) {
+func (s *EntityState) toNBT(nbt map[string]any) {
+	metadata := s.Metadata
+
 	nbt["Persistent"] = true
 
 	if variant, ok := metadata[protocol.EntityDataKeyVariant]; ok {
@@ -139,7 +144,7 @@ func entityMetadataToNBT(metadata protocol.EntityMetadata, nbt map[string]any) {
 		nbt["Color2"] = color2
 	}
 	if skinID, ok := metadata[protocol.EntityDataKeySkinID]; ok {
-		nbt["SkinID"] = int32(skinID.(int32))
+		nbt["SkinID"] = skinID
 	}
 
 	if name, ok := metadata[protocol.EntityDataKeyName]; ok {
@@ -152,6 +157,68 @@ func entityMetadataToNBT(metadata protocol.EntityMetadata, nbt map[string]any) {
 			nbt["CustomNameVisible"] = false
 		}
 	}
+
+	speed := 0.25
+	if !s.HasMoved {
+		speed = 0
+	}
+
+	attributes := []any{
+		map[string]any{
+			"Name":       "minecraft:movement",
+			"Base":       float32(speed),
+			"Current":    float32(speed),
+			"DefaultMax": float32(3.4028235e+38),
+			"DefaultMin": float32(0),
+			"Max":        float32(3.4028235e+38),
+			"Min":        float32(0),
+		},
+		map[string]any{
+			"Current":    float32(0.02),
+			"DefaultMax": float32(3.4028235e+38),
+			"DefaultMin": float32(0),
+			"Max":        float32(3.4028235e+38),
+			"Min":        float32(0),
+			"Name":       "minecraft:underwater_movement",
+			"Base":       float32(0.02),
+		},
+		map[string]any{
+			"Min":        float32(0),
+			"Name":       "minecraft:lava_movement",
+			"Base":       float32(0.02),
+			"Current":    float32(0.02),
+			"DefaultMax": float32(3.4028235e+38),
+			"DefaultMin": float32(0),
+			"Max":        float32(3.4028235e+38),
+		},
+	}
+
+	/*
+		if !s.HasMoved {
+			attributes = append(attributes, map[string]any{
+				"Min":        float32(-1),
+				"Max":        float32(1),
+				"Name":       "minecraft:gravity",
+				"Base":       float32(0),
+				"Current":    float32(0),
+				"DefaultMax": float32(1),
+				"DefaultMin": float32(-1),
+			})
+		}
+
+		scale, ok := metadata[protocol.EntityDataKeyScale]
+		if ok {
+			attributes = append(attributes, map[string]any{
+				"Min":        float32(0),
+				"Max":        math.MaxFloat32,
+				"Name":       "minecraft:scale",
+				"Base":       scale.(float32),
+				"Current":    scale.(float32),
+				"DefaultMax": math.MaxFloat32,
+				"DefaultMin": float32(0),
+			})
+		}
+	*/
 
 	if _, ok := metadata[protocol.EntityDataKeyFlags]; ok {
 		if metadata.Flag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagNoAI) {
@@ -183,10 +250,10 @@ func entityMetadataToNBT(metadata protocol.EntityMetadata, nbt map[string]any) {
 		addEffect := func(id int, showParticles bool) {
 			activeEffects = append(activeEffects, effect{
 				Id:             byte(id),
-				Duration:       1000,
-				DurationEasy:   1000,
-				DurationNormal: 1000,
-				DurationHard:   1000,
+				Duration:       math.MaxInt32,
+				DurationEasy:   math.MaxInt32,
+				DurationNormal: math.MaxInt32,
+				DurationHard:   math.MaxInt32,
 				FactorCalculationData: map[string]any{
 					"change_timestamp": int32(0),
 					"factor_current":   float32(0),
@@ -197,15 +264,20 @@ func entityMetadataToNBT(metadata protocol.EntityMetadata, nbt map[string]any) {
 					"had_last_tick":    uint8(0x0),
 					"padding_duration": int32(0),
 				},
-				ShowParticles:                   false,
+				ShowParticles:                   showParticles,
 				Ambient:                         false,
 				Amplifier:                       1,
 				DisplayOnScreenTextureAnimation: false,
 			})
 		}
 
+		scale, ok := metadata[protocol.EntityDataKeyScale]
+		if !ok {
+			scale = 1
+		}
+
 		invisible := metadata.Flag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagInvisible)
-		if invisible {
+		if invisible || scale == float32(0) || scale == 0 {
 			addEffect(packet.EffectInvisibility, false)
 		}
 
@@ -213,6 +285,8 @@ func entityMetadataToNBT(metadata protocol.EntityMetadata, nbt map[string]any) {
 			nbt["ActiveEffects"] = activeEffects
 		}
 	}
+
+	nbt["Attributes"] = attributes
 }
 
 func vec3float32(x mgl32.Vec3) []float32 {
@@ -231,7 +305,7 @@ func (s *EntityState) ToServerEntity(links []int64) serverEntity {
 			},
 		},
 	}
-	entityMetadataToNBT(s.Metadata, e.EntityType.NBT)
+	s.toNBT(e.EntityType.NBT)
 
 	var linksTag []map[string]any
 	for i, el := range links {
@@ -259,36 +333,6 @@ func (s *EntityState) ToServerEntity(links []int64) serverEntity {
 			armor[3] = nbtconv.WriteItem(utils.StackToItem(s.Boots.Stack), true)
 		}
 		e.EntityType.NBT["Armor"] = armor
-	}
-
-	e.EntityType.NBT["Attributes"] = []any{
-		map[string]any{
-			"Name":       "minecraft:movement",
-			"Base":       float32(0.25),
-			"Current":    float32(0.25),
-			"DefaultMax": float32(3.4028235e+38),
-			"DefaultMin": float32(0),
-			"Max":        float32(3.4028235e+38),
-			"Min":        float32(0),
-		},
-		map[string]any{
-			"Current":    float32(0.02),
-			"DefaultMax": float32(3.4028235e+38),
-			"DefaultMin": float32(0),
-			"Max":        float32(3.4028235e+38),
-			"Min":        float32(0),
-			"Name":       "minecraft:underwater_movement",
-			"Base":       float32(0.02),
-		},
-		map[string]any{
-			"Min":        float32(0),
-			"Name":       "minecraft:lava_movement",
-			"Base":       float32(0.02),
-			"Current":    float32(0.02),
-			"DefaultMax": float32(3.4028235e+38),
-			"DefaultMin": float32(0),
-			"Max":        float32(3.4028235e+38),
-		},
 	}
 
 	return e

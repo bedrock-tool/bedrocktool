@@ -29,7 +29,7 @@ type EntityIn struct {
 	Meta       protocol.EntityMetadata
 }
 
-func (bp *BehaviourPack) AddEntity(entity EntityIn) {
+func (bp *Pack) AddEntity(entity EntityIn) {
 	ns, _ := ns_name_split(entity.Identifier)
 	if ns == "minecraft" {
 		return

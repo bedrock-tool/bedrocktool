@@ -12,7 +12,7 @@ import (
 	"golang.org/x/exp/slices"
 )
 
-type BehaviourPack struct {
+type Pack struct {
 	formatVersion string
 	Manifest      *resource.Manifest
 	blocks        map[string]*blockBehaviour
@@ -21,8 +21,8 @@ type BehaviourPack struct {
 	biomes        []biomeBehaviour
 }
 
-func New(name string) *BehaviourPack {
-	return &BehaviourPack{
+func New(name string) *Pack {
+	return &Pack{
 		formatVersion: "1.16.0",
 		Manifest: &resource.Manifest{
 			FormatVersion: 2,
@@ -50,14 +50,14 @@ func New(name string) *BehaviourPack {
 	}
 }
 
-func (bp *BehaviourPack) AddDependency(id string, ver [3]int) {
+func (bp *Pack) AddDependency(id string, ver [3]int) {
 	bp.Manifest.Dependencies = append(bp.Manifest.Dependencies, resource.Dependency{
 		UUID:    id,
 		Version: ver,
 	})
 }
 
-func (bp *BehaviourPack) CheckAddLink(pack utils.Pack) {
+func (bp *Pack) CheckAddLink(pack utils.Pack) {
 	_, names, err := pack.FS()
 	if err != nil {
 		logrus.Error(err)
@@ -91,19 +91,19 @@ func (bp *BehaviourPack) CheckAddLink(pack utils.Pack) {
 	bp.AddDependency(h.UUID, h.Version)
 }
 
-func (bp *BehaviourPack) HasBlocks() bool {
+func (bp *Pack) HasBlocks() bool {
 	return len(bp.blocks) > 0
 }
 
-func (bp *BehaviourPack) HasItems() bool {
+func (bp *Pack) HasItems() bool {
 	return len(bp.items) > 0
 }
 
-func (bp *BehaviourPack) HasEntities() bool {
+func (bp *Pack) HasEntities() bool {
 	return len(bp.entities) > 0
 }
 
-func (bp *BehaviourPack) HasContent() bool {
+func (bp *Pack) HasContent() bool {
 	return bp.HasBlocks() || bp.HasItems()
 }
 
@@ -112,7 +112,7 @@ func ns_name_split(identifier string) (ns, name string) {
 	return ns_name[0], ns_name[len(ns_name)-1]
 }
 
-func (bp *BehaviourPack) Save(fpath string) error {
+func (bp *Pack) Save(fpath string) error {
 	if err := utils.WriteManifest(bp.Manifest, fpath); err != nil {
 		return err
 	}

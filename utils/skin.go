@@ -17,23 +17,39 @@ type Skin struct {
 	*protocol.Skin
 }
 
-type SkinGeometry struct {
+type SkinGeometry_Old struct {
 	SkinGeometryDescription
 	Bones []any `json:"bones"`
 }
 
 type SkinGeometryDescription struct {
 	Identifier          string    `json:"identifier,omitempty"`
-	Texturewidth        int       `json:"texturewidth"`
-	Textureheight       int       `json:"textureheight"`
+	TextureWidth        int       `json:"texture_width"`
+	TextureHeight       int       `json:"texture_height"`
 	VisibleBoundsWidth  float64   `json:"visible_bounds_width"`
 	VisibleBoundsHeight float64   `json:"visible_bounds_height"`
 	VisibleBoundsOffset []float64 `json:"visible_bounds_offset,omitempty"`
 }
 
-type SkinGeometry_1_12 struct {
+type SkinGeometry struct {
 	Description SkinGeometryDescription `json:"description"`
 	Bones       []any                   `json:"bones"`
+}
+
+type Bone struct {
+	Name     string         `json:"name"`
+	Parent   string         `json:"parent"`
+	Pivot    []float64      `json:"pivot"`
+	Rotation []float64      `json:"rotation"`
+	Locators map[string]any `json:"locators"`
+	Cubes    []Cube         `json:"cubes"`
+}
+
+type Cube struct {
+	Inflate float64        `json:"inflate"`
+	Origin  []float64      `json:"origin"`
+	Size    []float64      `json:"size"`
+	UV      map[string]any `json:"uv"`
 }
 
 func (skin *Skin) Hash() uuid.UUID {
@@ -41,13 +57,9 @@ func (skin *Skin) Hash() uuid.UUID {
 	return uuid.NewSHA1(uuid.NameSpaceURL, h)
 }
 
-func (skin *Skin) getGeometry() (*SkinGeometry_1_12, string, error) {
-	if !skin.HaveGeometry() {
-		return nil, "", errors.New("no geometry")
-	}
-
+func ParseSkinGeometry(b []byte) (*SkinGeometry, string, error) {
 	var data any
-	err := ParseJson(skin.SkinGeometry, &data)
+	err := ParseJson(b, &data)
 	if err != nil {
 		return nil, "", err
 	}
@@ -79,17 +91,24 @@ func (skin *Skin) getGeometry() (*SkinGeometry_1_12, string, error) {
 	visible_bounds_height, _ := desc["visible_bounds_height"].(float64)
 	visibleOffset, _ := desc["visible_bounds_offset"].([]float64)
 
-	return &SkinGeometry_1_12{
+	return &SkinGeometry{
 		Description: SkinGeometryDescription{
 			Identifier:          desc["identifier"].(string),
-			Texturewidth:        int(texture_width),
-			Textureheight:       int(texture_height),
+			TextureWidth:        int(texture_width),
+			TextureHeight:       int(texture_height),
 			VisibleBoundsWidth:  visible_bounds_width,
 			VisibleBoundsHeight: visible_bounds_height,
 			VisibleBoundsOffset: visibleOffset,
 		},
 		Bones: geom["bones"].([]any),
 	}, desc["identifier"].(string), nil
+}
+
+func (skin *Skin) getGeometry() (*SkinGeometry, string, error) {
+	if !skin.HaveGeometry() {
+		return nil, "", errors.New("no geometry")
+	}
+	return ParseSkinGeometry(skin.SkinGeometry)
 }
 
 // WriteCape writes the cape as a png at output_path

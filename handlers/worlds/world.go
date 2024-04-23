@@ -21,6 +21,8 @@ import (
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/behaviourpack"
 	"github.com/bedrock-tool/bedrocktool/utils/proxy"
+	"github.com/bedrock-tool/bedrocktool/utils/resourcepack"
+	"github.com/google/uuid"
 
 	"github.com/df-mc/dragonfly/server/block"
 	"github.com/df-mc/dragonfly/server/block/cube"
@@ -45,6 +47,7 @@ type WorldSettings struct {
 	PreloadReplay   string
 	ChunkRadius     int32
 	Script          string
+	Players         bool
 }
 
 type serverState struct {
@@ -60,6 +63,7 @@ type serverState struct {
 	playerInventory    []protocol.ItemInstance
 	packs              []utils.Pack
 	dimensions         map[int]protocol.DimensionDefinition
+	playerSkins        map[uuid.UUID]*protocol.Skin
 
 	Name string
 }
@@ -70,7 +74,9 @@ type worldsHandler struct {
 	proxy *proxy.Context
 	mapUI *MapUI
 	ui    ui.UI
-	bp    *behaviourpack.BehaviourPack
+
+	bp *behaviourpack.Pack
+	rp *resourcepack.Pack
 
 	scripting *scripting.VM
 
@@ -116,6 +122,7 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 			worldCounter:       0,
 			openItemContainers: make(map[byte]*itemContainer),
 			dimensions:         make(map[int]protocol.DimensionDefinition),
+			playerSkins:        make(map[uuid.UUID]*protocol.Skin),
 		},
 		settings: settings,
 	}
@@ -193,6 +200,7 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 
 		AddressAndName: func(address, hostname string) (err error) {
 			w.bp = behaviourpack.New(hostname)
+			w.rp = resourcepack.New()
 			w.serverState.Name = hostname
 
 			// initialize a worldstate
@@ -247,9 +255,9 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 
 			gd := w.proxy.Server.GameData()
 			mapItemID, _ := world.ItemRidByName("minecraft:filled_map")
-			MapItemPacket.Content[0].Stack.ItemType.NetworkID = mapItemID
+			mapItemPacket.Content[0].Stack.ItemType.NetworkID = mapItemID
 			if gd.ServerAuthoritativeInventory {
-				MapItemPacket.Content[0].StackNetworkID = 0xffff + rand.Int31n(0xfff)
+				mapItemPacket.Content[0].StackNetworkID = 0xffff + rand.Int31n(0xfff)
 			}
 
 			w.serverState.packs = utils.GetPacks(w.proxy.Server)
@@ -418,7 +426,7 @@ func (w *worldsHandler) saveWorldState(worldState *worldstate.World) error {
 		},
 	})
 
-	err := worldState.Finish(w.playerData(), w.settings.ExcludedMobs, spawnPos, w.proxy.Server.GameData(), w.bp)
+	err := worldState.Finish(w.playerData(), w.settings.ExcludedMobs, w.settings.Players, spawnPos, w.proxy.Server.GameData(), w.bp)
 	if err != nil {
 		return err
 	}

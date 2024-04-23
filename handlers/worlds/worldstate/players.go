@@ -3,6 +3,7 @@ package worldstate
 import (
 	"github.com/go-gl/mathgl/mgl32"
 	"github.com/google/uuid"
+	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 )
 
@@ -17,11 +18,6 @@ type worldPlayers struct {
 }
 
 func (w *World) AddPlayer(pk *packet.AddPlayer) {
-	_, ok := w.players.players[pk.UUID]
-	if ok {
-		//logrus.Debugf("duplicate player %v", pk)
-		return
-	}
 	w.players.players[pk.UUID] = &player{
 		add:      pk,
 		Position: pk.Position,
@@ -33,14 +29,19 @@ func (w *World) AddPlayer(pk *packet.AddPlayer) {
 
 func (w *World) playersToEntities() {
 	for _, p := range w.players.players {
+		metadata := protocol.NewEntityMetadata()
+		metadata.SetFlag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagAlwaysShowName)
+		metadata.SetFlag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagShowName)
+		metadata[protocol.EntityDataKeyName] = p.add.Username
 		w.currState().StoreEntity(p.add.EntityRuntimeID, &EntityState{
 			RuntimeID:  p.add.EntityRuntimeID,
 			UniqueID:   int64(p.add.EntityRuntimeID),
-			EntityType: "bedrocktool:fake_player",
+			EntityType: "player:" + p.add.UUID.String(),
 			Position:   p.Position,
 			Pitch:      p.Pitch,
 			Yaw:        p.Yaw,
 			HeadYaw:    p.HeadYaw,
+			Metadata:   metadata,
 		})
 	}
 }

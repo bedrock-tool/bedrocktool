@@ -13,7 +13,7 @@ type MinecraftBiome struct {
 	Description biomeDescription `json:"description"`
 }
 
-func (b *BehaviourPack) AddBiomes(biomesMap map[string]any) {
+func (b *Pack) AddBiomes(biomesMap map[string]any) {
 	for name, biome := range biomesMap {
 		_ = biome
 		b.biomes = append(b.biomes, biomeBehaviour{

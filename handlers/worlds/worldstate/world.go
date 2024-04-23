@@ -2,6 +2,7 @@ package worldstate
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path"
 	"sync"
@@ -17,7 +18,9 @@ import (
 	"github.com/df-mc/goleveldb/leveldb/opt"
 	"github.com/google/uuid"
 	"github.com/sandertv/gophertunnel/minecraft"
+	"github.com/sandertv/gophertunnel/minecraft/nbt"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
+	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/maps"
 )
@@ -58,6 +61,22 @@ type World struct {
 	time     int
 	Name     string
 	Folder   string
+}
+
+type Map struct {
+	Decorations       []any            `nbt:"decorations"`
+	Dimension         uint8            `nbt:"dimension"`
+	Height            int16            `nbt:"height"`
+	Width             int16            `nbt:"width"`
+	MapID             int64            `nbt:"mapId"`
+	Scale             uint8            `nbt:"scale"`
+	UnlimitedTracking bool             `nbt:"unlimitedTracking"`
+	ZCenter           int32            `nbt:"zCenter"`
+	XCenter           int32            `nbt:"xCenter"`
+	FullyExplored     bool             `nbt:"fullyExplored"`
+	ParentMapId       int64            `nbt:"parentMapId"`
+	Colors            [0xffff + 1]byte `nbt:"colors"`
+	MapLocked         bool             `nbt:"mapLocked"`
 }
 
 func New(cf func(world.ChunkPos, *chunk.Chunk), dimensionDefinitions map[int]protocol.DimensionDefinition) (*World, error) {
@@ -154,10 +173,10 @@ func (w *World) SetTime(real time.Time, ingame int) {
 }
 
 func (w *World) StoreChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cube.Pos]DummyBlock) (err error) {
-	w.StoredChunks[pos] = true
-
 	w.l.Lock()
 	defer w.l.Unlock()
+
+	w.StoredChunks[pos] = true
 	w.currState().StoreChunk(pos, ch, blockNBT)
 
 	return nil
@@ -166,6 +185,7 @@ func (w *World) StoreChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cub
 func (w *World) LoadChunk(pos world.ChunkPos) (*chunk.Chunk, bool, error) {
 	w.l.Lock()
 	defer w.l.Unlock()
+
 	if w.paused {
 		ch, ok := w.pausedState.chunks[pos]
 		if ok {
@@ -202,6 +222,12 @@ func (w *World) StoreEntity(id EntityRuntimeID, es *EntityState) {
 	w.l.Lock()
 	defer w.l.Unlock()
 	w.currState().StoreEntity(id, es)
+}
+
+func (w *World) StoreMap(m *packet.ClientBoundMapItemData) {
+	w.l.Lock()
+	defer w.l.Unlock()
+	w.currState().StoreMap(m)
 }
 
 func (w *World) GetEntity(id EntityRuntimeID) *EntityState {
@@ -264,6 +290,7 @@ func (w *World) Open(name string, folder string, deferred bool) {
 	if w.opened {
 		panic("trying to open already opened world")
 	}
+	w.opened = true
 
 	if w.paused && !deferred {
 		w.pausedState.ApplyTo(w, cube.Pos{}, -1, w.ChunkFunc)
@@ -285,6 +312,7 @@ func (w *World) Open(name string, folder string, deferred bool) {
 	}()
 }
 
+// Rename moves the folder and reopens it
 func (w *World) Rename(name, folder string) error {
 	w.l.Lock()
 	defer w.l.Unlock()
@@ -312,12 +340,20 @@ func (w *World) Rename(name, folder string) error {
 	return nil
 }
 
-func (w *World) Finish(playerData map[string]any, excludedMobs []string, spawn cube.Pos, gd minecraft.GameData, bp *behaviourpack.BehaviourPack) error {
+func (w *World) Finish(playerData map[string]any, excludedMobs []string, withPlayers bool, spawn cube.Pos, gd minecraft.GameData, bp *behaviourpack.Pack) error {
 	w.l.Lock()
 	defer w.l.Unlock()
 	close(w.finish)
 
-	w.playersToEntities()
+	if withPlayers {
+		w.playersToEntities()
+
+		for _, p := range w.players.players {
+			bp.AddEntity(behaviourpack.EntityIn{
+				Identifier: "player:" + p.add.UUID.String(),
+			})
+		}
+	}
 
 	err := w.storeMemToProvider()
 	if err != nil {
@@ -364,6 +400,18 @@ func (w *World) Finish(playerData map[string]any, excludedMobs []string, spawn c
 	err = w.provider.SaveLocalPlayerData(playerData)
 	if err != nil {
 		return err
+	}
+
+	ldb := w.provider.LDB()
+	for id, m := range w.memState.maps {
+		d, err := nbt.MarshalEncoding(m, nbt.LittleEndian)
+		if err != nil {
+			return err
+		}
+		err = ldb.Put([]byte(fmt.Sprintf("map_%d", id)), d, nil)
+		if err != nil {
+			return err
+		}
 	}
 
 	// write metadata

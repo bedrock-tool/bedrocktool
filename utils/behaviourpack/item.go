@@ -18,7 +18,7 @@ type itemBehaviour struct {
 	MinecraftItem minecraftItem `json:"minecraft:item"`
 }
 
-func (bp *BehaviourPack) AddItem(item protocol.ItemEntry) {
+func (bp *Pack) AddItem(item protocol.ItemEntry) {
 	ns, _ := ns_name_split(item.Name)
 	if ns == "minecraft" {
 		return
@@ -36,7 +36,7 @@ func (bp *BehaviourPack) AddItem(item protocol.ItemEntry) {
 	}
 }
 
-func (bp *BehaviourPack) ApplyComponentEntries(entries []protocol.ItemComponentEntry) {
+func (bp *Pack) ApplyComponentEntries(entries []protocol.ItemComponentEntry) {
 	for _, ice := range entries {
 		item, ok := bp.items[ice.Name]
 		if !ok {

@@ -9,7 +9,7 @@ type blockBehaviour struct {
 	MinecraftBlock MinecraftBlock `json:"minecraft:block"`
 }
 
-func (bp *BehaviourPack) AddBlock(block protocol.BlockEntry) {
+func (bp *Pack) AddBlock(block protocol.BlockEntry) {
 	ns, _ := ns_name_split(block.Name)
 	if ns == "minecraft" {
 		return
