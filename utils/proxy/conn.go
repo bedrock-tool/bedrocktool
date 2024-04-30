@@ -15,14 +15,14 @@ import (
 )
 
 func (p *Context) onResourcePacksInfo() {
-	p.ui.HandleMessage(&messages.Message{
+	p.uiHandler.HandleMessage(&messages.Message{
 		Source: "proxy",
 		Data:   messages.ConnectStateReceivingResources,
 	})
 }
 
 func (p *Context) onFinishedPack(pack *resource.Pack) {
-	p.ui.HandleMessage(&messages.Message{
+	p.uiHandler.HandleMessage(&messages.Message{
 		Source: "proxy",
 		Data:   messages.FinishedPack{Pack: pack},
 	})
@@ -37,7 +37,7 @@ func (p *Context) connectServer(ctx context.Context) (err error) {
 		}
 	}
 
-	p.ui.HandleMessage(&messages.Message{
+	p.uiHandler.HandleMessage(&messages.Message{
 		Source: "proxy",
 		Data:   messages.ConnectStateServerConnecting,
 	})
@@ -77,7 +77,7 @@ func (p *Context) connectServer(ctx context.Context) (err error) {
 	}
 	p.Server = server
 
-	p.ui.HandleMessage(&messages.Message{
+	p.uiHandler.HandleMessage(&messages.Message{
 		Source: "proxy",
 		Data:   messages.ConnectStateEstablished,
 	})
@@ -118,7 +118,7 @@ func (p *Context) connectClient(ctx context.Context, serverAddress string) (err 
 		return err
 	}
 
-	p.ui.HandleMessage(&messages.Message{
+	p.uiHandler.HandleMessage(&messages.Message{
 		Source: "proxy",
 		Data:   messages.ConnectStateListening,
 	})

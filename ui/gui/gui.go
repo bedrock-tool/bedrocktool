@@ -19,7 +19,6 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages/skins"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages/worlds"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
-	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/updater"
 	"github.com/sirupsen/logrus"
 )
@@ -139,8 +138,4 @@ func (g *GUI) HandleMessage(msg *messages.Message) *messages.Message {
 	}
 
 	return g.router.HandleMessage(msg)
-}
-
-func (g *GUI) ServerInput(ctx context.Context, address string) (string, string, error) {
-	return utils.ServerInput(ctx, address)
 }

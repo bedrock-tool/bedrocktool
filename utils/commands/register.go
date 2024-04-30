@@ -5,6 +5,7 @@ import (
 	"flag"
 
 	"github.com/bedrock-tool/bedrocktool/ui"
+	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/google/subcommands"
 	"github.com/sirupsen/logrus"
 )
@@ -15,7 +16,7 @@ type Command interface {
 	Name() string
 	Synopsis() string
 	SetFlags(f *flag.FlagSet)
-	Execute(ctx context.Context, ui ui.UI) error
+	Execute(ctx context.Context, ui messages.Handler) error
 }
 
 type cmdWrap struct {

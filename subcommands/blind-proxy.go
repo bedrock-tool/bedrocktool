@@ -7,7 +7,7 @@ import (
 	"net"
 	"sync"
 
-	"github.com/bedrock-tool/bedrocktool/ui"
+	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/sandertv/go-raknet"
@@ -38,8 +38,8 @@ func packet_forward(src, dst *raknet.Conn) error {
 	}
 }
 
-func (c *BlindProxyCMD) Execute(ctx context.Context, ui ui.UI) error {
-	address, hostname, err := utils.ServerInput(ctx, c.ServerAddress)
+func (c *BlindProxyCMD) Execute(ctx context.Context, uiHandler messages.Handler) error {
+	server, err := utils.ParseServer(ctx, c.ServerAddress)
 	if err != nil {
 		return err
 	}
@@ -52,7 +52,7 @@ func (c *BlindProxyCMD) Execute(ctx context.Context, ui ui.UI) error {
 	logrus.Info("Listening on 0.0.0.0:19132")
 
 	listener.PongData([]byte(fmt.Sprintf("MCPE;%v;%v;%v;%v;%v;%v;Gophertunnel;%v;%v;%v;%v;",
-		"Proxy For "+hostname, protocol.CurrentProtocol, protocol.CurrentVersion, 0, 1,
+		"Proxy For "+server.Name, protocol.CurrentProtocol, protocol.CurrentVersion, 0, 1,
 		listener.ID(), "Creative", 1, listener.Addr().(*net.UDPAddr).Port, listener.Addr().(*net.UDPAddr).Port,
 	)))
 
@@ -63,7 +63,7 @@ func (c *BlindProxyCMD) Execute(ctx context.Context, ui ui.UI) error {
 	defer clientConn.Close()
 	logrus.Info("Client Connected")
 
-	serverConn, err := raknet.DialContext(ctx, address)
+	serverConn, err := raknet.DialContext(ctx, server.Address+":"+server.Port)
 	if err != nil {
 		return err
 	}

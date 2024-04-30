@@ -16,7 +16,6 @@ import (
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds/scripting"
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds/worldstate"
 	"github.com/bedrock-tool/bedrocktool/locale"
-	"github.com/bedrock-tool/bedrocktool/ui"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/behaviourpack"
@@ -69,11 +68,11 @@ type serverState struct {
 }
 
 type worldsHandler struct {
-	wg    sync.WaitGroup
-	ctx   context.Context
-	proxy *proxy.Context
-	mapUI *MapUI
-	ui    ui.UI
+	wg        sync.WaitGroup
+	ctx       context.Context
+	proxy     *proxy.Context
+	mapUI     *MapUI
+	uiHandler messages.Handler
 
 	bp *behaviourpack.Pack
 	rp *resourcepack.Pack
@@ -103,7 +102,7 @@ func resetGlobals() {
 	world.ResetBiomes()
 }
 
-func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
+func NewWorldsHandler(uiHandler messages.Handler, settings WorldSettings) *proxy.Handler {
 	settings.ExcludedMobs = slices.DeleteFunc(settings.ExcludedMobs, func(mob string) bool {
 		return mob == ""
 	})
@@ -115,8 +114,8 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	w := &worldsHandler{
-		ctx: ctx,
-		ui:  ui,
+		ctx:       ctx,
+		uiHandler: uiHandler,
 		serverState: serverState{
 			useOldBiomes:       false,
 			worldCounter:       0,
@@ -233,12 +232,12 @@ func NewWorldsHandler(ui ui.UI, settings WorldSettings) *proxy.Handler {
 		},
 
 		ConnectCB: func() bool {
-			w.ui.HandleMessage(&messages.Message{
+			w.uiHandler.HandleMessage(&messages.Message{
 				Source: "worlds",
 				Data:   messages.UIStateMain,
 			})
 
-			w.ui.HandleMessage(&messages.Message{
+			w.uiHandler.HandleMessage(&messages.Message{
 				Source: "worlds",
 				Data: messages.SetWorldName{
 					WorldName: w.currentWorld.Name,
@@ -328,7 +327,7 @@ func (w *worldsHandler) setVoidGen(val bool, fromUI bool) bool {
 	w.proxy.SendMessage(s)
 
 	if !fromUI {
-		w.ui.HandleMessage(&messages.Message{
+		w.uiHandler.HandleMessage(&messages.Message{
 			Source: "worldsHandler",
 			Data: messages.SetVoidGen{
 				Value: w.currentWorld.VoidGen,
@@ -348,7 +347,7 @@ func (w *worldsHandler) setWorldName(val string, fromUI bool) bool {
 	w.proxy.SendMessage(locale.Loc("worldname_set", locale.Strmap{"Name": w.currentWorld.Name}))
 
 	if !fromUI {
-		w.ui.HandleMessage(&messages.Message{
+		w.uiHandler.HandleMessage(&messages.Message{
 			Source: "worldsHandler",
 			Data: messages.SetWorldName{
 				WorldName: w.currentWorld.Name,
@@ -414,7 +413,7 @@ func (w *worldsHandler) saveWorldState(worldState *worldstate.World) error {
 
 	filename := worldState.Folder + ".mcworld"
 
-	w.ui.HandleMessage(&messages.Message{
+	w.uiHandler.HandleMessage(&messages.Message{
 		Source: "worldsHandler",
 		Data: messages.SavingWorld{
 			World: &messages.SavedWorld{

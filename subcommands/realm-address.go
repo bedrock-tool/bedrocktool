@@ -4,7 +4,7 @@ import (
 	"context"
 	"flag"
 
-	"github.com/bedrock-tool/bedrocktool/ui"
+	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/sirupsen/logrus"
@@ -20,13 +20,13 @@ func (c *RealmAddressCMD) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.realm, "realm", "", "realm name <name:id> or just name")
 }
 
-func (c *RealmAddressCMD) Execute(ctx context.Context, ui ui.UI) error {
-	address, _, err := utils.ServerInput(ctx, "realm:"+c.realm)
+func (c *RealmAddressCMD) Execute(ctx context.Context, uiHandler messages.Handler) error {
+	server, err := utils.ParseServer(ctx, "realm:"+c.realm)
 	if err != nil {
 		return err
 	}
 
-	logrus.Infof("Address: %s", address)
+	logrus.Infof("Address: %s", server.Address)
 	return nil
 }
 

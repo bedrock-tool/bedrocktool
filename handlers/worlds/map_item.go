@@ -97,7 +97,7 @@ func NewMapUI(w *worldsHandler) *MapUI {
 }
 
 func (m *MapUI) Start(ctx context.Context) {
-	r := m.w.ui.HandleMessage(&messages.Message{
+	r := m.w.uiHandler.HandleMessage(&messages.Message{
 		Source: "mapui",
 		Data:   messages.CanShowImages{},
 	})
@@ -121,7 +121,7 @@ func (m *MapUI) Start(ctx context.Context) {
 	m.wg.Add(1)
 	go func() {
 		lookup, _ := utils.ResolveColors(m.w.customBlocks, m.w.serverState.packs, true)
-		m.w.ui.HandleMessage(&messages.Message{
+		m.w.uiHandler.HandleMessage(&messages.Message{
 			Source: "mapui",
 			Data:   messages.MapLookup{Lookup: lookup},
 		})
@@ -183,7 +183,7 @@ func (m *MapUI) Reset() {
 	m.l.Lock()
 	m.renderedChunks = make(map[protocol.ChunkPos]*image.RGBA)
 	m.oldRendered = make(map[protocol.ChunkPos]*image.RGBA)
-	m.w.ui.HandleMessage(&messages.Message{
+	m.w.uiHandler.HandleMessage(&messages.Message{
 		Source: "mapui",
 		Data: messages.UpdateMap{
 			ChunkCount: -1,
@@ -272,7 +272,7 @@ func (m *MapUI) redraw() {
 
 	// send tiles to gui map
 	if m.showOnGui {
-		m.w.ui.HandleMessage(&messages.Message{
+		m.w.uiHandler.HandleMessage(&messages.Message{
 			Source: "mapui",
 			Data: messages.UpdateMap{
 				ChunkCount:    len(m.renderedChunks),

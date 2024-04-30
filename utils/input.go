@@ -10,13 +10,17 @@ import (
 	"sync/atomic"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
+	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/term"
 )
 
 func UserInput(ctx context.Context, q string, validator func(string) bool) (string, bool) {
 	c := make(chan string)
-	oldState, _ := term.MakeRaw(int(os.Stdin.Fd()))
+	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
+	if err != nil {
+		panic(err)
+	}
 	defer term.Restore(int(os.Stdin.Fd()), oldState)
 
 	go func() {
@@ -123,43 +127,48 @@ func regexGetParams(r *regexp.Regexp, s string) (params map[string]string) {
 	return params
 }
 
-func ParseServer(ctx context.Context, server string) (address, name string, err error) {
+func ParseServer(ctx context.Context, server string) (*messages.ServerInput, error) {
 	// realm
 	if realmRegex.MatchString(server) {
 		p := regexGetParams(realmRegex, server)
 		name, address, err := getRealm(ctx, p["Name"], p["ID"])
 		if err != nil {
-			return "", "", err
+			return nil, err
 		}
-		return address, CleanupName(name), nil
+		host, port, _ := net.SplitHostPort(address)
+		return &messages.ServerInput{
+			IsReplay: false,
+			Address:  host,
+			Port:     port,
+			Name:     CleanupName(name),
+		}, nil
 	}
 
 	// pcap replay
 	if pcapRegex.MatchString(server) {
 		p := regexGetParams(pcapRegex, server)
-		return "PCAP!" + p["Filename"], p["Name"], nil
+		return &messages.ServerInput{
+			IsReplay: true,
+			Address:  p["Filename"],
+			Name:     p["Name"],
+		}, nil
 	}
 
 	// normal server dns or ip
 	if len(strings.Split(server, ":")) == 1 {
 		server += ":19132"
 	}
-	return server, serverGetHostname(server), nil
+	host, port, _ := net.SplitHostPort(server)
+	name := serverGetHostname(server)
+	return &messages.ServerInput{
+		IsReplay: false,
+		Address:  host,
+		Port:     port,
+		Name:     name,
+	}, nil
 }
 
-func ServerInput(ctx context.Context, server string) (string, string, error) {
-	// no arg provided, interactive input
-	if server == "" {
-		var cancelled bool
-		server, cancelled = UserInput(ctx, locale.Loc("enter_server", nil), validateServerInput)
-		if cancelled {
-			return "", "", context.Canceled
-		}
-	}
-	return ParseServer(ctx, server)
-}
-
-func validateServerInput(server string) bool {
+func ValidateServerInput(server string) bool {
 	if pcapRegex.MatchString(server) {
 		return true
 	}

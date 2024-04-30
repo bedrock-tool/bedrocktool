@@ -38,7 +38,7 @@ func (c *TUI) Start(ctx context.Context, cancel context.CancelCauseFunc) error {
 	default:
 		fmt.Println(locale.Loc("available_commands", nil))
 		for name, cmd := range commands.Registered {
-			fmt.Printf("\t%s\t%s\n", name, cmd.Synopsis())
+			fmt.Printf("\t%s\t%s\n\r", name, cmd.Synopsis())
 		}
 		fmt.Println(locale.Loc("use_to_run_command", nil))
 
@@ -66,10 +66,31 @@ func (c *TUI) Start(ctx context.Context, cancel context.CancelCauseFunc) error {
 	return nil
 }
 
-func (c *TUI) ServerInput(ctx context.Context, server string) (string, string, error) {
-	return utils.ServerInput(ctx, server)
-}
-
 func (c *TUI) HandleMessage(msg *messages.Message) *messages.Message {
+	switch msg := msg.Data.(type) {
+	case *messages.ServerInput:
+		_ = msg
+		var cancelled bool
+		server, cancelled := utils.UserInput(context.Background(), locale.Loc("enter_server", nil), utils.ValidateServerInput)
+		if cancelled {
+			return &messages.Message{
+				Source: "gui",
+				Data:   messages.Error(context.Canceled),
+			}
+		}
+
+		ret, err := utils.ParseServer(context.Background(), server)
+		if err != nil {
+			return &messages.Message{
+				Source: "gui",
+				Data:   messages.Error(err),
+			}
+		}
+
+		return &messages.Message{
+			Source: "gui",
+			Data:   ret,
+		}
+	}
 	return nil
 }

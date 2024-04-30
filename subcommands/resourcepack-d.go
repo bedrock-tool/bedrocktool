@@ -8,7 +8,7 @@ import (
 
 	"github.com/bedrock-tool/bedrocktool/locale"
 	resourcepackd "github.com/bedrock-tool/bedrocktool/subcommands/resourcepack-d"
-	"github.com/bedrock-tool/bedrocktool/ui"
+	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 )
 
@@ -29,8 +29,8 @@ func (c *ResourcePackCMD) SetFlags(f *flag.FlagSet) {
 	c.f = f
 }
 
-func (c *ResourcePackCMD) Execute(ctx context.Context, ui ui.UI) error {
-	return resourcepackd.Execute_cmd(ctx, c.ServerAddress, c.OnlyKeys, c.SaveEncrypted, ui, c.f)
+func (c *ResourcePackCMD) Execute(ctx context.Context, uiHandler messages.Handler) error {
+	return resourcepackd.Execute_cmd(ctx, c.ServerAddress, c.OnlyKeys, c.SaveEncrypted, uiHandler, c.f)
 }
 
 func init() {

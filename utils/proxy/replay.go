@@ -260,9 +260,6 @@ func CreateReplayConnector(ctx context.Context, filename string, packetFunc Pack
 	} else {
 		r.f.Seek(int64(zipSize+16), 0)
 		fr := flate.NewReader(r.f)
-		if err != nil {
-			return nil, err
-		}
 		r.packetF = fr
 	}
 

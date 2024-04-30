@@ -5,7 +5,6 @@ import (
 	"flag"
 
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
-	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/updater"
 	"github.com/google/subcommands"
 )
@@ -25,10 +24,6 @@ func (c *CLI) Start(ctx context.Context, cancel context.CancelCauseFunc) error {
 	subcommands.Execute(ctx, c)
 	cancel(nil)
 	return nil
-}
-
-func (c *CLI) ServerInput(ctx context.Context, server string) (string, string, error) {
-	return utils.ServerInput(ctx, server)
 }
 
 func (c *CLI) HandleMessage(msg *messages.Message) *messages.Message {

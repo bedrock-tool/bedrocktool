@@ -15,7 +15,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bedrock-tool/bedrocktool/ui"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/gregwebs/go-recovery"
@@ -54,16 +53,16 @@ type Context struct {
 	handlers  []*Handler
 	transfer  *packet.Transfer
 	rpHandler *rpHandler
-	ui        ui.UI
+	uiHandler messages.Handler
 }
 
 // New creates a new proxy context
-func New(ui ui.UI, withClient bool) (*Context, error) {
+func New(uiHandler messages.Handler, withClient bool) (*Context, error) {
 	p := &Context{
 		commands:         make(map[string]ingameCommand),
 		withClient:       withClient,
 		disconnectReason: "Connection Lost",
-		ui:               ui,
+		uiHandler:        uiHandler,
 	}
 	return p, nil
 }
@@ -320,7 +319,7 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 		}
 	}
 
-	p.ui.HandleMessage(&messages.Message{
+	p.uiHandler.HandleMessage(&messages.Message{
 		Source: "proxy",
 		Data:   messages.ConnectStateBegin,
 	})
@@ -450,7 +449,7 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 		}
 	}
 
-	p.ui.HandleMessage(&messages.Message{
+	p.uiHandler.HandleMessage(&messages.Message{
 		Source: "proxy",
 		Data:   messages.ConnectStateDone,
 	})
@@ -513,10 +512,30 @@ func (p *Context) connect(ctx context.Context) (err error) {
 }
 
 func (p *Context) Run(ctx context.Context, connectString string) (err error) {
-	p.serverAddress, p.serverName, err = p.ui.ServerInput(ctx, connectString)
-	if err != nil {
-		return err
+
+	var serverInput *messages.ServerInput
+	if connectString != "" {
+		serverInput, err = utils.ParseServer(context.Background(), connectString)
+		if err != nil {
+			return err
+		}
+	} else {
+		resp := p.uiHandler.HandleMessage(&messages.Message{
+			Source: "proxy",
+			Data:   &messages.ServerInput{Request: true},
+		})
+		if err, ok := resp.Data.(messages.Error); ok {
+			return err
+		}
+		serverInput = resp.Data.(*messages.ServerInput)
 	}
+
+	if serverInput.IsReplay {
+		p.serverAddress = "PCAP!" + serverInput.Address
+	} else {
+		p.serverAddress = serverInput.Address + ":" + serverInput.Port
+	}
+	p.serverName = serverInput.Name
 
 	if utils.Options.Debug || utils.Options.ExtraDebug {
 		p.ExtraDebug = utils.Options.ExtraDebug
@@ -554,7 +573,7 @@ func (p *Context) Run(ctx context.Context, connectString string) (err error) {
 				handler.Deferred()
 			}
 		}
-		p.ui.HandleMessage(&messages.Message{
+		p.uiHandler.HandleMessage(&messages.Message{
 			Source: "proxy",
 			Data:   messages.UIStateFinished,
 		})

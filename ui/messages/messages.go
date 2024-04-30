@@ -139,3 +139,11 @@ type ExitSubcommand struct{}
 type HaveFinishScreen struct{}
 
 type Error error
+
+type ServerInput struct {
+	Request  bool // if this is a request for input
+	IsReplay bool
+	Address  string
+	Port     string
+	Name     string
+}

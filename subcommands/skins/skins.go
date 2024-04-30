@@ -6,7 +6,6 @@ import (
 
 	"github.com/bedrock-tool/bedrocktool/handlers"
 	"github.com/bedrock-tool/bedrocktool/locale"
-	"github.com/bedrock-tool/bedrocktool/ui"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/bedrock-tool/bedrocktool/utils/proxy"
@@ -27,14 +26,14 @@ func (c *SkinCMD) SetFlags(f *flag.FlagSet) {
 	f.BoolVar(&c.NoProxy, "no-proxy", false, "use headless version")
 }
 
-func (c *SkinCMD) Execute(ctx context.Context, ui ui.UI) error {
-	p, err := proxy.New(ui, !c.NoProxy)
+func (c *SkinCMD) Execute(ctx context.Context, uiHandler messages.Handler) error {
+	p, err := proxy.New(uiHandler, !c.NoProxy)
 	if err != nil {
 		return err
 	}
 
 	p.AddHandler(handlers.NewSkinSaver(func(sa handlers.SkinAdd) {
-		ui.HandleMessage(&messages.Message{
+		uiHandler.HandleMessage(&messages.Message{
 			Source: "skins",
 			Data: messages.NewSkin{
 				PlayerName: sa.PlayerName,
@@ -46,7 +45,7 @@ func (c *SkinCMD) Execute(ctx context.Context, ui ui.UI) error {
 	p.AddHandler(&proxy.Handler{
 		Name: "Skin CMD",
 		ConnectCB: func() bool {
-			ui.HandleMessage(&messages.Message{
+			uiHandler.HandleMessage(&messages.Message{
 				Source: "skins",
 				Data:   messages.UIStateMain,
 			})
