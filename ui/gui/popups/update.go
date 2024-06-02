@@ -42,10 +42,10 @@ func (p *UpdatePopup) Layout(gtx C, th *material.Theme) D {
 				p.state = messages.UIStateFinished
 			}
 			p.updating = false
-			p.ui.HandleMessage(&messages.Message{
-				Source:     p.ID(),
-				SourceType: "popup",
-				Data:       messages.Close{},
+			messages.Router.Handle(&messages.Message{
+				Source: p.ID(),
+				Target: "ui",
+				Data:   messages.Close{Type: "popup", ID: p.ID()},
 			})
 		}()
 	}

@@ -14,7 +14,6 @@ import (
 
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/ui"
-	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/bedrock-tool/bedrocktool/utils/updater"
@@ -146,7 +145,7 @@ func (*TransCMD) Synopsis() string { return "" }
 func (c *TransCMD) SetFlags(f *flag.FlagSet) {
 	f.BoolVar(&c.auth, "auth", false, locale.Loc("should_login_xbox", nil))
 }
-func (c *TransCMD) Execute(_ context.Context, uiHandler messages.Handler) error {
+func (c *TransCMD) Execute(_ context.Context) error {
 	const (
 		BlackFg = "\033[30m"
 		Bold    = "\033[1m"

@@ -6,7 +6,6 @@ import (
 
 	"github.com/bedrock-tool/bedrocktool/handlers"
 	"github.com/bedrock-tool/bedrocktool/locale"
-	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/bedrock-tool/bedrocktool/utils/proxy"
 )
@@ -23,8 +22,8 @@ func (c *ChatLogCMD) SetFlags(f *flag.FlagSet) {
 	f.BoolVar(&c.Verbose, "v", false, "verbose")
 }
 
-func (c *ChatLogCMD) Execute(ctx context.Context, uiHandler messages.Handler) error {
-	proxy, err := proxy.New(uiHandler, true)
+func (c *ChatLogCMD) Execute(ctx context.Context) error {
+	proxy, err := proxy.New(true)
 	if err != nil {
 		return err
 	}

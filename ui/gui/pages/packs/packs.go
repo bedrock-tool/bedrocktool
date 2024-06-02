@@ -14,7 +14,6 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
-	"github.com/bedrock-tool/bedrocktool/ui"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
@@ -28,7 +27,6 @@ type (
 const ID = "packs"
 
 type Page struct {
-	ui        ui.UI
 	Packs     []*packEntry
 	packsList widget.List
 	l         sync.Mutex
@@ -53,9 +51,8 @@ type packEntry struct {
 	Err    error
 }
 
-func New(ui ui.UI) pages.Page {
+func New() pages.Page {
 	return &Page{
-		ui: ui,
 		packsList: widget.List{
 			List: layout.List{
 				Axis: layout.Vertical,
@@ -204,8 +201,9 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 	}
 
 	if p.back.Clicked(gtx) {
-		p.ui.HandleMessage(&messages.Message{
+		messages.Router.Handle(&messages.Message{
 			Source: p.ID(),
+			Target: "ui",
 			Data:   messages.ExitSubcommand{},
 		})
 	}
@@ -272,10 +270,10 @@ func (p *Page) HandleMessage(msg *messages.Message) *messages.Message {
 
 	case messages.ConnectState:
 		if m == messages.ConnectStateReceivingResources {
-			p.ui.HandleMessage(&messages.Message{
-				Source:     "connect",
-				SourceType: "popup",
-				Data:       messages.Close{},
+			messages.Router.Handle(&messages.Message{
+				Source: "packs-ui",
+				Target: "ui",
+				Data:   messages.Close{Type: "popup", ID: "connect"},
 			})
 		}
 	case messages.InitialPacksInfo:

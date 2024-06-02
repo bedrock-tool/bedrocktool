@@ -26,15 +26,16 @@ func (c *SkinCMD) SetFlags(f *flag.FlagSet) {
 	f.BoolVar(&c.NoProxy, "no-proxy", false, "use headless version")
 }
 
-func (c *SkinCMD) Execute(ctx context.Context, uiHandler messages.Handler) error {
-	p, err := proxy.New(uiHandler, !c.NoProxy)
+func (c *SkinCMD) Execute(ctx context.Context) error {
+	p, err := proxy.New(!c.NoProxy)
 	if err != nil {
 		return err
 	}
 
 	p.AddHandler(handlers.NewSkinSaver(func(sa handlers.SkinAdd) {
-		uiHandler.HandleMessage(&messages.Message{
+		messages.Router.Handle(&messages.Message{
 			Source: "skins",
+			Target: "ui",
 			Data: messages.NewSkin{
 				PlayerName: sa.PlayerName,
 				Skin:       sa.Skin,
@@ -45,8 +46,9 @@ func (c *SkinCMD) Execute(ctx context.Context, uiHandler messages.Handler) error
 	p.AddHandler(&proxy.Handler{
 		Name: "Skin CMD",
 		ConnectCB: func() bool {
-			uiHandler.HandleMessage(&messages.Message{
+			messages.Router.Handle(&messages.Message{
 				Source: "skins",
+				Target: "ui",
 				Data:   messages.UIStateMain,
 			})
 			return false

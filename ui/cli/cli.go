@@ -12,6 +12,7 @@ import (
 type CLI struct{}
 
 func (c *CLI) Init() bool {
+	messages.Router.AddHandler("ui", c.HandleMessage)
 	return true
 }
 

@@ -36,7 +36,7 @@ type Router struct {
 	Invalidate   func()
 	LogWidget    func(layout.Context, *material.Theme) layout.Dimensions
 
-	pages       map[string]func(ui.UI) Page
+	pages       map[string]func() Page
 	currentPage Page
 
 	ModalNavDrawer *component.ModalNavDrawer
@@ -60,7 +60,7 @@ func NewRouter(uii ui.UI) *Router {
 
 	r := &Router{
 		ui:             uii,
-		pages:          make(map[string]func(ui.UI) Page),
+		pages:          make(map[string]func() Page),
 		msAuth:         &msAuth{},
 		ModalLayer:     modal,
 		ModalNavDrawer: component.ModalNavFrom(&nav, modal),
@@ -76,7 +76,7 @@ func NewRouter(uii ui.UI) *Router {
 	return r
 }
 
-func (r *Router) Register(p func(ui.UI) Page, id string) {
+func (r *Router) Register(p func() Page, id string) {
 	r.pages[id] = p
 }
 
@@ -86,7 +86,7 @@ func (r *Router) SwitchTo(tag string) {
 		logrus.Errorf("unknown page %s", tag)
 		return
 	}
-	page := createPage(r.ui)
+	page := createPage()
 
 	r.currentPage = page
 	r.AppBar.Title = page.NavItem().Name
@@ -226,9 +226,9 @@ func (r *Router) HandleMessage(msg *messages.Message) *messages.Message {
 		r.ExitCommand()
 
 	case messages.Close:
-		switch msg.SourceType {
+		switch data.Type {
 		case "popup":
-			r.RemovePopup(msg.Source)
+			r.RemovePopup(data.ID)
 		}
 	}
 
@@ -250,7 +250,7 @@ func (r *Router) Execute(cmd commands.Command) {
 		recovery.ErrorHandler = func(err error) {
 			utils.PrintPanic(err)
 			r.RemovePopup("connect")
-			r.PushPopup(popups.NewErrorPopup(r.ui, err, func() {
+			r.PushPopup(popups.NewErrorPopup(err, func() {
 				r.SwitchTo("settings")
 			}, true))
 		}
@@ -261,24 +261,26 @@ func (r *Router) Execute(cmd commands.Command) {
 			}
 		}()
 
-		err := cmd.Execute(r.cmdCtx, r.ui)
+		err := cmd.Execute(r.cmdCtx)
 		r.RemovePopup("connect")
 		r.cmdCtx = nil
 		r.cmdCtxCancel = nil
 		if err != nil && !errors.Is(err, context.Canceled) {
 			logrus.Error(err)
-			r.PushPopup(popups.NewErrorPopup(r.ui, err, func() {
+			r.PushPopup(popups.NewErrorPopup(err, func() {
 				r.SwitchTo("settings")
 			}, false))
 		}
 
 		resp := r.HandleMessage(&messages.Message{
-			Source: "router",
+			Source: "ui",
+			Target: "ui",
 			Data:   messages.HaveFinishScreen{},
 		})
 		if resp != nil {
 			r.HandleMessage(&messages.Message{
-				Source: "router",
+				Source: "ui",
+				Target: "ui",
 				Data:   messages.UIStateFinished,
 			})
 		} else {

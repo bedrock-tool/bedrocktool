@@ -4,13 +4,11 @@ import (
 	"gioui.org/layout"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"github.com/bedrock-tool/bedrocktool/ui"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 )
 
 type guiAuth struct {
-	ui         ui.UI
 	uri        string
 	click      widget.Clickable
 	code       string
@@ -19,9 +17,8 @@ type guiAuth struct {
 	close      widget.Clickable
 }
 
-func NewGuiAuth(ui ui.UI, uri, code string) Popup {
+func NewGuiAuth(uri, code string) Popup {
 	return &guiAuth{
-		ui:   ui,
 		uri:  uri,
 		code: code,
 	}
@@ -38,10 +35,10 @@ func (g *guiAuth) Layout(gtx layout.Context, th *material.Theme) layout.Dimensio
 
 	if g.close.Clicked(gtx) {
 		utils.Auth.Cancel()
-		g.ui.HandleMessage(&messages.Message{
-			Source:     g.ID(),
-			SourceType: "popup",
-			Data:       messages.Close{},
+		messages.Router.Handle(&messages.Message{
+			Source: "ui",
+			Target: "ui",
+			Data:   messages.Close{Type: "popup", ID: g.ID()},
 		})
 	}
 

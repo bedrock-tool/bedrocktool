@@ -7,7 +7,6 @@ import (
 	"net"
 	"sync"
 
-	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/sandertv/go-raknet"
@@ -38,7 +37,7 @@ func packet_forward(src, dst *raknet.Conn) error {
 	}
 }
 
-func (c *BlindProxyCMD) Execute(ctx context.Context, uiHandler messages.Handler) error {
+func (c *BlindProxyCMD) Execute(ctx context.Context) error {
 	server, err := utils.ParseServer(ctx, c.ServerAddress)
 	if err != nil {
 		return err

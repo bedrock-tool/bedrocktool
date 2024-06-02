@@ -29,15 +29,15 @@ func (p *ConnectPopup) ID() string {
 
 func (p *ConnectPopup) Layout(gtx C, th *material.Theme) D {
 	if p.close.Clicked(gtx) {
-		p.ui.HandleMessage(&messages.Message{
-			Source:     p.ID(),
-			SourceType: "popup",
-			Data:       messages.ExitSubcommand{},
+		messages.Router.Handle(&messages.Message{
+			Source: p.ID(),
+			Target: "ui",
+			Data:   messages.ExitSubcommand{},
 		})
-		p.ui.HandleMessage(&messages.Message{
-			Source:     p.ID(),
-			SourceType: "popup",
-			Data:       messages.Close{},
+		messages.Router.Handle(&messages.Message{
+			Source: p.ID(),
+			Target: "ui",
+			Data:   messages.Close{Type: "popup", ID: p.ID()},
 		})
 	}
 
@@ -86,10 +86,10 @@ func (p *ConnectPopup) HandleMessage(msg *messages.Message) *messages.Message {
 		case messages.ConnectStateEstablished:
 			p.state = "established"
 		case messages.ConnectStateDone:
-			p.ui.HandleMessage(&messages.Message{
-				Source:     p.ID(),
-				SourceType: "popup",
-				Data:       messages.Close{},
+			messages.Router.Handle(&messages.Message{
+				Source: p.ID(),
+				Target: "ui",
+				Data:   messages.Close{Type: "popup", ID: p.ID()},
 			})
 		}
 	}

@@ -9,7 +9,6 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
-	"github.com/bedrock-tool/bedrocktool/ui"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/sandertv/gophertunnel/minecraft/realms"
@@ -17,7 +16,6 @@ import (
 )
 
 type RealmsList struct {
-	ui       ui.UI
 	Show     widget.Bool
 	close    widget.Clickable
 	l        sync.Mutex
@@ -29,9 +27,8 @@ type RealmsList struct {
 	setRealm func(realms.Realm)
 }
 
-func NewRealmsList(ui ui.UI, setRealm func(realms.Realm)) Popup {
+func NewRealmsList(setRealm func(realms.Realm)) Popup {
 	return &RealmsList{
-		ui:       ui,
 		setRealm: setRealm,
 	}
 }
@@ -73,10 +70,10 @@ func (r *RealmsList) Layout(gtx layout.Context, th *material.Theme) layout.Dimen
 	}
 
 	if r.close.Clicked(gtx) {
-		r.ui.HandleMessage(&messages.Message{
-			Source:     r.ID(),
-			SourceType: "popup",
-			Data:       messages.Close{},
+		messages.Router.Handle(&messages.Message{
+			Source: r.ID(),
+			Target: "ui",
+			Data:   messages.Close{Type: "popup", ID: r.ID()},
 		})
 	}
 

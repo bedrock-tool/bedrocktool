@@ -6,7 +6,6 @@ import (
 	"flag"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
-	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/bedrock-tool/bedrocktool/utils/updater"
 	"github.com/sirupsen/logrus"
@@ -18,7 +17,7 @@ func (*UpdateCMD) Name() string               { return "update" }
 func (*UpdateCMD) Synopsis() string           { return locale.Loc("update_synopsis", nil) }
 func (c *UpdateCMD) SetFlags(f *flag.FlagSet) {}
 
-func (c *UpdateCMD) Execute(ctx context.Context, uiHandler messages.Handler) error {
+func (c *UpdateCMD) Execute(ctx context.Context) error {
 	update, err := updater.UpdateAvailable()
 	if err != nil {
 		return err

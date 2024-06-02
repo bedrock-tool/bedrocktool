@@ -4,8 +4,6 @@ import (
 	"context"
 	"flag"
 
-	"github.com/bedrock-tool/bedrocktool/ui"
-	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/google/subcommands"
 	"github.com/sirupsen/logrus"
 )
@@ -16,7 +14,7 @@ type Command interface {
 	Name() string
 	Synopsis() string
 	SetFlags(f *flag.FlagSet)
-	Execute(ctx context.Context, ui messages.Handler) error
+	Execute(ctx context.Context) error
 }
 
 type cmdWrap struct {
@@ -30,10 +28,7 @@ func (c *cmdWrap) Synopsis() string         { return c.cmd.Synopsis() + "\n" }
 func (c *cmdWrap) SetFlags(f *flag.FlagSet) { c.cmd.SetFlags(f) }
 func (c *cmdWrap) Usage() string            { return c.Name() + ": " + c.Synopsis() }
 func (c *cmdWrap) Execute(ctx context.Context, f *flag.FlagSet, args ...interface{}) subcommands.ExitStatus {
-	if len(args) != 1 {
-		panic("invalid args")
-	}
-	err := c.cmd.Execute(ctx, args[0].(ui.UI))
+	err := c.cmd.Execute(ctx)
 	if err != nil {
 		logrus.Error(err)
 		return 1

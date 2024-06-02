@@ -1,7 +1,10 @@
 package messages
 
 import (
+	"encoding/json"
+	"errors"
 	"image"
+	"reflect"
 
 	"github.com/go-gl/mathgl/mgl32"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
@@ -9,10 +12,15 @@ import (
 )
 
 type Message struct {
-	Source     string
-	SourceType string
-	Data       any
-	Ok         bool
+	Source string
+	Target string
+	Data   any
+}
+
+type HandlerFunc = func(msg *Message) *Message
+
+type Handler interface {
+	HandleMessage(msg *Message) *Message
 }
 
 type UIState int
@@ -22,12 +30,6 @@ const (
 	UIStateMain
 	UIStateFinished
 )
-
-type HandlerFunc = func(msg *Message) *Message
-
-type Handler interface {
-	HandleMessage(msg *Message) *Message
-}
 
 type ConnectState int
 
@@ -40,20 +42,14 @@ const (
 	ConnectStateDone
 )
 
-type SetVoidGen struct {
-	Value bool
+type SetValue struct {
+	Name  string
+	Value string
 }
 
-//
-
-type SetWorldName struct {
-	WorldName string
-}
-
-//
-
-type Init struct {
-	Handler HandlerFunc
+type Features struct {
+	Request  bool
+	Features []string
 }
 
 //
@@ -92,8 +88,6 @@ type SavedWorld struct {
 	Image    image.Image
 }
 
-type CanShowImages struct{}
-
 type InitialPacksInfo struct {
 	Packs []protocol.TexturePackInfo
 }
@@ -124,7 +118,10 @@ type UpdateAvailable struct {
 }
 
 // close self
-type Close struct{}
+type Close struct {
+	Type string
+	ID   string
+}
 
 type ShowPopup struct {
 	Popup any
@@ -146,4 +143,59 @@ type ServerInput struct {
 	Address  string
 	Port     string
 	Name     string
+}
+
+func Decode(bytes []byte) (*Message, error) {
+	var dec struct {
+		Source string
+		Target string
+		Type   string
+		Data   json.RawMessage
+	}
+	err := json.Unmarshal(bytes, &dec)
+	if err != nil {
+		return nil, err
+	}
+
+	var data any
+	switch dec.Type {
+	case "SetValue":
+		data = &SetValue{}
+	case "ServerInput":
+		data = &ServerInput{}
+	case "Error":
+		data = errors.New("")
+	case "Features":
+		data = &Features{}
+	default:
+		panic("unknown message type")
+	}
+
+	return &Message{
+		Source: dec.Source,
+		Target: dec.Target,
+		Data:   data,
+	}, nil
+}
+
+func Encode(msg *Message) []byte {
+	msgType := reflect.TypeOf(msg.Data).String()
+
+	var enc = struct {
+		Source string
+		Target string
+		Type   string
+		Data   any
+	}{
+		Source: msg.Source,
+		Target: msg.Target,
+		Type:   msgType,
+		Data:   msg.Data,
+	}
+
+	data, err := json.Marshal(&enc)
+	if err != nil {
+		panic(err)
+	}
+	return data
 }

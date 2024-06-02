@@ -68,11 +68,10 @@ type serverState struct {
 }
 
 type worldsHandler struct {
-	wg        sync.WaitGroup
-	ctx       context.Context
-	proxy     *proxy.Context
-	mapUI     *MapUI
-	uiHandler messages.Handler
+	wg    sync.WaitGroup
+	ctx   context.Context
+	proxy *proxy.Context
+	mapUI *MapUI
 
 	bp *behaviourpack.Pack
 	rp *resourcepack.Pack
@@ -102,7 +101,7 @@ func resetGlobals() {
 	world.ResetBiomes()
 }
 
-func NewWorldsHandler(uiHandler messages.Handler, settings WorldSettings) *proxy.Handler {
+func NewWorldsHandler(settings WorldSettings) *proxy.Handler {
 	settings.ExcludedMobs = slices.DeleteFunc(settings.ExcludedMobs, func(mob string) bool {
 		return mob == ""
 	})
@@ -114,8 +113,7 @@ func NewWorldsHandler(uiHandler messages.Handler, settings WorldSettings) *proxy
 	ctx, cancel := context.WithCancel(context.Background())
 
 	w := &worldsHandler{
-		ctx:       ctx,
-		uiHandler: uiHandler,
+		ctx: ctx,
 		serverState: serverState{
 			useOldBiomes:       false,
 			worldCounter:       0,
@@ -232,15 +230,18 @@ func NewWorldsHandler(uiHandler messages.Handler, settings WorldSettings) *proxy
 		},
 
 		ConnectCB: func() bool {
-			w.uiHandler.HandleMessage(&messages.Message{
-				Source: "worlds",
+			messages.Router.Handle(&messages.Message{
+				Source: "subcommand",
+				Target: "ui",
 				Data:   messages.UIStateMain,
 			})
 
-			w.uiHandler.HandleMessage(&messages.Message{
-				Source: "worlds",
-				Data: messages.SetWorldName{
-					WorldName: w.currentWorld.Name,
+			messages.Router.Handle(&messages.Message{
+				Source: "subcommand",
+				Target: "ui",
+				Data: messages.SetValue{
+					Name:  "worldName",
+					Value: w.currentWorld.Name,
 				},
 			})
 
@@ -327,10 +328,17 @@ func (w *worldsHandler) setVoidGen(val bool, fromUI bool) bool {
 	w.proxy.SendMessage(s)
 
 	if !fromUI {
-		w.uiHandler.HandleMessage(&messages.Message{
-			Source: "worldsHandler",
-			Data: messages.SetVoidGen{
-				Value: w.currentWorld.VoidGen,
+		var voidGen = "false"
+		if w.currentWorld.VoidGen {
+			voidGen = "true"
+		}
+
+		messages.Router.Handle(&messages.Message{
+			Source: "subcommand",
+			Target: "ui",
+			Data: messages.SetValue{
+				Name:  "voidGen",
+				Value: voidGen,
 			},
 		})
 	}
@@ -347,10 +355,12 @@ func (w *worldsHandler) setWorldName(val string, fromUI bool) bool {
 	w.proxy.SendMessage(locale.Loc("worldname_set", locale.Strmap{"Name": w.currentWorld.Name}))
 
 	if !fromUI {
-		w.uiHandler.HandleMessage(&messages.Message{
-			Source: "worldsHandler",
-			Data: messages.SetWorldName{
-				WorldName: w.currentWorld.Name,
+		messages.Router.Handle(&messages.Message{
+			Source: "subcommand",
+			Target: "ui",
+			Data: messages.SetValue{
+				Name:  "worldName",
+				Value: w.currentWorld.Name,
 			},
 		})
 	}
@@ -413,8 +423,9 @@ func (w *worldsHandler) saveWorldState(worldState *worldstate.World) error {
 
 	filename := worldState.Folder + ".mcworld"
 
-	w.uiHandler.HandleMessage(&messages.Message{
-		Source: "worldsHandler",
+	messages.Router.Handle(&messages.Message{
+		Source: "subcommand",
+		Target: "ui",
 		Data: messages.SavingWorld{
 			World: &messages.SavedWorld{
 				Name:     worldState.Name,

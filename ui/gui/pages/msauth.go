@@ -25,6 +25,6 @@ func (m *msAuth) PollError(err error) error {
 }
 
 func (m *msAuth) AuthCode(uri, code string) {
-	m.p = popups.NewGuiAuth(m.router.ui, uri, code)
+	m.p = popups.NewGuiAuth(uri, code)
 	m.router.PushPopup(m.p)
 }

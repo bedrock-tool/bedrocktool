@@ -37,3 +37,5 @@ gathering.py
 entityflags.py
 *.ignore
 
+/libbedrocktool.h
+/libbedrocktool.so

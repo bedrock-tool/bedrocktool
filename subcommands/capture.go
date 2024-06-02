@@ -5,7 +5,6 @@ import (
 	"flag"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
-	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/bedrock-tool/bedrocktool/utils/proxy"
@@ -21,8 +20,8 @@ func (c *CaptureCMD) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.ServerAddress, "address", "", "remote server address")
 }
 
-func (c *CaptureCMD) Execute(ctx context.Context, uiHandler messages.Handler) error {
-	p, err := proxy.New(uiHandler, true)
+func (c *CaptureCMD) Execute(ctx context.Context) error {
+	p, err := proxy.New(true)
 	if err != nil {
 		return err
 	}

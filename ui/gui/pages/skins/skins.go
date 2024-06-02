@@ -8,7 +8,6 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
-	"github.com/bedrock-tool/bedrocktool/ui"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 )
@@ -21,7 +20,6 @@ type (
 const ID = "skins"
 
 type Page struct {
-	ui    ui.UI
 	Skins []messages.NewSkin
 
 	l         sync.Mutex
@@ -30,9 +28,8 @@ type Page struct {
 	back      widget.Clickable
 }
 
-func New(ui ui.UI) pages.Page {
+func New() pages.Page {
 	return &Page{
-		ui: ui,
 		SkinsList: widget.List{
 			List: layout.List{
 				Axis: layout.Vertical,
@@ -64,8 +61,9 @@ func (p *Page) NavItem() component.NavItem {
 
 func (p *Page) Layout(gtx C, th *material.Theme) D {
 	if p.back.Clicked(gtx) {
-		p.ui.HandleMessage(&messages.Message{
+		messages.Router.Handle(&messages.Message{
 			Source: p.ID(),
+			Target: "ui",
 			Data:   messages.ExitSubcommand{},
 		})
 	}

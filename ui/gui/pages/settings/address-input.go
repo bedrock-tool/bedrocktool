@@ -8,14 +8,12 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
-	"github.com/bedrock-tool/bedrocktool/ui"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/popups"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/sandertv/gophertunnel/minecraft/realms"
 )
 
 type addressInput struct {
-	ui             ui.UI
 	editor         widget.Editor
 	showRealmsList widget.Clickable
 }
@@ -36,10 +34,11 @@ func (a *addressInput) setRealm(realm realms.Realm) {
 
 func (a *addressInput) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
 	if a.showRealmsList.Clicked(gtx) {
-		a.ui.HandleMessage(&messages.Message{
+		messages.Router.Handle(&messages.Message{
 			Source: "addressInput",
+			Target: "ui",
 			Data: messages.ShowPopup{
-				Popup: popups.NewRealmsList(a.ui, a.setRealm),
+				Popup: popups.NewRealmsList(a.setRealm),
 			},
 		})
 	}

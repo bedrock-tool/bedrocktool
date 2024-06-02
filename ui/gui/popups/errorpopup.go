@@ -4,13 +4,11 @@ import (
 	"gioui.org/layout"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"github.com/bedrock-tool/bedrocktool/ui"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 )
 
 type errorPopup struct {
-	ui                 ui.UI
 	err                error
 	close              widget.Clickable
 	submitPanic        widget.Clickable
@@ -19,9 +17,8 @@ type errorPopup struct {
 	isPanic            bool
 }
 
-func NewErrorPopup(ui ui.UI, err error, onClose func(), isPanic bool) *errorPopup {
+func NewErrorPopup(err error, onClose func(), isPanic bool) *errorPopup {
 	return &errorPopup{
-		ui:      ui,
 		err:     err,
 		onClose: onClose,
 		isPanic: isPanic,
@@ -35,10 +32,10 @@ func (errorPopup) ID() string {
 func (e *errorPopup) Layout(gtx C, th *material.Theme) D {
 	if e.close.Clicked(gtx) {
 		e.onClose()
-		e.ui.HandleMessage(&messages.Message{
-			Source:     e.ID(),
-			SourceType: "popup",
-			Data:       messages.Close{},
+		messages.Router.Handle(&messages.Message{
+			Source: e.ID(),
+			Target: "ui",
+			Data:   messages.Close{Type: "popup", ID: e.ID()},
 		})
 		return D{}
 	}

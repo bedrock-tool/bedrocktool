@@ -32,6 +32,8 @@ type GUI struct {
 }
 
 func (g *GUI) Init() bool {
+	messages.Router.AddHandler("ui", g.HandleMessage)
+
 	g.logger.list = widget.List{
 		List: layout.List{
 			Axis: layout.Vertical,
@@ -132,9 +134,21 @@ func (g *GUI) loop(w *app.Window) error {
 }
 
 func (g *GUI) HandleMessage(msg *messages.Message) *messages.Message {
-	switch msg.Data.(type) {
-	case messages.CanShowImages:
-		return &messages.Message{Ok: true}
+	switch data := msg.Data.(type) {
+	case messages.Features:
+		if data.Request {
+			return &messages.Message{
+				Source: "ui",
+				Target: msg.Source,
+				Data: messages.Features{
+					Request: false,
+					Features: []string{
+						"images",
+					},
+				},
+			}
+		}
+		return nil
 	}
 
 	return g.router.HandleMessage(msg)

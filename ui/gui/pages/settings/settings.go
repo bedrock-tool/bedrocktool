@@ -10,7 +10,6 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
-	"github.com/bedrock-tool/bedrocktool/ui"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/popups"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
@@ -31,8 +30,6 @@ type cmdItem struct {
 }
 
 type Page struct {
-	ui ui.UI
-
 	cmdMenu struct {
 		clickables map[string]cmdItem
 		names      []string
@@ -45,11 +42,8 @@ type Page struct {
 	startButton widget.Clickable
 }
 
-func New(ui ui.UI) pages.Page {
-	AddressInput.ui = ui
-
+func New() pages.Page {
 	p := &Page{
-		ui:       ui,
 		settings: make(map[string]*settingsPage),
 	}
 
@@ -58,7 +52,7 @@ func New(ui ui.UI) pages.Page {
 			continue
 		}
 
-		settingUI := &settingsPage{ui: ui, cmd: cmd}
+		settingUI := &settingsPage{cmd: cmd}
 		settingUI.Init()
 		p.settings[k] = settingUI
 		p.cmdMenu.names = append(p.cmdMenu.names, k)
@@ -114,15 +108,17 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 			settingsUI := p.settings[p.cmdMenu.selected]
 			err := settingsUI.Apply()
 			if err != nil {
-				p.ui.HandleMessage(&messages.Message{
+				messages.Router.Handle(&messages.Message{
 					Source: p.ID(),
+					Target: "ui",
 					Data: messages.ShowPopup{
-						Popup: popups.NewErrorPopup(p.ui, err, func() {}, false),
+						Popup: popups.NewErrorPopup(err, func() {}, false),
 					},
 				})
 			} else {
-				p.ui.HandleMessage(&messages.Message{
+				messages.Router.Handle(&messages.Message{
 					Source: p.ID(),
+					Target: "ui",
 					Data: messages.StartSubcommand{
 						Command: cmd,
 					},

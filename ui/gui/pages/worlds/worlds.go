@@ -10,7 +10,6 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
-	"github.com/bedrock-tool/bedrocktool/ui"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 )
@@ -23,8 +22,6 @@ type (
 const ID = "worlds"
 
 type Page struct {
-	ui ui.UI
-
 	worldMap *Map2
 	//Map3       *Map3
 	worlds     []*messages.SavedWorld
@@ -38,9 +35,8 @@ type Page struct {
 	back       widget.Clickable
 }
 
-func New(ui ui.UI) pages.Page {
+func New() pages.Page {
 	return &Page{
-		ui: ui,
 		worldMap: &Map2{
 			images:   make(map[image.Point]*image.RGBA),
 			imageOps: make(map[image.Point]paint.ImageOp),
@@ -95,8 +91,9 @@ func displayWorldEntry(gtx C, th *material.Theme, entry *messages.SavedWorld) D 
 
 func (p *Page) Layout(gtx C, th *material.Theme) D {
 	if p.back.Clicked(gtx) {
-		p.ui.HandleMessage(&messages.Message{
-			Source: p.ID(),
+		messages.Router.Handle(&messages.Message{
+			Source: "ui",
+			Target: "ui",
 			Data:   messages.ExitSubcommand{},
 		})
 	}
@@ -156,10 +153,18 @@ func (u *Page) HandleMessage(msg *messages.Message) *messages.Message {
 		u.worldMap.mapInput.playerPosition = m.Position
 	case messages.MapLookup:
 		//u.Map3.SetLookupTexture(m.Lookup)
-	case messages.SetVoidGen:
-		u.voidGen = m.Value
-	case messages.SetWorldName:
-		u.worldName = m.WorldName
+	case messages.SetValue:
+		switch m.Name {
+		case "voidGen":
+			switch m.Value {
+			case "true":
+				u.voidGen = true
+			case "false":
+				u.voidGen = true
+			}
+		case "worldName":
+			u.worldName = m.Value
+		}
 	case messages.SavingWorld:
 		u.l.Lock()
 		u.worlds = append(u.worlds, m.World)

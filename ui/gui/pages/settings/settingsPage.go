@@ -13,13 +13,11 @@ import (
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
 	"gioui.org/x/outlay"
-	"github.com/bedrock-tool/bedrocktool/ui"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/sirupsen/logrus"
 )
 
 type settingsPage struct {
-	ui      ui.UI
 	cmd     commands.Command
 	f       *flag.FlagSet
 	widgets map[string]any

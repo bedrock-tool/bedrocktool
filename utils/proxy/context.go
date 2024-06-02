@@ -53,16 +53,14 @@ type Context struct {
 	handlers  []*Handler
 	transfer  *packet.Transfer
 	rpHandler *rpHandler
-	uiHandler messages.Handler
 }
 
 // New creates a new proxy context
-func New(uiHandler messages.Handler, withClient bool) (*Context, error) {
+func New(withClient bool) (*Context, error) {
 	p := &Context{
 		commands:         make(map[string]ingameCommand),
 		withClient:       withClient,
 		disconnectReason: "Connection Lost",
-		uiHandler:        uiHandler,
 	}
 	return p, nil
 }
@@ -319,8 +317,9 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 		}
 	}
 
-	p.uiHandler.HandleMessage(&messages.Message{
+	messages.Router.Handle(&messages.Message{
 		Source: "proxy",
+		Target: "ui",
 		Data:   messages.ConnectStateBegin,
 	})
 
@@ -449,8 +448,9 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 		}
 	}
 
-	p.uiHandler.HandleMessage(&messages.Message{
+	messages.Router.Handle(&messages.Message{
 		Source: "proxy",
+		Target: "ui",
 		Data:   messages.ConnectStateDone,
 	})
 
@@ -520,8 +520,9 @@ func (p *Context) Run(ctx context.Context, connectString string) (err error) {
 			return err
 		}
 	} else {
-		resp := p.uiHandler.HandleMessage(&messages.Message{
+		resp := messages.Router.Handle(&messages.Message{
 			Source: "proxy",
+			Target: "ui",
 			Data:   &messages.ServerInput{Request: true},
 		})
 		if err, ok := resp.Data.(messages.Error); ok {
@@ -573,8 +574,9 @@ func (p *Context) Run(ctx context.Context, connectString string) (err error) {
 				handler.Deferred()
 			}
 		}
-		p.uiHandler.HandleMessage(&messages.Message{
+		messages.Router.Handle(&messages.Message{
 			Source: "proxy",
+			Target: "ui",
 			Data:   messages.UIStateFinished,
 		})
 	}()

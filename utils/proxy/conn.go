@@ -15,15 +15,17 @@ import (
 )
 
 func (p *Context) onResourcePacksInfo() {
-	p.uiHandler.HandleMessage(&messages.Message{
+	messages.Router.Handle(&messages.Message{
 		Source: "proxy",
+		Target: "ui",
 		Data:   messages.ConnectStateReceivingResources,
 	})
 }
 
 func (p *Context) onFinishedPack(pack *resource.Pack) {
-	p.uiHandler.HandleMessage(&messages.Message{
+	messages.Router.Handle(&messages.Message{
 		Source: "proxy",
+		Target: "ui",
 		Data:   messages.FinishedPack{Pack: pack},
 	})
 }
@@ -37,8 +39,9 @@ func (p *Context) connectServer(ctx context.Context) (err error) {
 		}
 	}
 
-	p.uiHandler.HandleMessage(&messages.Message{
+	messages.Router.Handle(&messages.Message{
 		Source: "proxy",
+		Target: "ui",
 		Data:   messages.ConnectStateServerConnecting,
 	})
 	logrus.Info(locale.Loc("connecting", locale.Strmap{"Address": p.serverAddress}))
@@ -77,8 +80,9 @@ func (p *Context) connectServer(ctx context.Context) (err error) {
 	}
 	p.Server = server
 
-	p.uiHandler.HandleMessage(&messages.Message{
+	messages.Router.Handle(&messages.Message{
 		Source: "proxy",
+		Target: "ui",
 		Data:   messages.ConnectStateEstablished,
 	})
 	logrus.Debug(locale.Loc("connected", nil))
@@ -118,8 +122,9 @@ func (p *Context) connectClient(ctx context.Context, serverAddress string) (err 
 		return err
 	}
 
-	p.uiHandler.HandleMessage(&messages.Message{
+	messages.Router.Handle(&messages.Message{
 		Source: "proxy",
+		Target: "ui",
 		Data:   messages.ConnectStateListening,
 	})
 	logrus.Infof(locale.Loc("listening_on", locale.Strmap{"Address": p.listener.Addr()}))

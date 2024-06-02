@@ -24,6 +24,7 @@ type TUI struct{}
 var _ ui.UI = &TUI{}
 
 func (c *TUI) Init() bool {
+	messages.Router.AddHandler("ui", c.HandleMessage)
 	return true
 }
 

@@ -8,7 +8,6 @@ import (
 
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds"
 	"github.com/bedrock-tool/bedrocktool/locale"
-	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/bedrock-tool/bedrocktool/utils/proxy"
 )
@@ -44,7 +43,7 @@ func (c *WorldCMD) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.ScriptPath, "script", "", "path to script to use")
 }
 
-func (c *WorldCMD) Execute(ctx context.Context, uiHandler messages.Handler) error {
+func (c *WorldCMD) Execute(ctx context.Context) error {
 	var script string
 	if c.ScriptPath != "" {
 		data, err := os.ReadFile(c.ScriptPath)
@@ -54,12 +53,12 @@ func (c *WorldCMD) Execute(ctx context.Context, uiHandler messages.Handler) erro
 		script = string(data)
 	}
 
-	proxy, err := proxy.New(uiHandler, true)
+	proxy, err := proxy.New(true)
 	if err != nil {
 		return err
 	}
 
-	proxy.AddHandler(worlds.NewWorldsHandler(uiHandler, worlds.WorldSettings{
+	proxy.AddHandler(worlds.NewWorldsHandler(worlds.WorldSettings{
 		VoidGen:         c.EnableVoid,
 		WithPacks:       c.Packs,
 		SaveEntities:    c.SaveEntities,
