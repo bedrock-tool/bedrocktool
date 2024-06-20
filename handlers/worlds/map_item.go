@@ -103,7 +103,7 @@ func (m *MapUI) Start(ctx context.Context) {
 		Data:   messages.Features{Request: true},
 	})
 	if reply != nil {
-		features := reply.Data.(*messages.Features)
+		features := reply.Data.(messages.Features)
 		for _, feature := range features.Features {
 			if feature == "images" {
 				m.showOnGui = true
