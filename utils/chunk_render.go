@@ -41,7 +41,8 @@ func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.R
 	*/
 
 	blockColor = color.RGBA{0xff, 0, 0xff, 0xff}
-	b, found := world.BlockByRuntimeID(rid)
+	br := c.BlockRegistry.(world.BlockRegistry)
+	b, found := br.BlockByRuntimeID(rid)
 	if !found {
 		return blockColor
 	}
@@ -125,6 +126,7 @@ func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.R
 }
 
 func chunkGetColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) color.RGBA {
+	br := c.BlockRegistry.(world.BlockRegistry)
 	haveUp := false
 	cube.Pos{int(x), int(y), int(z)}.
 		Side(cube.FaceUp).
@@ -134,7 +136,7 @@ func chunkGetColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) color.RGBA {
 			}
 			blockRid := c.Block(uint8(neighbour[0]), int16(neighbour[1]), uint8(neighbour[2]), 0)
 			if blockRid > 0 {
-				b, found := world.BlockByRuntimeID(blockRid)
+				b, found := br.BlockByRuntimeID(blockRid)
 				if found {
 					if isBlockLightblocking(b) {
 						haveUp = true

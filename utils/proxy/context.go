@@ -28,12 +28,13 @@ import (
 )
 
 type Context struct {
-	Server       minecraft.IConn
-	Client       minecraft.IConn
-	listener     *minecraft.Listener
-	Player       Player
-	ExtraDebug   bool
-	PlayerMoveCB []func()
+	Server        minecraft.IConn
+	Client        minecraft.IConn
+	listener      *minecraft.Listener
+	Player        Player
+	ExtraDebug    bool
+	PlayerMoveCB  []func()
+	ListenAddress string
 
 	withClient bool
 	addedPacks []*resource.Pack
@@ -247,7 +248,7 @@ func (p *Context) packetFunc(header packet.Header, payload []byte, src, dst net.
 	}
 
 	if !p.spawned {
-		pk, ok := DecodePacket(header, payload)
+		pk, ok := DecodePacket(header, payload, p.Server.ShieldID())
 		if !ok {
 			return
 		}
@@ -264,6 +265,9 @@ func (p *Context) packetFunc(header packet.Header, payload []byte, src, dst net.
 				pk, err = handler.PacketCB(pk, toServer, time.Now(), !p.spawned)
 				if err != nil {
 					logrus.Error(err)
+				}
+				if pk == nil {
+					break
 				}
 			}
 		}

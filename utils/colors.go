@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/dblezek/tga"
-	"github.com/df-mc/dragonfly/server/world"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sirupsen/logrus"
 )
@@ -278,8 +277,8 @@ func ResolveColors(entries []protocol.BlockEntry, packs []Pack, addToBlocks bool
 		customBlockColors = colors
 	}
 
-	m := NewTextureMap()
-	ridToIdx = m.SetTextures(world.Blocks(), images)
+	//m := NewTextureMap()
+	//ridToIdx = m.SetTextures(world.Blocks(), images)
 
-	return m.Lookup, colors
+	return nil, colors
 }

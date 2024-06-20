@@ -96,11 +96,15 @@ func (p *Context) connectClient(ctx context.Context, serverAddress string) (err 
 		extraClientDebug, extraClientDebugEnd = newExtraDebug("packets-client.log")
 	}
 
+	if p.ListenAddress == "" {
+		p.ListenAddress = "127.0.0.1:19132"
+	}
+
 	p.listener, err = minecraft.ListenConfig{
-		StatusProvider: minecraft.NewStatusProvider(fmt.Sprintf("%s Proxy", serverAddress)),
+		StatusProvider: minecraft.NewStatusProvider(fmt.Sprintf("%s Proxy", serverAddress), "Bedrocktool"),
 		PacketFunc: func(header packet.Header, payload []byte, src, dst net.Addr) {
 			if extraClientDebug != nil {
-				pk, ok := DecodePacket(header, payload)
+				pk, ok := DecodePacket(header, payload, p.Client.ShieldID())
 				if !ok {
 					return
 				}
@@ -117,7 +121,7 @@ func (p *Context) connectClient(ctx context.Context, serverAddress string) (err 
 			c.ResourcePackHandler = p.rpHandler
 			close(p.clientConnecting)
 		},
-	}.Listen("raknet", ":19132")
+	}.Listen("raknet", p.ListenAddress)
 	if err != nil {
 		return err
 	}

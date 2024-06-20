@@ -23,7 +23,6 @@ import (
 	"github.com/bedrock-tool/bedrocktool/utils/resourcepack"
 	"github.com/google/uuid"
 
-	"github.com/df-mc/dragonfly/server/block"
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"
 	_ "github.com/df-mc/dragonfly/server/world/biome"
@@ -55,8 +54,10 @@ type serverState struct {
 	haveStartGame bool
 	worldCounter  int
 	WorldName     string
-	biomes        map[string]any
 	radius        int32
+
+	biomes *world.BiomeRegistry
+	blocks *world.BlockRegistryImpl
 
 	openItemContainers map[byte]*itemContainer
 	playerInventory    []protocol.ItemInstance
@@ -92,15 +93,6 @@ type itemContainer struct {
 	Content    *packet.InventoryContent
 }
 
-// resets dragonfly globals
-func resetGlobals() {
-	world.ClearStates()
-	world.LoadBlockStates()
-	block.InitBlocks()
-	world.FinaliseBlockRegistry()
-	world.ResetBiomes()
-}
-
 func NewWorldsHandler(settings WorldSettings) *proxy.Handler {
 	settings.ExcludedMobs = slices.DeleteFunc(settings.ExcludedMobs, func(mob string) bool {
 		return mob == ""
@@ -120,6 +112,7 @@ func NewWorldsHandler(settings WorldSettings) *proxy.Handler {
 			openItemContainers: make(map[byte]*itemContainer),
 			dimensions:         make(map[int]protocol.DimensionDefinition),
 			playerSkins:        make(map[uuid.UUID]*protocol.Skin),
+			biomes:             world.DefaultBiomes.Clone(),
 		},
 		settings: settings,
 	}
@@ -201,7 +194,7 @@ func NewWorldsHandler(settings WorldSettings) *proxy.Handler {
 			w.serverState.Name = hostname
 
 			// initialize a worldstate
-			w.currentWorld, err = worldstate.New(w.chunkCB, w.serverState.dimensions)
+			w.currentWorld, err = worldstate.New(w.chunkCB, w.serverState.dimensions, nil, nil)
 			if err != nil {
 				return err
 			}
@@ -271,7 +264,6 @@ func NewWorldsHandler(settings WorldSettings) *proxy.Handler {
 		OnEnd: func() {
 			w.SaveAndReset(true, nil)
 			w.wg.Wait()
-			resetGlobals()
 		},
 		Deferred: cancel,
 	}
@@ -286,7 +278,7 @@ func (w *worldsHandler) preloadReplay() error {
 	var conn minecraft.IConn
 	var err error
 	conn, err = proxy.CreateReplayConnector(context.Background(), w.settings.PreloadReplay, func(header packet.Header, payload []byte, src, dst net.Addr) {
-		pk, ok := proxy.DecodePacket(header, payload)
+		pk, ok := proxy.DecodePacket(header, payload, conn.ShieldID())
 		if !ok {
 			logrus.Error("unknown packet", header)
 			return
@@ -315,7 +307,7 @@ func (w *worldsHandler) preloadReplay() error {
 	w.proxy.Server = nil
 
 	logrus.Info("finished preload")
-	resetGlobals()
+	w.serverState.blocks = nil
 	return nil
 }
 
@@ -457,7 +449,7 @@ func (w *worldsHandler) chunkCB(cp world.ChunkPos, c *chunk.Chunk) {
 
 func (w *worldsHandler) reset(dim world.Dimension) (err error) {
 	// create new world state
-	w.currentWorld, err = worldstate.New(w.chunkCB, w.serverState.dimensions)
+	w.currentWorld, err = worldstate.New(w.chunkCB, w.serverState.dimensions, w.serverState.blocks, w.serverState.biomes)
 	if err != nil {
 		return err
 	}

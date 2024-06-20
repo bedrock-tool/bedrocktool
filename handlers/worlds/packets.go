@@ -11,10 +11,10 @@ import (
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/behaviourpack"
-	"github.com/bedrock-tool/bedrocktool/utils/nbtconv"
 	"github.com/bedrock-tool/bedrocktool/utils/resourcepack"
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/item/inventory"
+	"github.com/df-mc/dragonfly/server/nbtconv"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/go-gl/mathgl/mgl32"
 	"github.com/gregwebs/go-recovery"
@@ -31,12 +31,19 @@ func (w *worldsHandler) getEntity(id worldstate.EntityRuntimeID) *worldstate.Ent
 func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
 	// general / startup
 	switch pk := _pk.(type) {
+	case *packet.CompressedBiomeDefinitionList: // for client side generation, disabled by proxy
+		return nil, nil
+
 	case *packet.RequestChunkRadius:
 		pk.ChunkRadius = w.settings.ChunkRadius
+		pk.MaxChunkRadius = w.settings.ChunkRadius
 
 	case *packet.ChunkRadiusUpdated:
 		w.serverState.radius = pk.ChunkRadius
 		pk.ChunkRadius = w.settings.ChunkRadius
+
+	case *packet.SetCommandsEnabled:
+		pk.Enabled = true
 
 	case *packet.SetTime:
 		w.currentWorld.SetTime(timeReceived, int(pk.Time))
@@ -47,6 +54,8 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 			w.currentWorld.SetTime(timeReceived, int(pk.Time))
 			w.serverState.useHashedRids = pk.UseBlockNetworkIDHashes
 
+			w.serverState.blocks = world.DefaultBlockRegistry.Clone().(*world.BlockRegistryImpl)
+
 			world.InsertCustomItems(pk.Items)
 			for _, ie := range pk.Items {
 				w.bp.AddItem(ie)
@@ -56,10 +65,10 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 				for _, be := range pk.Blocks {
 					w.bp.AddBlock(be)
 				}
-				// telling the chunk code what custom blocks there are so it can generate offsets
-				world.InsertCustomBlocks(pk.Blocks)
+				world.AddCustomBlocks(w.serverState.blocks, pk.Blocks)
 				w.customBlocks = pk.Blocks
 			}
+			w.serverState.blocks.Finalize()
 
 			w.serverState.WorldName = pk.WorldName
 			if pk.WorldName != "" {
@@ -90,6 +99,8 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 			dim, _ := world.DimensionByID(int(pk.Dimension))
 			w.currentWorld.SetDimension(dim)
 
+			w.currentWorld.BiomeRegistry = w.serverState.biomes
+			w.currentWorld.BlockRegistry = w.serverState.blocks
 			w.openWorldState(w.settings.StartPaused)
 		}
 
@@ -104,20 +115,22 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 		w.bp.ApplyComponentEntries(pk.Items)
 
 	case *packet.BiomeDefinitionList:
-		err := nbt.UnmarshalEncoding(pk.SerialisedBiomeDefinitions, &w.serverState.biomes, nbt.NetworkLittleEndian)
+		var biomes map[string]any
+		err := nbt.UnmarshalEncoding(pk.SerialisedBiomeDefinitions, &biomes, nbt.NetworkLittleEndian)
 		if err != nil {
 			logrus.Error(err)
 		}
-		for k, v := range w.serverState.biomes {
-			_, ok := world.BiomeByName(k)
+
+		for k, v := range biomes {
+			_, ok := w.serverState.biomes.BiomeByName(k)
 			if !ok {
-				world.RegisterBiome(&customBiome{
+				w.serverState.biomes.Register(&customBiome{
 					name: k,
 					data: v.(map[string]any),
 				})
 			}
 		}
-		w.bp.AddBiomes(w.serverState.biomes)
+		w.bp.AddBiomes(biomes)
 	}
 
 	_pk = w.itemPackets(_pk)
@@ -157,7 +170,7 @@ func (w *worldsHandler) playersPackets(_pk packet.Packet) {
 
 			geometryName := resourcePatch["geometry"]["default"]
 
-			var geom *resourcepack.Geometry
+			var geometry *resourcepack.GeometryFile
 			var isDefault bool
 			if len(skin.SkinGeometry) > 0 {
 				skinGeometry, _, err := utils.ParseSkinGeometry(skin.SkinGeometry)
@@ -165,27 +178,35 @@ func (w *worldsHandler) playersPackets(_pk packet.Packet) {
 					logrus.Error(err)
 					return
 				}
-				geom = &resourcepack.Geometry{
-					Description: skinGeometry.Description,
-					Bones:       skinGeometry.Bones,
+				if skinGeometry != nil {
+					geometry = &resourcepack.GeometryFile{
+						FormatVersion: string(skin.GeometryDataEngineVersion),
+						Geometry: []*resourcepack.Geometry{
+							&resourcepack.Geometry{
+								Description: skinGeometry.Description,
+								Bones:       skinGeometry.Bones,
+							},
+						},
+					}
 				}
-			} else {
-				geom = &resourcepack.Geometry{
-					Description: utils.SkinGeometryDescription{
-						Identifier:    geometryName,
-						TextureWidth:  int(skin.SkinImageWidth),
-						TextureHeight: int(skin.SkinImageHeight),
+			}
+			if geometry == nil {
+				geometry = &resourcepack.GeometryFile{
+					FormatVersion: string(skin.GeometryDataEngineVersion),
+					Geometry: []*resourcepack.Geometry{
+						&resourcepack.Geometry{
+							Description: utils.SkinGeometryDescription{
+								Identifier:    geometryName,
+								TextureWidth:  int(skin.SkinImageWidth),
+								TextureHeight: int(skin.SkinImageHeight),
+							},
+						},
 					},
 				}
 				isDefault = true
 			}
 
-			var geometry = resourcepack.GeometryFile{
-				FormatVersion: string(skin.GeometryDataEngineVersion),
-				Geometry:      []*resourcepack.Geometry{geom},
-			}
-
-			w.rp.AddPlayer(pk.UUID.String(), skinTexture, capeTexture, skin.CapeID, &geometry, isDefault)
+			w.rp.AddPlayer(pk.UUID.String(), skinTexture, capeTexture, skin.CapeID, geometry, isDefault)
 		}
 	case *packet.PlayerList:
 		if pk.ActionType == packet.PlayerListActionRemove { // remove
@@ -475,7 +496,7 @@ func (w *worldsHandler) itemPackets(_pk packet.Packet) packet.Packet {
 			// create inventory
 			inv := inventory.New(len(existing.Content.Content), nil)
 			for i, c := range existing.Content.Content {
-				item := utils.StackToItem(c.Stack)
+				item := utils.StackToItem(w.serverState.blocks, c.Stack)
 				inv.SetItem(i, item)
 			}
 

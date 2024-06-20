@@ -16,12 +16,14 @@ import (
 
 type BlindProxyCMD struct {
 	ServerAddress string
+	ListenAddress string
 }
 
 func (*BlindProxyCMD) Name() string     { return "blind-proxy" }
 func (*BlindProxyCMD) Synopsis() string { return "raknet proxy" }
 func (c *BlindProxyCMD) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.ServerAddress, "address", "", "server address")
+	f.StringVar(&c.ListenAddress, "listen", "", "example :19132 or 127.0.0.1:19132")
 }
 
 func packet_forward(src, dst *raknet.Conn) error {
@@ -43,12 +45,16 @@ func (c *BlindProxyCMD) Execute(ctx context.Context) error {
 		return err
 	}
 
-	listener, err := raknet.Listen("0.0.0.0:19132")
+	if c.ListenAddress == "" {
+		c.ListenAddress = "127.0.0.1:19132"
+	}
+
+	listener, err := raknet.Listen(c.ListenAddress)
 	if err != nil {
 		return err
 	}
 	defer listener.Close()
-	logrus.Info("Listening on 0.0.0.0:19132")
+	logrus.Infof("Listening on %s", c.ListenAddress)
 
 	listener.PongData([]byte(fmt.Sprintf("MCPE;%v;%v;%v;%v;%v;%v;Gophertunnel;%v;%v;%v;%v;",
 		"Proxy For "+server.Name, protocol.CurrentProtocol, protocol.CurrentVersion, 0, 1,

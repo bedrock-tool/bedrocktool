@@ -36,6 +36,9 @@ type World struct {
 	// called when a chunk is added
 	ChunkFunc func(world.ChunkPos, *chunk.Chunk)
 
+	BlockRegistry world.BlockRegistry
+	BiomeRegistry *world.BiomeRegistry
+
 	dimension            world.Dimension
 	dimRange             cube.Range
 	dimensionDefinitions map[int]protocol.DimensionDefinition
@@ -79,7 +82,7 @@ type Map struct {
 	MapLocked         bool             `nbt:"mapLocked"`
 }
 
-func New(cf func(world.ChunkPos, *chunk.Chunk), dimensionDefinitions map[int]protocol.DimensionDefinition) (*World, error) {
+func New(cf func(world.ChunkPos, *chunk.Chunk), dimensionDefinitions map[int]protocol.DimensionDefinition, br world.BlockRegistry, br2 *world.BiomeRegistry) (*World, error) {
 	w := &World{
 		StoredChunks:         make(map[world.ChunkPos]bool),
 		dimensionDefinitions: dimensionDefinitions,
@@ -95,6 +98,8 @@ func New(cf func(world.ChunkPos, *chunk.Chunk), dimensionDefinitions map[int]pro
 		players: worldPlayers{
 			players: make(map[uuid.UUID]*player),
 		},
+		BlockRegistry: br,
+		BiomeRegistry: br2,
 	}
 
 	return w, nil
@@ -118,6 +123,8 @@ func (w *World) storeMemToProvider() error {
 		w.provider, w.err = mcdb.Config{
 			Log:         logrus.StandardLogger(),
 			Compression: opt.DefaultCompression,
+			Blocks:      w.BlockRegistry,
+			Biomes:      w.BiomeRegistry,
 		}.Open(w.Folder)
 		if w.err != nil {
 			return w.err
@@ -176,7 +183,17 @@ func (w *World) StoreChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cub
 	w.l.Lock()
 	defer w.l.Unlock()
 
-	w.StoredChunks[pos] = true
+	var empty = true
+	for _, sub := range ch.Sub() {
+		if !sub.Empty() {
+			empty = false
+			break
+		}
+	}
+	if !empty {
+		w.StoredChunks[pos] = true
+	}
+
 	w.currState().StoreChunk(pos, ch, blockNBT)
 
 	return nil
@@ -330,6 +347,8 @@ func (w *World) Rename(name, folder string) error {
 		w.provider, w.err = mcdb.Config{
 			Log:         logrus.StandardLogger(),
 			Compression: opt.DefaultCompression,
+			Blocks:      w.BlockRegistry,
+			Biomes:      w.BiomeRegistry,
 		}.Open(w.Folder)
 		if w.err != nil {
 			return w.err

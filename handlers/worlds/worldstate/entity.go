@@ -3,9 +3,7 @@ package worldstate
 import (
 	"math"
 
-	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/behaviourpack"
-	"github.com/bedrock-tool/bedrocktool/utils/nbtconv"
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/go-gl/mathgl/mgl32"
@@ -318,22 +316,24 @@ func (s *EntityState) ToServerEntity(links []int64) serverEntity {
 		e.EntityType.NBT["LinksTag"] = linksTag
 	}
 
-	if false {
-		armor := make([]map[string]any, 4)
-		if s.Helmet != nil {
-			armor[0] = nbtconv.WriteItem(utils.StackToItem(s.Helmet.Stack), true)
+	/*
+		if false {
+			armor := make([]map[string]any, 4)
+			if s.Helmet != nil {
+				armor[0] = nbtconv.WriteItem(utils.StackToItem(w.serverState.blocks, s.Helmet.Stack), true)
+			}
+			if s.Chestplate != nil {
+				armor[1] = nbtconv.WriteItem(utils.StackToItem(w.serverState.blocks, s.Chestplate.Stack), true)
+			}
+			if s.Leggings != nil {
+				armor[2] = nbtconv.WriteItem(utils.StackToItem(w.serverState.blocks, s.Leggings.Stack), true)
+			}
+			if s.Boots != nil {
+				armor[3] = nbtconv.WriteItem(utils.StackToItem(w.serverState.blocks, s.Boots.Stack), true)
+			}
+			e.EntityType.NBT["Armor"] = armor
 		}
-		if s.Chestplate != nil {
-			armor[1] = nbtconv.WriteItem(utils.StackToItem(s.Chestplate.Stack), true)
-		}
-		if s.Leggings != nil {
-			armor[2] = nbtconv.WriteItem(utils.StackToItem(s.Leggings.Stack), true)
-		}
-		if s.Boots != nil {
-			armor[3] = nbtconv.WriteItem(utils.StackToItem(s.Boots.Stack), true)
-		}
-		e.EntityType.NBT["Armor"] = armor
-	}
+	*/
 
 	return e
 }

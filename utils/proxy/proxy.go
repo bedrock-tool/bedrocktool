@@ -56,7 +56,7 @@ var errCancelConnect = fmt.Errorf("cancelled connecting")
 var serverPool = packet.NewServerPool()
 var clientPool = packet.NewClientPool()
 
-func DecodePacket(header packet.Header, payload []byte) (pk packet.Packet, ok bool) {
+func DecodePacket(header packet.Header, payload []byte, shieldID int32) (pk packet.Packet, ok bool) {
 	pkFunc, ok := serverPool[header.PacketID]
 	if !ok {
 		pkFunc, ok = clientPool[header.PacketID]
@@ -75,6 +75,6 @@ func DecodePacket(header packet.Header, payload []byte) (pk packet.Packet, ok bo
 			ok = false
 		}
 	}()
-	pk.Marshal(protocol.NewReader(bytes.NewBuffer(payload), 0, false))
+	pk.Marshal(protocol.NewReader(bytes.NewBuffer(payload), shieldID, false))
 	return pk, ok
 }

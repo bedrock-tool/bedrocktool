@@ -40,6 +40,7 @@ type replayConnector struct {
 	clientData login.ClientData
 
 	gameData minecraft.GameData
+	shieldID atomic.Int32
 
 	packetFunc PacketFunc
 
@@ -125,6 +126,11 @@ func (r *replayConnector) handleLoginSequence(pk packet.Packet) (bool, error) {
 			DisablePlayerInteractions:    pk.DisablePlayerInteractions,
 			UseBlockNetworkIDHashes:      pk.UseBlockNetworkIDHashes,
 		})
+		for _, item := range pk.Items {
+			if item.Name == "minecraft:shield" {
+				r.shieldID.Store(int32(item.RuntimeID))
+			}
+		}
 
 	case *packet.ResourcePacksInfo:
 		return false, r.resourcePackHandler.OnResourcePacksInfo(pk)
@@ -439,7 +445,7 @@ func (r *replayConnector) Pool() packet.Pool {
 }
 
 func (r *replayConnector) ShieldID() int32 {
-	return 0
+	return r.shieldID.Load()
 }
 
 func (r *replayConnector) Proto() minecraft.Protocol {

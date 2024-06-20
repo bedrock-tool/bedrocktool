@@ -31,7 +31,7 @@ func main() {
 	}
 
 	var entries []protocol.BlockEntry
-	for _, block := range world.Blocks() {
+	for _, block := range world.DefaultBlockRegistry.Blocks() {
 		if block, ok := block.(world.UnknownBlock); ok {
 			entries = append(entries, protocol.BlockEntry{
 				Name:       block.Name,
