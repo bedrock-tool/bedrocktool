@@ -51,7 +51,7 @@ func (s *settingsPage) Init() {
 		switch t {
 		case "stringValue", "intValue":
 			e := &component.TextField{
-				Helper: f.Usage,
+				Helper: f.Name + ": " + f.Usage,
 			}
 			if f.DefValue != "" && f.DefValue != "0" {
 				e.Helper = fmt.Sprintf("%s (Default: '%s')", f.Usage, f.DefValue)

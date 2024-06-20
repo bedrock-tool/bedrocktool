@@ -83,9 +83,9 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelCauseFunc) (err er
 	}
 	g.th = th
 
-	w := app.NewWindow()
-	w.Option(app.Title("Bedrocktool " + updater.Version))
-	g.router.Invalidate = w.Invalidate
+	var window app.Window
+	window.Option(app.Title("Bedrocktool " + updater.Version))
+	g.router.Invalidate = window.Invalidate
 	logrus.AddHook(&g.logger)
 	g.router.SwitchTo(settings.ID)
 
@@ -98,20 +98,20 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelCauseFunc) (err er
 		app.Main()
 	}()
 
-	return g.loop(w)
+	return g.loop(&window)
 }
 
-func (g *GUI) loop(w *app.Window) error {
+func (g *GUI) loop(window *app.Window) error {
 	var closing = false
 	var ops op.Ops
 
 	go func() {
 		<-g.ctx.Done()
-		w.Invalidate()
+		window.Invalidate()
 	}()
 
 	for {
-		e := w.NextEvent()
+		e := window.Event()
 
 		if g.ctx.Err() != nil && !closing {
 			logrus.Info("Closing")

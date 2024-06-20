@@ -56,7 +56,7 @@ require (
 	github.com/go-text/typesetting v0.1.1 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/pprof v0.0.0-20240618054019-d3b898a103f8 // indirect
-	github.com/gregwebs/errors v1.20.0 // indirect
+	github.com/gregwebs/errors v1.2.2 // indirect
 	github.com/klauspost/compress v1.17.9 // indirect
 	github.com/lufia/plan9stats v0.0.0-20240513124658-fba389f38bae // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect

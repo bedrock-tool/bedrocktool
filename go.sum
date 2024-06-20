@@ -75,6 +75,8 @@ github.com/google/subcommands v1.2.0 h1:vWQspBTo2nEqTUFita5/KeEWlUL8kQObDFbub/EN
 github.com/google/subcommands v1.2.0/go.mod h1:ZjhPrFU+Olkh9WazFPsl27BQ4UPiG37m3yTrtFlrHVk=
 github.com/google/uuid v1.6.0 h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=
 github.com/google/uuid v1.6.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
+github.com/gregwebs/errors v1.2.2 h1:JQG47s42qKzMPdIT8pmCkZ+2Trhoyskgimxbyp7lD+U=
+github.com/gregwebs/errors v1.2.2/go.mod h1:1NkCObP7+scylHlC69lwHl2ACOHwktWYrZV4EJDEl6g=
 github.com/gregwebs/errors v1.20.0 h1:rOMGCP1UplGbTBXSYFt458QSlFZiT2WB/dK7yLgE5Es=
 github.com/gregwebs/errors v1.20.0/go.mod h1:oGma9emsMfJUvDNUK5O72GU4o6WBKiQWK7dl1md9Plo=
 github.com/gregwebs/go-recovery v0.3.2 h1:vGjQtFXS5lRhDlMlMWCpbm4kQSu2FnZ6ozmxCtCGbJE=
