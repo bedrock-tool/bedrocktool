@@ -2,8 +2,8 @@ package worlds
 
 import (
 	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/nbtconv"
 	"github.com/df-mc/dragonfly/server/item/inventory"
-	"github.com/df-mc/dragonfly/server/nbtconv"
 )
 
 func (w *worldsHandler) playerData() (ret map[string]any) {

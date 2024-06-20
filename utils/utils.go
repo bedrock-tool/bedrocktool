@@ -18,8 +18,8 @@ import (
 	"unsafe"
 
 	"github.com/df-mc/dragonfly/server/block"
+	"github.com/bedrock-tool/bedrocktool/utils/nbtconv"
 	"github.com/df-mc/dragonfly/server/item"
-	"github.com/df-mc/dragonfly/server/nbtconv"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
