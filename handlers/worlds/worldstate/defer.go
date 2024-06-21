@@ -24,6 +24,7 @@ func (w *worldStateDefer) StoreChunk(pos world.ChunkPos, ch *chunk.Chunk, blockN
 }
 
 func (w *worldStateDefer) StoreMap(m *packet.ClientBoundMapItemData) {
+	return // not finished yet
 	m1, ok := w.maps[m.MapID]
 	if !ok {
 		m1 = &Map{
