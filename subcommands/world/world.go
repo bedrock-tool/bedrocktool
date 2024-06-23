@@ -59,10 +59,6 @@ func (c *WorldCMD) Execute(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-
-	if c.ListenAddress == "" {
-		c.ListenAddress = "127.0.0.1:19132"
-	}
 	proxy.ListenAddress = c.ListenAddress
 
 	proxy.AddHandler(worlds.NewWorldsHandler(worlds.WorldSettings{

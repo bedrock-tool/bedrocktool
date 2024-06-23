@@ -97,7 +97,7 @@ func NewDebugLogger(extraVerbose bool) *Handler {
 
 	return &Handler{
 		Name: "Debug",
-		PacketCB: func(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
+		PacketCallback: func(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
 			if extraDebug != nil {
 				extraDebug(pk)
 			}
@@ -112,7 +112,7 @@ func NewDebugLogger(extraVerbose bool) *Handler {
 			}
 			return pk, nil
 		},
-		Deferred: func() {
+		OnProxyEnd: func() {
 			if extraDebugEnd != nil {
 				extraDebugEnd()
 			}

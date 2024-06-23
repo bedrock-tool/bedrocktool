@@ -46,7 +46,7 @@ func (c *BlindProxyCMD) Execute(ctx context.Context) error {
 	}
 
 	if c.ListenAddress == "" {
-		c.ListenAddress = "127.0.0.1:19132"
+		c.ListenAddress = "0.0.0.0:19132"
 	}
 
 	listener, err := raknet.Listen(c.ListenAddress)

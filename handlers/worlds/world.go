@@ -121,19 +121,8 @@ func NewWorldsHandler(settings WorldSettings) *proxy.Handler {
 
 	h := &proxy.Handler{
 		Name: "Worlds",
-		ProxyRef: func(pc *proxy.Context) {
+		ProxyReference: func(pc *proxy.Context) {
 			w.proxy = pc
-
-			/*
-				w.proxy.PlayerMoveCB = append(w.proxy.PlayerMoveCB, func() {
-					ui.HandleMessage(&messages.Message{
-						Source: "worlds",
-						Data: messages.PlayerPosition{
-							Position: w.proxy.Player.Position,
-						},
-					})
-				})
-			*/
 
 			w.proxy.AddCommand(func(cmdline []string) bool {
 				return w.setWorldName(strings.Join(cmdline, " "), false)
@@ -169,7 +158,11 @@ func NewWorldsHandler(settings WorldSettings) *proxy.Handler {
 
 			w.proxy.AddCommand(func(s []string) bool {
 				w.proxy.SendMessage("Restarted Capturing")
-				pos := cube.Pos{int(math.Floor(float64(w.proxy.Player.Position[0]))), int(math.Floor(float64(w.proxy.Player.Position[1]))), int(math.Floor(float64(w.proxy.Player.Position[2])))}
+				pos := cube.Pos{
+					int(math.Floor(float64(w.proxy.Player.Position[0]))),
+					int(math.Floor(float64(w.proxy.Player.Position[1]))),
+					int(math.Floor(float64(w.proxy.Player.Position[2]))),
+				}
 				w.currentWorld.UnpauseCapture(pos, w.serverState.radius, func(cp world.ChunkPos, c *chunk.Chunk) {
 					w.mapUI.SetChunk(cp, c, false)
 				})
@@ -188,7 +181,7 @@ func NewWorldsHandler(settings WorldSettings) *proxy.Handler {
 			})
 		},
 
-		AddressAndName: func(address, hostname string) (err error) {
+		OnAddressAndName: func(address, hostname string) (err error) {
 			w.bp = behaviourpack.New(hostname)
 			w.rp = resourcepack.New()
 			w.serverState.Name = hostname
@@ -218,11 +211,11 @@ func NewWorldsHandler(settings WorldSettings) *proxy.Handler {
 			return nil
 		},
 
-		ToClientGameDataModifier: func(gd *minecraft.GameData) {
+		GameDataModifier: func(gd *minecraft.GameData) {
 			gd.ClientSideGeneration = false
 		},
 
-		ConnectCB: func() bool {
+		OnConnect: func() bool {
 			messages.Router.Handle(&messages.Message{
 				Source: "subcommand",
 				Target: "ui",
@@ -260,12 +253,12 @@ func NewWorldsHandler(settings WorldSettings) *proxy.Handler {
 			return false
 		},
 
-		PacketCB: w.packetCB,
-		OnEnd: func() {
+		PacketCallback: w.packetCB,
+		OnSessionEnd: func() {
 			w.SaveAndReset(true, nil)
 			w.wg.Wait()
 		},
-		Deferred: cancel,
+		OnProxyEnd: cancel,
 	}
 
 	return h

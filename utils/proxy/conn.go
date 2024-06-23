@@ -97,7 +97,7 @@ func (p *Context) connectClient(ctx context.Context, serverAddress string) (err 
 	}
 
 	if p.ListenAddress == "" {
-		p.ListenAddress = "127.0.0.1:19132"
+		p.ListenAddress = "0.0.0.0:19132"
 	}
 
 	p.listener, err = minecraft.ListenConfig{

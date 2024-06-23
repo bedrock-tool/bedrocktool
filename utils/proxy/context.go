@@ -157,15 +157,16 @@ func (p *Context) proxyLoop(ctx context.Context, toServer bool) (err error) {
 
 		pkName := reflect.TypeOf(pk).String()
 		for _, handler := range p.handlers {
-			if handler.PacketCB != nil {
-				pk, err = handler.PacketCB(pk, toServer, time.Now(), false)
-				if err != nil {
-					return err
-				}
-				if pk == nil {
-					logrus.Tracef("Dropped Packet: %s", pkName)
-					break
-				}
+			if handler.PacketCallback == nil {
+				continue
+			}
+			pk, err = handler.PacketCallback(pk, toServer, time.Now(), false)
+			if err != nil {
+				return err
+			}
+			if pk == nil {
+				logrus.Tracef("Dropped Packet: %s", pkName)
+				break
 			}
 		}
 
@@ -261,14 +262,15 @@ func (p *Context) packetFunc(header packet.Header, payload []byte, src, dst net.
 		var err error
 		toServer := p.IsClient(src)
 		for _, handler := range p.handlers {
-			if handler.PacketCB != nil {
-				pk, err = handler.PacketCB(pk, toServer, time.Now(), !p.spawned)
-				if err != nil {
-					logrus.Error(err)
-				}
-				if pk == nil {
-					break
-				}
+			if handler.PacketCallback == nil {
+				continue
+			}
+			pk, err = handler.PacketCallback(pk, toServer, time.Now(), !p.spawned)
+			if err != nil {
+				logrus.Error(err)
+			}
+			if pk == nil {
+				break
 			}
 		}
 	}
@@ -293,9 +295,7 @@ func (p *Context) onServerConnect() error {
 func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc) (err error) {
 	defer func() {
 		for _, handler := range p.handlers {
-			if handler.OnEnd != nil {
-				handler.OnEnd()
-			}
+			handler.OnSessionEnd()
 		}
 	}()
 
@@ -305,11 +305,12 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 	}
 
 	for _, handler := range p.handlers {
-		if handler.AddressAndName != nil {
-			err = handler.AddressAndName(p.serverAddress, p.serverName)
-			if err != nil {
-				return err
-			}
+		if handler.OnAddressAndName == nil {
+			continue
+		}
+		err = handler.OnAddressAndName(p.serverAddress, p.serverName)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -354,7 +355,7 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 					if handler.OnClientConnect == nil {
 						continue
 					}
-					handler.OnClientConnect(p.Client)
+					handler.OnClientConnect()
 				}
 			}()
 		}
@@ -405,9 +406,10 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 	{ // spawn
 		gd := p.Server.GameData()
 		for _, handler := range p.handlers {
-			if handler.ToClientGameDataModifier != nil {
-				handler.ToClientGameDataModifier(&gd)
+			if handler.GameDataModifier == nil {
+				return
 			}
+			handler.GameDataModifier(&gd)
 		}
 
 		if p.Client != nil {
@@ -443,11 +445,12 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 		}
 
 		for _, handler := range p.handlers {
-			if handler.ConnectCB != nil {
-				if handler.ConnectCB() {
-					logrus.Info("Disconnecting")
-					return nil
-				}
+			if handler.OnConnect == nil {
+				continue
+			}
+			if handler.OnConnect() {
+				logrus.Info("Disconnecting")
+				return nil
 			}
 		}
 	}
@@ -550,12 +553,12 @@ func (p *Context) Run(ctx context.Context, connectString string) (err error) {
 		p.AddHandler(NewPacketCapturer())
 	}
 	p.AddHandler(&Handler{
-		Name:     "Commands",
-		PacketCB: p.commandHandlerPacketCB,
+		Name:           "Commands",
+		PacketCallback: p.commandHandlerPacketCB,
 	})
 	p.AddHandler(&Handler{
 		Name: "Player",
-		PacketCB: func(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
+		PacketCallback: func(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
 			haveMoved := p.Player.handlePackets(pk)
 			if haveMoved {
 				for _, cb := range p.PlayerMoveCB {
@@ -567,15 +570,15 @@ func (p *Context) Run(ctx context.Context, connectString string) (err error) {
 	})
 
 	for _, handler := range p.handlers {
-		if handler.ProxyRef != nil {
-			handler.ProxyRef(p)
+		if handler.ProxyReference != nil {
+			handler.ProxyReference(p)
 		}
 	}
 
 	defer func() {
 		for _, handler := range p.handlers {
-			if handler.Deferred != nil {
-				handler.Deferred()
+			if handler.OnProxyEnd != nil {
+				handler.OnProxyEnd()
 			}
 		}
 		messages.Router.Handle(&messages.Message{

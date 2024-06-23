@@ -45,7 +45,7 @@ func (c *SkinCMD) Execute(ctx context.Context) error {
 
 	p.AddHandler(&proxy.Handler{
 		Name: "Skin CMD",
-		ConnectCB: func() bool {
+		OnConnect: func() bool {
 			messages.Router.Handle(&messages.Message{
 				Source: "skins",
 				Target: "ui",

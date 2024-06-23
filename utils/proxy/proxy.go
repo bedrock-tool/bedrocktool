@@ -20,33 +20,21 @@ type ingameCommand struct {
 }
 
 type Handler struct {
-	Name     string
-	ProxyRef func(pc *Context)
-	//
-	AddressAndName func(address, hostname string) error
+	Name string
 
-	// called to change game data
-	ToClientGameDataModifier func(gd *minecraft.GameData)
+	ProxyReference   func(c *Context)
+	GameDataModifier func(gameData *minecraft.GameData)
+	OnAddressAndName func(address, hostname string) error
 
-	// Called with raw packet data
-	PacketRaw func(header packet.Header, payload []byte, src, dst net.Addr)
+	PacketRaw      func(header packet.Header, payload []byte, src, dst net.Addr)
+	PacketCallback func(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error)
 
-	// called on every packet after login
-	PacketCB func(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error)
-
-	// called after client connected
-	OnClientConnect func(conn minecraft.IConn)
-	//SecondaryClientCB func(conn minecraft.IConn)
-
-	// called after server connected & downloaded resource packs
+	OnClientConnect func()
 	OnServerConnect func() (cancel bool, err error)
-	// called after game started
-	ConnectCB func() bool
+	OnConnect       func() (cancel bool)
 
-	// called when the proxy session stops or is reconnected
-	OnEnd func()
-	// called when the proxy ends
-	Deferred func()
+	OnSessionEnd func()
+	OnProxyEnd   func()
 }
 
 var NewPacketCapturer func() *Handler

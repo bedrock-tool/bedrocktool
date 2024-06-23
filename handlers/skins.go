@@ -160,16 +160,16 @@ func NewSkinSaver(skinCB func(SkinAdd)) *proxy.Handler {
 	}
 	return &proxy.Handler{
 		Name: "Skin Saver",
-		ProxyRef: func(pc *proxy.Context) {
+		ProxyReference: func(pc *proxy.Context) {
 			s.proxy = pc
 		},
-		AddressAndName: func(address, hostname string) error {
+		OnAddressAndName: func(address, hostname string) error {
 			outPathBase := fmt.Sprintf("skins/%s", hostname)
 			os.MkdirAll(outPathBase, 0o755)
 			s.fpath = outPathBase
 			return nil
 		},
-		PacketCB: func(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
+		PacketCallback: func(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
 			for _, s := range s.ProcessPacket(pk) {
 				if skinCB != nil {
 					skinCB(s)

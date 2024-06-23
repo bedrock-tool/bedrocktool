@@ -23,10 +23,6 @@ func (c *DebugProxyCMD) SetFlags(f *flag.FlagSet) {
 }
 
 func (c *DebugProxyCMD) Execute(ctx context.Context) error {
-	if c.ListenAddress == "" {
-		c.ListenAddress = "127.0.0.1:19132"
-	}
-
 	proxy, err := proxy.New(true)
 	if err != nil {
 		return err

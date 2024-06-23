@@ -128,13 +128,13 @@ func NewPacketCapturer() *proxy.Handler {
 	p := &packetCapturer{}
 	return &proxy.Handler{
 		Name: "Packet Capturer",
-		ProxyRef: func(pc *proxy.Context) {
+		ProxyReference: func(pc *proxy.Context) {
 			p.proxy = pc
 		},
-		AddressAndName:  p.AddressAndName,
-		OnServerConnect: p.OnServerConnect,
-		PacketRaw:       p.PacketFunc,
-		OnEnd: func() {
+		OnAddressAndName: p.AddressAndName,
+		OnServerConnect:  p.OnServerConnect,
+		PacketRaw:        p.PacketFunc,
+		OnSessionEnd: func() {
 			p.dumpLock.Lock()
 			defer p.dumpLock.Unlock()
 			if p.file != nil {
