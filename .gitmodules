@@ -4,3 +4,6 @@
 [submodule "dragonfly"]
 	path = dragonfly
 	url = https://github.com/olebeck/dragonfly.git
+[submodule "go-raknet"]
+	path = go-raknet
+	url = git@github.com:olebeck/go-raknet

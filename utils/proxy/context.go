@@ -295,7 +295,9 @@ func (p *Context) onServerConnect() error {
 func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc) (err error) {
 	defer func() {
 		for _, handler := range p.handlers {
-			handler.OnSessionEnd()
+			if handler.OnSessionEnd != nil {
+				handler.OnSessionEnd()
+			}
 		}
 	}()
 

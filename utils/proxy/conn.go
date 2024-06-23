@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"time"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
@@ -74,7 +75,7 @@ func (p *Context) connectServer(ctx context.Context) (err error) {
 		return err
 	}
 
-	server, err := d.DialContext(ctx, "raknet", p.serverAddress)
+	server, err := d.DialContext(ctx, "raknet", p.serverAddress, 10*time.Second)
 	if err != nil {
 		return err
 	}
