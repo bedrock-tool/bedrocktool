@@ -147,7 +147,7 @@ func (p *Context) proxyLoop(ctx context.Context, toServer bool) (err error) {
 			return ctx.Err()
 		}
 
-		pk, err := c1.ReadPacket()
+		pk, timeReceived, err := c1.ReadPacket()
 		if err != nil {
 			if errors.Is(err, net.ErrClosed) {
 				err = nil
@@ -160,7 +160,7 @@ func (p *Context) proxyLoop(ctx context.Context, toServer bool) (err error) {
 			if handler.PacketCallback == nil {
 				continue
 			}
-			pk, err = handler.PacketCallback(pk, toServer, time.Now(), false)
+			pk, err = handler.PacketCallback(pk, toServer, timeReceived, false)
 			if err != nil {
 				return err
 			}
@@ -339,6 +339,10 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 			return err
 		}
 		p.Server = server
+		err = server.ReadUntilLogin()
+		if err != nil {
+			return err
+		}
 	} else {
 		p.rpHandler = newRpHandler(ctx, p.addedPacks)
 		p.rpHandler.OnResourcePacksInfoCB = p.onResourcePacksInfo
@@ -409,7 +413,7 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 		gd := p.Server.GameData()
 		for _, handler := range p.handlers {
 			if handler.GameDataModifier == nil {
-				return
+				continue
 			}
 			handler.GameDataModifier(&gd)
 		}

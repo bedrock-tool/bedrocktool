@@ -3,7 +3,6 @@ package handlers
 import (
 	"archive/zip"
 	"bytes"
-	"compress/flate"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -14,6 +13,7 @@ import (
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/utils/proxy"
+	"github.com/klauspost/compress/s2"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sirupsen/logrus"
 )
@@ -21,15 +21,13 @@ import (
 func (p *packetCapturer) dumpPacket(toServer bool, payload []byte) {
 	p.dumpLock.Lock()
 	p.wPacket.Write([]byte{0xAA, 0xAA, 0xAA, 0xAA})
-	packetSize := uint32(len(payload))
+	payloadCompressed := s2.EncodeBetter(nil, payload)
+	packetSize := uint32(len(payloadCompressed))
 	binary.Write(p.wPacket, binary.LittleEndian, packetSize)
 	binary.Write(p.wPacket, binary.LittleEndian, toServer)
 	binary.Write(p.wPacket, binary.LittleEndian, time.Now().UnixMilli())
-	p.wPacket.Write(payload)
+	p.wPacket.Write(payloadCompressed)
 	p.wPacket.Write([]byte{0xBB, 0xBB, 0xBB, 0xBB})
-	if p.fw != nil {
-		p.fw.Flush()
-	}
 	p.dumpLock.Unlock()
 }
 
@@ -37,7 +35,6 @@ type packetCapturer struct {
 	proxy    *proxy.Context
 	file     *os.File
 	wPacket  io.Writer
-	fw       *flate.Writer
 	tempBuf  *bytes.Buffer
 	dumpLock sync.Mutex
 	hostname string
@@ -61,7 +58,7 @@ func (p *packetCapturer) OnServerConnect() (disconnect bool, err error) {
 	packs := p.proxy.Server.ResourcePacks()
 
 	p.file.WriteString("BTCP")
-	binary.Write(p.file, binary.LittleEndian, uint32(4))
+	binary.Write(p.file, binary.LittleEndian, uint32(5))
 	binary.Write(p.file, binary.LittleEndian, uint64(0))
 
 	{
@@ -101,18 +98,12 @@ func (p *packetCapturer) OnServerConnect() (disconnect bool, err error) {
 	p.file.Seek(endZip, 0)
 
 	p.dumpLock.Lock()
-	fw, err := flate.NewWriter(p.file, 4)
-	if err != nil {
-		return false, err
-	}
-
-	_, err = p.tempBuf.WriteTo(fw)
+	_, err = p.tempBuf.WriteTo(p.file)
 	if err != nil {
 		return false, err
 	}
 	p.tempBuf = nil
-	p.wPacket = fw
-	p.fw = fw
+	p.wPacket = p.file
 	p.dumpLock.Unlock()
 	return false, nil
 }
@@ -138,7 +129,6 @@ func NewPacketCapturer() *proxy.Handler {
 			p.dumpLock.Lock()
 			defer p.dumpLock.Unlock()
 			if p.file != nil {
-				p.fw.Close()
 				p.file.Close()
 			}
 		},

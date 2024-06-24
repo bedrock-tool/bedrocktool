@@ -20,7 +20,9 @@ type worldStateDefer struct {
 
 func (w *worldStateDefer) StoreChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cube.Pos]DummyBlock) {
 	w.chunks[pos] = ch
-	w.blockNBTs[pos] = blockNBT
+	if blockNBT != nil {
+		w.blockNBTs[pos] = blockNBT
+	}
 }
 
 func (w *worldStateDefer) StoreMap(m *packet.ClientBoundMapItemData) {

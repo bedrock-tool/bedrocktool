@@ -26,7 +26,6 @@ import (
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"
 	_ "github.com/df-mc/dragonfly/server/world/biome"
-	"github.com/df-mc/dragonfly/server/world/chunk"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
@@ -46,6 +45,7 @@ type WorldSettings struct {
 	ChunkRadius     int32
 	Script          string
 	Players         bool
+	BlockUpdates    bool
 }
 
 type serverState struct {
@@ -125,14 +125,14 @@ func NewWorldsHandler(settings WorldSettings) *proxy.Handler {
 			w.proxy = pc
 
 			w.proxy.AddCommand(func(cmdline []string) bool {
-				return w.setWorldName(strings.Join(cmdline, " "), false)
+				return w.setWorldName(strings.Join(cmdline, " "))
 			}, protocol.Command{
 				Name:        "setname",
 				Description: locale.Loc("setname_desc", nil),
 			})
 
 			w.proxy.AddCommand(func(cmdline []string) bool {
-				return w.setVoidGen(!w.currentWorld.VoidGen, false)
+				return w.setVoidGen(!w.currentWorld.VoidGen)
 			}, protocol.Command{
 				Name:        "void",
 				Description: locale.Loc("void_desc", nil),
@@ -163,9 +163,7 @@ func NewWorldsHandler(settings WorldSettings) *proxy.Handler {
 					int(math.Floor(float64(w.proxy.Player.Position[1]))),
 					int(math.Floor(float64(w.proxy.Player.Position[2]))),
 				}
-				w.currentWorld.UnpauseCapture(pos, w.serverState.radius, func(cp world.ChunkPos, c *chunk.Chunk) {
-					w.mapUI.SetChunk(cp, c, false)
-				})
+				w.currentWorld.UnpauseCapture(pos, w.serverState.radius)
 				return true
 			}, protocol.Command{
 				Name:        "start-capture",
@@ -187,7 +185,7 @@ func NewWorldsHandler(settings WorldSettings) *proxy.Handler {
 			w.serverState.Name = hostname
 
 			// initialize a worldstate
-			w.currentWorld, err = worldstate.New(w.chunkCB, w.serverState.dimensions, nil, nil)
+			w.currentWorld, err = worldstate.New(w.serverState.dimensions, w.mapUI.SetChunk)
 			if err != nil {
 				return err
 			}
@@ -268,7 +266,7 @@ func (w *worldsHandler) preloadReplay() error {
 	if w.settings.PreloadReplay == "" {
 		return nil
 	}
-	var conn minecraft.IConn
+	var conn *proxy.ReplayConnector
 	var err error
 	conn, err = proxy.CreateReplayConnector(context.Background(), w.settings.PreloadReplay, func(header packet.Header, payload []byte, src, dst net.Addr) {
 		pk, ok := proxy.DecodePacket(header, payload, conn.ShieldID())
@@ -291,8 +289,14 @@ func (w *worldsHandler) preloadReplay() error {
 		return err
 	}
 	w.proxy.Server = conn
+
+	err = conn.ReadUntilLogin()
+	if err != nil {
+		return err
+	}
+
 	for {
-		_, err := conn.ReadPacket()
+		_, _, err := conn.ReadPacket()
 		if err != nil {
 			break
 		}
@@ -304,7 +308,7 @@ func (w *worldsHandler) preloadReplay() error {
 	return nil
 }
 
-func (w *worldsHandler) setVoidGen(val bool, fromUI bool) bool {
+func (w *worldsHandler) setVoidGen(val bool) bool {
 	w.currentWorld.VoidGen = val
 	var s = locale.Loc("void_generator_false", nil)
 	if w.currentWorld.VoidGen {
@@ -312,26 +316,24 @@ func (w *worldsHandler) setVoidGen(val bool, fromUI bool) bool {
 	}
 	w.proxy.SendMessage(s)
 
-	if !fromUI {
-		var voidGen = "false"
-		if w.currentWorld.VoidGen {
-			voidGen = "true"
-		}
-
-		messages.Router.Handle(&messages.Message{
-			Source: "subcommand",
-			Target: "ui",
-			Data: messages.SetValue{
-				Name:  "voidGen",
-				Value: voidGen,
-			},
-		})
+	var voidGen = "false"
+	if w.currentWorld.VoidGen {
+		voidGen = "true"
 	}
+
+	messages.Router.Handle(&messages.Message{
+		Source: "subcommand",
+		Target: "ui",
+		Data: messages.SetValue{
+			Name:  "voidGen",
+			Value: voidGen,
+		},
+	})
 
 	return true
 }
 
-func (w *worldsHandler) setWorldName(val string, fromUI bool) bool {
+func (w *worldsHandler) setWorldName(val string) bool {
 	err := w.renameWorldState(val)
 	if err != nil {
 		logrus.Error(err)
@@ -339,16 +341,14 @@ func (w *worldsHandler) setWorldName(val string, fromUI bool) bool {
 	}
 	w.proxy.SendMessage(locale.Loc("worldname_set", locale.Strmap{"Name": w.currentWorld.Name}))
 
-	if !fromUI {
-		messages.Router.Handle(&messages.Message{
-			Source: "subcommand",
-			Target: "ui",
-			Data: messages.SetValue{
-				Name:  "worldName",
-				Value: w.currentWorld.Name,
-			},
-		})
-	}
+	messages.Router.Handle(&messages.Message{
+		Source: "subcommand",
+		Target: "ui",
+		Data: messages.SetValue{
+			Name:  "worldName",
+			Value: w.currentWorld.Name,
+		},
+	})
 
 	return true
 }
@@ -436,13 +436,9 @@ func (w *worldsHandler) saveWorldState(worldState *worldstate.World) error {
 	return nil
 }
 
-func (w *worldsHandler) chunkCB(cp world.ChunkPos, c *chunk.Chunk) {
-	w.mapUI.SetChunk(cp, c, false)
-}
-
 func (w *worldsHandler) reset(dim world.Dimension) (err error) {
 	// create new world state
-	w.currentWorld, err = worldstate.New(w.chunkCB, w.serverState.dimensions, w.serverState.blocks, w.serverState.biomes)
+	w.currentWorld, err = worldstate.New(w.serverState.dimensions, w.mapUI.SetChunk)
 	if err != nil {
 		return err
 	}
@@ -466,6 +462,8 @@ func (w *worldsHandler) defaultWorldName() string {
 func (w *worldsHandler) openWorldState(deferred bool) {
 	name := w.defaultWorldName()
 	folder := fmt.Sprintf("worlds/%s/%s", w.serverState.Name, name)
+	w.currentWorld.BiomeRegistry = w.serverState.biomes
+	w.currentWorld.BlockRegistry = w.serverState.blocks
 	w.currentWorld.Open(name, folder, deferred)
 }
 

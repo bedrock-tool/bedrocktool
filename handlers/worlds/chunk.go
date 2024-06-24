@@ -9,17 +9,11 @@ import (
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/df-mc/dragonfly/server/world/chunk"
-	"github.com/gregwebs/go-recovery"
 	"github.com/sandertv/gophertunnel/minecraft/nbt"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sirupsen/logrus"
 )
-
-func (w *worldsHandler) processChangeDimension(pk *packet.ChangeDimension) {
-	dim, _ := world.DimensionByID(int(pk.Dimension))
-	w.SaveAndReset(false, dim)
-}
 
 func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 	if len(pk.RawPayload) == 0 {
@@ -40,7 +34,11 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 
 	//os.WriteFile("chunk.bin", pk.RawPayload, 0777)
 
-	ch, blockNBTs, err := chunk.NetworkDecode(w.serverState.blocks, pk.RawPayload, subChunkCount, w.serverState.useOldBiomes, w.serverState.useHashedRids, w.currentWorld.Range())
+	ch, blockNBTs, err := chunk.NetworkDecode(
+		w.serverState.blocks,
+		pk.RawPayload, subChunkCount,
+		w.serverState.useOldBiomes, w.serverState.useHashedRids, w.currentWorld.Range(),
+	)
 	if err != nil {
 		logrus.Error(err)
 		return
@@ -57,19 +55,10 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 	}
 
 	pos := world.ChunkPos(pk.Position)
-	if w.scripting.CB.OnChunkAdd != nil {
-		var ignore bool
-		err := recovery.Call(func() error {
-			ignore = w.scripting.CB.OnChunkAdd(pos)
-			return nil
-		})
-		if err != nil {
-			logrus.Errorf("Scripting: %s", err)
-		}
-		if ignore {
-			return
-		}
+	if w.scripting.OnChunkAdd(pos) {
+		return
 	}
+
 	err = w.currentWorld.StoreChunk(pos, ch, chunkBlockNBT)
 	if err != nil {
 		logrus.Error(err)
@@ -97,16 +86,16 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 		})
 	default:
 		// legacy
-		var empty = true
-		for _, sub := range ch.Sub() {
-			if !sub.Empty() {
-				empty = false
-				break
-			}
-		}
-		if !empty {
-			w.mapUI.SetChunk((world.ChunkPos)(pk.Position), ch, w.currentWorld.IsPaused())
-		}
+		//var empty = true
+		//for _, sub := range ch.Sub() {
+		//	if !sub.Empty() {
+		//		empty = false
+		//		break
+		//	}
+		//}
+		//if !empty {
+		//	w.mapUI.SetChunk(pos, ch, w.currentWorld.IsPaused())
+		//}
 	}
 
 	w.proxy.SendPopup(locale.Locm("popup_chunk_count", locale.Strmap{
@@ -197,7 +186,6 @@ func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) error {
 
 	for cp, c := range chunks {
 		w.currentWorld.StoreChunk(cp, c, blockNBTs[cp])
-		w.mapUI.SetChunk(cp, c, w.currentWorld.IsPaused())
 	}
 
 	w.mapUI.SchedRedraw()

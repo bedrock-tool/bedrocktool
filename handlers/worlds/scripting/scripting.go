@@ -7,6 +7,7 @@ import (
 
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/dop251/goja"
+	"github.com/gregwebs/go-recovery"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sirupsen/logrus"
 
@@ -141,12 +142,45 @@ func (m entityDataObject) Keys() (keys []string) {
 	return
 }
 
-func (v *VM) OnEntityAdd(entity any, metadata protocol.EntityMetadata) bool {
+func (v *VM) OnEntityAdd(entity any, metadata protocol.EntityMetadata) (ignoreEntity bool) {
+	if v.CB.OnEntityAdd == nil {
+		return false
+	}
 	data := v.vm.NewDynamicObject(entityDataObject{metadata, v.vm})
-	return v.CB.OnEntityAdd(entity, data)
+	err := recovery.Call(func() error {
+		ignoreEntity = v.CB.OnEntityAdd(entity, data)
+		return nil
+	})
+	if err != nil {
+		logrus.Errorf("Scripting: %s", err)
+	}
+	return
 }
 
 func (v *VM) OnEntityDataUpdate(entity any, metadata protocol.EntityMetadata) {
+	if v.CB.OnEntityDataUpdate == nil {
+		return
+	}
 	data := v.vm.NewDynamicObject(entityDataObject{metadata, v.vm})
-	v.CB.OnEntityDataUpdate(entity, data)
+	err := recovery.Call(func() error {
+		v.CB.OnEntityDataUpdate(entity, data)
+		return nil
+	})
+	if err != nil {
+		logrus.Errorf("Scripting: %s", err)
+	}
+}
+
+func (v *VM) OnChunkAdd(pos world.ChunkPos) (ignoreChunk bool) {
+	if v.CB.OnChunkAdd == nil {
+		return false
+	}
+	err := recovery.Call(func() error {
+		ignoreChunk = v.CB.OnChunkAdd(pos)
+		return nil
+	})
+	if err != nil {
+		logrus.Errorf("Scripting: %s", err)
+	}
+	return
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"reflect"
 	"sync"
 	"time"
 
@@ -59,11 +60,16 @@ type World struct {
 
 	players worldPlayers
 
-	VoidGen  bool
-	timeSync time.Time
-	time     int
-	Name     string
-	Folder   string
+	VoidGen       bool
+	timeSync      time.Time
+	time          int
+	Name          string
+	Folder        string
+	UseHashedRids bool
+
+	blockUpdates map[world.ChunkPos][]packet.Packet
+
+	onChunkUpdate func(pos world.ChunkPos, chunk *chunk.Chunk, isPaused bool)
 }
 
 type Map struct {
@@ -82,7 +88,7 @@ type Map struct {
 	MapLocked         bool             `nbt:"mapLocked"`
 }
 
-func New(cf func(world.ChunkPos, *chunk.Chunk), dimensionDefinitions map[int]protocol.DimensionDefinition, br world.BlockRegistry, br2 *world.BiomeRegistry) (*World, error) {
+func New(dimensionDefinitions map[int]protocol.DimensionDefinition, onChunkUpdate func(pos world.ChunkPos, chunk *chunk.Chunk, isPaused bool)) (*World, error) {
 	w := &World{
 		StoredChunks:         make(map[world.ChunkPos]bool),
 		dimensionDefinitions: dimensionDefinitions,
@@ -98,8 +104,9 @@ func New(cf func(world.ChunkPos, *chunk.Chunk), dimensionDefinitions map[int]pro
 		players: worldPlayers{
 			players: make(map[uuid.UUID]*player),
 		},
-		BlockRegistry: br,
-		BiomeRegistry: br2,
+
+		blockUpdates:  make(map[world.ChunkPos][]packet.Packet),
+		onChunkUpdate: onChunkUpdate,
 	}
 
 	return w, nil
@@ -195,6 +202,7 @@ func (w *World) StoreChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cub
 	}
 
 	w.currState().StoreChunk(pos, ch, blockNBT)
+	w.onChunkUpdate(pos, ch, w.paused)
 
 	return nil
 }
@@ -227,6 +235,12 @@ func (w *World) LoadChunk(pos world.ChunkPos) (*chunk.Chunk, bool, error) {
 	}
 
 	return nil, false, nil
+}
+
+func (w *World) QueueBlockUpdate(pos world.ChunkPos, pk packet.Packet) {
+	w.l.Lock()
+	w.blockUpdates[pos] = append(w.blockUpdates[pos], pk)
+	w.l.Unlock()
 }
 
 func (w *World) SetBlockNBT(pos cube.Pos, nbt map[string]any, merge bool) {
@@ -283,13 +297,15 @@ func (w *World) PauseCapture() {
 	w.l.Unlock()
 }
 
-func (w *World) UnpauseCapture(around cube.Pos, radius int32, cf func(world.ChunkPos, *chunk.Chunk)) {
+func (w *World) UnpauseCapture(around cube.Pos, radius int32) {
 	w.l.Lock()
 	defer w.l.Unlock()
 	if !w.paused {
 		panic("attempt to unpause when not paused")
 	}
-	w.pausedState.ApplyTo(w, around, radius, cf)
+	w.pausedState.ApplyTo(w, around, radius, func(pos world.ChunkPos, ch *chunk.Chunk) {
+		w.onChunkUpdate(pos, ch, false)
+	})
 	w.pausedState = nil
 	w.paused = false
 }
@@ -322,11 +338,81 @@ func (w *World) Open(name string, folder string, deferred bool) {
 				return
 			case <-t.C:
 				w.l.Lock()
+				w.applyBlockUpdates()
 				w.storeMemToProvider()
 				w.l.Unlock()
 			}
 		}
 	}()
+}
+
+func blockPosInChunk(bp protocol.BlockPos) (x uint8, y int16, z uint8) {
+	return uint8(bp.X() % 16), int16(bp.Y()), uint8(bp.Z() % 16)
+}
+
+func (w *World) applyBlockUpdates() {
+	for pos, pks := range w.blockUpdates {
+		delete(w.blockUpdates, pos)
+		chunk, ok, err := w.LoadChunk(world.ChunkPos(pos))
+		if !ok {
+			logrus.Warnf("Chunk updates for a chunk we dont have pos = %v", pos)
+			continue
+		}
+		if err != nil {
+			logrus.Warnf("Failed loading chunk %v %s", pos, err)
+			continue
+		}
+		for _, pk := range pks {
+			switch pk := pk.(type) {
+			case *packet.UpdateBlock:
+				x, y, z := blockPosInChunk(pk.Position)
+				rid := pk.NewBlockRuntimeID
+				if w.UseHashedRids {
+					rid, ok = chunk.BlockRegistry.HashToRuntimeID(pk.NewBlockRuntimeID)
+					if !ok {
+						logrus.Warn("couldnt find block hash for block update")
+					}
+				}
+				chunk.SetBlock(x, y, z, uint8(pk.Layer), rid)
+			case *packet.UpdateBlockSynced:
+				x, y, z := blockPosInChunk(pk.Position)
+				rid := pk.NewBlockRuntimeID
+				if w.UseHashedRids {
+					rid, ok = chunk.BlockRegistry.HashToRuntimeID(pk.NewBlockRuntimeID)
+					if !ok {
+						logrus.Warn("couldnt find block hash for block update")
+					}
+				}
+				chunk.SetBlock(x, y, z, uint8(pk.Layer), rid)
+			case *packet.UpdateSubChunkBlocks:
+				for _, block := range pk.Blocks {
+					x, y, z := blockPosInChunk(block.BlockPos)
+					rid := block.BlockRuntimeID
+					if w.UseHashedRids {
+						rid, ok = chunk.BlockRegistry.HashToRuntimeID(rid)
+						if !ok {
+							logrus.Warn("couldnt find block hash for block update")
+						}
+					}
+					chunk.SetBlock(x, y, z, 0, rid)
+				}
+				for _, block := range pk.Extra {
+					x, y, z := blockPosInChunk(block.BlockPos)
+					rid := block.BlockRuntimeID
+					if w.UseHashedRids {
+						rid, ok = chunk.BlockRegistry.HashToRuntimeID(rid)
+						if !ok {
+							logrus.Warn("couldnt find block hash for block update")
+						}
+					}
+					chunk.SetBlock(x, y, z, 1, rid)
+				}
+			default:
+				logrus.Warnf("Unhandled block update packet type %s", reflect.TypeOf(pk).String())
+			}
+		}
+		w.StoreChunk(pos, chunk, nil)
+	}
 }
 
 // Rename moves the folder and reopens it

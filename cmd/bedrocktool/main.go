@@ -45,30 +45,32 @@ func selectUI() ui.UI {
 	return ui
 }
 
-func main() {
-	{
-		logFile, err := os.Create("bedrocktool.log")
-		if err != nil {
-			panic(err)
-		}
-		originalStdout := os.Stdout
-		rOut, wOut, err := os.Pipe()
-		if err != nil {
-			panic(err)
-		}
-		os.Stdout = wOut
-		go func() {
-			m := io.MultiWriter(originalStdout, logFile)
-			io.Copy(m, rOut)
-		}()
-
-		redirectStderr(logFile)
-
-		logrus.SetOutput(originalStdout)
-		logrus.AddHook(lfshook.NewHook(logFile, &logrus.TextFormatter{
-			DisableColors: true,
-		}))
+func setupLogging() {
+	logFile, err := os.Create("bedrocktool.log")
+	if err != nil {
+		panic(err)
 	}
+	originalStdout := os.Stdout
+	rOut, wOut, err := os.Pipe()
+	if err != nil {
+		panic(err)
+	}
+	os.Stdout = wOut
+	go func() {
+		m := io.MultiWriter(originalStdout, logFile)
+		io.Copy(m, rOut)
+	}()
+
+	redirectStderr(logFile)
+
+	logrus.SetOutput(originalStdout)
+	logrus.AddHook(lfshook.NewHook(logFile, &logrus.TextFormatter{
+		DisableColors: true,
+	}))
+}
+
+func main() {
+	setupLogging()
 
 	isDebug := updater.Version == ""
 

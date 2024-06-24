@@ -17,7 +17,6 @@ import (
 	"github.com/df-mc/dragonfly/server/item/inventory"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/go-gl/mathgl/mgl32"
-	"github.com/gregwebs/go-recovery"
 	"github.com/sandertv/gophertunnel/minecraft/nbt"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
@@ -175,14 +174,14 @@ func (w *worldsHandler) playersPackets(_pk packet.Packet) {
 			if len(skin.SkinGeometry) > 0 {
 				skinGeometry, _, err := utils.ParseSkinGeometry(skin.SkinGeometry)
 				if err != nil {
-					logrus.Error(err)
+					logrus.Warn(err)
 					return
 				}
 				if skinGeometry != nil {
 					geometry = &resourcepack.GeometryFile{
 						FormatVersion: string(skin.GeometryDataEngineVersion),
 						Geometry: []*resourcepack.Geometry{
-							&resourcepack.Geometry{
+							{
 								Description: skinGeometry.Description,
 								Bones:       skinGeometry.Bones,
 							},
@@ -194,7 +193,7 @@ func (w *worldsHandler) playersPackets(_pk packet.Packet) {
 				geometry = &resourcepack.GeometryFile{
 					FormatVersion: string(skin.GeometryDataEngineVersion),
 					Geometry: []*resourcepack.Geometry{
-						&resourcepack.Geometry{
+						{
 							Description: utils.SkinGeometryDescription{
 								Identifier:    geometryName,
 								TextureWidth:  int(skin.SkinImageWidth),
@@ -224,32 +223,14 @@ func (w *worldsHandler) entityPackets(_pk packet.Packet) {
 	switch pk := _pk.(type) {
 	case *packet.AddActor:
 		w.currentWorld.ProcessAddActor(pk, func(es *worldstate.EntityState) bool {
-			var ignore bool
-			if w.scripting.CB.OnEntityAdd != nil {
-				err := recovery.Call(func() error {
-					ignore = w.scripting.OnEntityAdd(es, es.Metadata)
-					return nil
-				})
-				if err != nil {
-					logrus.Errorf("scripting: %s", err)
-				}
-			}
-			return ignore
+			return w.scripting.OnEntityAdd(es, es.Metadata)
 		}, w.bp.AddEntity)
 
 	case *packet.SetActorData:
 		if e := w.getEntity(pk.EntityRuntimeID); e != nil {
 			metadata := make(protocol.EntityMetadata)
 			maps.Copy(metadata, pk.EntityMetadata)
-			if w.scripting.CB.OnEntityDataUpdate != nil {
-				err := recovery.Call(func() error {
-					w.scripting.OnEntityDataUpdate(e, metadata)
-					return nil
-				})
-				if err != nil {
-					logrus.Errorf("Scripting %s", err)
-				}
-			}
+			w.scripting.OnEntityDataUpdate(e, metadata)
 
 			maps.Copy(e.Metadata, metadata)
 			w.bp.AddEntity(behaviourpack.EntityIn{
@@ -323,7 +304,8 @@ func (w *worldsHandler) chunkPackets(_pk packet.Packet) {
 	// chunk
 	switch pk := _pk.(type) {
 	case *packet.ChangeDimension:
-		w.processChangeDimension(pk)
+		dim, _ := world.DimensionByID(int(pk.Dimension))
+		w.SaveAndReset(false, dim)
 
 	case *packet.LevelChunk:
 		w.processLevelChunk(pk)
@@ -337,34 +319,21 @@ func (w *worldsHandler) chunkPackets(_pk packet.Packet) {
 		p := pk.Position
 		pos := cube.Pos{int(p.X()), int(p.Y()), int(p.Z())}
 		w.currentWorld.SetBlockNBT(pos, pk.NBTData, false)
-		/*
-			case *packet.UpdateBlock:
-				if w.settings.BlockUpdates {
-					cp := world.ChunkPos{pk.Position.X() >> 4, pk.Position.Z() >> 4}
-					c, ok := w.worldState.state().chunks[cp]
-					if ok {
-						x, y, z := blockPosInChunk(pk.Position)
-						c.SetBlock(x, y, z, uint8(pk.Layer), pk.NewBlockRuntimeID)
-						w.mapUI.SetChunk(cp, c, w.worldState.useDeferred)
-					}
-				}
-			case *packet.UpdateSubChunkBlocks:
-				if w.settings.BlockUpdates {
-					cp := world.ChunkPos{pk.Position.X(), pk.Position.Z()}
-					c, ok := w.worldState.state().chunks[cp]
-					if ok {
-						for _, bce := range pk.Blocks {
-							x, y, z := blockPosInChunk(bce.BlockPos)
-							if bce.SyncedUpdateType == packet.BlockToEntityTransition {
-								c.SetBlock(x, y, z, 0, world.AirRID())
-							} else {
-								c.SetBlock(x, y, z, 0, bce.BlockRuntimeID)
-							}
-						}
-						w.mapUI.SetChunk(cp, c, w.worldState.useDeferred)
-					}
-				}
-		*/
+	case *packet.UpdateBlock:
+		if w.settings.BlockUpdates {
+			cp := world.ChunkPos{pk.Position.X() >> 4, pk.Position.Z() >> 4}
+			w.currentWorld.QueueBlockUpdate(cp, pk)
+		}
+	case *packet.UpdateBlockSynced:
+		if w.settings.BlockUpdates {
+			cp := world.ChunkPos{pk.Position.X() >> 4, pk.Position.Z() >> 4}
+			w.currentWorld.QueueBlockUpdate(cp, pk)
+		}
+	case *packet.UpdateSubChunkBlocks:
+		if w.settings.BlockUpdates {
+			cp := world.ChunkPos{pk.Position.X(), pk.Position.Z()}
+			w.currentWorld.QueueBlockUpdate(cp, pk)
+		}
 	case *packet.ClientBoundMapItemData:
 		w.currentWorld.StoreMap(pk)
 	}
