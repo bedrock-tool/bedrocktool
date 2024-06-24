@@ -30,6 +30,7 @@ type RealmsList struct {
 func NewRealmsList(setRealm func(realms.Realm)) Popup {
 	return &RealmsList{
 		setRealm: setRealm,
+		buttons:  make(map[int]*widget.Clickable),
 	}
 }
 
@@ -46,6 +47,7 @@ var _ Popup = &RealmsList{}
 func (r *RealmsList) Load() {
 	var err error
 	r.realms, err = utils.GetRealmsAPI().Realms(context.Background())
+	clear(r.buttons)
 	for _, realm := range r.realms {
 		r.buttons[realm.ID] = &widget.Clickable{}
 	}

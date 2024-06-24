@@ -296,7 +296,7 @@ func (w *worldsHandler) preloadReplay() error {
 	}
 
 	for {
-		_, _, err := conn.ReadPacket()
+		_, err := conn.ReadPacket()
 		if err != nil {
 			break
 		}

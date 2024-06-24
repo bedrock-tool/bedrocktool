@@ -218,7 +218,7 @@ func (r *ReplayConnector) Read(b []byte) (n int, err error) {
 	return 0, errors.New("not Implemented")
 }
 
-func (r *ReplayConnector) ReadPacket() (pk packet.Packet, receivedAt time.Time, err error) {
+func (r *ReplayConnector) ReadPacketWithTime() (pk packet.Packet, receivedAt time.Time, err error) {
 	if r.closed.Load() {
 		return nil, time.Time{}, net.ErrClosed
 	}
@@ -228,6 +228,11 @@ func (r *ReplayConnector) ReadPacket() (pk packet.Packet, receivedAt time.Time, 
 	}
 	_ = toServer // proxy puts both from client and from server packets into the same callback so doesnt matter
 	return pk, receivedTime, nil
+}
+
+func (r *ReplayConnector) ReadPacket() (pk packet.Packet, err error) {
+	pk, _, err = r.ReadPacketWithTime()
+	return pk, err
 }
 
 func (r *ReplayConnector) Write(b []byte) (n int, err error) {

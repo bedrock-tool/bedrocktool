@@ -75,8 +75,8 @@ type MapUI struct {
 	ticker         *time.Ticker
 	w              *worldsHandler
 
-	l  sync.Mutex
-	wg sync.WaitGroup
+	l          sync.Mutex
+	haveColors chan struct{}
 
 	zoomLevel  int  // pixels per chunk
 	needRedraw bool // when the map has updated this is true
@@ -92,6 +92,7 @@ func NewMapUI(w *worldsHandler) *MapUI {
 		oldRendered:    make(map[protocol.ChunkPos]*image.RGBA),
 		needRedraw:     true,
 		w:              w,
+		haveColors:     make(chan struct{}),
 	}
 	return m
 }
@@ -124,7 +125,6 @@ func (m *MapUI) Start(ctx context.Context) {
 	}
 
 	m.ticker = time.NewTicker(33 * time.Millisecond)
-	m.wg.Add(1)
 	go func() {
 		lookup, _ := utils.ResolveColors(m.w.customBlocks, m.w.serverState.packs, true)
 		messages.Router.Handle(&messages.Message{
@@ -132,7 +132,7 @@ func (m *MapUI) Start(ctx context.Context) {
 			Target: "ui",
 			Data:   messages.MapLookup{Lookup: lookup},
 		})
-		m.wg.Done()
+		close(m.haveColors)
 	}()
 	go func() {
 		var oldPos mgl32.Vec3
@@ -218,7 +218,8 @@ func (m *MapUI) SchedRedraw() {
 var red = image.NewUniform(color.RGBA{R: 0xff, G: 0, B: 0, A: 128})
 
 func (m *MapUI) processQueue() []protocol.ChunkPos {
-	m.wg.Wait()
+	<-m.haveColors
+
 	updatedChunks := make([]protocol.ChunkPos, 0, m.renderQueue.Length())
 	for {
 		r, ok := m.renderQueue.Dequeue().(*renderElem)

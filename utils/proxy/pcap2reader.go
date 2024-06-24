@@ -22,7 +22,6 @@ import (
 
 type Pcap2Reader struct {
 	f                 *os.File
-	packetsOffset     int64
 	Version           uint32
 	packetsReader     io.Reader
 	ResourcePacks     *replayCache
@@ -57,7 +56,6 @@ func NewPcap2Reader(f *os.File, packetFunc PacketFunc, ShieldID *atomic.Int32) (
 		return nil, err
 	}
 
-	var packetsOffset int64
 	var packetReader io.ReadCloser
 	if ver < 4 {
 		return nil, errors.New("version < 4 no longer supported")
@@ -65,7 +63,7 @@ func NewPcap2Reader(f *os.File, packetFunc PacketFunc, ShieldID *atomic.Int32) (
 		f.Seek(int64(zipSize+16), 0)
 		packetReader = flate.NewReader(f)
 	} else {
-		packetsOffset, _ = f.Seek(int64(zipSize+16), 0)
+		f.Seek(int64(zipSize+16), 0)
 		packetReader = f
 	}
 
@@ -74,7 +72,6 @@ func NewPcap2Reader(f *os.File, packetFunc PacketFunc, ShieldID *atomic.Int32) (
 
 	return &Pcap2Reader{
 		f:             f,
-		packetsOffset: packetsOffset,
 		Version:       ver,
 		packetsReader: packetReader,
 		ResourcePacks: cache,
@@ -92,7 +89,7 @@ func (r *Pcap2Reader) ReadPacket(skip bool) (packet packet.Packet, toServer bool
 	receivedTime = time.Now()
 
 	// add where this is to index
-	if len(r.packetOffsetIndex) < r.CurrentPacket && r.Version >= 5 {
+	if len(r.packetOffsetIndex) <= r.CurrentPacket && r.Version >= 5 {
 		off, _ := r.f.Seek(0, 1)
 		r.packetOffsetIndex = append(r.packetOffsetIndex, off)
 	}
@@ -123,16 +120,37 @@ func (r *Pcap2Reader) ReadPacket(skip bool) (packet packet.Packet, toServer bool
 		if err != nil {
 			return nil, toServer, receivedTime, err
 		}
-		return nil, false, receivedTime, nil
-	}
+	} else {
+		payload := make([]byte, packetLength)
+		n, err := io.ReadFull(r.packetsReader, payload)
+		if err != nil {
+			return nil, toServer, receivedTime, err
+		}
+		if n != int(packetLength) {
+			return nil, toServer, receivedTime, errors.New("truncated")
+		}
 
-	payload := make([]byte, packetLength)
-	n, err := io.ReadFull(r.packetsReader, payload)
-	if err != nil {
-		return nil, toServer, receivedTime, err
-	}
-	if n != int(packetLength) {
-		return nil, toServer, receivedTime, errors.New("truncated")
+		// version 5 compresses payloads seperately
+		if r.Version >= 5 {
+			payload, err = s2.Decode(nil, payload)
+			if err != nil {
+				return nil, toServer, receivedTime, err
+			}
+		}
+
+		var src, dst = replayRemoteAddr, replayLocalAddr
+		if toServer {
+			src, dst = replayLocalAddr, replayRemoteAddr
+		}
+		pkData, err := minecraft.ParseData(payload, r.packetFunc, src, dst)
+		if err != nil {
+			return nil, toServer, receivedTime, err
+		}
+		pks, err := pkData.Decode(r.pool, r.protocol, nil, false, false, r.shieldID.Load())
+		if err != nil {
+			return nil, toServer, receivedTime, err
+		}
+		packet = pks[0]
 	}
 
 	binary.Read(r.packetsReader, binary.LittleEndian, &magic2)
@@ -140,29 +158,7 @@ func (r *Pcap2Reader) ReadPacket(skip bool) (packet packet.Packet, toServer bool
 		return nil, toServer, receivedTime, errors.New("wrong Magic2")
 	}
 
-	// version 5 compresses payloads seperately
-	if r.Version >= 5 {
-		payload, err = s2.Decode(nil, payload)
-		if err != nil {
-			return nil, toServer, receivedTime, err
-		}
-	}
-
-	var src, dst = replayRemoteAddr, replayLocalAddr
-	if toServer {
-		src, dst = replayLocalAddr, replayRemoteAddr
-	}
-	pkData, err := minecraft.ParseData(payload, r.packetFunc, src, dst)
-	if err != nil {
-		return nil, toServer, receivedTime, err
-	}
-	pks, err := pkData.Decode(r.pool, r.protocol, nil, false, false, r.shieldID.Load())
-	if err != nil {
-		return nil, toServer, receivedTime, err
-	}
-	pk := pks[0]
-
-	return pk, toServer, receivedTime, nil
+	return packet, toServer, receivedTime, nil
 }
 
 func (r *Pcap2Reader) Seek(packet int) error {
@@ -181,7 +177,7 @@ func (r *Pcap2Reader) Seek(packet int) error {
 		}
 	} else if diff < 0 {
 		off := r.packetOffsetIndex[packet]
-		_, err := r.f.Seek(off+r.packetsOffset, 0)
+		_, err := r.f.Seek(off, 0)
 		if err != nil {
 			return err
 		}

@@ -52,7 +52,6 @@ type Context struct {
 
 	commands  map[string]ingameCommand
 	handlers  []*Handler
-	transfer  *packet.Transfer
 	rpHandler *rpHandler
 }
 
@@ -147,7 +146,7 @@ func (p *Context) proxyLoop(ctx context.Context, toServer bool) (err error) {
 			return ctx.Err()
 		}
 
-		pk, timeReceived, err := c1.ReadPacket()
+		pk, timeReceived, err := c1.ReadPacketWithTime()
 		if err != nil {
 			if errors.Is(err, net.ErrClosed) {
 				err = nil
@@ -170,9 +169,10 @@ func (p *Context) proxyLoop(ctx context.Context, toServer bool) (err error) {
 			}
 		}
 
+		var transfer *packet.Transfer
 		switch _pk := pk.(type) {
 		case *packet.Transfer:
-			p.transfer = _pk
+			transfer = _pk
 			if p.Client != nil {
 				host, port, err := net.SplitHostPort(p.Client.ClientData().ServerAddress)
 				if err != nil {
@@ -196,8 +196,8 @@ func (p *Context) proxyLoop(ctx context.Context, toServer bool) (err error) {
 			}
 		}
 
-		if p.transfer != nil {
-			return nil
+		if transfer != nil {
+			return errTransfer{transfer: transfer}
 		}
 	}
 }
@@ -476,10 +476,6 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 				}
 				return
 			}
-			if p.transfer != nil {
-				cancel(errTransfer)
-				return
-			}
 		}
 
 		// server to client
@@ -502,12 +498,17 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 	return err
 }
 
-var errTransfer = errors.New("err transfer")
+type errTransfer struct {
+	transfer *packet.Transfer
+}
+
+func (e errTransfer) Error() string {
+	return fmt.Sprintf("transfer to %s:%d", e.transfer.Address, e.transfer.Port)
+}
 
 func (p *Context) connect(ctx context.Context) (err error) {
 	p.spawned = false
 	p.clientAddr = nil
-	p.transfer = nil
 	p.Client = nil
 	p.clientConnecting = make(chan struct{})
 	p.haveClientData = make(chan struct{})
@@ -515,8 +516,8 @@ func (p *Context) connect(ctx context.Context) (err error) {
 	err = p.doSession(ctx2, cancel)
 	cancel(nil)
 
-	if errors.Is(err, errTransfer) && p.transfer != nil {
-		p.serverAddress = fmt.Sprintf("%s:%d", p.transfer.Address, p.transfer.Port)
+	if err, ok := err.(*errTransfer); ok {
+		p.serverAddress = fmt.Sprintf("%s:%d", err.transfer.Address, err.transfer.Port)
 		logrus.Infof("transferring to %s", p.serverAddress)
 		return p.connect(ctx)
 	}
@@ -525,7 +526,6 @@ func (p *Context) connect(ctx context.Context) (err error) {
 }
 
 func (p *Context) Run(ctx context.Context, connectString string) (err error) {
-
 	var serverInput *messages.ServerInput
 	if connectString != "" {
 		serverInput, err = utils.ParseServer(context.Background(), connectString)
