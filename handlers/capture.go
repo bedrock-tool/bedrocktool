@@ -38,6 +38,7 @@ type packetCapturer struct {
 	tempBuf  *bytes.Buffer
 	dumpLock sync.Mutex
 	hostname string
+	log      *logrus.Entry
 }
 
 func (p *packetCapturer) AddressAndName(address, hostname string) (err error) {
@@ -74,7 +75,7 @@ func (p *packetCapturer) OnServerConnect() (disconnect bool, err error) {
 			if _, ok := written[filename]; ok {
 				continue
 			}
-			logrus.Debugf("Writing %s to capture", pack.Name())
+			p.log.Debugf("Writing %s to capture", pack.Name())
 			f, err := z.CreateHeader(&zip.FileHeader{
 				Name:   filename,
 				Method: zip.Store,
@@ -116,7 +117,9 @@ func (p *packetCapturer) PacketFunc(header packet.Header, payload []byte, src, d
 }
 
 func NewPacketCapturer() *proxy.Handler {
-	p := &packetCapturer{}
+	p := &packetCapturer{
+		log: logrus.WithField("part", "PacketCapture"),
+	}
 	return &proxy.Handler{
 		Name: "Packet Capturer",
 		ProxyReference: func(pc *proxy.Context) {

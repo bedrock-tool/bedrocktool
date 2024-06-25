@@ -3,9 +3,7 @@ package worlds
 import (
 	"encoding/json"
 	"io"
-	"os"
 	"path"
-	"strings"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
@@ -13,42 +11,48 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func (w *worldsHandler) AddPacks(folder string) {
+func (w *worldsHandler) AddPacks(fs utils.WriterFS) error {
 	type dep struct {
 		PackID  string `json:"pack_id"`
 		Version [3]int `json:"version"`
 	}
-	addPacksJSON := func(name string, deps []dep) {
-		f, err := os.Create(path.Join(folder, name))
+	addPacksJSON := func(name string, deps []dep) error {
+		f, err := fs.Create(name)
 		if err != nil {
-			logrus.Error(err)
-			return
+			return err
 		}
 		defer f.Close()
 		if err := json.NewEncoder(f).Encode(deps); err != nil {
-			logrus.Error(err)
-			return
+			return err
 		}
+		return nil
 	}
 
 	// save behaviourpack
 	if w.bp.HasContent() {
-		name := strings.ReplaceAll(w.serverState.Name, "./", "")
-		name = strings.ReplaceAll(name, "/", "-")
-		name = strings.ReplaceAll(name, ":", "_")
-		packFolder := path.Join(folder, "behavior_packs", name)
-		_ = os.MkdirAll(packFolder, 0o755)
+		name, err := filenamify.FilenamifyV2(w.serverState.Name)
+		if err != nil {
+			return err
+		}
+		packFolder := path.Join("behavior_packs", name)
 
 		for _, p := range w.proxy.Server.ResourcePacks() {
 			p := utils.PackFromBase(p)
 			w.bp.CheckAddLink(p)
 		}
 
-		w.bp.Save(packFolder)
-		addPacksJSON("world_behavior_packs.json", []dep{{
+		err = w.bp.Save(fs, packFolder)
+		if err != nil {
+			return err
+		}
+
+		err = addPacksJSON("world_behavior_packs.json", []dep{{
 			PackID:  w.bp.Manifest.Header.UUID,
 			Version: w.bp.Manifest.Header.Version,
 		}})
+		if err != nil {
+			return err
+		}
 
 		// force resource packs for worlds with custom blocks
 		w.settings.WithPacks = true
@@ -63,8 +67,9 @@ func (w *worldsHandler) AddPacks(folder string) {
 
 		var rdeps []dep
 		for _, pack := range w.serverState.packs {
+			log := w.log.WithField("pack", pack.Base().Name())
 			if pack.Base().Encrypted() && !pack.CanDecrypt() {
-				logrus.Warnf("Cant add %s, it is encrypted", pack.Base().Name())
+				log.Warn("Cant add is encrypted")
 				continue
 			}
 			logrus.Infof(locale.Loc("adding_pack", locale.Strmap{"Name": pack.Base().Name()}))
@@ -74,11 +79,10 @@ func (w *worldsHandler) AddPacks(folder string) {
 				packName += "_" + pack.Base().UUID()
 			}
 			packName, _ = filenamify.FilenamifyV2(packName)
-			packFolder := path.Join(folder, "resource_packs", packName)
-			os.MkdirAll(packFolder, 0o755)
-			err := extractPack(pack, packFolder)
+			err := writePackToFs(pack, fs, path.Join("resource_packs", packName))
 			if err != nil {
-				logrus.Error(err)
+				log.Error(err)
+				continue
 			}
 
 			rdeps = append(rdeps, dep{
@@ -88,9 +92,8 @@ func (w *worldsHandler) AddPacks(folder string) {
 		}
 
 		if len(w.rp.Files) > 0 && w.settings.Players {
-			btPlayersFolder := path.Join(folder, "resource_packs", "bt_players")
-			os.MkdirAll(btPlayersFolder, 0755)
-			w.rp.WriteToDir(btPlayersFolder)
+			btPlayersFolder := path.Join("resource_packs", "bt_players")
+			w.rp.WriteToDir(fs, btPlayersFolder)
 			rdeps = append(rdeps, dep{
 				PackID:  w.rp.Manifest.Header.UUID,
 				Version: w.rp.Manifest.Header.Version,
@@ -98,33 +101,43 @@ func (w *worldsHandler) AddPacks(folder string) {
 		}
 
 		if len(rdeps) > 0 {
-			addPacksJSON("world_resource_packs.json", rdeps)
+			err := addPacksJSON("world_resource_packs.json", rdeps)
+			if err != nil {
+				return err
+			}
 		}
 	}
+	return nil
 }
 
-func extractPack(p utils.Pack, folder string) error {
-	fs, names, err := p.FS()
+func writePackToFs(pack utils.Pack, fs utils.WriterFS, dir string) error {
+	packFS, packFiles, err := pack.FS()
 	if err != nil {
 		return err
 	}
-	for _, name := range names {
-		f, err := fs.Open(name)
+
+	addFile := func(filename string) error {
+		file, err := packFS.Open(filename)
 		if err != nil {
-			logrus.Error(err)
-			continue
+			return err
 		}
-		outPath := path.Join(folder, name)
-		os.MkdirAll(path.Dir(outPath), 0777)
-		w, err := os.Create(outPath)
+		defer file.Close()
+		f, err := fs.Create(path.Join(dir, filename))
 		if err != nil {
-			f.Close()
-			logrus.Error(err)
-			continue
+			return err
 		}
-		io.Copy(w, f)
-		f.Close()
-		w.Close()
+		_, err = io.Copy(f, file)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	for _, filename := range packFiles {
+		err := addFile(filename)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

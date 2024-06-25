@@ -9,16 +9,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
 	"unsafe"
 
-	"github.com/df-mc/dragonfly/server/block"
 	"github.com/bedrock-tool/bedrocktool/utils/nbtconv"
+	"github.com/df-mc/dragonfly/server/block"
 	"github.com/df-mc/dragonfly/server/item"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/google/uuid"
@@ -67,12 +67,13 @@ func RandSeededUUID(str string) string {
 	return id.String()
 }
 
-func WriteManifest(manifest *resource.Manifest, fpath string) error {
-	w, err := os.Create(filepath.Join(fpath, "manifest.json"))
+func WriteManifest(manifest *resource.Manifest, fs WriterFS, fpath string) error {
+	w, err := fs.Create(path.Join(fpath, "manifest.json"))
 	if err != nil {
 		return err
 	}
 	defer w.Close()
+
 	e := json.NewEncoder(w)
 	e.SetIndent("", "\t")
 	if err = e.Encode(manifest); err != nil {

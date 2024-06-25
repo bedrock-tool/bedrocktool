@@ -68,6 +68,7 @@ type renderElem struct {
 }
 
 type MapUI struct {
+	log            *logrus.Entry
 	img            *image.RGBA // rendered image
 	renderQueue    *lockfree.Queue
 	renderedChunks map[protocol.ChunkPos]*image.RGBA // prerendered chunks
@@ -85,6 +86,7 @@ type MapUI struct {
 
 func NewMapUI(w *worldsHandler) *MapUI {
 	m := &MapUI{
+		log:            logrus.WithField("part", "MapUI"),
 		img:            image.NewRGBA(image.Rect(0, 0, 128, 128)),
 		zoomLevel:      16,
 		renderQueue:    lockfree.NewQueue(),
@@ -120,7 +122,7 @@ func (m *MapUI) Start(ctx context.Context) {
 		UpdateFlags:    packet.MapUpdateFlagInitialisation,
 	})
 	if err != nil {
-		logrus.Error(err)
+		m.log.Error(err)
 		return
 	}
 
@@ -158,7 +160,7 @@ func (m *MapUI) Start(ctx context.Context) {
 					Pixels:      utils.Img2rgba(m.img),
 					UpdateFlags: packet.MapUpdateFlagTexture,
 				}); err != nil {
-					logrus.Error(err)
+					m.log.Error(err)
 					return
 				}
 			}
@@ -172,7 +174,7 @@ func (m *MapUI) Start(ctx context.Context) {
 			}
 			err := m.w.proxy.ClientWritePacket(&mapItemPacket)
 			if err != nil {
-				logrus.Error(err)
+				m.log.Error(err)
 				return
 			}
 		}

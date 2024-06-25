@@ -50,6 +50,7 @@ type rpHandler struct {
 	Server minecraft.IConn
 	Client minecraft.IConn
 	ctx    context.Context
+	log    *logrus.Entry
 
 	// wait for downloads to be done
 	dlwg sync.WaitGroup
@@ -101,6 +102,7 @@ type rpHandler struct {
 func newRpHandler(ctx context.Context, addedPacks []*resource.Pack) *rpHandler {
 	r := &rpHandler{
 		ctx:        ctx,
+		log:        logrus.WithField("part", "ResourcePacks"),
 		addedPacks: addedPacks,
 		downloadQueue: &resourcePackQueue{
 			downloadingPacks: make(map[string]downloadingPack),
@@ -141,7 +143,7 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 		_, alreadyDownloading := r.downloadQueue.downloadingPacks[pack.UUID]
 		alreadyIgnored := slices.ContainsFunc(r.ignoredResourcePacks, func(e exemptedResourcePack) bool { return e.uuid == pack.UUID })
 		if alreadyDownloading || alreadyIgnored {
-			logrus.Warnf("duplicate texture pack entry %v in resource pack info\n", pack.UUID)
+			r.log.Warnf("duplicate texture pack entry %v in resource pack info\n", pack.UUID)
 			r.downloadQueue.serverPackAmount--
 			continue
 		}
@@ -170,10 +172,10 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 			contentKey := pack.ContentKey
 			go func() {
 				defer r.dlwg.Done()
-				logrus.Infof("Downloading Resourcepack: %s", url.URL)
+				r.log.Infof("Downloading Resourcepack: %s", url.URL)
 				newPack, err := resource.ReadURL(url.URL)
 				if err != nil {
-					logrus.Error(err)
+					r.log.Error(err)
 					return
 				}
 				newPack = newPack.WithContentKey(contentKey)
@@ -207,7 +209,7 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 	}
 	for _, pack := range pk.BehaviourPacks {
 		if _, ok := r.downloadQueue.downloadingPacks[pack.UUID]; ok {
-			logrus.Warnf("duplicate behaviour pack entry %v in resource pack info\n", pack.UUID)
+			r.log.Warnf("duplicate behaviour pack entry %v in resource pack info\n", pack.UUID)
 			r.downloadQueue.serverPackAmount--
 			continue
 		}
@@ -234,7 +236,7 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 
 	r.remotePacks = pk
 	close(r.receivedRemotePackInfo)
-	logrus.Debug("received remote pack infos")
+	r.log.Debug("received remote pack infos")
 	if r.Client != nil {
 		select {
 		case <-r.knowPacksRequestedFromServer:
@@ -273,7 +275,7 @@ func (r *rpHandler) OnResourcePackDataInfo(pk *packet.ResourcePackDataInfo) erro
 	if pack.size != pk.Size {
 		// Size mismatch: The ResourcePacksInfo packet had a size for the pack that did not match with the
 		// size sent here.
-		//logrus.Warnf("pack %v had a different size in the ResourcePacksInfo packet than the ResourcePackDataInfo packet\n", pk.UUID)
+		r.log.Infof("pack %v had a different size in the ResourcePacksInfo packet than the ResourcePackDataInfo packet\n", pk.UUID)
 		pack.size = pk.Size
 	}
 
@@ -306,7 +308,7 @@ func (r *rpHandler) OnResourcePackDataInfo(pk *packet.ResourcePackDataInfo) erro
 				if !lastData && uint32(len(frag)) != pack.chunkSize {
 					// The chunk data didn't have the full size and wasn't the last data to be sent for the resource pack,
 					// meaning we got too little data.
-					logrus.Warnf("resource pack chunk data had a length of %v, but expected %v", len(frag), pack.chunkSize)
+					r.log.Warnf("resource pack chunk data had a length of %v, but expected %v", len(frag), pack.chunkSize)
 					return
 				}
 
@@ -318,14 +320,14 @@ func (r *rpHandler) OnResourcePackDataInfo(pk *packet.ResourcePackDataInfo) erro
 		defer r.packMu.Unlock()
 
 		if pack.buf.Len() != int(pack.size) {
-			logrus.Warnf("incorrect resource pack size: expected %v, but got %v\n", pack.size, pack.buf.Len())
+			r.log.Warnf("incorrect resource pack size: expected %v, but got %v\n", pack.size, pack.buf.Len())
 			return
 		}
 		// First parse the resource pack from the total byte buffer we obtained.
 		newPack, err := resource.Read(pack.buf)
 		newPack = newPack.WithContentKey(pack.contentKey)
 		if err != nil {
-			logrus.Warnf("invalid full resource pack data for UUID %v: %v\n", id, err)
+			r.log.Warnf("invalid full resource pack data for UUID %v: %v\n", id, err)
 			return
 		}
 		r.downloadQueue.serverPackAmount--
@@ -336,7 +338,7 @@ func (r *rpHandler) OnResourcePackDataInfo(pk *packet.ResourcePackDataInfo) erro
 
 		// if theres a client and the client needs resource packs send it to its queue
 		if r.nextPackToClient != nil && slices.Contains(r.packsRequestedFromServer, id) {
-			logrus.Debugf("sending pack %s from server to client", id)
+			r.log.Debugf("sending pack %s from server to client", id)
 			r.nextPackToClient <- newPack
 		}
 		if r.downloadQueue.serverPackAmount == 0 {
@@ -381,14 +383,14 @@ func (r *rpHandler) OnResourcePackStack(pk *packet.ResourcePackStack) error {
 			if pack.UUID == behaviourPack.UUID {
 				// We had a behaviour pack with the same UUID as the texture pack, so we drop the texture
 				// pack and log it.
-				logrus.Warnf("dropping behaviour pack with UUID %v due to a texture pack with the same UUID\n", pack.UUID)
+				r.log.Warnf("dropping behaviour pack with UUID %v due to a texture pack with the same UUID\n", pack.UUID)
 				pk.BehaviourPacks = append(pk.BehaviourPacks[:i], pk.BehaviourPacks[i+1:]...)
 			}
 		}
 		if !r.hasPack(pack.UUID, pack.Version, false) {
 			m := fmt.Errorf("texture pack {uuid=%v, version=%v} not downloaded", pack.UUID, pack.Version)
 			if _, ok := r.cache.(*replayCache); ok {
-				logrus.Warn(m)
+				r.log.Warn(m)
 			} else {
 				return m
 			}
@@ -413,7 +415,7 @@ func (r *rpHandler) OnResourcePackStack(pk *packet.ResourcePackStack) error {
 
 	r.stack = pk
 	close(r.receivedRemoteStack)
-	logrus.Debug("received remote resourcepack stack, starting game")
+	r.log.Debug("received remote resourcepack stack, starting game")
 
 	r.Server.Expect(packet.IDStartGame)
 	_ = r.Server.WritePacket(&packet.ResourcePackClientResponse{Response: packet.PackResponseCompleted})
@@ -443,12 +445,12 @@ func (r *rpHandler) nextResourcePackDownload() (ok bool, err error) {
 		}
 
 		if !ok {
-			logrus.Info("finished sending client resource packs")
+			r.log.Info("finished sending client resource packs")
 			return false, nil
 		}
 	}
 
-	logrus.Debugf("next pack %s", pack.Name())
+	r.log.Debugf("next pack %s", pack.Name())
 
 	r.downloadQueue.currentPack = pack
 	r.downloadQueue.currentOffset = 0
@@ -509,7 +511,7 @@ func (r *rpHandler) OnResourcePackChunkRequest(pk *packet.ResourcePackChunkReque
 		defer func() {
 			ok, err := r.nextResourcePackDownload()
 			if err != nil {
-				logrus.Error(err)
+				r.log.Error(err)
 			}
 			if !ok {
 				r.Client.Expect(packet.IDResourcePackClientResponse)
@@ -534,7 +536,7 @@ func (r *rpHandler) Request(packs []string) error {
 
 		found := false
 		if r.cache.Has(uuid_ver[0], uuid_ver[1]) {
-			logrus.Debug("using", packUUID, "from cache")
+			r.log.Debug("using", packUUID, "from cache")
 
 			pack := r.cache.Get(uuid_ver[0], uuid_ver[1])
 
@@ -603,7 +605,7 @@ func (r *rpHandler) Request(packs []string) error {
 	}
 
 	if len(r.packsFromCache)+len(r.packsRequestedFromServer)+len(r.addedPacks) < len(packs) {
-		logrus.Errorf("BUG: not enough packs sent to client, client will stall %d + %d  %d", len(r.packsFromCache), len(r.packsRequestedFromServer), len(packs))
+		r.log.Errorf("BUG: not enough packs sent to client, client will stall %d + %d  %d", len(r.packsFromCache), len(r.packsRequestedFromServer), len(packs))
 	}
 
 	close(r.knowPacksRequestedFromServer)
@@ -632,7 +634,7 @@ func (r *rpHandler) OnResourcePackClientResponse(pk *packet.ResourcePackClientRe
 			close(r.knowPacksRequestedFromServer)
 		}
 
-		logrus.Debug("waiting for remote stack")
+		r.log.Debug("waiting for remote stack")
 		select {
 		case <-r.receivedRemoteStack:
 		case <-r.ctx.Done():

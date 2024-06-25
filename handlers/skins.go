@@ -26,6 +26,7 @@ type SkinSaver struct {
 	ServerName        string
 	fpath             string
 	proxy             *proxy.Context
+	log               *logrus.Entry
 
 	players map[uuid.UUID]*skinPlayer
 }
@@ -48,16 +49,16 @@ func (s *SkinSaver) AddPlayerSkin(playerID uuid.UUID, playerName string, skin *u
 	if p.SkinPack == nil {
 		p.SkinPack = utils.NewSkinPack(playerName, s.fpath)
 		creating := fmt.Sprintf("Creating Skinpack for %s", playerName)
-		logrus.Info(creating)
+		s.log.Info(creating)
 	}
 	if p.SkinPack.AddSkin(skin) {
 		addedStr := fmt.Sprintf("Added a skin %s", playerName)
 		s.proxy.SendPopup(addedStr)
-		logrus.Info(addedStr)
+		s.log.Info(addedStr)
 		added = true
 	}
 	if err := p.SkinPack.Save(path.Join(s.fpath, playerName)); err != nil {
-		logrus.Error(err)
+		s.log.Error(err)
 	}
 	return added
 }
@@ -157,6 +158,7 @@ func (s *SkinSaver) ProcessPacket(pk packet.Packet) (out []SkinAdd) {
 func NewSkinSaver(skinCB func(SkinAdd)) *proxy.Handler {
 	s := &SkinSaver{
 		players: make(map[uuid.UUID]*skinPlayer),
+		log:     logrus.WithField("part", "SkinSaver"),
 	}
 	return &proxy.Handler{
 		Name: "Skin Saver",
@@ -188,7 +190,7 @@ func (s *SkinSaver) stealSkin() {
 	if !rtTest {
 		return
 	}
-	logrus.Debugf("%d", len(s.players))
+	s.log.Debugf("%d", len(s.players))
 
 	var dist float64 = 4
 

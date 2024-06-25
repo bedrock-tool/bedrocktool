@@ -2,7 +2,6 @@ package behaviourpack
 
 import (
 	"encoding/json"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -112,19 +111,19 @@ func ns_name_split(identifier string) (ns, name string) {
 	return ns_name[0], ns_name[len(ns_name)-1]
 }
 
-func (bp *Pack) Save(fpath string) error {
-	if err := utils.WriteManifest(bp.Manifest, fpath); err != nil {
+func (bp *Pack) Save(fs utils.WriterFS, fpath string) error {
+	if err := utils.WriteManifest(bp.Manifest, fs, fpath); err != nil {
 		return err
 	}
 
 	_add_thing := func(base, identifier string, thing any) error {
 		ns, name := ns_name_split(identifier)
 		dir := filepath.Join(base, ns)
-		_ = os.Mkdir(dir, 0o755)
-		w, err := os.Create(filepath.Join(dir, name+".json"))
+		w, err := fs.Create(filepath.Join(dir, name+".json"))
 		if err != nil {
 			return err
 		}
+		defer w.Close()
 		e := json.NewEncoder(w)
 		e.SetIndent("", "\t")
 		return e.Encode(thing)
@@ -139,7 +138,6 @@ func (bp *Pack) Save(fpath string) error {
 
 	if bp.HasBlocks() { // blocks
 		blocksDir := filepath.Join(fpath, "blocks")
-		_ = os.Mkdir(blocksDir, 0o755)
 		for _, be := range bp.blocks {
 			err := _add_thing(blocksDir, be.MinecraftBlock.Description.Identifier, be)
 			if err != nil {
@@ -149,7 +147,6 @@ func (bp *Pack) Save(fpath string) error {
 	}
 	if bp.HasItems() { // items
 		itemsDir := filepath.Join(fpath, "items")
-		_ = os.Mkdir(itemsDir, 0o755)
 		for _, ib := range bp.items {
 			err := _add_thing(itemsDir, ib.MinecraftItem.Description.Identifier, ib)
 			if err != nil {
@@ -159,7 +156,6 @@ func (bp *Pack) Save(fpath string) error {
 	}
 	if bp.HasEntities() { // entities
 		entitiesDir := filepath.Join(fpath, "entities")
-		_ = os.Mkdir(entitiesDir, 0o755)
 		for _, eb := range bp.entities {
 			err := _add_thing(entitiesDir, eb.MinecraftEntity.Description.Identifier, eb)
 			if err != nil {
