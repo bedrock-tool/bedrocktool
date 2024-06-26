@@ -32,14 +32,6 @@ func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.R
 	}
 	rid := c.Block(x, y, z, 0)
 
-	/*
-		idx, ok := ridToIdx[rid]
-		if ok {
-			return color.RGBA{uint8(idx.X), uint8(idx.Y), 0, 0xff}
-		}
-		return color.RGBA{0, 0, 0, 0}
-	*/
-
 	blockColor = color.RGBA{0xff, 0, 0xff, 0xff}
 	br := c.BlockRegistry.(world.BlockRegistry)
 	b, found := br.BlockByRuntimeID(rid)
