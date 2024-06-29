@@ -82,7 +82,7 @@ func NewPcap2Reader(f *os.File, packetFunc PacketFunc, ShieldID *atomic.Int32) (
 	}, nil
 }
 
-func (r *Pcap2Reader) ReadPacket(skip bool) (packet packet.Packet, toServer bool, receivedTime time.Time, err error) {
+func (r *Pcap2Reader) ReadPacket(skip bool) (pk packet.Packet, toServer bool, receivedTime time.Time, err error) {
 	var magic uint32
 	var magic2 uint32
 	var packetLength uint32
@@ -150,7 +150,7 @@ func (r *Pcap2Reader) ReadPacket(skip bool) (packet packet.Packet, toServer bool
 		if err != nil {
 			return nil, toServer, receivedTime, err
 		}
-		packet = pks[0]
+		pk = pks[0]
 	}
 
 	binary.Read(r.packetsReader, binary.LittleEndian, &magic2)
@@ -158,7 +158,7 @@ func (r *Pcap2Reader) ReadPacket(skip bool) (packet packet.Packet, toServer bool
 		return nil, toServer, receivedTime, errors.New("wrong Magic2")
 	}
 
-	return packet, toServer, receivedTime, nil
+	return pk, toServer, receivedTime, nil
 }
 
 func (r *Pcap2Reader) Seek(packet int) error {
@@ -185,4 +185,19 @@ func (r *Pcap2Reader) Seek(packet int) error {
 		return nil
 	}
 	return nil
+}
+
+func (r *Pcap2Reader) ReadBack() (pk packet.Packet, toServer bool, receivedTime time.Time, err error) {
+	if r.CurrentPacket == 0 {
+		return nil, false, time.Time{}, io.EOF
+	}
+	r.CurrentPacket--
+	off := r.packetOffsetIndex[r.CurrentPacket]
+	_, err = r.f.Seek(off, 0)
+	if err != nil {
+		return nil, false, time.Time{}, io.EOF
+	}
+	pk, toServer, receivedTime, err = r.ReadPacket(false)
+	r.CurrentPacket--
+	return
 }
