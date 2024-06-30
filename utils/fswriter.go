@@ -33,6 +33,10 @@ type ZipWriter struct {
 }
 
 func (z *ZipWriter) Create(filename string) (w io.WriteCloser, err error) {
+	z.Writer.RegisterCompressor(zip.Deflate, func(out io.Writer) (io.WriteCloser, error) {
+		w := deflate.GetWriter(out)
+		return closePutback{w}, nil
+	})
 	zw, err := z.Writer.Create(filename)
 	return nullCloser{zw}, err
 }

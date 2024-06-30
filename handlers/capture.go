@@ -20,14 +20,20 @@ import (
 
 func (p *packetCapturer) dumpPacket(toServer bool, payload []byte) {
 	p.dumpLock.Lock()
-	p.wPacket.Write([]byte{0xAA, 0xAA, 0xAA, 0xAA})
 	payloadCompressed := s2.EncodeBetter(nil, payload)
+
+	var buf []byte = []byte{0xAA, 0xAA, 0xAA, 0xAA}
 	packetSize := uint32(len(payloadCompressed))
-	binary.Write(p.wPacket, binary.LittleEndian, packetSize)
-	binary.Write(p.wPacket, binary.LittleEndian, toServer)
-	binary.Write(p.wPacket, binary.LittleEndian, time.Now().UnixMilli())
-	p.wPacket.Write(payloadCompressed)
-	p.wPacket.Write([]byte{0xBB, 0xBB, 0xBB, 0xBB})
+	binary.LittleEndian.AppendUint32(buf, packetSize)
+	if toServer {
+		buf = append(buf, 1)
+	} else {
+		buf = append(buf, 0)
+	}
+	binary.LittleEndian.AppendUint64(buf, uint64(time.Now().UnixMilli()))
+	buf = append(buf, payloadCompressed...)
+	buf = append(buf, []byte{0xBB, 0xBB, 0xBB, 0xBB}...)
+	p.wPacket.Write(buf)
 	p.dumpLock.Unlock()
 }
 

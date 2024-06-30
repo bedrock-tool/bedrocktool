@@ -83,11 +83,6 @@ func NewPcap2Reader(f *os.File, packetFunc PacketFunc, ShieldID *atomic.Int32) (
 }
 
 func (r *Pcap2Reader) ReadPacket(skip bool) (pk packet.Packet, toServer bool, receivedTime time.Time, err error) {
-	var magic uint32
-	var magic2 uint32
-	var packetLength uint32
-	receivedTime = time.Now()
-
 	// add where this is to index
 	if len(r.packetOffsetIndex) <= r.CurrentPacket && r.Version >= 5 {
 		off, _ := r.f.Seek(0, 1)
@@ -95,7 +90,8 @@ func (r *Pcap2Reader) ReadPacket(skip bool) (pk packet.Packet, toServer bool, re
 	}
 	r.CurrentPacket++
 
-	err = binary.Read(r.packetsReader, binary.LittleEndian, &magic)
+	var head = make([]byte, 4+4+1+8)
+	_, err = io.ReadFull(r.packetsReader, head)
 	if err != nil {
 		if err == io.ErrUnexpectedEOF {
 			err = io.EOF
@@ -106,29 +102,36 @@ func (r *Pcap2Reader) ReadPacket(skip bool) (pk packet.Packet, toServer bool, re
 		}
 		return nil, false, receivedTime, err
 	}
+
+	magic := binary.LittleEndian.Uint32(head)
 	if magic != 0xAAAAAAAA {
 		return nil, toServer, receivedTime, fmt.Errorf("wrong Magic")
 	}
-	binary.Read(r.packetsReader, binary.LittleEndian, &packetLength)
-	binary.Read(r.packetsReader, binary.LittleEndian, &toServer)
-	var timeMs int64
-	binary.Read(r.packetsReader, binary.LittleEndian, &timeMs)
-	receivedTime = time.UnixMilli(timeMs)
+	packetLength := binary.LittleEndian.Uint32(head[4:])
+	toServer = head[8] == 1
+	receivedTime = time.UnixMilli(int64(binary.LittleEndian.Uint64(head[9:])))
 
 	if skip {
-		_, err := io.CopyN(io.Discard, r.packetsReader, int64(packetLength))
+		_, err := io.CopyN(io.Discard, r.packetsReader, int64(packetLength)+4)
 		if err != nil {
 			return nil, toServer, receivedTime, err
 		}
 	} else {
-		payload := make([]byte, packetLength)
+		payload := make([]byte, packetLength+4)
 		n, err := io.ReadFull(r.packetsReader, payload)
 		if err != nil {
 			return nil, toServer, receivedTime, err
 		}
-		if n != int(packetLength) {
+		if n < int(packetLength)+4 {
 			return nil, toServer, receivedTime, errors.New("truncated")
 		}
+
+		magic2 := binary.LittleEndian.Uint32(payload[len(payload)-4:])
+		if magic2 != 0xBBBBBBBB {
+			return nil, toServer, receivedTime, errors.New("wrong Magic2")
+		}
+
+		payload = payload[:len(payload)-4]
 
 		// version 5 compresses payloads seperately
 		if r.Version >= 5 {
@@ -151,11 +154,6 @@ func (r *Pcap2Reader) ReadPacket(skip bool) (pk packet.Packet, toServer bool, re
 			return nil, toServer, receivedTime, err
 		}
 		pk = pks[0]
-	}
-
-	binary.Read(r.packetsReader, binary.LittleEndian, &magic2)
-	if magic2 != 0xBBBBBBBB {
-		return nil, toServer, receivedTime, errors.New("wrong Magic2")
 	}
 
 	return pk, toServer, receivedTime, nil

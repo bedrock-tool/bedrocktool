@@ -2,13 +2,14 @@ package utils
 
 import (
 	"archive/zip"
-	"compress/flate"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/klauspost/compress/flate"
 
 	"github.com/sirupsen/logrus"
 )

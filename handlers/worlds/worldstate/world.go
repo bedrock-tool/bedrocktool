@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
+	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/behaviourpack"
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"
@@ -131,7 +132,7 @@ func (w *World) storeMemToProvider() error {
 	}
 	if w.provider == nil {
 		w.log.Debugf("Opening provider in %s", w.Folder)
-		os.RemoveAll(w.Folder)
+		utils.RemoveTree(w.Folder)
 		os.MkdirAll(w.Folder, 0o777)
 		w.provider, w.err = mcdb.Config{
 			Log:         w.log,

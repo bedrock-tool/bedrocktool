@@ -1,6 +1,7 @@
 package crypt
 
 import (
+	"bufio"
 	"bytes"
 	_ "embed"
 	"io"
@@ -43,13 +44,14 @@ func Enc(name string, data []byte) ([]byte, error) {
 	return w.Bytes(), nil
 }
 
-func Encer(filename string) (io.WriteCloser, error) {
+func Encer(filename string) (io.WriteCloser, func() error, error) {
 	w, err := os.Create(filename)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	wc, err := openpgp.Encrypt(w, recipients, nil, &openpgp.FileHints{
+	bw := bufio.NewWriter(w)
+	wc, err := openpgp.Encrypt(bw, recipients, nil, &openpgp.FileHints{
 		IsBinary: true, FileName: filename, ModTime: time.Now(),
 	}, nil)
-	return wc, err
+	return wc, bw.Flush, err
 }
