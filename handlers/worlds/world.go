@@ -444,7 +444,11 @@ func (w *worldsHandler) saveWorldState(worldState *worldstate.World) error {
 	if err != nil {
 		return err
 	}
-	err = w.AddPacks(&utils.ZipWriter{Writer: zw})
+	zfs := &utils.ZipWriter{Writer: zw}
+	ofs := &utils.OSWriter{Base: worldState.Folder}
+	mfs := &utils.MultiWriterFS{FSs: []utils.WriterFS{zfs, ofs}}
+
+	err = w.AddPacks(mfs)
 	if err != nil {
 		return err
 	}

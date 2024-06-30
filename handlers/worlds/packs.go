@@ -2,8 +2,10 @@ package worlds
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"path"
+	"slices"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
@@ -60,9 +62,10 @@ func (w *worldsHandler) AddPacks(fs utils.WriterFS) error {
 
 	// add resource packs
 	if w.settings.WithPacks {
-		packNames := make(map[string]int)
+		packNames := make(map[string][]string)
 		for _, pack := range w.serverState.packs {
-			packNames[pack.Base().Name()] += 1
+			packName := pack.Base().Name()
+			packNames[packName] = append(packNames[packName], pack.Base().UUID())
 		}
 
 		var rdeps []dep
@@ -75,8 +78,8 @@ func (w *worldsHandler) AddPacks(fs utils.WriterFS) error {
 			logrus.Infof(locale.Loc("adding_pack", locale.Strmap{"Name": pack.Base().Name()}))
 
 			packName := pack.Base().Name()
-			if packNames[packName] > 1 {
-				packName += "_" + pack.Base().UUID()
+			if packIds := packNames[packName]; len(packIds) > 1 {
+				packName = fmt.Sprintf("%s_%d", packName, slices.Index(packIds, pack.Base().UUID()))
 			}
 			packName, _ = filenamify.FilenamifyV2(packName)
 			err := writePackToFs(pack, fs, path.Join("resource_packs", packName))

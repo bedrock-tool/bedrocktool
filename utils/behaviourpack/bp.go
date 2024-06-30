@@ -2,7 +2,7 @@ package behaviourpack
 
 import (
 	"encoding/json"
-	"path/filepath"
+	"path"
 	"strings"
 
 	"github.com/bedrock-tool/bedrocktool/utils"
@@ -118,8 +118,8 @@ func (bp *Pack) Save(fs utils.WriterFS, fpath string) error {
 
 	_add_thing := func(base, identifier string, thing any) error {
 		ns, name := ns_name_split(identifier)
-		dir := filepath.Join(base, ns)
-		w, err := fs.Create(filepath.Join(dir, name+".json"))
+		dir := path.Join(base, ns)
+		w, err := fs.Create(path.Join(dir, name+".json"))
 		if err != nil {
 			return err
 		}
@@ -137,7 +137,7 @@ func (bp *Pack) Save(fs utils.WriterFS, fpath string) error {
 	}
 
 	if bp.HasBlocks() { // blocks
-		blocksDir := filepath.Join(fpath, "blocks")
+		blocksDir := path.Join(fpath, "blocks")
 		for _, be := range bp.blocks {
 			err := _add_thing(blocksDir, be.MinecraftBlock.Description.Identifier, be)
 			if err != nil {
@@ -146,7 +146,7 @@ func (bp *Pack) Save(fs utils.WriterFS, fpath string) error {
 		}
 	}
 	if bp.HasItems() { // items
-		itemsDir := filepath.Join(fpath, "items")
+		itemsDir := path.Join(fpath, "items")
 		for _, ib := range bp.items {
 			err := _add_thing(itemsDir, ib.MinecraftItem.Description.Identifier, ib)
 			if err != nil {
@@ -155,7 +155,7 @@ func (bp *Pack) Save(fs utils.WriterFS, fpath string) error {
 		}
 	}
 	if bp.HasEntities() { // entities
-		entitiesDir := filepath.Join(fpath, "entities")
+		entitiesDir := path.Join(fpath, "entities")
 		for _, eb := range bp.entities {
 			err := _add_thing(entitiesDir, eb.MinecraftEntity.Description.Identifier, eb)
 			if err != nil {
