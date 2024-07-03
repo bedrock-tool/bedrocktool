@@ -20,14 +20,20 @@ import (
 
 func (p *packetCapturer) dumpPacket(toServer bool, payload []byte) {
 	p.dumpLock.Lock()
-	p.wPacket.Write([]byte{0xAA, 0xAA, 0xAA, 0xAA})
 	payloadCompressed := s2.EncodeBetter(nil, payload)
+
+	var buf []byte = []byte{0xAA, 0xAA, 0xAA, 0xAA}
 	packetSize := uint32(len(payloadCompressed))
-	binary.Write(p.wPacket, binary.LittleEndian, packetSize)
-	binary.Write(p.wPacket, binary.LittleEndian, toServer)
-	binary.Write(p.wPacket, binary.LittleEndian, time.Now().UnixMilli())
-	p.wPacket.Write(payloadCompressed)
-	p.wPacket.Write([]byte{0xBB, 0xBB, 0xBB, 0xBB})
+	binary.LittleEndian.AppendUint32(buf, packetSize)
+	if toServer {
+		buf = append(buf, 1)
+	} else {
+		buf = append(buf, 0)
+	}
+	binary.LittleEndian.AppendUint64(buf, uint64(time.Now().UnixMilli()))
+	buf = append(buf, payloadCompressed...)
+	buf = append(buf, []byte{0xBB, 0xBB, 0xBB, 0xBB}...)
+	p.wPacket.Write(buf)
 	p.dumpLock.Unlock()
 }
 
@@ -38,6 +44,7 @@ type packetCapturer struct {
 	tempBuf  *bytes.Buffer
 	dumpLock sync.Mutex
 	hostname string
+	log      *logrus.Entry
 }
 
 func (p *packetCapturer) AddressAndName(address, hostname string) (err error) {
@@ -74,7 +81,7 @@ func (p *packetCapturer) OnServerConnect() (disconnect bool, err error) {
 			if _, ok := written[filename]; ok {
 				continue
 			}
-			logrus.Debugf("Writing %s to capture", pack.Name())
+			p.log.Debugf("Writing %s to capture", pack.Name())
 			f, err := z.CreateHeader(&zip.FileHeader{
 				Name:   filename,
 				Method: zip.Store,
@@ -116,7 +123,9 @@ func (p *packetCapturer) PacketFunc(header packet.Header, payload []byte, src, d
 }
 
 func NewPacketCapturer() *proxy.Handler {
-	p := &packetCapturer{}
+	p := &packetCapturer{
+		log: logrus.WithField("part", "PacketCapture"),
+	}
 	return &proxy.Handler{
 		Name: "Packet Capturer",
 		ProxyReference: func(pc *proxy.Context) {

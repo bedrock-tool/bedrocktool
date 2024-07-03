@@ -21,11 +21,12 @@ import (
 )
 
 type SkinSaver struct {
+	proxy *proxy.Context
+	log   *logrus.Entry
+
 	PlayerNameFilter  string
 	OnlyIfHasGeometry bool
-	ServerName        string
-	fpath             string
-	proxy             *proxy.Context
+	baseDir           string
 
 	players map[uuid.UUID]*skinPlayer
 }
@@ -34,60 +35,68 @@ type skinPlayer struct {
 	UUID        uuid.UUID
 	RuntimeID   uint64
 	Name        string
+	AltName     string
 	Position    mgl32.Vec3
 	SkinPack    *utils.SkinPack
 	CurrentSkin *utils.Skin
+	gone        bool
 }
 
-func (s *SkinSaver) AddPlayerSkin(playerID uuid.UUID, playerName string, skin *utils.Skin) (added bool) {
-	p, ok := s.players[playerID]
-	if !ok {
-		p = &skinPlayer{}
-		s.players[playerID] = p
+func (s *SkinSaver) AddOrGetPlayer(name string, id uuid.UUID) *skinPlayer {
+	if player, ok := s.players[id]; ok {
+		return player
 	}
-	if p.SkinPack == nil {
-		p.SkinPack = utils.NewSkinPack(playerName, s.fpath)
-		creating := fmt.Sprintf("Creating Skinpack for %s", playerName)
-		logrus.Info(creating)
+
+	player := &skinPlayer{
+		UUID: id,
+		Name: utils.CleanupName(name),
 	}
-	if p.SkinPack.AddSkin(skin) {
-		addedStr := fmt.Sprintf("Added a skin %s", playerName)
-		s.proxy.SendPopup(addedStr)
-		logrus.Info(addedStr)
-		added = true
+
+	if player.Name == "" && name != "" {
+		player.Name = utils.CleanupName(name)
 	}
-	if err := p.SkinPack.Save(path.Join(s.fpath, playerName)); err != nil {
-		logrus.Error(err)
-	}
-	return added
+
+	s.players[id] = player
+
+	return player
 }
 
-func (s *SkinSaver) AddSkin(playerName string, playerID uuid.UUID, playerSkin *protocol.Skin) (string, *utils.Skin, bool) {
-	p, ok := s.players[playerID]
-	if !ok {
-		p = &skinPlayer{}
-		s.players[playerID] = p
-	}
-	if playerName == "" {
-		if p.Name != "" {
-			playerName = p.Name
+func (s *SkinSaver) AddSkin(player *skinPlayer, playerSkin *protocol.Skin) (*utils.Skin, bool) {
+	if len(player.Name) == 0 {
+		if len(player.AltName) > 0 {
+			player.Name = player.AltName
 		} else {
-			playerName = playerID.String()
+			player.Name = player.UUID.String()
 		}
 	}
 
-	if !strings.HasPrefix(playerName, s.PlayerNameFilter) {
-		return playerName, nil, false
+	if !strings.HasPrefix(player.Name, s.PlayerNameFilter) {
+		return nil, false
 	}
 
 	skin := &utils.Skin{Skin: playerSkin}
-	p.CurrentSkin = skin
+	player.CurrentSkin = skin
 	if s.OnlyIfHasGeometry && !skin.HaveGeometry() {
-		return playerName, nil, false
+		return nil, false
 	}
-	wasAdded := s.AddPlayerSkin(playerID, playerName, skin)
 
-	return playerName, skin, wasAdded
+	var added bool
+	if player.SkinPack == nil {
+		player.SkinPack = utils.NewSkinPack(player.Name, s.baseDir)
+		creating := fmt.Sprintf("Creating Skinpack for %s", player.Name)
+		s.log.Info(creating)
+	}
+	if player.SkinPack.AddSkin(skin) {
+		addedStr := fmt.Sprintf("Added a skin %s", player.Name)
+		s.proxy.SendPopup(addedStr)
+		s.log.Info(addedStr)
+		added = true
+	}
+	if err := player.SkinPack.Save(path.Join(s.baseDir, player.Name)); err != nil {
+		s.log.Error(err)
+	}
+
+	return skin, added
 }
 
 type SkinAdd struct {
@@ -111,44 +120,54 @@ func (s *SkinSaver) ProcessPacket(pk packet.Packet) (out []SkinAdd) {
 			player.Position = pk.Position
 		}
 	case *packet.MoveActorAbsolute:
-		var player *skinPlayer
-		for _, sp := range s.players {
-			if sp.RuntimeID == pk.EntityRuntimeID {
-				player = sp
+		for _, player := range s.players {
+			if player.RuntimeID == pk.EntityRuntimeID {
+				player.Position = pk.Position
 				break
 			}
-		}
-		if player == nil {
-			return
-		} else {
-			player.Position = pk.Position
 		}
 
 	case *packet.PlayerList:
 		if pk.ActionType == packet.PlayerListActionRemove { // remove
 			return nil
 		}
-		for _, player := range pk.Entries {
-			playerName, skin, wasAdded := s.AddSkin(utils.CleanupName(player.Username), player.UUID, &player.Skin)
+		for _, playerEntry := range pk.Entries {
+			player := s.AddOrGetPlayer(playerEntry.Username, playerEntry.UUID)
+			skin, wasAdded := s.AddSkin(player, &playerEntry.Skin)
 			if wasAdded {
 				out = append(out, SkinAdd{
-					PlayerName: playerName,
+					PlayerName: player.Name,
 					Skin:       skin.Skin,
 				})
 			}
 		}
+	case *packet.PlayerSkin:
+		player := s.AddOrGetPlayer("", pk.UUID)
+		skin, wasAdded := s.AddSkin(player, &pk.Skin)
+		if wasAdded {
+			out = append(out, SkinAdd{
+				PlayerName: player.Name,
+				Skin:       skin.Skin,
+			})
+		}
 	case *packet.AddPlayer:
-		p, ok := s.players[pk.UUID]
-		if !ok {
-			p = &skinPlayer{}
-		}
-		if p.Name == "" {
-			p.Name = utils.CleanupName(pk.Username)
-		}
-		p.RuntimeID = pk.EntityRuntimeID
+		player := s.AddOrGetPlayer("", pk.UUID)
+		player.AltName = pk.Username
+		player.RuntimeID = pk.EntityRuntimeID
 	case *packet.Animate:
 		if pk.EntityRuntimeID == s.proxy.Player.RuntimeID && pk.ActionType == packet.AnimateActionSwingArm {
 			s.stealSkin()
+		}
+	case *packet.ChangeDimension:
+		for _, sp := range s.players {
+			sp.gone = true
+		}
+	case *packet.RemoveActor:
+		for _, sp := range s.players {
+			if sp.RuntimeID == uint64(pk.EntityUniqueID) {
+				sp.gone = true
+				break
+			}
 		}
 	}
 	return out
@@ -157,6 +176,7 @@ func (s *SkinSaver) ProcessPacket(pk packet.Packet) (out []SkinAdd) {
 func NewSkinSaver(skinCB func(SkinAdd)) *proxy.Handler {
 	s := &SkinSaver{
 		players: make(map[uuid.UUID]*skinPlayer),
+		log:     logrus.WithField("part", "SkinSaver"),
 	}
 	return &proxy.Handler{
 		Name: "Skin Saver",
@@ -166,7 +186,7 @@ func NewSkinSaver(skinCB func(SkinAdd)) *proxy.Handler {
 		OnAddressAndName: func(address, hostname string) error {
 			outPathBase := fmt.Sprintf("skins/%s", hostname)
 			os.MkdirAll(outPathBase, 0o755)
-			s.fpath = outPathBase
+			s.baseDir = outPathBase
 			return nil
 		},
 		PacketCallback: func(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
@@ -188,9 +208,9 @@ func (s *SkinSaver) stealSkin() {
 	if !rtTest {
 		return
 	}
-	logrus.Debugf("%d", len(s.players))
+	s.log.Debugf("%d", len(s.players))
 
-	var dist float64 = 4
+	var dist float64 = 40
 
 	pitch := mgl64.DegToRad(float64(s.proxy.Player.Pitch))
 	yaw := mgl64.DegToRad(float64(s.proxy.Player.HeadYaw + 90))
@@ -204,7 +224,6 @@ func (s *SkinSaver) stealSkin() {
 	pos := s.proxy.Player.Position
 	traceStart := mgl64.Vec3{float64(pos[0]), float64(pos[1]), float64(pos[2])}
 	traceEnd := traceStart.Add(dir.Mul(dist))
-
 	s.proxy.ClientWritePacket(&packet.SpawnParticleEffect{
 		Dimension:      0,
 		EntityUniqueID: -1,
@@ -213,12 +232,35 @@ func (s *SkinSaver) stealSkin() {
 	})
 
 	for _, sp := range s.players {
+		if sp.gone {
+			continue
+		}
 		pos := mgl64.Vec3{float64(sp.Position[0]), float64(sp.Position[1]) - 1.8, float64(sp.Position[2])}
 		bb := playerBBox.Translate(pos)
 
 		res, ok := trace.BBoxIntercept(bb, traceStart, traceEnd)
 		if ok {
 			fmt.Printf("res: %v\n", res.Position())
+			interceptPos := res.Position()
+
+			s.proxy.ClientWritePacket(&packet.SpawnParticleEffect{
+				Dimension:      0,
+				EntityUniqueID: -1,
+				Position:       mgl32.Vec3{float32(interceptPos[0]), float32(interceptPos[1]), float32(interceptPos[2])},
+				ParticleName:   "hivehub:emote_confounded",
+			})
+
+			id := uuid.MustParse(s.proxy.Client.IdentityData().Identity)
+
+			s.proxy.ClientWritePacket(&packet.PlayerSkin{
+				UUID: id,
+				Skin: *sp.CurrentSkin.Skin,
+			})
+
+			s.proxy.Server.WritePacket(&packet.PlayerSkin{
+				UUID: id,
+				Skin: *sp.CurrentSkin.Skin,
+			})
 			break
 		}
 	}

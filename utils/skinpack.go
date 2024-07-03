@@ -184,7 +184,8 @@ func (s *SkinPack) Save(fpath string) error {
 			},
 		}
 
-		if err := WriteManifest(&manifest, fpath); err != nil {
+		fs := &OSWriter{Base: fpath}
+		if err := WriteManifest(&manifest, fs, ""); err != nil {
 			return err
 		}
 	}

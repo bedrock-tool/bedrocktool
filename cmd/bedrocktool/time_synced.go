@@ -21,18 +21,19 @@ import (
 var realTimeOffset *ntp.Response
 
 func init() {
+	log := logrus.WithField("part", "timeSync")
 	var err error
 	realTimeOffset, err = ntp.Query("time.windows.com")
 	if err != nil {
-		logrus.Fatal(err)
+		log.Fatal(err)
 	}
 	if realTimeOffset.ClockOffset > time.Minute*30 {
-		logrus.Warnf("Your Clock is off by: %s\n", realTimeOffset.ClockOffset.String())
+		log.Warnf("Your Clock is off by: %s\n", realTimeOffset.ClockOffset.String())
 	}
 
 	_, err = mpatch.PatchMethod(time.Now, timeNow)
 	if err != nil {
-		logrus.Fatal(err)
+		log.Fatal(err)
 	}
 }
 

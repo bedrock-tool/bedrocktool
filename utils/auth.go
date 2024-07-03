@@ -20,9 +20,12 @@ type authsrv struct {
 	ctx       context.Context
 	cancel    context.CancelFunc
 	MSHandler auth.MSAuthHandler
+	log       *logrus.Entry
 }
 
-var Auth authsrv
+var Auth authsrv = authsrv{
+	log: logrus.WithField("part", "Auth"),
+}
 
 func (a *authsrv) InitCtx(ctx context.Context) {
 	a.baseCtx = ctx
@@ -90,7 +93,7 @@ func (a *authsrv) GetTokenSource() (src oauth2.TokenSource, err error) {
 
 	// if the old token isnt valid save the new one
 	if !token.Valid() {
-		logrus.Debug("Refreshing token")
+		a.log.Debug("Refreshing token")
 		token, err = a.src.Token()
 		if err != nil {
 			return nil, err
@@ -115,7 +118,7 @@ func GetRealmsAPI() *realms.Client {
 		}
 		src, err := Auth.GetTokenSource()
 		if err != nil {
-			logrus.Fatal(err)
+			logrus.WithField("part", "Realms-api").Fatal(err)
 		}
 		realmsAPI = realms.NewClient(src)
 	}

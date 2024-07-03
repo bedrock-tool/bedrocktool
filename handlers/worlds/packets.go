@@ -60,7 +60,7 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 				w.bp.AddItem(ie)
 			}
 			if len(pk.Blocks) > 0 {
-				logrus.Info(locale.Loc("using_customblocks", nil))
+				w.log.Info(locale.Loc("using_customblocks", nil))
 				for _, be := range pk.Blocks {
 					w.bp.AddBlock(be)
 				}
@@ -74,7 +74,7 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 				w.currentWorld.Name = pk.WorldName
 			}
 
-			{ // check game version
+			if len(pk.BaseGameVersion) > 0 && pk.BaseGameVersion != "*" { // check game version
 				gv := strings.Split(pk.BaseGameVersion, ".")
 				var err error
 				if len(gv) > 1 {
@@ -83,11 +83,11 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 					w.serverState.useOldBiomes = ver < 18
 				}
 				if err != nil || len(gv) <= 1 {
-					logrus.Info(locale.Loc("guessing_version", nil))
+					w.log.Info(locale.Loc("guessing_version", nil))
 				}
 
 				if w.serverState.useOldBiomes {
-					logrus.Info(locale.Loc("using_under_118", nil))
+					w.log.Info(locale.Loc("using_under_118", nil))
 					w.serverState.dimensions[0] = protocol.DimensionDefinition{
 						Name:      "minecraft:overworld",
 						Range:     [2]int32{0, 256},
@@ -117,7 +117,7 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 		var biomes map[string]any
 		err := nbt.UnmarshalEncoding(pk.SerialisedBiomeDefinitions, &biomes, nbt.NetworkLittleEndian)
 		if err != nil {
-			logrus.Error(err)
+			w.log.WithField("packet", "BiomeDefinitionList").Error(err)
 		}
 
 		for k, v := range biomes {
@@ -163,7 +163,7 @@ func (w *worldsHandler) playersPackets(_pk packet.Packet) {
 			var resourcePatch map[string]map[string]string
 			err := utils.ParseJson(skin.SkinResourcePatch, &resourcePatch)
 			if err != nil {
-				logrus.Error(err)
+				w.log.WithField("data", "SkinResourcePatch").Error(err)
 				return
 			}
 
@@ -174,7 +174,7 @@ func (w *worldsHandler) playersPackets(_pk packet.Packet) {
 			if len(skin.SkinGeometry) > 0 {
 				skinGeometry, _, err := utils.ParseSkinGeometry(skin.SkinGeometry)
 				if err != nil {
-					logrus.Warn(err)
+					w.log.WithField("player", pk.Username).Warn(err)
 					return
 				}
 				if skinGeometry != nil {
@@ -312,7 +312,7 @@ func (w *worldsHandler) chunkPackets(_pk packet.Packet) {
 
 	case *packet.SubChunk:
 		if err := w.processSubChunk(pk); err != nil {
-			logrus.Error(err)
+			w.log.WithField("packet", "SubChunk").Error(err)
 		}
 
 	case *packet.BlockActorData:

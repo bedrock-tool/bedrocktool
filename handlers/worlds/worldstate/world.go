@@ -6,10 +6,12 @@ import (
 	"os"
 	"path"
 	"reflect"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
+	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/behaviourpack"
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"
@@ -47,6 +49,7 @@ type World struct {
 
 	memState *worldStateDefer
 	provider *mcdb.DB
+	onceOpen sync.Once
 	opened   bool
 	// state to be used while paused
 	paused      bool
@@ -70,6 +73,8 @@ type World struct {
 	blockUpdates map[world.ChunkPos][]packet.Packet
 
 	onChunkUpdate func(pos world.ChunkPos, chunk *chunk.Chunk, isPaused bool)
+
+	log *logrus.Entry
 }
 
 type Map struct {
@@ -107,6 +112,7 @@ func New(dimensionDefinitions map[int]protocol.DimensionDefinition, onChunkUpdat
 
 		blockUpdates:  make(map[world.ChunkPos][]packet.Packet),
 		onChunkUpdate: onChunkUpdate,
+		log:           logrus.WithFields(logrus.Fields{"part": "world"}),
 	}
 
 	return w, nil
@@ -125,10 +131,11 @@ func (w *World) storeMemToProvider() error {
 		return nil
 	}
 	if w.provider == nil {
-		os.RemoveAll(w.Folder)
+		w.log.Debugf("Opening provider in %s", w.Folder)
+		utils.RemoveTree(w.Folder)
 		os.MkdirAll(w.Folder, 0o777)
 		w.provider, w.err = mcdb.Config{
-			Log:         logrus.StandardLogger(),
+			Log:         w.log,
 			Compression: opt.DefaultCompression,
 			Blocks:      w.BlockRegistry,
 			Biomes:      w.BiomeRegistry,
@@ -154,7 +161,7 @@ func (w *World) storeMemToProvider() error {
 			Chunk: ch,
 		})
 		if err != nil {
-			logrus.Error("storeChunk", err)
+			w.log.Error("StoreColumn", err)
 		}
 		delete(w.memState.chunks, pos)
 	}
@@ -199,6 +206,23 @@ func (w *World) StoreChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cub
 	}
 	if !empty {
 		w.StoredChunks[pos] = true
+		// only start saving once a non empty chunk is received
+		w.onceOpen.Do(func() {
+			go func() {
+				t := time.NewTicker(10 * time.Second)
+				for {
+					select {
+					case <-w.finish:
+						return
+					case <-t.C:
+						w.l.Lock()
+						w.applyBlockUpdates()
+						w.storeMemToProvider()
+						w.l.Unlock()
+					}
+				}
+			}()
+		})
 	}
 
 	w.currState().StoreChunk(pos, ch, blockNBT)
@@ -329,21 +353,6 @@ func (w *World) Open(name string, folder string, deferred bool) {
 		w.pausedState.ApplyTo(w, cube.Pos{}, -1, w.ChunkFunc)
 		w.paused = false
 	}
-
-	go func() {
-		t := time.NewTicker(10 * time.Second)
-		for {
-			select {
-			case <-w.finish:
-				return
-			case <-t.C:
-				w.l.Lock()
-				w.applyBlockUpdates()
-				w.storeMemToProvider()
-				w.l.Unlock()
-			}
-		}
-	}()
 }
 
 func blockPosInChunk(bp protocol.BlockPos) (x uint8, y int16, z uint8) {
@@ -355,11 +364,11 @@ func (w *World) applyBlockUpdates() {
 		delete(w.blockUpdates, pos)
 		chunk, ok, err := w.LoadChunk(world.ChunkPos(pos))
 		if !ok {
-			logrus.Warnf("Chunk updates for a chunk we dont have pos = %v", pos)
+			w.log.Warnf("Chunk updates for a chunk we dont have pos = %v", pos)
 			continue
 		}
 		if err != nil {
-			logrus.Warnf("Failed loading chunk %v %s", pos, err)
+			w.log.Warnf("Failed loading chunk %v %s", pos, err)
 			continue
 		}
 		for _, pk := range pks {
@@ -370,7 +379,7 @@ func (w *World) applyBlockUpdates() {
 				if w.UseHashedRids {
 					rid, ok = chunk.BlockRegistry.HashToRuntimeID(pk.NewBlockRuntimeID)
 					if !ok {
-						logrus.Warn("couldnt find block hash for block update")
+						w.log.Warn("couldnt find block hash for block update")
 					}
 				}
 				chunk.SetBlock(x, y, z, uint8(pk.Layer), rid)
@@ -380,7 +389,7 @@ func (w *World) applyBlockUpdates() {
 				if w.UseHashedRids {
 					rid, ok = chunk.BlockRegistry.HashToRuntimeID(pk.NewBlockRuntimeID)
 					if !ok {
-						logrus.Warn("couldnt find block hash for block update")
+						w.log.Warn("couldnt find block hash for block update")
 					}
 				}
 				chunk.SetBlock(x, y, z, uint8(pk.Layer), rid)
@@ -391,7 +400,7 @@ func (w *World) applyBlockUpdates() {
 					if w.UseHashedRids {
 						rid, ok = chunk.BlockRegistry.HashToRuntimeID(rid)
 						if !ok {
-							logrus.Warn("couldnt find block hash for block update")
+							w.log.Warn("couldnt find block hash for block update")
 						}
 					}
 					chunk.SetBlock(x, y, z, 0, rid)
@@ -402,13 +411,13 @@ func (w *World) applyBlockUpdates() {
 					if w.UseHashedRids {
 						rid, ok = chunk.BlockRegistry.HashToRuntimeID(rid)
 						if !ok {
-							logrus.Warn("couldnt find block hash for block update")
+							w.log.Warn("couldnt find block hash for block update")
 						}
 					}
 					chunk.SetBlock(x, y, z, 1, rid)
 				}
 			default:
-				logrus.Warnf("Unhandled block update packet type %s", reflect.TypeOf(pk).String())
+				w.log.Warnf("Unhandled block update packet type %s", reflect.TypeOf(pk).String())
 			}
 		}
 		w.StoreChunk(pos, chunk, nil)
@@ -431,7 +440,7 @@ func (w *World) Rename(name, folder string) error {
 			return err
 		}
 		w.provider, w.err = mcdb.Config{
-			Log:         logrus.StandardLogger(),
+			Log:         w.log,
 			Compression: opt.DefaultCompression,
 			Blocks:      w.BlockRegistry,
 			Biomes:      w.BiomeRegistry,
@@ -470,11 +479,11 @@ func (w *World) Finish(playerData map[string]any, excludedMobs []string, withPla
 		var ignore bool
 		for _, ex := range excludedMobs {
 			if ok, err := path.Match(ex, es.EntityType); ok {
-				logrus.Debugf("Excluding: %s %v", es.EntityType, es.Position)
+				w.log.Debugf("Excluding: %s %v", es.EntityType, es.Position)
 				ignore = true
 				break
 			} else if err != nil {
-				logrus.Warn(err)
+				w.log.Warn(err)
 			}
 		}
 		if !ignore {
@@ -487,7 +496,7 @@ func (w *World) Finish(playerData map[string]any, excludedMobs []string, withPla
 	for cp, v := range chunkEntities {
 		err := w.provider.StoreEntities(cp, w.dimension, v)
 		if err != nil {
-			logrus.Error(err)
+			w.log.Error(err)
 		}
 	}
 
@@ -529,7 +538,7 @@ func (w *World) Finish(playerData map[string]any, excludedMobs []string, withPla
 	ld.CheatsEnabled = true
 	ld.RandomSeed = int64(gd.WorldSeed)
 	for _, gr := range gd.GameRules {
-		switch gr.Name {
+		switch strings.ToLower(gr.Name) {
 		case "commandblockoutput":
 			ld.CommandBlockOutput = gr.Value.(bool)
 		case "maxcommandchainlength":
@@ -592,7 +601,7 @@ func (w *World) Finish(playerData map[string]any, excludedMobs []string, withPla
 			ld.ShowBorderEffect = gr.Value.(bool)
 		// todo
 		default:
-			logrus.Warnf(locale.Loc("unknown_gamerule", locale.Strmap{"Name": gr.Name}))
+			w.log.Warnf(locale.Loc("unknown_gamerule", locale.Strmap{"Name": gr.Name}))
 		}
 	}
 

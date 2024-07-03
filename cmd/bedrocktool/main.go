@@ -84,8 +84,10 @@ func main() {
 	}
 
 	logrus.SetLevel(logrus.DebugLevel)
+	log := logrus.WithField("part", "main")
+
 	if !isDebug {
-		logrus.Infof(locale.Loc("bedrocktool_version", locale.Strmap{"Version": updater.Version}))
+		log.Infof(locale.Loc("bedrocktool_version", locale.Strmap{"Version": updater.Version}))
 	}
 
 	ctx, cancel := context.WithCancelCause(context.Background())
@@ -128,13 +130,13 @@ func main() {
 	}()
 
 	if !ui.Init() {
-		logrus.Error("Failed to init UI!")
+		log.Error("Failed to init UI!")
 		return
 	}
 	err := ui.Start(ctx, cancel)
 	cancel(err)
 	if err != nil {
-		logrus.Error(err)
+		log.Error(err)
 	}
 }
 

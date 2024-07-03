@@ -12,12 +12,11 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft/nbt"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
-	"github.com/sirupsen/logrus"
 )
 
 func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 	if len(pk.RawPayload) == 0 {
-		logrus.Info(locale.Loc("empty_chunk", nil))
+		w.log.Info(locale.Loc("empty_chunk", nil))
 		return
 	}
 
@@ -40,7 +39,7 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 		w.serverState.useOldBiomes, w.serverState.useHashedRids, w.currentWorld.Range(),
 	)
 	if err != nil {
-		logrus.Error(err)
+		w.log.Error(err)
 		return
 	}
 	var chunkBlockNBT = make(map[cube.Pos]worldstate.DummyBlock)
@@ -61,7 +60,7 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 
 	err = w.currentWorld.StoreChunk(pos, ch, chunkBlockNBT)
 	if err != nil {
-		logrus.Error(err)
+		w.log.Error(err)
 	}
 
 	max := w.currentWorld.Dimension().Range().Height() / 16

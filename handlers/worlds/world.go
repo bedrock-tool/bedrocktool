@@ -1,6 +1,7 @@
 package worlds
 
 import (
+	"archive/zip"
 	"context"
 	"fmt"
 	"image/png"
@@ -21,6 +22,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/utils/behaviourpack"
 	"github.com/bedrock-tool/bedrocktool/utils/proxy"
 	"github.com/bedrock-tool/bedrocktool/utils/resourcepack"
+	"github.com/flytam/filenamify"
 	"github.com/google/uuid"
 
 	"github.com/df-mc/dragonfly/server/block/cube"
@@ -73,6 +75,7 @@ type worldsHandler struct {
 	ctx   context.Context
 	proxy *proxy.Context
 	mapUI *MapUI
+	log   *logrus.Entry
 
 	bp *behaviourpack.Pack
 	rp *resourcepack.Pack
@@ -106,6 +109,7 @@ func NewWorldsHandler(settings WorldSettings) *proxy.Handler {
 
 	w := &worldsHandler{
 		ctx: ctx,
+		log: logrus.WithField("part", "WorldsHandler"),
 		serverState: serverState{
 			useOldBiomes:       false,
 			worldCounter:       0,
@@ -266,12 +270,13 @@ func (w *worldsHandler) preloadReplay() error {
 	if w.settings.PreloadReplay == "" {
 		return nil
 	}
+	log := w.log.WithField("func", "preloadReplay")
 	var conn *proxy.ReplayConnector
 	var err error
 	conn, err = proxy.CreateReplayConnector(context.Background(), w.settings.PreloadReplay, func(header packet.Header, payload []byte, src, dst net.Addr) {
 		pk, ok := proxy.DecodePacket(header, payload, conn.ShieldID())
 		if !ok {
-			logrus.Error("unknown packet", header)
+			log.Error("unknown packet", header)
 			return
 		}
 
@@ -282,7 +287,7 @@ func (w *worldsHandler) preloadReplay() error {
 		toServer := src.String() == conn.LocalAddr().String()
 		_, err := w.packetCB(pk, toServer, time.Now(), false)
 		if err != nil {
-			logrus.Error(err)
+			log.Error(err)
 		}
 	}, func() {}, func(p *resource.Pack) {})
 	if err != nil {
@@ -303,7 +308,7 @@ func (w *worldsHandler) preloadReplay() error {
 	}
 	w.proxy.Server = nil
 
-	logrus.Info("finished preload")
+	log.Info("finished preload")
 	w.serverState.blocks = nil
 	return nil
 }
@@ -336,7 +341,7 @@ func (w *worldsHandler) setVoidGen(val bool) bool {
 func (w *worldsHandler) setWorldName(val string) bool {
 	err := w.renameWorldState(val)
 	if err != nil {
-		logrus.Error(err)
+		w.log.Error(err)
 		return false
 	}
 	w.proxy.SendMessage(locale.Loc("worldname_set", locale.Strmap{"Name": w.currentWorld.Name}))
@@ -394,7 +399,10 @@ func (w *worldsHandler) SaveAndReset(end bool, dim world.Dimension) {
 	w.wg.Add(1)
 	go func() {
 		defer w.wg.Done()
-		w.saveWorldState(worldState)
+		err := w.saveWorldState(worldState)
+		if err != nil {
+			w.log.Error(err)
+		}
 	}()
 }
 
@@ -403,7 +411,7 @@ func (w *worldsHandler) saveWorldState(worldState *worldstate.World) error {
 	spawnPos := cube.Pos{int(playerPos.X()), int(playerPos.Y()), int(playerPos.Z())}
 
 	text := locale.Loc("saving_world", locale.Strmap{"Name": worldState.Name, "Count": len(worldState.StoredChunks)})
-	logrus.Info(text)
+	w.log.Info(text)
 	w.proxy.SendMessage(text)
 
 	filename := worldState.Folder + ".mcworld"
@@ -425,14 +433,31 @@ func (w *worldsHandler) saveWorldState(worldState *worldstate.World) error {
 	if err != nil {
 		return err
 	}
-	w.AddPacks(worldState.Folder)
 
-	// zip it
-	err = utils.ZipFolder(filename, worldState.Folder)
+	f, err := os.Create(filename)
 	if err != nil {
 		return err
 	}
-	logrus.Info(locale.Loc("saved", locale.Strmap{"Name": filename}))
+	defer f.Close()
+	zw := zip.NewWriter(f)
+	err = zw.AddFS(os.DirFS(worldState.Folder))
+	if err != nil {
+		return err
+	}
+	zfs := &utils.ZipWriter{Writer: zw}
+	ofs := &utils.OSWriter{Base: worldState.Folder}
+	mfs := &utils.MultiWriterFS{FSs: []utils.WriterFS{zfs, ofs}}
+
+	err = w.AddPacks(mfs)
+	if err != nil {
+		return err
+	}
+	err = zw.Close()
+	if err != nil {
+		return err
+	}
+
+	w.log.Info(locale.Loc("saved", locale.Strmap{"Name": filename}))
 	return nil
 }
 
@@ -461,13 +486,15 @@ func (w *worldsHandler) defaultWorldName() string {
 
 func (w *worldsHandler) openWorldState(deferred bool) {
 	name := w.defaultWorldName()
-	folder := fmt.Sprintf("worlds/%s/%s", w.serverState.Name, name)
+	serverName, _ := filenamify.FilenamifyV2(w.serverState.Name)
+	folder := fmt.Sprintf("worlds/%s/%s", serverName, name)
 	w.currentWorld.BiomeRegistry = w.serverState.biomes
 	w.currentWorld.BlockRegistry = w.serverState.blocks
 	w.currentWorld.Open(name, folder, deferred)
 }
 
 func (w *worldsHandler) renameWorldState(name string) error {
-	folder := fmt.Sprintf("worlds/%s/%s", w.serverState.Name, name)
+	serverName, _ := filenamify.FilenamifyV2(w.serverState.Name)
+	folder := fmt.Sprintf("worlds/%s/%s", serverName, name)
 	return w.currentWorld.Rename(name, folder)
 }

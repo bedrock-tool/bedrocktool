@@ -48,8 +48,6 @@ var dirS2C = color.GreenString("S") + "->" + color.CyanString("C")
 var dirC2S = color.CyanString("C") + "->" + color.GreenString("S")
 
 func newExtraDebug(name string) (func(pk packet.Packet), func()) {
-	var logPlain, logCrypt, logCryptEnc io.WriteCloser
-	var packetsLogF *bufio.Writer
 	var dmpLock sync.Mutex
 
 	// open plain text log
@@ -58,11 +56,11 @@ func newExtraDebug(name string) (func(pk packet.Packet), func()) {
 		logrus.Error(err)
 	}
 	// open gpg log
-	logCryptEnc, err = crypt.Encer(name + ".gpg")
+	logCryptEnc, flushFunc, err := crypt.Encer(name + ".gpg")
 	if err != nil {
 		logrus.Error(err)
 	}
-	packetsLogF = bufio.NewWriter(io.MultiWriter(logPlain, logCryptEnc))
+	packetsLogF := bufio.NewWriter(io.MultiWriter(logPlain, logCryptEnc))
 
 	return func(pk packet.Packet) {
 			dmpLock.Lock()
@@ -72,6 +70,9 @@ func newExtraDebug(name string) (func(pk packet.Packet), func()) {
 			dmpLock.Unlock()
 		}, func() {
 			dmpLock.Lock()
+			if flushFunc != nil {
+				flushFunc()
+			}
 			if packetsLogF != nil {
 				packetsLogF.Flush()
 			}
@@ -80,9 +81,6 @@ func newExtraDebug(name string) (func(pk packet.Packet), func()) {
 			}
 			if logCryptEnc != nil {
 				logCryptEnc.Close()
-			}
-			if logCrypt != nil {
-				logCrypt.Close()
 			}
 			dmpLock.Unlock()
 		}

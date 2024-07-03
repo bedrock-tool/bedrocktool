@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
@@ -75,7 +76,13 @@ func (p *Context) connectServer(ctx context.Context) (err error) {
 		return err
 	}
 
-	server, err := d.DialContext(ctx, "raknet", p.serverAddress, 10*time.Second)
+	// server says it can handle 1400 mtu, it cant
+	var network = "raknet"
+	if strings.Contains(p.serverAddress, "enchanted.gg") {
+		network = "raknet-1200"
+	}
+
+	server, err := d.DialContext(ctx, network, p.serverAddress, 10*time.Second)
 	if err != nil {
 		return err
 	}

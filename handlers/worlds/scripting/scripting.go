@@ -18,8 +18,9 @@ import (
 var enums_js string
 
 type VM struct {
-	vm *goja.Runtime
-	CB struct {
+	vm  *goja.Runtime
+	log *logrus.Entry
+	CB  struct {
 		OnEntityAdd        func(entity any, metadata *goja.Object) (ignore bool)
 		OnChunkAdd         func(pos world.ChunkPos) (ignore bool)
 		OnEntityDataUpdate func(entity any, metadata *goja.Object)
@@ -28,17 +29,18 @@ type VM struct {
 
 func New() *VM {
 	v := &VM{
-		vm: goja.New(),
+		vm:  goja.New(),
+		log: logrus.WithField("part", "jsvm"),
 	}
 	console := v.vm.NewObject()
 	console.Set("log", func(val goja.Value) {
 		if val.SameAs(goja.Undefined()) {
-			logrus.Println("undefined")
+			v.log.Println("undefined")
 			return
 		}
 
 		if val.ExportType().Kind() == reflect.String {
-			logrus.Println(val.String())
+			v.log.Println(val.String())
 			return
 		}
 		obj := val.ToObject(v.vm)
@@ -46,7 +48,7 @@ func New() *VM {
 		if err != nil {
 			panic(err)
 		}
-		logrus.Println(string(data))
+		v.log.Println(string(data))
 	})
 
 	v.vm.GlobalObject().Set("console", console)
@@ -66,7 +68,7 @@ func (v *VM) tryResolveCB(name string, fun any) {
 	}
 	err := v.vm.ExportTo(val, fun)
 	if err != nil {
-		logrus.Error(err)
+		v.log.Error(err)
 	}
 }
 
@@ -152,7 +154,7 @@ func (v *VM) OnEntityAdd(entity any, metadata protocol.EntityMetadata) (ignoreEn
 		return nil
 	})
 	if err != nil {
-		logrus.Errorf("Scripting: %s", err)
+		v.log.Error(err)
 	}
 	return
 }
@@ -167,7 +169,7 @@ func (v *VM) OnEntityDataUpdate(entity any, metadata protocol.EntityMetadata) {
 		return nil
 	})
 	if err != nil {
-		logrus.Errorf("Scripting: %s", err)
+		v.log.Error(err)
 	}
 }
 
@@ -180,7 +182,7 @@ func (v *VM) OnChunkAdd(pos world.ChunkPos) (ignoreChunk bool) {
 		return nil
 	})
 	if err != nil {
-		logrus.Errorf("Scripting: %s", err)
+		v.log.Error(err)
 	}
 	return
 }

@@ -8,7 +8,6 @@ import (
 	"image"
 	"image/png"
 	"io"
-	"os"
 	"path"
 	"strconv"
 	"strings"
@@ -285,8 +284,8 @@ func (p *Pack) WriteTo(w io.Writer) {
 	b.Flush()
 }
 
-func (p *Pack) WriteToDir(dir string) {
-	f, err := os.Create(dir + "/manifest.json")
+func (p *Pack) WriteToDir(fs utils.WriterFS, dir string) {
+	f, err := fs.Create(path.Join(dir, "manifest.json"))
 	if err != nil {
 		panic(err)
 	}
@@ -294,9 +293,8 @@ func (p *Pack) WriteToDir(dir string) {
 	f.Close()
 
 	for name, content := range p.Files {
-		fullName := dir + "/" + name
-		os.MkdirAll(path.Dir(fullName), 0755)
-		f, err := os.Create(fullName)
+		fullName := path.Join(dir, name)
+		f, err := fs.Create(fullName)
 		if err != nil {
 			panic(err)
 		}
