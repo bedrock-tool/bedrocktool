@@ -28,13 +28,14 @@ type Pcap2Reader struct {
 	packetOffsetIndex []int64
 	CurrentPacket     int
 
-	pool       packet.Pool
-	protocol   minecraft.Protocol
-	packetFunc PacketFunc
-	shieldID   *atomic.Int32
+	pool     packet.Pool
+	protocol minecraft.Protocol
+	shieldID atomic.Int32
+
+	PacketFunc PacketFunc
 }
 
-func NewPcap2Reader(f *os.File, packetFunc PacketFunc, ShieldID *atomic.Int32) (*Pcap2Reader, error) {
+func NewPcap2Reader(f *os.File) (*Pcap2Reader, error) {
 	var head = make([]byte, 16)
 	f.Read(head)
 	magic := string(head[0:4])
@@ -77,8 +78,6 @@ func NewPcap2Reader(f *os.File, packetFunc PacketFunc, ShieldID *atomic.Int32) (
 		ResourcePacks: cache,
 		pool:          pool,
 		protocol:      minecraft.DefaultProtocol,
-		packetFunc:    packetFunc,
-		shieldID:      ShieldID,
 	}, nil
 }
 
@@ -145,7 +144,7 @@ func (r *Pcap2Reader) ReadPacket(skip bool) (pk packet.Packet, toServer bool, re
 		if toServer {
 			src, dst = replayLocalAddr, replayRemoteAddr
 		}
-		pkData, err := minecraft.ParseData(payload, r.packetFunc, src, dst)
+		pkData, err := minecraft.ParseData(payload, r.PacketFunc, src, dst)
 		if err != nil {
 			return nil, toServer, receivedTime, err
 		}
@@ -154,6 +153,14 @@ func (r *Pcap2Reader) ReadPacket(skip bool) (pk packet.Packet, toServer bool, re
 			return nil, toServer, receivedTime, err
 		}
 		pk = pks[0]
+
+		if pk, ok := pk.(*packet.StartGame); ok {
+			for _, item := range pk.Items {
+				if item.Name == "minecraft:shield" {
+					r.shieldID.Store(int32(item.RuntimeID))
+				}
+			}
+		}
 	}
 
 	return pk, toServer, receivedTime, nil

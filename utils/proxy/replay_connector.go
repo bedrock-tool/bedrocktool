@@ -26,13 +26,12 @@ type ReplayConnector struct {
 
 	clientData login.ClientData
 	gameData   minecraft.GameData
-	shieldID   atomic.Int32
 
 	resourcePackHandler *rpHandler
 }
 
 func (r *ReplayConnector) ShieldID() int32 {
-	return r.shieldID.Load()
+	return r.reader.shieldID.Load()
 }
 
 func (r *ReplayConnector) handleLoginSequence(pk packet.Packet) (bool, error) {
@@ -68,11 +67,6 @@ func (r *ReplayConnector) handleLoginSequence(pk packet.Packet) (bool, error) {
 			DisablePlayerInteractions:    pk.DisablePlayerInteractions,
 			UseBlockNetworkIDHashes:      pk.UseBlockNetworkIDHashes,
 		})
-		for _, item := range pk.Items {
-			if item.Name == "minecraft:shield" {
-				r.shieldID.Store(int32(item.RuntimeID))
-			}
-		}
 
 	case *packet.ResourcePacksInfo:
 		return false, r.resourcePackHandler.OnResourcePacksInfo(pk)
@@ -125,21 +119,14 @@ func CreateReplayConnector(ctx context.Context, filename string, packetFunc Pack
 	if err != nil {
 		return nil, err
 	}
-	r.reader, err = NewPcap2Reader(r.f, packetFunc, &r.shieldID)
+	r.reader, err = NewPcap2Reader(r.f)
 	if err != nil {
 		return nil, err
 	}
+	r.reader.PacketFunc = packetFunc
 	r.resourcePackHandler.cache = r.reader.ResourcePacks
 
 	return r, nil
-}
-
-func (r *ReplayConnector) DisconnectOnInvalidPacket() bool {
-	return false
-}
-
-func (r *ReplayConnector) DisconnectOnUnknownPacket() bool {
-	return false
 }
 
 func (r *ReplayConnector) OnDisconnect() <-chan struct{} {
