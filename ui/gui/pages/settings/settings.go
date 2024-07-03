@@ -157,8 +157,8 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 							c := p.cmdMenu.clickables[name]
 							b := material.Button(th, c.Clickable, c.Text)
 							if p.cmdMenu.selected == name {
-								b.Background = component.WithAlpha(th.Fg, 70)
-								b.Color = th.Fg
+								b.Background = th.Fg
+								b.Color = th.Bg
 							}
 							return layout.Inset{Left: 5, Right: 5}.Layout(gtx, b.Layout)
 						},

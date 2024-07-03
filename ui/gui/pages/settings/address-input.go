@@ -56,7 +56,7 @@ func (a *addressInput) Layout(gtx layout.Context, th *material.Theme) layout.Dim
 				})
 				c := macro.Stop()
 				component.Rect{
-					Color: component.WithAlpha(th.ContrastFg, 80),
+					Color: component.WithAlpha(th.Fg, 10),
 					Size:  d.Size,
 					Radii: 8,
 				}.Layout(gtx)

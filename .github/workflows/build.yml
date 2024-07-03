@@ -92,3 +92,4 @@ jobs:
           replacesArtifacts: true
           allowUpdates: true
           makeLatest:  ${{ steps.build.outputs.is_latest }}
+          tag: ${{ steps.build.outputs.release_tag }}

@@ -318,7 +318,7 @@ func (r *rpHandler) downloadResourcePack(pk *packet.ResourcePackDataInfo) error 
 	// Remove the resource pack from the downloading packs and add it to the awaiting packets.
 	delete(packMap, pk.Size)
 	if len(packMap) == 0 {
-		delete(r.downloadQueue.downloadingPacks, pk.UUID)
+		delete(r.downloadQueue.downloadingPacks, packID)
 	}
 	r.downloadQueue.awaitingPacks[pk.UUID] = &pack
 	pack.chunkSize = pk.DataChunkSize

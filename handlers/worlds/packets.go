@@ -130,97 +130,63 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 			}
 		}
 		w.bp.AddBiomes(biomes)
-	}
 
-	_pk = w.itemPackets(_pk)
-	_pk = w.mapPackets(_pk, toServer)
-	w.playersPackets(_pk)
-	w.chunkPackets(_pk)
+	// chunk
 
-	// entity
-	if w.settings.SaveEntities {
-		w.entityPackets(_pk)
-	}
+	case *packet.ChangeDimension:
+		dim, _ := world.DimensionByID(int(pk.Dimension))
+		w.SaveAndReset(false, dim)
 
-	return _pk, nil
-}
+	case *packet.LevelChunk:
+		w.processLevelChunk(pk)
 
-func (w *worldsHandler) playersPackets(_pk packet.Packet) {
-	switch pk := _pk.(type) {
+	case *packet.SubChunk:
+		if err := w.processSubChunk(pk); err != nil {
+			w.log.WithField("packet", "SubChunk").Error(err)
+		}
+
+	case *packet.BlockActorData:
+		p := pk.Position
+		pos := cube.Pos{int(p.X()), int(p.Y()), int(p.Z())}
+		w.currentWorld.SetBlockNBT(pos, pk.NBTData, false)
+
+	case *packet.UpdateBlock:
+		if w.settings.BlockUpdates {
+			cp := world.ChunkPos{pk.Position.X() >> 4, pk.Position.Z() >> 4}
+			w.currentWorld.QueueBlockUpdate(cp, pk)
+		}
+
+	case *packet.UpdateBlockSynced:
+		if w.settings.BlockUpdates {
+			cp := world.ChunkPos{pk.Position.X() >> 4, pk.Position.Z() >> 4}
+			w.currentWorld.QueueBlockUpdate(cp, pk)
+		}
+
+	case *packet.UpdateSubChunkBlocks:
+		if w.settings.BlockUpdates {
+			cp := world.ChunkPos{pk.Position.X(), pk.Position.Z()}
+			w.currentWorld.QueueBlockUpdate(cp, pk)
+		}
+
+	case *packet.ClientBoundMapItemData:
+		w.currentWorld.StoreMap(pk)
+
+		// player
 	case *packet.AddPlayer:
 		w.currentWorld.AddPlayer(pk)
-		skin, ok := w.serverState.playerSkins[pk.UUID]
-		if ok {
-			skinTexture := image.NewRGBA(image.Rect(0, 0, int(skin.SkinImageWidth), int(skin.SkinImageHeight)))
-			copy(skinTexture.Pix, skin.SkinData)
-
-			var capeTexture *image.RGBA
-			if skin.CapeID != "" {
-				capeTexture = image.NewRGBA(image.Rect(0, 0, int(skin.CapeImageWidth), int(skin.CapeImageHeight)))
-				copy(capeTexture.Pix, skin.CapeData)
-			}
-
-			var resourcePatch map[string]map[string]string
-			err := utils.ParseJson(skin.SkinResourcePatch, &resourcePatch)
-			if err != nil {
-				w.log.WithField("data", "SkinResourcePatch").Error(err)
-				return
-			}
-
-			geometryName := resourcePatch["geometry"]["default"]
-
-			var geometry *resourcepack.GeometryFile
-			var isDefault bool
-			if len(skin.SkinGeometry) > 0 {
-				skinGeometry, _, err := utils.ParseSkinGeometry(skin.SkinGeometry)
-				if err != nil {
-					w.log.WithField("player", pk.Username).Warn(err)
-					return
-				}
-				if skinGeometry != nil {
-					geometry = &resourcepack.GeometryFile{
-						FormatVersion: string(skin.GeometryDataEngineVersion),
-						Geometry: []*resourcepack.Geometry{
-							{
-								Description: skinGeometry.Description,
-								Bones:       skinGeometry.Bones,
-							},
-						},
-					}
-				}
-			}
-			if geometry == nil {
-				geometry = &resourcepack.GeometryFile{
-					FormatVersion: string(skin.GeometryDataEngineVersion),
-					Geometry: []*resourcepack.Geometry{
-						{
-							Description: utils.SkinGeometryDescription{
-								Identifier:    geometryName,
-								TextureWidth:  int(skin.SkinImageWidth),
-								TextureHeight: int(skin.SkinImageHeight),
-							},
-						},
-					},
-				}
-				isDefault = true
-			}
-
-			w.rp.AddPlayer(pk.UUID.String(), skinTexture, capeTexture, skin.CapeID, geometry, isDefault)
-		}
+		w.addPlayer(pk)
 	case *packet.PlayerList:
-		if pk.ActionType == packet.PlayerListActionRemove { // remove
-			return
+		if pk.ActionType == packet.PlayerListActionAdd { // remove
+			for _, player := range pk.Entries {
+				w.serverState.playerSkins[player.UUID] = &player.Skin
+			}
 		}
-		for _, player := range pk.Entries {
-			w.serverState.playerSkins[player.UUID] = &player.Skin
-		}
+
 	case *packet.PlayerSkin:
 		w.serverState.playerSkins[pk.UUID] = &pk.Skin
-	}
-}
 
-func (w *worldsHandler) entityPackets(_pk packet.Packet) {
-	switch pk := _pk.(type) {
+	// entity
+
 	case *packet.AddActor:
 		w.currentWorld.ProcessAddActor(pk, func(es *worldstate.EntityState) bool {
 			return w.scripting.OnEntityAdd(es, es.Metadata)
@@ -278,13 +244,17 @@ func (w *worldsHandler) entityPackets(_pk packet.Packet) {
 		}
 
 	case *packet.MobEquipment:
-		if e := w.getEntity(pk.EntityRuntimeID); e != nil {
-			w, ok := e.Inventory[pk.WindowID]
-			if !ok {
-				w = make(map[byte]protocol.ItemInstance)
-				e.Inventory[pk.WindowID] = w
+		if pk.NewItem.Stack.NBTData["map_uuid"] == int64(ViewMapID) {
+			_pk = nil
+		} else {
+			if e := w.getEntity(pk.EntityRuntimeID); e != nil {
+				w, ok := e.Inventory[pk.WindowID]
+				if !ok {
+					w = make(map[byte]protocol.ItemInstance)
+					e.Inventory[pk.WindowID] = w
+				}
+				w[pk.HotBarSlot] = pk.NewItem
 			}
-			w[pk.HotBarSlot] = pk.NewItem
 		}
 
 	case *packet.MobArmourEquipment:
@@ -297,51 +267,9 @@ func (w *worldsHandler) entityPackets(_pk packet.Packet) {
 
 	case *packet.SetActorLink:
 		w.currentWorld.AddEntityLink(pk.EntityLink)
-	}
-}
 
-func (w *worldsHandler) chunkPackets(_pk packet.Packet) {
-	// chunk
-	switch pk := _pk.(type) {
-	case *packet.ChangeDimension:
-		dim, _ := world.DimensionByID(int(pk.Dimension))
-		w.SaveAndReset(false, dim)
-
-	case *packet.LevelChunk:
-		w.processLevelChunk(pk)
-
-	case *packet.SubChunk:
-		if err := w.processSubChunk(pk); err != nil {
-			w.log.WithField("packet", "SubChunk").Error(err)
-		}
-
-	case *packet.BlockActorData:
-		p := pk.Position
-		pos := cube.Pos{int(p.X()), int(p.Y()), int(p.Z())}
-		w.currentWorld.SetBlockNBT(pos, pk.NBTData, false)
-	case *packet.UpdateBlock:
-		if w.settings.BlockUpdates {
-			cp := world.ChunkPos{pk.Position.X() >> 4, pk.Position.Z() >> 4}
-			w.currentWorld.QueueBlockUpdate(cp, pk)
-		}
-	case *packet.UpdateBlockSynced:
-		if w.settings.BlockUpdates {
-			cp := world.ChunkPos{pk.Position.X() >> 4, pk.Position.Z() >> 4}
-			w.currentWorld.QueueBlockUpdate(cp, pk)
-		}
-	case *packet.UpdateSubChunkBlocks:
-		if w.settings.BlockUpdates {
-			cp := world.ChunkPos{pk.Position.X(), pk.Position.Z()}
-			w.currentWorld.QueueBlockUpdate(cp, pk)
-		}
-	case *packet.ClientBoundMapItemData:
-		w.currentWorld.StoreMap(pk)
-	}
-}
-
-func (w *worldsHandler) mapPackets(_pk packet.Packet, toServer bool) packet.Packet {
 	// map
-	switch pk := _pk.(type) {
+
 	case *packet.MapInfoRequest:
 		if pk.MapID == ViewMapID {
 			w.mapUI.SchedRedraw()
@@ -352,13 +280,9 @@ func (w *worldsHandler) mapPackets(_pk packet.Packet, toServer bool) packet.Pack
 			w.mapUI.ChangeZoom()
 			w.proxy.SendPopup(locale.Loc("zoom_level", locale.Strmap{"Level": w.mapUI.zoomLevel}))
 		}
-	}
-	return _pk
-}
 
-func (w *worldsHandler) itemPackets(_pk packet.Packet) packet.Packet {
 	// items
-	switch pk := _pk.(type) {
+
 	case *packet.ItemStackRequest:
 		var requests []protocol.ItemStackRequest
 		for _, isr := range pk.Requests {
@@ -397,11 +321,6 @@ func (w *worldsHandler) itemPackets(_pk packet.Packet) packet.Packet {
 			requests = append(requests, isr)
 		}
 		pk.Requests = requests
-
-	case *packet.MobEquipment:
-		if pk.NewItem.Stack.NBTData["map_uuid"] == int64(ViewMapID) {
-			_pk = nil
-		}
 
 	case *packet.ContainerOpen:
 		// add to open containers
@@ -482,5 +401,67 @@ func (w *worldsHandler) itemPackets(_pk packet.Packet) packet.Packet {
 			delete(w.serverState.openItemContainers, byte(pk.WindowID))
 		}
 	}
-	return _pk
+
+	return _pk, nil
+}
+
+func (w *worldsHandler) addPlayer(pk *packet.AddPlayer) {
+	skin, ok := w.serverState.playerSkins[pk.UUID]
+	if ok {
+		skinTexture := image.NewRGBA(image.Rect(0, 0, int(skin.SkinImageWidth), int(skin.SkinImageHeight)))
+		copy(skinTexture.Pix, skin.SkinData)
+
+		var capeTexture *image.RGBA
+		if skin.CapeID != "" {
+			capeTexture = image.NewRGBA(image.Rect(0, 0, int(skin.CapeImageWidth), int(skin.CapeImageHeight)))
+			copy(capeTexture.Pix, skin.CapeData)
+		}
+
+		var resourcePatch map[string]map[string]string
+		err := utils.ParseJson(skin.SkinResourcePatch, &resourcePatch)
+		if err != nil {
+			w.log.WithField("data", "SkinResourcePatch").Error(err)
+			return
+		}
+
+		geometryName := resourcePatch["geometry"]["default"]
+
+		var geometry *resourcepack.GeometryFile
+		var isDefault bool
+		if len(skin.SkinGeometry) > 0 {
+			skinGeometry, _, err := utils.ParseSkinGeometry(skin.SkinGeometry)
+			if err != nil {
+				w.log.WithField("player", pk.Username).Warn(err)
+				return
+			}
+			if skinGeometry != nil {
+				geometry = &resourcepack.GeometryFile{
+					FormatVersion: string(skin.GeometryDataEngineVersion),
+					Geometry: []*resourcepack.Geometry{
+						{
+							Description: skinGeometry.Description,
+							Bones:       skinGeometry.Bones,
+						},
+					},
+				}
+			}
+		}
+		if geometry == nil {
+			geometry = &resourcepack.GeometryFile{
+				FormatVersion: string(skin.GeometryDataEngineVersion),
+				Geometry: []*resourcepack.Geometry{
+					{
+						Description: utils.SkinGeometryDescription{
+							Identifier:    geometryName,
+							TextureWidth:  int(skin.SkinImageWidth),
+							TextureHeight: int(skin.SkinImageHeight),
+						},
+					},
+				},
+			}
+			isDefault = true
+		}
+
+		w.rp.AddPlayer(pk.UUID.String(), skinTexture, capeTexture, skin.CapeID, geometry, isDefault)
+	}
 }
