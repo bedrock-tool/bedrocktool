@@ -55,7 +55,9 @@ jobs:
 
       - name: build
         id: build
-        run: python build.py
+        run: |
+          pip install gitpython
+          python build.py
 
       - name: Deploy with rsync
         if: ${{ env.SSH_HOST != '' }}
