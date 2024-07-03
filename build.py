@@ -35,6 +35,7 @@ def generate_changelog(tag_name):
 
 
 def get_version():
+    repo = git.Repo(".")
     GIT_TAG = subprocess.run(["git", "describe", "--exclude", "r*", "--tags", "--always"], stdout=subprocess.PIPE).stdout.decode("utf8").split("\n")[0]
     if GIT_TAG == "":
         GIT_TAG = "v0.0.0"
@@ -44,6 +45,8 @@ def get_version():
     TAG = f"{VER}-{PATCH}"
     if GITHUB_OUTPUT:
         GITHUB_OUTPUT.write(f"release_tag=r{VER}\n")
+        
+        GITHUB_OUTPUT.write(f"is_latest={'true' if repo.active_branch == 'master' else 'false'}\n")
     return VER, TAG
 
 

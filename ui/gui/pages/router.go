@@ -210,9 +210,9 @@ func (r *Router) HandleMessage(msg *messages.Message) *messages.Message {
 		if r.Invalidate != nil {
 			r.Invalidate()
 		}
-	case messages.ConnectState:
-		if data == messages.ConnectStateBegin {
-			r.PushPopup(popups.NewConnect(r.ui))
+	case messages.ConnectStateUpdate:
+		if data.State == messages.ConnectStateBegin {
+			r.PushPopup(popups.NewConnect(r.ui, data.ListenIP, data.ListenPort))
 		}
 
 	case messages.ShowPopup:

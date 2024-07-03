@@ -63,9 +63,11 @@ jobs:
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
 
-      - uses: "marvinpinto/action-automatic-releases@latest"
+      - name: Release
+        uses: softprops/action-gh-release@v2
         with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: ${{ steps.build.outputs.release_tag }}
+          body_path: changelog.txt
+          token: ${{ secrets.GITHUB_TOKEN }}
           files: ./builds/*
-          prerelease: false
+          tag_name: ${{ steps.build.outputs.release_tag }}
+          make_latest: ${{ steps.build.outputs.is_latest }}

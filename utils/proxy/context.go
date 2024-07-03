@@ -61,6 +61,7 @@ func New(withClient bool) (*Context, error) {
 		commands:         make(map[string]ingameCommand),
 		withClient:       withClient,
 		disconnectReason: "Connection Lost",
+		ListenAddress:    "0.0.0.0:19132",
 	}
 	return p, nil
 }
@@ -324,10 +325,17 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 		}
 	}
 
+	listenIP, _listenPort, _ := net.SplitHostPort(p.ListenAddress)
+	listenPort, _ := strconv.Atoi(_listenPort)
+
 	messages.Router.Handle(&messages.Message{
 		Source: "proxy",
 		Target: "ui",
-		Data:   messages.ConnectStateBegin,
+		Data: messages.ConnectStateUpdate{
+			State:      messages.ConnectStateBegin,
+			ListenIP:   listenIP,
+			ListenPort: listenPort,
+		},
 	})
 
 	// setup Client and Server Connections
@@ -464,7 +472,9 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 	messages.Router.Handle(&messages.Message{
 		Source: "proxy",
 		Target: "ui",
-		Data:   messages.ConnectStateDone,
+		Data: messages.ConnectStateUpdate{
+			State: messages.ConnectStateDone,
+		},
 	})
 
 	{ // packet loop

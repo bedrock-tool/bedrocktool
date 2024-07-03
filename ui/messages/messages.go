@@ -42,6 +42,12 @@ const (
 	ConnectStateDone
 )
 
+type ConnectStateUpdate struct {
+	ListenIP   string
+	ListenPort int
+	State      ConnectState
+}
+
 type SetValue struct {
 	Name  string
 	Value string

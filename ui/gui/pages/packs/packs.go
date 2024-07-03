@@ -268,8 +268,8 @@ func (p *Page) HandleMessage(msg *messages.Message) *messages.Message {
 	case messages.UIState:
 		p.State = m
 
-	case messages.ConnectState:
-		if m == messages.ConnectStateReceivingResources {
+	case messages.ConnectStateUpdate:
+		if m.State == messages.ConnectStateReceivingResources {
 			messages.Router.Handle(&messages.Message{
 				Source: "packs-ui",
 				Target: "ui",

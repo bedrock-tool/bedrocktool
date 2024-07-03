@@ -1,11 +1,14 @@
 package popups
 
 import (
+	"fmt"
+
 	"gioui.org/layout"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/bedrock-tool/bedrocktool/ui"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
+	"github.com/bedrock-tool/bedrocktool/utils"
 )
 
 type (
@@ -17,10 +20,18 @@ type ConnectPopup struct {
 	ui    ui.UI
 	state string
 	close widget.Clickable
+
+	ListenIP   string
+	ListenPort int
+
+	connectButton widget.Clickable
 }
 
-func NewConnect(ui ui.UI) Popup {
-	return &ConnectPopup{ui: ui}
+func NewConnect(ui ui.UI, ListenIP string, ListenPort int) Popup {
+	if ListenIP == "0.0.0.0" {
+		ListenIP = "127.0.0.1"
+	}
+	return &ConnectPopup{ui: ui, ListenIP: ListenIP, ListenPort: ListenPort}
 }
 
 func (p *ConnectPopup) ID() string {
@@ -28,6 +39,10 @@ func (p *ConnectPopup) ID() string {
 }
 
 func (p *ConnectPopup) Layout(gtx C, th *material.Theme) D {
+	if p.connectButton.Clicked(gtx) {
+		utils.OpenUrl(fmt.Sprintf("minecraft://connect/?serverUrl=%s&serverPort=%d", p.ListenIP, p.ListenPort))
+	}
+
 	if p.close.Clicked(gtx) {
 		messages.Router.Handle(&messages.Message{
 			Source: p.ID(),
@@ -53,7 +68,7 @@ func (p *ConnectPopup) Layout(gtx C, th *material.Theme) D {
 							case "listening":
 								return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 									layout.Rigid(material.Label(th, 40, "Listening").Layout),
-									layout.Rigid(material.Body1(th, "connect to 127.0.0.1 or this devices local address\nin the minecraft bedrock client to continue").Layout),
+									layout.Rigid(material.Body1(th, fmt.Sprintf("connect to %s with port %d\nin the minecraft bedrock client to continue", p.ListenIP, p.ListenPort)).Layout),
 								)
 							case "connecting-server":
 								return material.Label(th, 40, "Connecting to Server").Layout(gtx)
@@ -66,10 +81,27 @@ func (p *ConnectPopup) Layout(gtx C, th *material.Theme) D {
 				})
 			}),
 			layout.Rigid(func(gtx C) D {
-				gtx.Constraints.Max.X /= 4
-				b := material.Button(th, &p.close, "Close")
-				b.CornerRadius = 8
-				return b.Layout(gtx)
+				gtx.Constraints.Max.X /= 2
+
+				return layout.Flex{
+					Axis:      layout.Horizontal,
+					Spacing:   layout.SpaceBetween,
+					Alignment: layout.Middle,
+				}.Layout(gtx,
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						b := material.Button(th, &p.close, "Close")
+						b.CornerRadius = 8
+						return b.Layout(gtx)
+					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						if p.state == "listening" {
+							b := material.Button(th, &p.connectButton, "Connect Minecraft")
+							b.CornerRadius = 8
+							return b.Layout(gtx)
+						}
+						return layout.Dimensions{}
+					}),
+				)
 			}),
 		)
 	})
@@ -77,8 +109,8 @@ func (p *ConnectPopup) Layout(gtx C, th *material.Theme) D {
 
 func (p *ConnectPopup) HandleMessage(msg *messages.Message) *messages.Message {
 	switch m := msg.Data.(type) {
-	case messages.ConnectState:
-		switch m {
+	case messages.ConnectStateUpdate:
+		switch m.State {
 		case messages.ConnectStateListening:
 			p.state = "listening"
 		case messages.ConnectStateServerConnecting:

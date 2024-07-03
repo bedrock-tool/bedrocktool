@@ -32,7 +32,7 @@ func (*WorldCMD) Synopsis() string { return locale.Loc("world_synopsis", nil) }
 
 func (c *WorldCMD) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.ServerAddress, "address", "", locale.Loc("remote_address", nil))
-	f.StringVar(&c.ListenAddress, "listen", "", "example :19132 or 127.0.0.1:19132")
+	f.StringVar(&c.ListenAddress, "listen", "0.0.0.0:19132", "example :19132 or 127.0.0.1:19132")
 	f.BoolVar(&c.Packs, "packs", false, locale.Loc("save_packs_with_world", nil))
 	f.BoolVar(&c.EnableVoid, "void", true, locale.Loc("enable_void", nil))
 	f.BoolVar(&c.SaveImage, "image", false, locale.Loc("save_image", nil))

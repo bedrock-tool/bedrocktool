@@ -20,7 +20,9 @@ func (p *Context) onResourcePacksInfo() {
 	messages.Router.Handle(&messages.Message{
 		Source: "proxy",
 		Target: "ui",
-		Data:   messages.ConnectStateReceivingResources,
+		Data: messages.ConnectStateUpdate{
+			State: messages.ConnectStateReceivingResources,
+		},
 	})
 }
 
@@ -44,7 +46,9 @@ func (p *Context) connectServer(ctx context.Context) (err error) {
 	messages.Router.Handle(&messages.Message{
 		Source: "proxy",
 		Target: "ui",
-		Data:   messages.ConnectStateServerConnecting,
+		Data: messages.ConnectStateUpdate{
+			State: messages.ConnectStateServerConnecting,
+		},
 	})
 	logrus.Info(locale.Loc("connecting", locale.Strmap{"Address": p.serverAddress}))
 	d := minecraft.Dialer{
@@ -91,7 +95,9 @@ func (p *Context) connectServer(ctx context.Context) (err error) {
 	messages.Router.Handle(&messages.Message{
 		Source: "proxy",
 		Target: "ui",
-		Data:   messages.ConnectStateEstablished,
+		Data: messages.ConnectStateUpdate{
+			State: messages.ConnectStateEstablished,
+		},
 	})
 	logrus.Debug(locale.Loc("connected", nil))
 	return nil
@@ -102,10 +108,6 @@ func (p *Context) connectClient(ctx context.Context, serverAddress string) (err 
 	var extraClientDebugEnd func()
 	if p.ExtraDebug {
 		extraClientDebug, extraClientDebugEnd = newExtraDebug("packets-client.log")
-	}
-
-	if p.ListenAddress == "" {
-		p.ListenAddress = "0.0.0.0:19132"
 	}
 
 	p.listener, err = minecraft.ListenConfig{
@@ -137,7 +139,9 @@ func (p *Context) connectClient(ctx context.Context, serverAddress string) (err 
 	messages.Router.Handle(&messages.Message{
 		Source: "proxy",
 		Target: "ui",
-		Data:   messages.ConnectStateListening,
+		Data: messages.ConnectStateUpdate{
+			State: messages.ConnectStateListening,
+		},
 	})
 	logrus.Infof(locale.Loc("listening_on", locale.Strmap{"Address": p.listener.Addr()}))
 	logrus.Infof(locale.Loc("help_connect", nil))

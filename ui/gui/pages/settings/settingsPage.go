@@ -25,18 +25,16 @@ type settingsPage struct {
 	grid outlay.Grid
 	list widget.List
 
-	tooltips map[string]*component.TipArea
-	hints    map[string]string
-	flags    []string
-	setters  map[string]func(string) error
+	tooltips          map[string]*component.TipArea
+	flagsNamesOrdered []string
+	flags             map[string]*flag.Flag
 }
 
 func (s *settingsPage) Init() {
 	s.list.Axis = layout.Vertical
 	s.widgets = make(map[string]any)
 	s.tooltips = make(map[string]*component.TipArea)
-	s.hints = make(map[string]string)
-	s.setters = make(map[string]func(string) error)
+	s.flags = make(map[string]*flag.Flag)
 	s.f = flag.NewFlagSet("", flag.ContinueOnError)
 	s.cmd.SetFlags(s.f)
 	hasAddress := false
@@ -53,18 +51,15 @@ func (s *settingsPage) Init() {
 			e := &component.TextField{
 				Helper: f.Name + ": " + f.Usage,
 			}
-			if f.DefValue != "" && f.DefValue != "0" {
+			/*if f.DefValue != "" && f.DefValue != "0" {
 				e.Helper = fmt.Sprintf("%s (Default: '%s')", f.Usage, f.DefValue)
-			}
+			}*/
 
 			e.SetText(f.DefValue)
 			e.SingleLine = true
 			if t == "intValue" {
 				e.Filter = "0123456789"
 				e.InputHint = key.HintNumeric
-				if f.DefValue == "0" {
-					e.SetText("0")
-				}
 			}
 			s.widgets[f.Name] = e
 		case "boolValue":
@@ -76,15 +71,15 @@ func (s *settingsPage) Init() {
 		default:
 			logrus.Warnf("%s unknown flag type", t)
 		}
+
 		s.tooltips[f.Name] = &component.TipArea{}
-		s.hints[f.Name] = f.Usage
-		s.setters[f.Name] = f.Value.Set
+		s.flags[f.Name] = f
 
 		if f.Name == "address" {
 			s.widgets[f.Name] = AddressInput
 			hasAddress = true
 		} else {
-			s.flags = append(s.flags, f.Name)
+			s.flagsNamesOrdered = append(s.flagsNamesOrdered, f.Name)
 		}
 	}
 
@@ -97,7 +92,7 @@ func (s *settingsPage) Init() {
 	})
 
 	if hasAddress {
-		s.flags = append([]string{"address"}, s.flags...)
+		s.flagsNamesOrdered = append([]string{"address"}, s.flagsNamesOrdered...)
 	}
 }
 
@@ -122,34 +117,38 @@ func (e settingError) Error() string {
 }
 
 func (s *settingsPage) Apply() error {
-	for k, set := range s.setters {
-		w := s.widgets[k]
-		switch w := w.(type) {
+	for flagName, flag := range s.flags {
+		flagWidget := s.widgets[flagName]
+		var value string
+		switch flagWidget := flagWidget.(type) {
 		case *widget.Bool:
-			v := "false"
-			if w.Value {
-				v = "true"
-			}
-			if err := set(v); err != nil {
-				return settingError{name: k, err: err}
+			value = "false"
+			if flagWidget.Value {
+				value = "true"
 			}
 		case *component.TextField:
-			if err := set(w.Text()); err != nil {
-				return settingError{name: k, err: err}
-			}
+			value = flagWidget.Text()
 		case *addressInput:
-			if err := set(w.Value()); err != nil {
-				return settingError{name: k, err: err}
-			}
+			value = flagWidget.Value()
 		default:
-			return errors.New("unknown widget " + k)
+			return errors.New("unknown widget " + flagName)
+		}
+
+		vt := strings.Split(reflect.ValueOf(flag).Type().String(), ".")[1]
+
+		if value == "" && vt == "intValue" {
+			value = flag.DefValue
+		}
+		err := flag.Value.Set(value)
+		if err != nil {
+			return settingError{name: flagName, err: err}
 		}
 	}
 	return nil
 }
 
 func (s *settingsPage) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
-	return material.List(th, &s.list).Layout(gtx, len(s.flags)+2, func(gtx layout.Context, index int) layout.Dimensions {
+	return material.List(th, &s.list).Layout(gtx, len(s.flagsNamesOrdered)+2, func(gtx layout.Context, index int) layout.Dimensions {
 		if index == 0 { // address input
 			w, ok := s.widgets["address"].(*addressInput)
 			if ok {
@@ -159,12 +158,12 @@ func (s *settingsPage) Layout(gtx layout.Context, th *material.Theme) layout.Dim
 		}
 		if index == 1 { // bool flags
 			var widgets []layout.Widget
-			for _, name := range s.flags {
+			for _, name := range s.flagsNamesOrdered {
 				name := name
 				if w, ok := s.widgets[name].(*widget.Bool); ok {
 					widgets = append(widgets, func(gtx C) D {
 						return s.tooltips[name].Layout(gtx,
-							component.PlatformTooltip(th, s.hints[name]),
+							component.PlatformTooltip(th, s.flags[name].Usage),
 							material.CheckBox(th, w, name).Layout,
 						)
 					})
@@ -186,7 +185,7 @@ func (s *settingsPage) Layout(gtx layout.Context, th *material.Theme) layout.Dim
 			})
 		}
 
-		name := s.flags[index-2]
+		name := s.flagsNamesOrdered[index-2]
 		w := s.widgets[name]
 
 		switch w := w.(type) {
