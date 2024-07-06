@@ -109,7 +109,7 @@ type DownloadedPack struct {
 }
 
 type FinishedPack struct {
-	Pack *resource.Pack
+	Pack resource.Pack
 }
 
 type ProcessingPack struct {

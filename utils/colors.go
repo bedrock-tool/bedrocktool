@@ -8,7 +8,6 @@ import (
 	"io/fs"
 	"math"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
@@ -41,8 +40,8 @@ func getTextureNames(entries []protocol.BlockEntry) map[string]string {
 	return res
 }
 
-func readBlocksJson(f fs.FS, baseDir string) (map[string]string, error) {
-	blocksJsonContent, err := fs.ReadFile(f, filepath.Join(baseDir, "blocks.json"))
+func readBlocksJson(f fs.FS) (map[string]string, error) {
+	blocksJsonContent, err := fs.ReadFile(f, "blocks.json")
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, nil
@@ -83,8 +82,8 @@ func readBlocksJson(f fs.FS, baseDir string) (map[string]string, error) {
 	return out, nil
 }
 
-func loadFlipbooks(f fs.FS, baseDir string) (map[string]string, error) {
-	flipbookContent, err := fs.ReadFile(f, filepath.Join(baseDir, "textures/flipbook_textures.json"))
+func loadFlipbooks(f fs.FS) (map[string]string, error) {
+	flipbookContent, err := fs.ReadFile(f, "textures/flipbook_textures.json")
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, nil
@@ -107,8 +106,8 @@ func loadFlipbooks(f fs.FS, baseDir string) (map[string]string, error) {
 	return o, nil
 }
 
-func loadTerrainTexture(f fs.FS, baseDir string) (map[string]string, error) {
-	terrainContent, err := fs.ReadFile(f, filepath.Join(baseDir, "textures/terrain_texture.json"))
+func loadTerrainTexture(f fs.FS) (map[string]string, error) {
+	terrainContent, err := fs.ReadFile(f, "textures/terrain_texture.json")
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil, nil
@@ -166,29 +165,24 @@ func calculateMeanAverageColour(img image.Image) (c color.RGBA) {
 	}
 }
 
-func toTexturePath(name string) string {
-	return strings.Replace(name, ":", "/", 1)
-}
-
-var ridToIdx map[BlockRID]TexMapEntry
-
 func ResolveColors(entries []protocol.BlockEntry, packs []Pack, addToBlocks bool) (*image.RGBA, map[string]color.RGBA) {
+	log := logrus.WithField("func", "ResolveColors")
+
 	colors := make(map[string]color.RGBA)
-	images := make(map[string]image.Image)
+	//images := make(map[string]image.Image)
 
 	texture_names := getTextureNames(entries)
 	for _, p := range packs {
-		fs, filenames, err := p.FS()
+		baseDir := p.BaseDir()
+		pfs, err := fs.Sub(p, baseDir)
 		if err != nil {
-			logrus.Error(err)
+			log.Error(err)
 			continue
 		}
 
-		baseDir := p.Base().BaseDir()
-
-		blocksJson, err := readBlocksJson(fs, baseDir)
+		blocksJson, err := readBlocksJson(pfs)
 		if err != nil {
-			logrus.Error(err)
+			log.Error(err)
 			continue
 		}
 
@@ -196,15 +190,19 @@ func ResolveColors(entries []protocol.BlockEntry, packs []Pack, addToBlocks bool
 			texture_names[block] = name
 		}
 
-		flipbooks, err := loadFlipbooks(fs, baseDir)
+		flipbooks, err := loadFlipbooks(pfs)
 		if err != nil {
-			logrus.Error(err)
+			log.Error(err)
 			continue
 		}
 
-		terrainTextures, err := loadTerrainTexture(fs, baseDir)
+		terrainTextures, err := loadTerrainTexture(pfs)
 		if err != nil {
-			logrus.Error(err)
+			log.Error(err)
+			continue
+		}
+
+		if flipbooks == nil && terrainTextures == nil {
 			continue
 		}
 
@@ -220,30 +218,24 @@ func ResolveColors(entries []protocol.BlockEntry, packs []Pack, addToBlocks bool
 			}
 
 			if texturePath == "" {
-				texturePath = toTexturePath(texture_name)
-			}
-			var found bool
-			for _, ext := range []string{".png", ".tga"} {
-				if found {
-					break
-				}
-				p := path.Join(baseDir, texturePath+ext)
-				for _, v := range filenames {
-					if strings.HasSuffix(v, p) {
-						texturePath = v
-						found = true
-						break
-					}
-				}
-			}
-			if !found {
 				continue
 			}
 
-			delete(texture_names, block)
-			r, err := fs.Open(texturePath)
+			matches, err := fs.Glob(pfs, texturePath+".*")
 			if err != nil {
-				logrus.Error(err)
+				log.Warn(err)
+				continue
+			}
+			if len(matches) == 0 {
+				continue
+			}
+
+			texturePath = matches[0]
+
+			delete(texture_names, block)
+			r, err := p.Open(texturePath)
+			if err != nil {
+				log.Error(err)
 				continue
 			}
 			var img image.Image
@@ -257,7 +249,7 @@ func ResolveColors(entries []protocol.BlockEntry, packs []Pack, addToBlocks bool
 			}
 			r.Close()
 			if err != nil {
-				logrus.Error(err)
+				log.Error(err)
 				continue
 			}
 			if img == nil {
@@ -265,7 +257,7 @@ func ResolveColors(entries []protocol.BlockEntry, packs []Pack, addToBlocks bool
 			}
 
 			colors[block] = calculateMeanAverageColour(img)
-			images[block] = img
+			//images[block] = img
 		}
 	}
 

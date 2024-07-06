@@ -1,7 +1,6 @@
 package proxy
 
 import (
-	"archive/zip"
 	"compress/flate"
 	"encoding/binary"
 	"errors"
@@ -44,15 +43,12 @@ func NewPcap2Reader(f *os.File) (*Pcap2Reader, error) {
 	}
 
 	ver := binary.LittleEndian.Uint32(head[4:8])
-	zipSize := binary.LittleEndian.Uint64(head[8:16])
-	z, err := zip.NewReader(io.NewSectionReader(f, 16, int64(zipSize)), int64(zipSize))
-	if err != nil {
-		return nil, err
-	}
+	zipSize := int64(binary.LittleEndian.Uint64(head[8:16]))
 
 	// read all packs
+	cacheReader := io.NewSectionReader(f, 16, int64(zipSize))
 	cache := &replayCache{}
-	err = cache.ReadFrom(z)
+	err := cache.ReadFrom(cacheReader, zipSize)
 	if err != nil {
 		return nil, err
 	}

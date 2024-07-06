@@ -26,7 +26,7 @@ func (p *Context) onResourcePacksInfo() {
 	})
 }
 
-func (p *Context) onFinishedPack(pack *resource.Pack) {
+func (p *Context) onFinishedPack(pack resource.Pack) {
 	messages.Router.Handle(&messages.Message{
 		Source: "proxy",
 		Target: "ui",

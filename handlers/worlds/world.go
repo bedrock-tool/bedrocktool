@@ -248,7 +248,7 @@ func NewWorldsHandler(settings WorldSettings) *proxy.Handler {
 				mapItemPacket.Content[0].StackNetworkID = 0xffff + rand.Int31n(0xfff)
 			}
 
-			w.serverState.packs = utils.GetPacks(w.proxy.Server)
+			w.serverState.packs = w.proxy.ResourcePacks
 
 			w.proxy.SendMessage(locale.Loc("use_setname", nil))
 			w.mapUI.Start(ctx)
@@ -289,7 +289,7 @@ func (w *worldsHandler) preloadReplay() error {
 		if err != nil {
 			log.Error(err)
 		}
-	}, func() {}, func(p *resource.Pack) {})
+	}, func() {}, func(p resource.Pack) {})
 	if err != nil {
 		return err
 	}

@@ -1,7 +1,6 @@
-import subprocess, re, os, shutil, json, binascii, hashlib, gzip
+import subprocess, re, os, shutil, json, binascii, hashlib, gzip, sys
 from collections import namedtuple
 import git
-from datetime import datetime
 
 NAME = "bedrocktool"
 APP_ID = "yuv.pink.bedrocktool"
@@ -60,6 +59,22 @@ def clean_syso():
         if file.endswith(".syso"):
             os.remove(f"./cmd/bedrocktool/{file}")
 
+def build_wasm(build: Build, tags: list[str], env: dict, ldflags: list[str]):
+    env.update({
+        "GOOS": build.os,
+        "GOARCH": build.arch
+    })
+    args = [
+        "go", "build",
+        "-ldflags", " ".join(ldflags),
+        "-trimpath",
+        "-tags", ",".join(tags),
+        "-o", "tmp/bedrocktool.wasm",
+        "-v",
+        "./cmd/bedrocktool"
+    ]
+    subprocess.run(args, env=env).check_returncode()
+
 
 def do_build(build: Build):
     print("Building", build)
@@ -80,6 +95,9 @@ def do_build(build: Build):
     else:
         CmdName = "bedrocktool"
     ldflags.append(f"-X github.com/bedrock-tool/bedrocktool/utils/updater.CmdName={CmdName}")
+
+    if build.arch == "wasm":
+        return build_wasm(build, tags, env, ldflags)
 
     ext = {
         "windows": ".exe",
@@ -150,8 +168,16 @@ def main():
         Build("windows", "amd64", True),
         Build("linux", "amd64", True),
         Build("windows", "amd64", False),
-        Build("linux", "amd64", False)
+        Build("linux", "amd64", False),
+        #Build("js", "wasm", True)
     ]
+
+    selected_os = sys.argv[1] if len(sys.argv) > 1 else ""
+    if selected_os:
+        builds = [build for build in builds if build.os == selected_os]
+    if len(builds) == 0:
+        print("no build selected")
+        return
 
     shutil.rmtree("./updates", True)
     for build in builds:

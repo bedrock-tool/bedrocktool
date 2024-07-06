@@ -5,26 +5,23 @@ import (
 	"path/filepath"
 
 	"github.com/sandertv/gophertunnel/minecraft/resource"
-	"github.com/sirupsen/logrus"
 )
 
 type iPackCache interface {
-	Get(id, ver string) *resource.Pack
+	Get(id, ver string) resource.Pack
 	Has(id, ver string) bool
-	Put(pack *resource.Pack)
-	Close()
+	Create(id, ver string) (*closeMoveWriter, error)
 }
 
 type packCache struct {
 	Ignore bool
-	commit chan struct{}
 }
 
 func (packCache) cachedPath(id, ver string) string {
 	return filepath.Join("packcache", id+"_"+ver+".zip")
 }
 
-func (c *packCache) Get(id, ver string) *resource.Pack {
+func (c *packCache) Get(id, ver string) resource.Pack {
 	if c.Ignore {
 		panic("not allowed")
 	}
@@ -39,24 +36,40 @@ func (c *packCache) Has(id, ver string) bool {
 	return err == nil
 }
 
-func (c *packCache) Put(pack *resource.Pack) {
+func (c *packCache) Create(id, ver string) (*closeMoveWriter, error) {
 	if c.Ignore {
-		return
+		return nil, nil
 	}
-	go func() {
-		<-c.commit
-		p := c.cachedPath(pack.UUID(), pack.Version())
-		_ = os.MkdirAll(filepath.Dir(p), 0777)
-		f, err := os.Create(p)
-		if err != nil {
-			logrus.Error(err)
-		}
-		defer f.Close()
-		_, _ = pack.WriteTo(f)
-		_, _ = pack.Seek(0, 0)
-	}()
+
+	finalPath := c.cachedPath(id, ver)
+	tmpPath := finalPath + ".tmp"
+
+	_ = os.MkdirAll(filepath.Dir(finalPath), 0777)
+
+	f, err := os.Create(tmpPath)
+	if err != nil {
+		return nil, err
+	}
+
+	return &closeMoveWriter{
+		f:         f,
+		FinalName: finalPath,
+	}, nil
 }
 
-func (c *packCache) Close() {
-	close(c.commit)
+type closeMoveWriter struct {
+	f         *os.File
+	FinalName string
+}
+
+func (c *closeMoveWriter) Write(b []byte) (n int, err error) {
+	return c.f.Write(b)
+}
+
+func (c *closeMoveWriter) Close() error {
+	err := c.f.Close()
+	if err != nil {
+		return err
+	}
+	return os.Rename(c.f.Name(), c.FinalName)
 }

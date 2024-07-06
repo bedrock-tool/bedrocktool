@@ -2,6 +2,8 @@ package proxy
 
 import (
 	"archive/zip"
+	"errors"
+	"io"
 	"path/filepath"
 	"strings"
 
@@ -9,30 +11,37 @@ import (
 )
 
 type replayCache struct {
-	packs map[string]*resource.Pack
+	packs map[string]resource.Pack
 }
 
-func (r *replayCache) Get(id, ver string) *resource.Pack {
+func (r *replayCache) Get(id, ver string) resource.Pack {
 	return r.packs[id+"_"+ver]
 }
 func (r *replayCache) Has(id, ver string) bool {
 	_, ok := r.packs[id+"_"+ver]
 	return ok
 }
-func (r *replayCache) Put(pack *resource.Pack) {}
-func (r *replayCache) Close()                  {}
+func (r *replayCache) Create(id, ver string) (*closeMoveWriter, error) { return nil, nil }
 
-func (r *replayCache) ReadFrom(z *zip.Reader) error {
-	r.packs = make(map[string]*resource.Pack)
+func (r *replayCache) ReadFrom(reader io.ReaderAt, readerSize int64) error {
+	z, err := zip.NewReader(reader, readerSize)
+	if err != nil {
+		return err
+	}
+
+	r.packs = make(map[string]resource.Pack)
 	for _, f := range z.File {
 		f.Name = strings.ReplaceAll(f.Name, "\\", "/")
 		if filepath.Dir(f.Name) == "packcache" {
-			f, err := z.Open(f.Name)
+			if f.Method != zip.Store {
+				return errors.New("packcache compressed")
+			}
+			offset, err := f.DataOffset()
 			if err != nil {
 				return err
 			}
-			pack, err := resource.Read(f)
-			f.Close()
+			packReader := io.NewSectionReader(reader, offset, int64(f.CompressedSize64))
+			pack, err := resource.FromReaderAt(packReader, int64(f.CompressedSize64))
 			if err != nil {
 				return err
 			}

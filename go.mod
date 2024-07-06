@@ -19,6 +19,7 @@ require (
 	github.com/google/subcommands v1.2.0
 	github.com/google/uuid v1.6.0
 	github.com/gregwebs/go-recovery v0.3.2
+	github.com/klauspost/compress v1.17.9
 	github.com/minio/selfupdate v0.6.0
 	github.com/nicksnyder/go-i18n/v2 v2.4.0
 	github.com/rifflock/lfshook v0.0.0-20180920164130-b9218ef580f5
@@ -34,7 +35,7 @@ require (
 	golang.org/x/exp v0.0.0-20240613232115-7f521ea00fb8
 	golang.org/x/exp/shiny v0.0.0-20240613232115-7f521ea00fb8
 	golang.org/x/oauth2 v0.21.0
-	golang.org/x/sys v0.21.0
+	golang.org/x/sys v0.22.0
 	golang.org/x/term v0.21.0
 	golang.org/x/text v0.16.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -57,7 +58,6 @@ require (
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/pprof v0.0.0-20240618054019-d3b898a103f8 // indirect
 	github.com/gregwebs/errors v1.2.2 // indirect
-	github.com/klauspost/compress v1.17.9 // indirect
 	github.com/lufia/plan9stats v0.0.0-20240513124658-fba389f38bae // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect

@@ -30,6 +30,7 @@ import (
 type Context struct {
 	Server        minecraft.IConn
 	Client        minecraft.IConn
+	ResourcePacks []utils.Pack
 	listener      *minecraft.Listener
 	Player        Player
 	ExtraDebug    bool
@@ -37,7 +38,7 @@ type Context struct {
 	ListenAddress string
 
 	withClient bool
-	addedPacks []*resource.Pack
+	addedPacks []resource.Pack
 
 	dimensionData    *packet.DimensionData
 	tokenSource      oauth2.TokenSource
@@ -387,6 +388,15 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 	wg.Wait()
 	if p.Server != nil {
 		defer p.Server.Close()
+		p.ResourcePacks = nil
+		for _, rp := range p.Server.ResourcePacks() {
+			pack, err := utils.PackFromBase(rp)
+			if err != nil {
+				cancel(err)
+				return err
+			}
+			p.ResourcePacks = append(p.ResourcePacks, pack)
+		}
 	}
 	if p.listener != nil {
 		defer func() {

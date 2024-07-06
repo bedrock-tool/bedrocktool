@@ -104,7 +104,7 @@ func (r *ReplayConnector) ReadUntilLogin() error {
 	return nil
 }
 
-func CreateReplayConnector(ctx context.Context, filename string, packetFunc PacketFunc, onResourcePackInfo func(), OnFinishedPack func(*resource.Pack)) (r *ReplayConnector, err error) {
+func CreateReplayConnector(ctx context.Context, filename string, packetFunc PacketFunc, onResourcePackInfo func(), OnFinishedPack func(resource.Pack)) (r *ReplayConnector, err error) {
 	r = &ReplayConnector{
 		spawn: make(chan struct{}),
 		close: make(chan struct{}),
@@ -236,7 +236,7 @@ var replayRemoteAddr = &net.UDPAddr{IP: net.IPv4(2, 2, 2, 2)}
 func (r *ReplayConnector) LocalAddr() net.Addr  { return replayLocalAddr }
 func (r *ReplayConnector) RemoteAddr() net.Addr { return replayRemoteAddr }
 
-func (r *ReplayConnector) ResourcePacks() []*resource.Pack {
+func (r *ReplayConnector) ResourcePacks() []resource.Pack {
 	return r.resourcePackHandler.ResourcePacks()
 }
 

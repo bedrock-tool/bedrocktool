@@ -1,7 +1,6 @@
 package proxy
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -23,7 +22,7 @@ const packChunkSize = 1024 * 128
 // resourcePackQueue is used to aid in the handling of resource pack queueing and downloading. Only one
 // resource pack is downloaded at a time.
 type resourcePackQueue struct {
-	currentPack   *resource.Pack
+	currentPack   resource.Pack
 	currentOffset uint64
 
 	serverPackAmount int
@@ -31,17 +30,19 @@ type resourcePackQueue struct {
 	// this way servers with multiple packs on the same uuid work
 	downloadingPacks map[string]map[uint64]downloadingPack
 	awaitingPacks    map[string]*downloadingPack
-	NextPack         chan *resource.Pack
+	NextPack         chan resource.Pack
 }
 
 // downloadingPack is a resource pack that is being downloaded by a client connection.
 type downloadingPack struct {
-	buf           *bytes.Buffer
 	chunkSize     uint32
 	size          uint64
 	expectedIndex uint32
 	newFrag       chan *packet.ResourcePackChunkData
 	contentKey    string
+
+	ID      string
+	Version string
 }
 
 type exemptedResourcePack struct {
@@ -63,9 +64,9 @@ type rpHandler struct {
 
 	// queue for packs the client can receive
 
-	nextPackToClient chan *resource.Pack
-	packsFromCache   []*resource.Pack
-	addedPacks       []*resource.Pack
+	nextPackToClient chan resource.Pack
+	packsFromCache   []resource.Pack
+	addedPacks       []resource.Pack
 	addedPacksDone   int
 
 	downloadQueue *resourcePackQueue
@@ -94,16 +95,16 @@ type rpHandler struct {
 	packMu sync.Mutex
 
 	// all active resource packs for access by the proxy
-	resourcePacks []*resource.Pack
+	resourcePacks []resource.Pack
 
 	// optional callback when its known what resource packs the server has
 	OnResourcePacksInfoCB func()
 
 	// optional callback that is called as soon as a resource pack is added to the proxies list
-	OnFinishedPack func(*resource.Pack)
+	OnFinishedPack func(resource.Pack)
 }
 
-func newRpHandler(ctx context.Context, addedPacks []*resource.Pack) *rpHandler {
+func newRpHandler(ctx context.Context, addedPacks []resource.Pack) *rpHandler {
 	r := &rpHandler{
 		ctx:        ctx,
 		log:        logrus.WithField("part", "ResourcePacks"),
@@ -111,11 +112,9 @@ func newRpHandler(ctx context.Context, addedPacks []*resource.Pack) *rpHandler {
 		downloadQueue: &resourcePackQueue{
 			downloadingPacks: make(map[string]map[uint64]downloadingPack),
 			awaitingPacks:    make(map[string]*downloadingPack),
-			NextPack:         make(chan *resource.Pack),
+			NextPack:         make(chan resource.Pack),
 		},
-		cache: &packCache{
-			commit: make(chan struct{}),
-		},
+		cache:                  &packCache{},
 		receivedRemotePackInfo: make(chan struct{}),
 		receivedRemoteStack:    make(chan struct{}),
 	}
@@ -128,7 +127,7 @@ func (r *rpHandler) SetServer(c minecraft.IConn) {
 
 func (r *rpHandler) SetClient(c minecraft.IConn) {
 	r.Client = c
-	r.nextPackToClient = make(chan *resource.Pack)
+	r.nextPackToClient = make(chan resource.Pack)
 	r.knowPacksRequestedFromServer = make(chan struct{})
 }
 
@@ -211,9 +210,10 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 		}
 		m[pack.Size] = downloadingPack{
 			size:       pack.Size,
-			buf:        bytes.NewBuffer(make([]byte, 0, pack.Size)),
 			newFrag:    make(chan *packet.ResourcePackChunkData),
 			contentKey: pack.ContentKey,
+			ID:         pack.UUID,
+			Version:    pack.Version,
 		}
 	}
 	for _, pack := range pk.BehaviourPacks {
@@ -245,9 +245,10 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 		}
 		m[pack.Size] = downloadingPack{
 			size:       pack.Size,
-			buf:        bytes.NewBuffer(make([]byte, 0, pack.Size)),
 			newFrag:    make(chan *packet.ResourcePackChunkData),
 			contentKey: pack.ContentKey,
+			ID:         pack.UUID,
+			Version:    pack.Version,
 		}
 	}
 
@@ -330,11 +331,15 @@ func (r *rpHandler) downloadResourcePack(pk *packet.ResourcePackDataInfo) error 
 		chunkCount++
 	}
 
-	idCopy := pk.UUID
+	f, err := r.cache.Create(pack.ID, pack.Version)
+	if err != nil {
+		return err
+	}
+	dataWritten := 0
 
 	for i := uint32(0); i < chunkCount; i++ {
 		_ = r.Server.WritePacket(&packet.ResourcePackChunkRequest{
-			UUID:       idCopy,
+			UUID:       pk.UUID,
 			ChunkIndex: i,
 		})
 		select {
@@ -343,29 +348,38 @@ func (r *rpHandler) downloadResourcePack(pk *packet.ResourcePackDataInfo) error 
 		case frag := <-pack.newFrag:
 			// Write the fragment to the full buffer of the downloading resource pack.
 
-			lastData := pack.buf.Len()+int(pack.chunkSize) >= int(pack.size)
+			lastData := dataWritten+int(pack.chunkSize) >= int(pack.size)
 			if !lastData && uint32(len(frag.Data)) != pack.chunkSize {
 				// The chunk data didn't have the full size and wasn't the last data to be sent for the resource pack,
 				// meaning we got too little data.
 				return fmt.Errorf("resource pack chunk data had a length of %v, but expected %v", len(frag.Data), pack.chunkSize)
 			}
 
-			if frag.DataOffset != uint64(pack.buf.Len()) {
-				return fmt.Errorf("resourcepack current offset %d != %d fragment offset", pack.buf.Len(), frag.DataOffset)
+			if frag.DataOffset != uint64(dataWritten) {
+				return fmt.Errorf("resourcepack current offset %d != %d fragment offset", dataWritten, frag.DataOffset)
 			}
 
-			_, _ = pack.buf.Write(frag.Data)
+			_, err := f.Write(frag.Data)
+			if err != nil {
+				return err
+			}
+			dataWritten += len(frag.Data)
 		}
 	}
 	close(pack.newFrag)
 	r.packMu.Lock()
 	defer r.packMu.Unlock()
 
-	if pack.buf.Len() != int(pack.size) {
-		return fmt.Errorf("incorrect resource pack size: expected %v, but got %v", pack.size, pack.buf.Len())
+	if dataWritten != int(pack.size) {
+		return fmt.Errorf("incorrect resource pack size: expected %v, but got %v", pack.size, dataWritten)
 	}
-	// First parse the resource pack from the total byte buffer we obtained.
-	newPack, err := resource.Read(pack.buf)
+
+	err = f.Close()
+	if err != nil {
+		return err
+	}
+
+	newPack, err := resource.ReadPath(f.FinalName)
 	if err != nil {
 		return fmt.Errorf("invalid full resource pack data for UUID %v: %v", pk.UUID, err)
 	}
@@ -374,13 +388,16 @@ func (r *rpHandler) downloadResourcePack(pk *packet.ResourcePackDataInfo) error 
 	// Finally we add the resource to the resource packs slice.
 	r.resourcePacks = append(r.resourcePacks, newPack)
 	r.OnFinishedPack(newPack)
-	r.cache.Put(newPack)
 
 	// if theres a client and the client needs resource packs send it to its queue
-	if r.nextPackToClient != nil && slices.Contains(r.packsRequestedFromServer, pk.UUID) {
-		r.log.Debugf("sending pack %s from server to client", newPack.Name())
-		r.nextPackToClient <- newPack
+	if r.nextPackToClient != nil {
+		if slices.Contains(r.packsRequestedFromServer, pk.UUID) {
+			r.log.Debugf("sending pack %s from server to client", newPack.Name())
+			r.nextPackToClient <- newPack
+		}
 	}
+
+	// finished downloading
 	if r.downloadQueue.serverPackAmount == 0 {
 		if r.nextPackToClient != nil {
 			close(r.nextPackToClient)
@@ -466,16 +483,13 @@ func (r *rpHandler) OnResourcePackStack(pk *packet.ResourcePackStack) error {
 
 	r.Server.Expect(packet.IDStartGame)
 	_ = r.Server.WritePacket(&packet.ResourcePackClientResponse{Response: packet.PackResponseCompleted})
-	if r.Client == nil {
-		r.cache.Close()
-	}
 	return nil
 }
 
 // nextResourcePackDownload moves to the next resource pack to download and sends a resource pack data info
 // packet with information about it.
 func (r *rpHandler) nextResourcePackDownload() (ok bool, err error) {
-	var pack *resource.Pack
+	var pack resource.Pack
 
 	// select from one of the 3 sources in order
 	// 1. addedPacks
@@ -498,7 +512,6 @@ func (r *rpHandler) nextResourcePackDownload() (ok bool, err error) {
 	}
 
 	r.log.Debugf("next pack %s", pack.Name())
-
 	r.downloadQueue.currentPack = pack
 	r.downloadQueue.currentOffset = 0
 	checksum := pack.Checksum()
@@ -547,6 +560,7 @@ func (r *rpHandler) OnResourcePackChunkRequest(pk *packet.ResourcePackChunkReque
 	}
 	r.downloadQueue.currentOffset += packChunkSize
 	// We read the data directly into the response's data.
+	packDone := false
 	if n, err := current.ReadAt(response.Data, int64(response.DataOffset)); err != nil {
 		// If we hit an EOF, we don't need to return an error, as we've simply reached the end of the content
 		// AKA the last chunk.
@@ -554,29 +568,29 @@ func (r *rpHandler) OnResourcePackChunkRequest(pk *packet.ResourcePackChunkReque
 			return fmt.Errorf("error reading resource pack chunk: %v", err)
 		}
 		response.Data = response.Data[:n]
-
-		defer func() {
-			ok, err := r.nextResourcePackDownload()
-			if err != nil {
-				r.log.Error(err)
-			}
-			if !ok {
-				r.Client.Expect(packet.IDResourcePackClientResponse)
-			}
-		}()
+		packDone = true
 	}
 	if err := r.Client.WritePacket(response); err != nil {
 		return fmt.Errorf("error writing resource pack chunk data packet: %v", err)
 	}
 
+	if packDone {
+		ok, err := r.nextResourcePackDownload()
+		if err != nil {
+			return err
+		}
+		if !ok {
+			r.Client.Expect(packet.IDResourcePackClientResponse)
+		}
+	}
+
 	return nil
 }
 
-func (r *rpHandler) Request(packs []string) error {
-	r.clientHasRequested = true
+func (r *rpHandler) processClientRequest(packs []string) error {
 	<-r.receivedRemotePackInfo
 
-	r.nextPackToClient = make(chan *resource.Pack, len(packs))
+	r.nextPackToClient = make(chan resource.Pack, len(packs))
 
 	for _, packUUID := range packs {
 		uuid_ver := strings.Split(packUUID, "_")
@@ -668,7 +682,8 @@ func (r *rpHandler) OnResourcePackClientResponse(pk *packet.ResourcePackClientRe
 		// correctly again.
 		return r.Client.Close()
 	case packet.PackResponseSendPacks:
-		if err := r.Request(pk.PacksToDownload); err != nil {
+		r.clientHasRequested = true
+		if err := r.processClientRequest(pk.PacksToDownload); err != nil {
 			return fmt.Errorf("error looking up resource packs to download: %v", err)
 		}
 		// Proceed with the first resource pack download. We run all downloads in sequence rather than in
@@ -689,7 +704,6 @@ func (r *rpHandler) OnResourcePackClientResponse(pk *packet.ResourcePackClientRe
 			return r.ctx.Err()
 		}
 
-		r.cache.Close()
 		if err := r.Client.WritePacket(r.remoteStack); err != nil {
 			return fmt.Errorf("error writing resource pack stack packet: %v", err)
 		}
@@ -729,7 +743,7 @@ func (r *rpHandler) GetResourcePacksInfo(texturePacksRequired bool) *packet.Reso
 	return &pk
 }
 
-func (r *rpHandler) ResourcePacks() []*resource.Pack {
+func (r *rpHandler) ResourcePacks() []resource.Pack {
 	select {
 	case <-r.receivedRemoteStack:
 	case <-r.ctx.Done():

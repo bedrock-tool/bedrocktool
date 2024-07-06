@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"path"
 	"slices"
 
@@ -39,7 +40,10 @@ func (w *worldsHandler) AddPacks(fs utils.WriterFS) error {
 		packFolder := path.Join("behavior_packs", name)
 
 		for _, p := range w.proxy.Server.ResourcePacks() {
-			p := utils.PackFromBase(p)
+			p, err := utils.PackFromBase(p)
+			if err != nil {
+				return err
+			}
 			w.bp.CheckAddLink(p)
 		}
 
@@ -64,22 +68,22 @@ func (w *worldsHandler) AddPacks(fs utils.WriterFS) error {
 	if w.settings.WithPacks {
 		packNames := make(map[string][]string)
 		for _, pack := range w.serverState.packs {
-			packName := pack.Base().Name()
-			packNames[packName] = append(packNames[packName], pack.Base().UUID())
+			packName := pack.Name()
+			packNames[packName] = append(packNames[packName], pack.UUID())
 		}
 
 		var rdeps []dep
 		for _, pack := range w.serverState.packs {
-			log := w.log.WithField("pack", pack.Base().Name())
-			if pack.Base().Encrypted() && !pack.CanDecrypt() {
+			log := w.log.WithField("pack", pack.Name())
+			if pack.Encrypted() && !pack.CanDecrypt() {
 				log.Warn("Cant add is encrypted")
 				continue
 			}
-			logrus.Infof(locale.Loc("adding_pack", locale.Strmap{"Name": pack.Base().Name()}))
+			logrus.Infof(locale.Loc("adding_pack", locale.Strmap{"Name": pack.Name()}))
 
-			packName := pack.Base().Name()
+			packName := pack.Name()
 			if packIds := packNames[packName]; len(packIds) > 1 {
-				packName = fmt.Sprintf("%s_%d", packName, slices.Index(packIds, pack.Base().UUID()))
+				packName = fmt.Sprintf("%s_%d", packName, slices.Index(packIds, pack.UUID()))
 			}
 			packName, _ = filenamify.FilenamifyV2(packName)
 			err := writePackToFs(pack, fs, path.Join("resource_packs", packName))
@@ -89,8 +93,8 @@ func (w *worldsHandler) AddPacks(fs utils.WriterFS) error {
 			}
 
 			rdeps = append(rdeps, dep{
-				PackID:  pack.Base().Manifest().Header.UUID,
-				Version: pack.Base().Manifest().Header.Version,
+				PackID:  pack.Manifest().Header.UUID,
+				Version: pack.Manifest().Header.Version,
 			})
 		}
 
@@ -113,34 +117,28 @@ func (w *worldsHandler) AddPacks(fs utils.WriterFS) error {
 	return nil
 }
 
-func writePackToFs(pack utils.Pack, fs utils.WriterFS, dir string) error {
-	packFS, packFiles, err := pack.FS()
-	if err != nil {
-		return err
-	}
-
-	addFile := func(filename string) error {
-		file, err := packFS.Open(filename)
+func writePackToFs(pack utils.Pack, wfs utils.WriterFS, dir string) error {
+	return fs.WalkDir(pack, ".", func(fpath string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		defer file.Close()
-		f, err := fs.Create(path.Join(dir, filename))
+		if d.IsDir() {
+			return nil
+		}
+		r, err := pack.Open(fpath)
 		if err != nil {
 			return err
 		}
-		_, err = io.Copy(f, file)
+		defer r.Close()
+		w, err := wfs.Create(path.Join(dir, fpath))
+		if err != nil {
+			return err
+		}
+		defer w.Close()
+		_, err = io.Copy(w, r)
 		if err != nil {
 			return err
 		}
 		return nil
-	}
-
-	for _, filename := range packFiles {
-		err := addFile(filename)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+	})
 }

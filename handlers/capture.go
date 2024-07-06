@@ -70,9 +70,6 @@ func (p *packetCapturer) OnServerConnect() (disconnect bool, err error) {
 
 	{
 		z := zip.NewWriter(p.file)
-		if err != nil {
-			return false, err
-		}
 		z.SetOffset(16)
 
 		written := make(map[string]bool)
@@ -89,8 +86,10 @@ func (p *packetCapturer) OnServerConnect() (disconnect bool, err error) {
 			if err != nil {
 				panic(err)
 			}
-			pack.WriteTo(f)
-			pack.Seek(0, 0)
+			_, err = pack.WriteTo(f)
+			if err != nil {
+				panic(err)
+			}
 			written[filename] = true
 		}
 		err = z.Close()

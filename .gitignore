@@ -40,3 +40,4 @@ entityflags.py
 /libbedrocktool.h
 /libbedrocktool.so
 /tex.png
+/packcache/*

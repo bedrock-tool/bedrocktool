@@ -2,13 +2,12 @@ package behaviourpack
 
 import (
 	"encoding/json"
+	"io/fs"
 	"path"
 	"strings"
 
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
-	"github.com/sirupsen/logrus"
-	"golang.org/x/exp/slices"
 )
 
 type Pack struct {
@@ -56,37 +55,26 @@ func (bp *Pack) AddDependency(id string, ver [3]int) {
 	})
 }
 
-func (bp *Pack) CheckAddLink(pack utils.Pack) {
-	_, names, err := pack.FS()
+func fsFileExists(f fs.FS, name string) bool {
+	file, err := f.Open(name)
 	if err != nil {
-		logrus.Error(err)
-		return
+		return false
 	}
+	file.Close()
+	return true
+}
 
-	var hasBlocksJson = false
-	if bp.HasBlocks() {
-		_, hasBlocksJson = slices.BinarySearch(names, "blocks.json")
-		if err == nil {
-			hasBlocksJson = true
-		}
-	}
-
-	var hasEntitiesFolder = false
-	if bp.HasEntities() {
-		_, hasEntitiesFolder = slices.BinarySearch(names, "entity")
-	}
-
-	var hasItemsFolder = false
-	if bp.HasItems() {
-		_, hasItemsFolder = slices.BinarySearch(names, "items")
-	}
+func (bp *Pack) CheckAddLink(pack utils.Pack) {
+	hasBlocksJson := bp.HasBlocks() && fsFileExists(pack, "blocks.json")
+	hasEntitiesFolder := bp.HasEntities() && fsFileExists(pack, "entity")
+	hasItemsFolder := bp.HasItems() && fsFileExists(pack, "items")
 
 	// has no assets needed
 	if !(hasBlocksJson || hasEntitiesFolder || hasItemsFolder) {
 		return
 	}
 
-	h := pack.Base().Manifest().Header
+	h := pack.Manifest().Header
 	bp.AddDependency(h.UUID, h.Version)
 }
 

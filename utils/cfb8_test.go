@@ -18,7 +18,8 @@ func (nullReader) Read(b []byte) (int, error) {
 
 func Benchmark_cfb8(b *testing.B) {
 	cfb8 := NewCfb8(nullReader{}, make([]byte, 32))
-	var buf = make([]byte, 10e6)
+	var buf = make([]byte, 10000)
+	b.SetBytes(int64(len(buf)))
 
 	for i := 0; i < b.N; i++ {
 		cfb8.Read(buf)
