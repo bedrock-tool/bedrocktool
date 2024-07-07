@@ -223,11 +223,10 @@ func (w *World) StoreChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cub
 				}
 			}()
 		})
+		w.onChunkUpdate(pos, ch, w.paused)
 	}
 
 	w.currState().StoreChunk(pos, ch, blockNBT)
-	w.onChunkUpdate(pos, ch, w.paused)
-
 	return nil
 }
 
@@ -469,6 +468,7 @@ func (w *World) Finish(playerData map[string]any, excludedMobs []string, withPla
 		}
 	}
 
+	w.applyBlockUpdates()
 	err := w.storeMemToProvider()
 	if err != nil {
 		return err
