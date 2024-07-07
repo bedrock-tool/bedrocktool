@@ -26,8 +26,11 @@ func main() {
 	var packs []utils.Pack
 	for _, fi := range packNames {
 		p := folder + "/" + fi.Name()
-		pack := resource.MustReadPath(p)
-		packs = append(packs, utils.PackFromBase(pack))
+		pack, err := utils.PackFromBase(resource.MustReadPath(p))
+		if err != nil {
+			log.Fatal(err)
+		}
+		packs = append(packs, pack)
 	}
 
 	var entries []protocol.BlockEntry
@@ -40,7 +43,7 @@ func main() {
 		}
 	}
 
-	_, colors := utils.ResolveColors(entries, packs, false)
+	colors := utils.ResolveColors(entries, packs)
 	keys := maps.Keys(colors)
 	sort.Strings(keys)
 

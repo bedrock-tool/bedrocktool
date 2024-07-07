@@ -2,10 +2,12 @@ package worlds
 
 import (
 	"context"
+	"errors"
 	"image"
 	"image/color"
 	"image/draw"
 	"math"
+	"net"
 	"sync"
 	"time"
 
@@ -76,6 +78,8 @@ type MapUI struct {
 	ticker         *time.Ticker
 	w              *worldsHandler
 
+	ChunkRenderer *utils.ChunkRenderer
+
 	l          sync.Mutex
 	haveColors chan struct{}
 
@@ -95,6 +99,7 @@ func NewMapUI(w *worldsHandler) *MapUI {
 		needRedraw:     true,
 		w:              w,
 		haveColors:     make(chan struct{}),
+		ChunkRenderer:  &utils.ChunkRenderer{},
 	}
 	return m
 }
@@ -128,12 +133,7 @@ func (m *MapUI) Start(ctx context.Context) {
 
 	m.ticker = time.NewTicker(33 * time.Millisecond)
 	go func() {
-		lookup, _ := utils.ResolveColors(m.w.customBlocks, m.w.serverState.packs, true)
-		messages.Router.Handle(&messages.Message{
-			Source: "mapui",
-			Target: "ui",
-			Data:   messages.MapLookup{Lookup: lookup},
-		})
+		m.ChunkRenderer.ResolveColors(m.w.customBlocks, m.w.serverState.packs)
 		close(m.haveColors)
 	}()
 	go func() {
@@ -160,6 +160,9 @@ func (m *MapUI) Start(ctx context.Context) {
 					Pixels:      utils.Img2rgba(m.img),
 					UpdateFlags: packet.MapUpdateFlagTexture,
 				}); err != nil {
+					if errors.Is(err, net.ErrClosed) {
+						return
+					}
 					m.log.Error(err)
 					return
 				}
@@ -174,6 +177,9 @@ func (m *MapUI) Start(ctx context.Context) {
 			}
 			err := m.w.proxy.ClientWritePacket(&mapItemPacket)
 			if err != nil {
+				if errors.Is(err, net.ErrClosed) {
+					return
+				}
 				m.log.Error(err)
 				return
 			}
@@ -229,7 +235,7 @@ func (m *MapUI) processQueue() []protocol.ChunkPos {
 			break
 		}
 		if r.ch != nil {
-			img := utils.Chunk2Img(r.ch)
+			img := m.ChunkRenderer.Chunk2Img(r.ch)
 			if r.isDeferredState {
 				if old, ok := m.renderedChunks[r.pos]; ok {
 					m.oldRendered[r.pos] = old

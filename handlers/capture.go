@@ -24,13 +24,13 @@ func (p *packetCapturer) dumpPacket(toServer bool, payload []byte) {
 
 	var buf []byte = []byte{0xAA, 0xAA, 0xAA, 0xAA}
 	packetSize := uint32(len(payloadCompressed))
-	binary.LittleEndian.AppendUint32(buf, packetSize)
+	buf = binary.LittleEndian.AppendUint32(buf, packetSize)
 	if toServer {
 		buf = append(buf, 1)
 	} else {
 		buf = append(buf, 0)
 	}
-	binary.LittleEndian.AppendUint64(buf, uint64(time.Now().UnixMilli()))
+	buf = binary.LittleEndian.AppendUint64(buf, uint64(time.Now().UnixMilli()))
 	buf = append(buf, payloadCompressed...)
 	buf = append(buf, []byte{0xBB, 0xBB, 0xBB, 0xBB}...)
 	p.wPacket.Write(buf)
@@ -68,35 +68,34 @@ func (p *packetCapturer) OnServerConnect() (disconnect bool, err error) {
 	binary.Write(p.file, binary.LittleEndian, uint32(5))
 	binary.Write(p.file, binary.LittleEndian, uint64(0))
 
-	{
-		z := zip.NewWriter(p.file)
-		z.SetOffset(16)
+	z := zip.NewWriter(p.file)
+	z.SetOffset(16)
 
-		written := make(map[string]bool)
-		for _, pack := range packs {
-			filename := filepath.Join("packcache", pack.UUID()+"_"+pack.Version()+".zip")
-			if _, ok := written[filename]; ok {
-				continue
-			}
-			p.log.Debugf("Writing %s to capture", pack.Name())
-			f, err := z.CreateHeader(&zip.FileHeader{
-				Name:   filename,
-				Method: zip.Store,
-			})
-			if err != nil {
-				panic(err)
-			}
-			_, err = pack.WriteTo(f)
-			if err != nil {
-				panic(err)
-			}
-			written[filename] = true
+	written := make(map[string]bool)
+	for _, pack := range packs {
+		filename := filepath.Join("packcache", pack.UUID()+"_"+pack.Version()+".zip")
+		if _, ok := written[filename]; ok {
+			continue
 		}
-		err = z.Close()
+		p.log.Debugf("Writing %s to capture", pack.Name())
+		f, err := z.CreateHeader(&zip.FileHeader{
+			Name:   filename,
+			Method: zip.Store,
+		})
 		if err != nil {
-			return false, err
+			panic(err)
 		}
+		_, err = pack.WriteTo(f)
+		if err != nil {
+			panic(err)
+		}
+		written[filename] = true
 	}
+	err = z.Close()
+	if err != nil {
+		return false, err
+	}
+
 	// write size of zip
 	endZip, _ := p.file.Seek(0, 1)
 	p.file.Seek(8, 0)

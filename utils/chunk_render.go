@@ -10,6 +10,7 @@ import (
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/df-mc/dragonfly/server/world/chunk"
+	"github.com/sandertv/gophertunnel/minecraft/protocol"
 )
 
 func isBlockLightblocking(b world.Block) bool {
@@ -18,15 +19,9 @@ func isBlockLightblocking(b world.Block) bool {
 	return !noDiffuse
 }
 
-var customBlockColors = map[string]color.RGBA{}
+var waterColor = block.Water{}.Color()
 
-var waterColor color.RGBA
-
-func init() {
-	waterColor = block.Water{}.Color()
-}
-
-func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.RGBA) {
+func (cr *ChunkRenderer) blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.RGBA) {
 	if y <= int16(c.Range().Min()) {
 		return color.RGBA{0, 0, 0, 0}
 	}
@@ -44,7 +39,7 @@ func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.R
 		heightBlock := c.HeightMap().At(x, z)
 		depth := y - heightBlock
 		if depth > 0 {
-			blockColor = blockColorAt(c, x, heightBlock, z)
+			blockColor = cr.blockColorAt(c, x, heightBlock, z)
 		} else {
 			blockColor = color.RGBA{0, 0, 0, 0}
 		}
@@ -59,7 +54,7 @@ func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.R
 	} else {
 		if b2, ok := b.(world.UnknownBlock); ok {
 			name, _ := b2.EncodeBlock()
-			blockColor, ok = customBlockColors[name]
+			blockColor, ok = cr.customBlockColors[name]
 			if !ok {
 				if name == "minecraft:monster_egg" {
 					name = "minecraft:" + b2.Properties["monster_egg_stone_type"].(string)
@@ -111,13 +106,13 @@ func blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.R
 		}
 
 		if blockColor.A != 0xff {
-			blockColor = BlendColors(blockColorAt(c, x, y-1, z), blockColor)
+			blockColor = BlendColors(cr.blockColorAt(c, x, y-1, z), blockColor)
 		}
 		return blockColor
 	}
 }
 
-func chunkGetColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) color.RGBA {
+func (cr *ChunkRenderer) chunkGetColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) color.RGBA {
 	br := c.BlockRegistry.(world.BlockRegistry)
 	haveUp := false
 	cube.Pos{int(x), int(y), int(z)}.
@@ -137,7 +132,7 @@ func chunkGetColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) color.RGBA {
 			}
 		}, cube.Range{int(y + 1), int(y + 1)})
 
-	blockColor := blockColorAt(c, x, y, z)
+	blockColor := cr.blockColorAt(c, x, y, z)
 	if haveUp && (x+z)%2 == 0 {
 		if blockColor.R > 10 {
 			blockColor.R -= 10
@@ -152,7 +147,16 @@ func chunkGetColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) color.RGBA {
 	return blockColor
 }
 
-func Chunk2Img(c *chunk.Chunk) *image.RGBA {
+type ChunkRenderer struct {
+	customBlockColors map[string]color.RGBA
+}
+
+func (cr *ChunkRenderer) ResolveColors(entries []protocol.BlockEntry, packs []Pack) {
+	colors := ResolveColors(entries, packs)
+	cr.customBlockColors = colors
+}
+
+func (cr *ChunkRenderer) Chunk2Img(c *chunk.Chunk) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, 16, 16))
 	hm := c.HeightMapWithWater()
 
@@ -160,7 +164,7 @@ func Chunk2Img(c *chunk.Chunk) *image.RGBA {
 		for z := uint8(0); z < 16; z++ {
 			img.SetRGBA(
 				int(x), int(z),
-				chunkGetColorAt(c, x, hm.At(x, z), z),
+				cr.chunkGetColorAt(c, x, hm.At(x, z), z),
 			)
 		}
 	}

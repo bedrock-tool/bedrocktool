@@ -7,4 +7,5 @@ use (
 	./dragonfly
 	./go-raknet
 	./gophertunnel
+	./hujson
 )

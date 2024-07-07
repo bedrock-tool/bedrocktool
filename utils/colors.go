@@ -13,6 +13,7 @@ import (
 
 	"github.com/dblezek/tga"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
+	"github.com/sandertv/gophertunnel/minecraft/resource"
 	"github.com/sirupsen/logrus"
 )
 
@@ -165,48 +166,41 @@ func calculateMeanAverageColour(img image.Image) (c color.RGBA) {
 	}
 }
 
-func ResolveColors(entries []protocol.BlockEntry, packs []Pack, addToBlocks bool) (*image.RGBA, map[string]color.RGBA) {
+func ResolveColors(entries []protocol.BlockEntry, packs []Pack) map[string]color.RGBA {
 	log := logrus.WithField("func", "ResolveColors")
-
 	colors := make(map[string]color.RGBA)
-	//images := make(map[string]image.Image)
 
-	texture_names := getTextureNames(entries)
-	for _, p := range packs {
+	processPack := func(p resource.Pack, textureNames map[string]string) error {
 		baseDir := p.BaseDir()
 		pfs, err := fs.Sub(p, baseDir)
 		if err != nil {
-			log.Error(err)
-			continue
+			return err
 		}
 
 		blocksJson, err := readBlocksJson(pfs)
 		if err != nil {
-			log.Error(err)
-			continue
+			return err
 		}
 
 		for block, name := range blocksJson {
-			texture_names[block] = name
+			textureNames[block] = name
 		}
 
 		flipbooks, err := loadFlipbooks(pfs)
 		if err != nil {
-			log.Error(err)
-			continue
+			return err
 		}
 
 		terrainTextures, err := loadTerrainTexture(pfs)
 		if err != nil {
-			log.Error(err)
-			continue
+			return err
 		}
 
 		if flipbooks == nil && terrainTextures == nil {
-			continue
+			return nil
 		}
 
-		for block, texture_name := range texture_names {
+		for block, texture_name := range textureNames {
 			var texturePath string
 			if flipbook_texture, ok := flipbooks[texture_name]; ok {
 				texturePath = flipbook_texture
@@ -232,7 +226,7 @@ func ResolveColors(entries []protocol.BlockEntry, packs []Pack, addToBlocks bool
 
 			texturePath = matches[0]
 
-			delete(texture_names, block)
+			delete(textureNames, block)
 			r, err := p.Open(texturePath)
 			if err != nil {
 				log.Error(err)
@@ -249,28 +243,28 @@ func ResolveColors(entries []protocol.BlockEntry, packs []Pack, addToBlocks bool
 			}
 			r.Close()
 			if err != nil {
-				log.Error(err)
-				continue
+				return err
 			}
 			if img == nil {
 				continue
 			}
 
 			colors[block] = calculateMeanAverageColour(img)
-			//images[block] = img
+		}
+		return nil
+	}
+
+	textureNames := getTextureNames(entries)
+	for _, pack := range packs {
+		err := processPack(pack, textureNames)
+		if err != nil {
+			log.Warn(err)
 		}
 	}
 
-	if len(texture_names) > 0 {
+	if len(textureNames) > 0 {
 		println("")
 	}
 
-	if addToBlocks {
-		customBlockColors = colors
-	}
-
-	//m := NewTextureMap()
-	//ridToIdx = m.SetTextures(world.Blocks(), images)
-
-	return nil, colors
+	return colors
 }

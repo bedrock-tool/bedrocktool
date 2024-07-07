@@ -7,3 +7,6 @@
 [submodule "go-raknet"]
 	path = go-raknet
 	url = git@github.com:olebeck/go-raknet
+[submodule "hujson"]
+	path = hujson
+	url = git@github.com:olebeck/hujson
