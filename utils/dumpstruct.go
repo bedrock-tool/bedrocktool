@@ -4,136 +4,172 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"strconv"
 	"strings"
-
-	"golang.org/x/exp/slices"
 )
 
 func DumpStruct(f io.StringWriter, inputStruct any) {
-	dumpStruct(f, 0, inputStruct, true, false)
+	dumpValue(f, 0, reflect.ValueOf(inputStruct), true)
 }
 
-func dumpStruct(f io.StringWriter, level int, inputStruct any, withType bool, isInList bool) {
-	tBase := strings.Repeat("\t", level)
+func dumpValue(f io.StringWriter, level int, value reflect.Value, withType bool) {
+	tabs := strings.Repeat("\t", level)
 
-	if inputStruct == nil {
-		f.WriteString("nil")
-		return
-	}
-
-	ii := reflect.Indirect(reflect.ValueOf(inputStruct))
-	typeName := reflect.TypeOf(inputStruct).String()
-	if typeName == "[]interface {}" {
-		typeName = "[]any"
-	}
-	typeString := ""
-	if withType {
-		if slices.Contains([]string{"bool", "string"}, typeName) {
-		} else {
-			typeString = typeName
+	typeName := value.Type().String()
+	switch value.Kind() {
+	case reflect.Interface, reflect.Pointer:
+		if value.IsNil() {
+			f.WriteString("nil")
+			return
 		}
+		value = value.Elem()
 	}
+	if stringer := value.MethodByName("String"); stringer.IsValid() {
+		v := stringer.Call(nil)
+		value = v[0]
+	}
+
+	valueType := value.Type()
 
 	if strings.HasPrefix(typeName, "protocol.Optional") {
-		v := ii.MethodByName("Value").Call(nil)
+		v := value.MethodByName("Value").Call(nil)
 		val, set := v[0], v[1]
 		if !set.Bool() {
 			f.WriteString(typeName + " Not Set")
 		} else {
-			f.WriteString(typeName + "{\n" + tBase + "\t")
-			dumpStruct(f, level+1, val.Interface(), false, false)
-			f.WriteString("\n" + tBase + "}")
+			f.WriteString(typeName + "{\n" + tabs + "\t")
+			dumpValue(f, level+1, val, false)
+			f.WriteString("\n" + tabs + "}")
 		}
 		return
 	}
 
-	switch ii.Kind() {
+	switch valueType.Kind() {
 	case reflect.Struct:
-		if ii.NumField() == 0 {
-			f.WriteString(typeName + "{}")
-		} else {
-			f.WriteString(typeName + "{\n")
-			for i := 0; i < ii.NumField(); i++ {
-				fieldType := ii.Type().Field(i)
-
-				if fieldType.IsExported() {
-					f.WriteString(fmt.Sprintf("%s\t%s: ", tBase, fieldType.Name))
-					dumpStruct(f, level+1, ii.Field(i).Interface(), true, false)
-					f.WriteString(",\n")
-				} else {
-					f.WriteString(tBase + " " + fieldType.Name + " (unexported)")
-				}
-			}
-			f.WriteString(tBase + "}")
-		}
-	case reflect.Slice:
 		f.WriteString(typeName + "{")
-
-		if ii.Len() > 1000 {
-			f.WriteString("<slice too long>")
-		} else if ii.Len() == 0 {
-		} else {
-			e := ii.Index(0)
-			t := reflect.TypeOf(e.Interface())
-			is_elem_struct := t.Kind() == reflect.Struct || t.Kind() == reflect.Map
-
-			if is_elem_struct {
-				f.WriteString("\n")
-			}
-			for i := 0; i < ii.Len(); i++ {
-				if is_elem_struct {
-					f.WriteString(tBase + "\t")
-				}
-				dumpStruct(f, level+1, ii.Index(i).Interface(), false, true)
-				if is_elem_struct {
-					f.WriteString(",\n")
-				} else {
-					if i != ii.Len()-1 {
-						f.WriteString(", ")
-					} else {
-						f.WriteString(",")
-					}
-				}
-			}
-			if is_elem_struct {
-				f.WriteString(tBase)
+		if valueType.NumField() == 0 {
+			f.WriteString("}")
+			return
+		}
+		f.WriteString("\n")
+		for i := 0; i < valueType.NumField(); i++ {
+			fieldType := valueType.Field(i)
+			if fieldType.IsExported() {
+				f.WriteString(tabs + "\t" + fieldType.Name + ": ")
+				dumpValue(f, level+1, value.Field(i), true)
+				f.WriteString(",\n")
+			} else {
+				f.WriteString(tabs + "\t" + fieldType.Name + " (unexported)\n")
 			}
 		}
-		f.WriteString("}")
+		f.WriteString(tabs + "}")
+
 	case reflect.Map:
-		it := reflect.TypeOf(inputStruct)
-		valType := it.Elem().String()
-		if valType == "interface {}" {
-			valType = "any"
+		mapValueType := valueType.Elem().String()
+		isAny := false
+		if mapValueType == "interface {}" {
+			mapValueType = "any"
+			isAny = true
 		}
-		keyType := it.Key().String()
-
-		f.WriteString(fmt.Sprintf("map[%s]%s{", keyType, valType))
-		if ii.Len() > 0 {
-			f.WriteString("\n")
+		mapKeyType := valueType.Key().String()
+		f.WriteString("map[" + mapKeyType + "]" + mapValueType + "{")
+		if value.Len() == 0 {
+			f.WriteString("}")
+			return
 		}
-
-		iter := ii.MapRange()
+		f.WriteString("\n")
+		iter := value.MapRange()
 		for iter.Next() {
-			k := iter.Key()
-			v := iter.Value()
-			f.WriteString(fmt.Sprintf("%s\t%#v: ", tBase, k.Interface()))
-			dumpStruct(f, level+1, v.Interface(), true, false)
+			f.WriteString(tabs + "\t")
+			dumpValue(f, level+1, iter.Key(), false)
+			f.WriteString(": ")
+			elem := iter.Value()
+			if isAny {
+				elem = elem.Elem()
+			}
+			dumpValue(f, level+1, elem, isAny)
 			f.WriteString(",\n")
 		}
+		f.WriteString(tabs + "}")
 
-		if ii.Len() > 0 {
-			f.WriteString(tBase)
+	case reflect.Slice, reflect.Array:
+		elemType := valueType.Elem()
+		elemTypeString := elemType.String()
+		if elemType.Kind() == reflect.Pointer {
+			elemType = elemType.Elem()
 		}
-		f.WriteString("}")
+
+		isAny := false
+		if elemType.Kind() == reflect.Interface {
+			elemTypeString = "any"
+			isAny = true
+		}
+
+		f.WriteString("[]" + elemTypeString + "{")
+		if value.Len() == 0 {
+			f.WriteString("}")
+			return
+		}
+		if value.Len() > 1000 {
+			f.WriteString("<slice to long>}")
+			return
+		}
+		isStructish := false
+		switch elemType.Kind() {
+		case reflect.Struct, reflect.Map, reflect.Slice:
+			f.WriteString("\n")
+			isStructish = true
+		}
+		for i := 0; i < value.Len(); i++ {
+			if isStructish {
+				f.WriteString(tabs + "\t")
+			}
+			elem := value.Index(i)
+			if isAny {
+				elem = elem.Elem()
+			}
+			dumpValue(f, level+1, elem, isAny)
+			if isStructish {
+				f.WriteString(",\n")
+			} else if i == value.Len()-1 {
+				f.WriteString("}")
+			} else {
+				f.WriteString(", ")
+			}
+		}
+		if isStructish {
+			f.WriteString(tabs + "}")
+		}
+
+	case reflect.String:
+		f.WriteString("\"" + value.String() + "\"")
+
+	case reflect.Bool:
+		if value.Bool() {
+			f.WriteString("true")
+		} else {
+			f.WriteString("false")
+		}
+
 	default:
-		is_array := ii.Kind() == reflect.Array
-		add_type := !isInList && !is_array && len(typeString) > 0
-		if add_type {
-			f.WriteString(typeString + "(")
+		if withType {
+			f.WriteString(typeName + "(")
 		}
-		f.WriteString(fmt.Sprintf("%#v", ii.Interface()))
-		if add_type {
+		switch valueType.Kind() {
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			f.WriteString(strconv.FormatInt(value.Int(), 10))
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			f.WriteString(strconv.FormatInt(int64(value.Uint()), 10))
+		case reflect.Uintptr:
+			f.WriteString("0x" + strconv.FormatInt(int64(value.Uint()), 16))
+		case reflect.Float32:
+			f.WriteString(strconv.FormatFloat(float64(value.Float()), 'g', 9, 32))
+		case reflect.Float64:
+			f.WriteString(strconv.FormatFloat(float64(value.Float()), 'g', 9, 64))
+		default:
+			f.WriteString(fmt.Sprintf("%#+v", value.Interface()))
+		}
+		if withType {
 			f.WriteString(")")
 		}
 	}

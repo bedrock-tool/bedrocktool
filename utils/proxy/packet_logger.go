@@ -64,10 +64,10 @@ func newExtraDebug(name string) (func(pk packet.Packet), func()) {
 
 	return func(pk packet.Packet) {
 			dmpLock.Lock()
+			defer dmpLock.Unlock()
 			utils.DumpStruct(packetsLogF, pk)
 			packetsLogF.Write([]byte("\n\n\n"))
 			packetsLogF.Flush()
-			dmpLock.Unlock()
 		}, func() {
 			dmpLock.Lock()
 			if flushFunc != nil {
