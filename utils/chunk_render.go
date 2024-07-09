@@ -11,6 +11,7 @@ import (
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/df-mc/dragonfly/server/world/chunk"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
+	"github.com/sandertv/gophertunnel/minecraft/resource"
 )
 
 func isBlockLightblocking(b world.Block) bool {
@@ -151,7 +152,7 @@ type ChunkRenderer struct {
 	customBlockColors map[string]color.RGBA
 }
 
-func (cr *ChunkRenderer) ResolveColors(entries []protocol.BlockEntry, packs []Pack) {
+func (cr *ChunkRenderer) ResolveColors(entries []protocol.BlockEntry, packs []resource.Pack) {
 	colors := ResolveColors(entries, packs)
 	cr.customBlockColors = colors
 }

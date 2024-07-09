@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"image/png"
+	"io/fs"
+	"strings"
 	"sync"
 
 	"gioui.org/f32"
@@ -14,9 +17,11 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
+	"github.com/bedrock-tool/bedrocktool/ui/gui/mctext"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/sirupsen/logrus"
 )
 
 type (
@@ -44,11 +49,12 @@ type packEntry struct {
 	Icon    paint.ImageOp
 	button  widget.Clickable
 
-	Size   uint64
-	Loaded uint64
-	Name   string
-	Path   string
-	Err    error
+	Size    uint64
+	Loaded  uint64
+	Name    string
+	Version string
+	Path    string
+	Err     error
 }
 
 func New() pages.Page {
@@ -122,21 +128,23 @@ func drawPackEntry(gtx C, th *material.Theme, pack *packEntry) D {
 
 	return layout.Inset{
 		Top: 5, Bottom: 5,
-		Left: 0, Right: 5,
+		Left: 5, Right: 5,
 	}.Layout(gtx, func(gtx C) D {
-		fn := func(gtx C) D {
-			return component.Surface(&material.Theme{
-				Palette: material.Palette{
-					Bg: component.WithAlpha(th.Fg, 10),
-				},
-			}).Layout(gtx, func(gtx C) D {
+		return component.Surface(&material.Theme{
+			Palette: material.Palette{
+				Bg: component.WithAlpha(th.Fg, 10),
+			},
+		}).Layout(gtx, func(gtx C) D {
+			return layout.UniformInset(5).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 				return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
 					layout.Rigid(func(gtx C) D {
-						return drawPackIcon(gtx, pack.HasIcon, pack.Icon, image.Pt(50, 50))
+						iconSize := image.Pt(50, 50)
+						return drawPackIcon(gtx, pack.HasIcon, pack.Icon, iconSize)
 					}),
 					layout.Flexed(1, func(gtx C) D {
 						return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-							layout.Rigid(material.Label(th, th.TextSize, pack.Name).Layout),
+							layout.Rigid(mctext.Label(th, th.TextSize, pack.Name)),
+							layout.Rigid(material.Label(th, th.TextSize, pack.Version).Layout),
 							layout.Rigid(material.LabelStyle{
 								Text:           size,
 								Color:          colorSize,
@@ -178,16 +186,18 @@ func drawPackEntry(gtx C, th *material.Theme, pack *packEntry) D {
 							}),
 						)
 					}),
+					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						if pack.Path != "" {
+							return layout.Flex{
+								Axis:      layout.Vertical,
+								Alignment: layout.End,
+							}.Layout(gtx, layout.Rigid(material.Button(th, &pack.button, "Show").Layout))
+						}
+						return layout.Dimensions{}
+					}),
 				)
 			})
-		}
-
-		if pack.Path != "" {
-			return material.Clickable(gtx, &pack.button, fn)
-		} else {
-			return fn(gtx)
-		}
-
+		})
 	})
 }
 
@@ -282,7 +292,8 @@ func (p *Page) HandleMessage(msg *messages.Message) *messages.Message {
 			p.Packs = append(p.Packs, &packEntry{
 				IsFinished: false,
 				UUID:       dp.UUID,
-				Name:       dp.SubPackName + " v" + dp.Version,
+				Name:       strings.ReplaceAll(dp.SubPackName, "\n", " "),
+				Version:    dp.Version,
 				Size:       dp.Size,
 			})
 		}
@@ -299,17 +310,30 @@ func (p *Page) HandleMessage(msg *messages.Message) *messages.Message {
 		p.l.Unlock()
 
 	case messages.FinishedPack:
-		for _, pe := range p.Packs {
-			if pe.UUID == m.Pack.UUID() {
-				if m.Pack.Icon() != nil {
-					pe.Icon = paint.NewImageOp(m.Pack.Icon())
-					pe.Icon.Filter = paint.FilterNearest
-					pe.HasIcon = true
+		var icon image.Image
+		if fs, _ := fs.Sub(m.Pack, m.Pack.BaseDir()); fs != nil {
+			f, err := fs.Open("pack_icon.png")
+			if err == nil {
+				defer f.Close()
+				icon, err = png.Decode(f)
+				if err != nil {
+					logrus.Warnf("Failed to Parse pack_icon.png %s", m.Pack.Name())
 				}
-				pe.Name = m.Pack.Name() + " v" + m.Pack.Version()
-				pe.Loaded = pe.Size
-				break
 			}
+		}
+		for _, pe := range p.Packs {
+			if pe.UUID != m.Pack.UUID() {
+				continue
+			}
+			if icon != nil {
+				pe.Icon = paint.NewImageOp(icon)
+				pe.Icon.Filter = paint.FilterNearest
+				pe.HasIcon = true
+			}
+			pe.Name = strings.ReplaceAll(m.Pack.Name(), "\n", " ")
+			pe.Version = m.Pack.Version()
+			pe.Loaded = pe.Size
+			break
 		}
 
 	case messages.ProcessingPack:

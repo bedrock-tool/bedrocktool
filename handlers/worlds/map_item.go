@@ -133,7 +133,7 @@ func (m *MapUI) Start(ctx context.Context) {
 
 	m.ticker = time.NewTicker(33 * time.Millisecond)
 	go func() {
-		m.ChunkRenderer.ResolveColors(m.w.customBlocks, m.w.serverState.packs)
+		m.ChunkRenderer.ResolveColors(m.w.customBlocks, m.w.proxy.Server.ResourcePacks())
 		close(m.haveColors)
 	}()
 	go func() {

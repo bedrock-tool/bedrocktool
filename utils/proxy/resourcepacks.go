@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
@@ -157,9 +158,13 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 				uuid:    pack.UUID,
 				version: pack.Version,
 			})
-			newPack := r.cache.Get(pack.UUID, pack.Version).WithContentKey(pack.ContentKey)
-			r.resourcePacks = append(r.resourcePacks, newPack)
-			r.OnFinishedPack(newPack)
+			newPack, err := utils.PackFromBase(r.cache.Get(pack.UUID, pack.Version).WithContentKey(pack.ContentKey))
+			if err != nil {
+				r.log.Error(err)
+			} else {
+				r.resourcePacks = append(r.resourcePacks, newPack)
+				r.OnFinishedPack(newPack)
+			}
 			r.downloadQueue.serverPackAmount--
 			continue
 		}
@@ -181,7 +186,11 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 					r.log.Error(err)
 					return
 				}
-				newPack = newPack.WithContentKey(contentKey)
+				newPack, err = utils.PackFromBase(newPack.WithContentKey(contentKey))
+				if err != nil {
+					r.log.Error(err)
+					return
+				}
 				r.resourcePacks = append(r.resourcePacks, newPack)
 				r.OnFinishedPack(newPack)
 
@@ -383,7 +392,11 @@ func (r *rpHandler) downloadResourcePack(pk *packet.ResourcePackDataInfo) error 
 	if err != nil {
 		return fmt.Errorf("invalid full resource pack data for UUID %v: %v", pk.UUID, err)
 	}
-	newPack = newPack.WithContentKey(pack.contentKey)
+	newPack, err = utils.PackFromBase(newPack.WithContentKey(pack.contentKey))
+	if err != nil {
+		return fmt.Errorf("invalid full resource pack data for UUID %v: %v", pk.UUID, err)
+	}
+
 	r.downloadQueue.serverPackAmount--
 	// Finally we add the resource to the resource packs slice.
 	r.resourcePacks = append(r.resourcePacks, newPack)

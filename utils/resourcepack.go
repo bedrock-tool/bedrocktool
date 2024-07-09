@@ -7,17 +7,12 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 )
 
-type Pack interface {
-	resource.Pack
-	CanDecrypt() bool
-}
-
 type packBase struct {
 	resource.Pack
 }
 
-func (p *packBase) CanDecrypt() bool {
-	return false
+func (p *packBase) CanRead() bool {
+	return !p.Encrypted()
 }
 
 func (p *packBase) Open(name string) (fs.File, error) {
@@ -27,7 +22,7 @@ func (p *packBase) Open(name string) (fs.File, error) {
 	return p.Pack.Open(name)
 }
 
-var PackFromBase = func(pack resource.Pack) (Pack, error) {
+var PackFromBase = func(pack resource.Pack) (resource.Pack, error) {
 	b := &packBase{pack}
 	return b, nil
 }

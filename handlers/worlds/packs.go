@@ -11,6 +11,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/flytam/filenamify"
+	"github.com/sandertv/gophertunnel/minecraft/resource"
 	"github.com/sirupsen/logrus"
 )
 
@@ -40,10 +41,6 @@ func (w *worldsHandler) AddPacks(fs utils.WriterFS) error {
 		packFolder := path.Join("behavior_packs", name)
 
 		for _, p := range w.proxy.Server.ResourcePacks() {
-			p, err := utils.PackFromBase(p)
-			if err != nil {
-				return err
-			}
 			w.bp.CheckAddLink(p)
 		}
 
@@ -67,15 +64,16 @@ func (w *worldsHandler) AddPacks(fs utils.WriterFS) error {
 	// add resource packs
 	if w.settings.WithPacks {
 		packNames := make(map[string][]string)
-		for _, pack := range w.serverState.packs {
+		packs := w.proxy.Server.ResourcePacks()
+		for _, pack := range packs {
 			packName := pack.Name()
 			packNames[packName] = append(packNames[packName], pack.UUID())
 		}
 
 		var rdeps []dep
-		for _, pack := range w.serverState.packs {
+		for _, pack := range packs {
 			log := w.log.WithField("pack", pack.Name())
-			if pack.Encrypted() && !pack.CanDecrypt() {
+			if pack.Encrypted() && !pack.CanRead() {
 				log.Warn("Cant add is encrypted")
 				continue
 			}
@@ -117,7 +115,7 @@ func (w *worldsHandler) AddPacks(fs utils.WriterFS) error {
 	return nil
 }
 
-func writePackToFs(pack utils.Pack, wfs utils.WriterFS, dir string) error {
+func writePackToFs(pack resource.Pack, wfs utils.WriterFS, dir string) error {
 	return fs.WalkDir(pack, ".", func(fpath string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err

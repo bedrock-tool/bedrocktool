@@ -63,7 +63,6 @@ type serverState struct {
 
 	openItemContainers map[byte]*itemContainer
 	playerInventory    []protocol.ItemInstance
-	packs              []utils.Pack
 	dimensions         map[int]protocol.DimensionDefinition
 	playerSkins        map[uuid.UUID]*protocol.Skin
 
@@ -247,8 +246,6 @@ func NewWorldsHandler(settings WorldSettings) *proxy.Handler {
 			if gd.ServerAuthoritativeInventory {
 				mapItemPacket.Content[0].StackNetworkID = 0xffff + rand.Int31n(0xfff)
 			}
-
-			w.serverState.packs = w.proxy.ResourcePacks
 
 			w.proxy.SendMessage(locale.Loc("use_setname", nil))
 			w.mapUI.Start(ctx)

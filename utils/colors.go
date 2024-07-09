@@ -166,7 +166,7 @@ func calculateMeanAverageColour(img image.Image) (c color.RGBA) {
 	}
 }
 
-func ResolveColors(entries []protocol.BlockEntry, packs []Pack) map[string]color.RGBA {
+func ResolveColors(entries []protocol.BlockEntry, packs []resource.Pack) map[string]color.RGBA {
 	log := logrus.WithField("func", "ResolveColors")
 	colors := make(map[string]color.RGBA)
 

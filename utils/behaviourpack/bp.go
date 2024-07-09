@@ -64,7 +64,7 @@ func fsFileExists(f fs.FS, name string) bool {
 	return true
 }
 
-func (bp *Pack) CheckAddLink(pack utils.Pack) {
+func (bp *Pack) CheckAddLink(pack resource.Pack) {
 	hasBlocksJson := bp.HasBlocks() && fsFileExists(pack, "blocks.json")
 	hasEntitiesFolder := bp.HasEntities() && fsFileExists(pack, "entity")
 	hasItemsFolder := bp.HasItems() && fsFileExists(pack, "items")
