@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"gioui.org/f32"
+	"gioui.org/font"
 	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/paint"
@@ -17,6 +18,7 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
+	"gioui.org/x/styledtext"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/mctext"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
@@ -118,7 +120,7 @@ func drawPackEntry(gtx C, th *material.Theme, pack *packEntry) D {
 	if pack.IsFinished {
 		size = utils.SizeofFmt(float32(pack.Size))
 	} else {
-		size = fmt.Sprintf("%s / %s  %.02f%%",
+		size = fmt.Sprintf("%s / %s %.02f%%",
 			utils.SizeofFmt(float32(pack.Loaded)),
 			utils.SizeofFmt(float32(pack.Size)),
 			float32(pack.Loaded)/float32(pack.Size)*100,
@@ -145,14 +147,7 @@ func drawPackEntry(gtx C, th *material.Theme, pack *packEntry) D {
 						return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 							layout.Rigid(mctext.Label(th, th.TextSize, pack.Name)),
 							layout.Rigid(material.Label(th, th.TextSize, pack.Version).Layout),
-							layout.Rigid(material.LabelStyle{
-								Text:           size,
-								Color:          colorSize,
-								SelectionColor: MulAlpha(th.Palette.ContrastBg, 0x60),
-								TextSize:       th.TextSize,
-								Shaper:         th.Shaper,
-							}.Layout),
-							layout.Rigid(func(gtx C) D {
+							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 								var c color.NRGBA
 								var t string
 
@@ -173,16 +168,22 @@ func drawPackEntry(gtx C, th *material.Theme, pack *packEntry) D {
 									t = "Downloading"
 								}
 
-								if t != "" {
-									return material.LabelStyle{
-										TextSize: th.TextSize,
-										Color:    c,
-										Text:     t,
-										Shaper:   th.Shaper,
-									}.Layout(gtx)
-								} else {
-									return D{}
-								}
+								return styledtext.Text(th.Shaper, styledtext.SpanStyle{
+									Font:    font.Font{Typeface: th.Face},
+									Size:    th.TextSize,
+									Color:   colorSize,
+									Content: size,
+								}, styledtext.SpanStyle{
+									Font:    font.Font{Typeface: th.Face},
+									Size:    th.TextSize,
+									Color:   th.Fg,
+									Content: " | ",
+								}, styledtext.SpanStyle{
+									Font:    font.Font{Typeface: th.Face},
+									Size:    th.TextSize,
+									Color:   c,
+									Content: t,
+								}).Layout(gtx, nil)
 							}),
 						)
 					}),

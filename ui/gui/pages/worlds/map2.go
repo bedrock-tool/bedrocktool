@@ -75,7 +75,10 @@ func (m *mapInput) Layout(gtx layout.Context) func() {
 		ev, ok := gtx.Event(pointer.Filter{
 			Target: m,
 			Kinds:  pointer.Scroll | pointer.Drag | pointer.Press | pointer.Release,
-			//ScrollBounds: image.Rect(-size.X, -size.Y, size.X, size.Y),
+			ScrollY: pointer.ScrollRange{
+				Min: -120,
+				Max: 120,
+			},
 		})
 		if !ok {
 			break
