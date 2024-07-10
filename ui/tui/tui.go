@@ -69,6 +69,12 @@ func (c *TUI) Start(ctx context.Context, cancel context.CancelCauseFunc) error {
 
 func (c *TUI) HandleMessage(msg *messages.Message) *messages.Message {
 	switch msg := msg.Data.(type) {
+	case messages.RequestLogin:
+		if msg.Wait {
+			utils.Auth.Login(context.Background(), nil)
+		} else {
+			go utils.Auth.Login(context.Background(), nil)
+		}
 	case *messages.ServerInput:
 		_ = msg
 		var cancelled bool
