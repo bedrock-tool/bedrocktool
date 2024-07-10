@@ -31,7 +31,9 @@ func (errorPopup) ID() string {
 
 func (e *errorPopup) Layout(gtx C, th *material.Theme) D {
 	if e.close.Clicked(gtx) {
-		e.onClose()
+		if e.onClose != nil {
+			e.onClose()
+		}
 		messages.Router.Handle(&messages.Message{
 			Source: e.ID(),
 			Target: "ui",

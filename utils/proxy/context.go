@@ -319,7 +319,16 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 
 	if !isReplay {
 		// ask for login before listening
-		p.tokenSource, err = utils.Auth.GetTokenSource()
+		if !utils.Auth.LoggedIn() {
+			messages.Router.Handle(&messages.Message{
+				Source: "proxy",
+				Target: "ui",
+				Data: messages.RequestLogin{
+					Wait: true,
+				},
+			})
+		}
+		p.tokenSource, err = utils.Auth.TokenSource()
 		if err != nil {
 			return err
 		}

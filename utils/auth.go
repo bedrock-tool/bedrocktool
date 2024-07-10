@@ -3,7 +3,7 @@ package utils
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"os"
 
 	"github.com/sandertv/gophertunnel/minecraft/auth"
@@ -15,33 +15,77 @@ import (
 const TokenFile = "token.json"
 
 type authsrv struct {
-	src       oauth2.TokenSource
-	baseCtx   context.Context
-	ctx       context.Context
-	cancel    context.CancelFunc
-	MSHandler auth.MSAuthHandler
-	log       *logrus.Entry
+	liveToken   *oauth2.Token
+	tokenSource oauth2.TokenSource
+	realms      *realms.Client
+	log         *logrus.Entry
 }
 
 var Auth authsrv = authsrv{
 	log: logrus.WithField("part", "Auth"),
 }
 
-func (a *authsrv) InitCtx(ctx context.Context) {
-	a.baseCtx = ctx
-	a.ctx, a.cancel = context.WithCancel(a.baseCtx)
+// reads token from storage if there is one
+func (a *authsrv) Startup() (err error) {
+	a.liveToken, err = a.readToken()
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	a.tokenSource = auth.RefreshTokenSource(a.liveToken)
+	a.realms = realms.NewClient(a.tokenSource)
+	_, err = a.TokenSource()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
-func (a *authsrv) Cancel() {
-	a.cancel()
-	a.ctx, a.cancel = context.WithCancel(a.baseCtx)
+// if the user is currently logged in or not
+func (a *authsrv) LoggedIn() bool {
+	return a.tokenSource != nil
 }
 
-func (a *authsrv) HaveToken() bool {
-	_, err := os.Stat(TokenFile)
-	return err == nil
+// performs microsoft login using the handler passed
+func (a *authsrv) Login(ctx context.Context, handler auth.MSAuthHandler) (err error) {
+	a.liveToken, err = auth.RequestLiveTokenWriter(ctx, handler)
+	if err != nil {
+		return err
+	}
+	err = a.writeToken(a.liveToken)
+	if err != nil {
+		return err
+	}
+	a.tokenSource = auth.RefreshTokenSource(a.liveToken)
+	a.realms = realms.NewClient(a.tokenSource)
+	return nil
 }
 
+func (a *authsrv) Logout() {
+	a.liveToken = nil
+	a.tokenSource = nil
+	a.realms = nil
+	os.Remove(TokenFile)
+}
+
+func (a *authsrv) refreshLiveToken() (err error) {
+	if a.liveToken.Valid() {
+		return nil
+	}
+	a.log.Info("Refreshing Microsoft Token")
+	a.liveToken, err = a.tokenSource.Token()
+	if err != nil {
+		return err
+	}
+	err = a.writeToken(a.liveToken)
+	if err != nil {
+		return err
+	}
+	a.tokenSource = auth.RefreshTokenSource(a.liveToken)
+	a.realms = realms.NewClient(a.tokenSource)
+	return nil
+}
+
+// writes the livetoken to storage
 func (a *authsrv) writeToken(token *oauth2.Token) error {
 	f, err := os.Create(TokenFile)
 	if err != nil {
@@ -52,6 +96,7 @@ func (a *authsrv) writeToken(token *oauth2.Token) error {
 	return e.Encode(token)
 }
 
+// reads the live token from storage, returns os.ErrNotExist if no token is stored
 func (a *authsrv) readToken() (*oauth2.Token, error) {
 	var token oauth2.Token
 	f, err := os.Open(TokenFile)
@@ -67,60 +112,22 @@ func (a *authsrv) readToken() (*oauth2.Token, error) {
 	return &token, nil
 }
 
-func (a *authsrv) GetTokenSource() (src oauth2.TokenSource, err error) {
-	if a.src != nil {
-		return a.src, nil
-	}
-	var token *oauth2.Token
-	if a.HaveToken() {
-		// read the existing token
-		token, err = a.readToken()
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		// request a new token
-		token, err = auth.RequestLiveTokenWriter(a.ctx, a.MSHandler)
-		if err != nil {
-			return nil, err
-		}
-		err := a.writeToken(token)
-		if err != nil {
-			return nil, err
-		}
-	}
-	a.src = auth.RefreshTokenSource(token)
+var ErrNotLoggedIn = errors.New("not logged in")
 
-	// if the old token isnt valid save the new one
-	if !token.Valid() {
-		a.log.Debug("Refreshing token")
-		token, err = a.src.Token()
-		if err != nil {
-			return nil, err
-		}
-		err = a.writeToken(token)
-		if err != nil {
-			return nil, err
-		}
+func (a *authsrv) TokenSource() (src oauth2.TokenSource, err error) {
+	if a.tokenSource == nil {
+		return nil, ErrNotLoggedIn
 	}
-
-	return a.src, nil
+	err = a.refreshLiveToken()
+	if err != nil {
+		return nil, err
+	}
+	return a.tokenSource, nil
 }
 
-var RealmsEnv string
-
-var realmsAPI *realms.Client
-
-func GetRealmsAPI() *realms.Client {
-	if realmsAPI == nil {
-		if RealmsEnv != "" {
-			realms.RealmsAPIBase = fmt.Sprintf("https://pocket-%s.realms.minecraft.net/", RealmsEnv)
-		}
-		src, err := Auth.GetTokenSource()
-		if err != nil {
-			logrus.WithField("part", "Realms-api").Fatal(err)
-		}
-		realmsAPI = realms.NewClient(src)
+func (a *authsrv) Realms() (*realms.Client, error) {
+	if a.realms != nil {
+		return a.realms, nil
 	}
-	return realmsAPI
+	return nil, ErrNotLoggedIn
 }

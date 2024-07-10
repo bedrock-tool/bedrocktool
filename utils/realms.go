@@ -7,7 +7,11 @@ import (
 )
 
 func getRealm(ctx context.Context, realmName, id string) (name string, address string, err error) {
-	realms, err := GetRealmsAPI().Realms(ctx)
+	realmsClient, err := Auth.Realms()
+	if err != nil {
+		return "", "", err
+	}
+	realms, err := realmsClient.Realms(ctx)
 	if err != nil {
 		return "", "", err
 	}

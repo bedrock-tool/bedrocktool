@@ -12,7 +12,6 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/sandertv/gophertunnel/minecraft/realms"
-	"github.com/sirupsen/logrus"
 )
 
 type RealmsList struct {
@@ -44,18 +43,22 @@ func (*RealmsList) ID() string {
 
 var _ Popup = &RealmsList{}
 
-func (r *RealmsList) Load() {
-	var err error
-	r.realms, err = utils.GetRealmsAPI().Realms(context.Background())
+func (r *RealmsList) Load() error {
+	realmsClient, err := utils.Auth.Realms()
+	if err != nil {
+		return err
+	}
+	r.realms, err = realmsClient.Realms(context.Background())
+	if err != nil {
+		return err
+	}
 	clear(r.buttons)
 	for _, realm := range r.realms {
 		r.buttons[realm.ID] = &widget.Clickable{}
 	}
 	r.loading = false
 	r.loaded = true
-	if err != nil {
-		logrus.Error(err)
-	}
+	return nil
 }
 
 func (r *RealmsList) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
@@ -79,6 +82,35 @@ func (r *RealmsList) Layout(gtx layout.Context, th *material.Theme) layout.Dimen
 		})
 	}
 
+	if !r.loaded && !r.loading {
+		r.loading = true
+		go func() {
+			if !utils.Auth.LoggedIn() {
+				messages.Router.Handle(&messages.Message{
+					Source: r.ID(),
+					Target: "ui",
+					Data:   messages.RequestLogin{Wait: true},
+				})
+			}
+			err := r.Load()
+			if err != nil {
+				messages.Router.Handle(&messages.Message{
+					Source: r.ID(),
+					Target: "ui",
+					Data:   messages.Error(err),
+				})
+				messages.Router.Handle(&messages.Message{
+					Source: r.ID(),
+					Target: "ui",
+					Data: messages.Close{
+						Type: "popup",
+						ID:   r.ID(),
+					},
+				})
+			}
+		}()
+	}
+
 	return LayoutPopupBackground(gtx, th, "Realms", func(gtx C) D {
 		return layout.Flex{
 			Axis: layout.Vertical,
@@ -89,11 +121,6 @@ func (r *RealmsList) Layout(gtx layout.Context, th *material.Theme) layout.Dimen
 						gtx.Constraints.Max = image.Pt(20, 20)
 						return material.Loader(th).Layout(gtx)
 					})
-				}
-
-				if !r.loaded && !r.loading {
-					r.loading = true
-					go r.Load()
 				}
 
 				r.l.Lock()

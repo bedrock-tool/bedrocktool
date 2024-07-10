@@ -143,6 +143,10 @@ type HaveFinishScreen struct{}
 
 type Error error
 
+type RequestLogin struct {
+	Wait bool
+}
+
 type ServerInput struct {
 	Request  bool // if this is a request for input
 	IsReplay bool

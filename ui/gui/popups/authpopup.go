@@ -9,19 +9,36 @@ import (
 )
 
 type guiAuth struct {
+	invalidate func()
+	cancel     func()
+	onError    func(error)
 	uri        string
 	click      widget.Clickable
 	code       string
 	codeSelect widget.Selectable
-	err        error
 	close      widget.Clickable
 }
 
-func NewGuiAuth(uri, code string) Popup {
-	return &guiAuth{
-		uri:  uri,
-		code: code,
+func (g *guiAuth) AuthCode(uri string, code string) {
+	g.uri = uri
+	g.code = code
+	g.invalidate()
+}
+
+func (g *guiAuth) Finished(err error) {
+	if err != nil {
+		g.onError(err)
 	}
+	messages.Router.Handle(&messages.Message{
+		Source: "ui",
+		Target: "ui",
+		Data:   messages.Close{Type: "popup", ID: g.ID()},
+	})
+	g.cancel()
+}
+
+func NewGuiAuth(invalidate func(), cancel func(), onError func(error)) *guiAuth {
+	return &guiAuth{invalidate: invalidate, cancel: cancel, onError: onError}
 }
 
 func (guiAuth) ID() string {
@@ -34,12 +51,12 @@ func (g *guiAuth) Layout(gtx layout.Context, th *material.Theme) layout.Dimensio
 	}
 
 	if g.close.Clicked(gtx) {
-		utils.Auth.Cancel()
 		messages.Router.Handle(&messages.Message{
 			Source: "ui",
 			Target: "ui",
 			Data:   messages.Close{Type: "popup", ID: g.ID()},
 		})
+		g.cancel()
 	}
 
 	return LayoutPopupBackground(gtx, th, "guiAuth", func(gtx C) D {
@@ -48,6 +65,9 @@ func (g *guiAuth) Layout(gtx layout.Context, th *material.Theme) layout.Dimensio
 		}.Layout(gtx,
 			layout.Flexed(1, func(gtx C) D {
 				return layout.Center.Layout(gtx, func(gtx C) D {
+					if g.code == "" {
+						return material.Body1(th, "Loading").Layout(gtx)
+					}
 					return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
 						layout.Rigid(func(gtx C) D {
 							return layout.Flex{
@@ -87,9 +107,5 @@ func (g *guiAuth) Layout(gtx layout.Context, th *material.Theme) layout.Dimensio
 }
 
 func (p *guiAuth) HandleMessage(msg *messages.Message) *messages.Message {
-	switch m := msg.Data.(type) {
-	case messages.Error:
-		p.err = m
-	}
 	return nil
 }

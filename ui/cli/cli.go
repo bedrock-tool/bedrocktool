@@ -5,6 +5,7 @@ import (
 	"flag"
 
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
+	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/updater"
 	"github.com/google/subcommands"
 )
@@ -28,5 +29,13 @@ func (c *CLI) Start(ctx context.Context, cancel context.CancelCauseFunc) error {
 }
 
 func (c *CLI) HandleMessage(msg *messages.Message) *messages.Message {
+	switch data := msg.Data.(type) {
+	case messages.RequestLogin:
+		if data.Wait {
+			utils.Auth.Login(context.Background(), nil)
+		} else {
+			go utils.Auth.Login(context.Background(), nil)
+		}
+	}
 	return nil
 }

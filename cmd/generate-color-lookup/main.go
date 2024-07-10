@@ -23,7 +23,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	var packs []utils.Pack
+	var packs []resource.Pack
 	for _, fi := range packNames {
 		p := folder + "/" + fi.Name()
 		pack, err := utils.PackFromBase(resource.MustReadPath(p))

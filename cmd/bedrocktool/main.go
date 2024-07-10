@@ -90,8 +90,12 @@ func main() {
 		log.Infof(locale.Loc("bedrocktool_version", locale.Strmap{"Version": updater.Version}))
 	}
 
+	err := utils.Auth.Startup()
+	if err != nil {
+		logrus.Fatal(err)
+	}
+
 	ctx, cancel := context.WithCancelCause(context.Background())
-	utils.Auth.InitCtx(ctx)
 
 	recovery.ErrorHandler = func(err error) {
 		if isDebug {
@@ -107,7 +111,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	flag.StringVar(&utils.RealmsEnv, "realms-env", "", "realms env")
+	//flag.StringVar(&utils.RealmsEnv, "realms-env", "", "realms env")
 	flag.BoolVar(&utils.Options.Debug, "debug", false, locale.Loc("debug_mode", nil))
 	flag.BoolVar(&utils.Options.ExtraDebug, "extra-debug", false, locale.Loc("extra_debug", nil))
 	flag.StringVar(&utils.Options.PathCustomUserData, "userdata", "", locale.Loc("custom_user_data", nil))
@@ -133,7 +137,7 @@ func main() {
 		log.Error("Failed to init UI!")
 		return
 	}
-	err := ui.Start(ctx, cancel)
+	err = ui.Start(ctx, cancel)
 	cancel(err)
 	if err != nil {
 		log.Error(err)
@@ -149,7 +153,7 @@ func (*TransCMD) Synopsis() string { return "" }
 func (c *TransCMD) SetFlags(f *flag.FlagSet) {
 	f.BoolVar(&c.auth, "auth", false, locale.Loc("should_login_xbox", nil))
 }
-func (c *TransCMD) Execute(_ context.Context) error {
+func (c *TransCMD) Execute(ctx context.Context) error {
 	const (
 		BlackFg = "\033[30m"
 		Bold    = "\033[1m"
@@ -159,10 +163,10 @@ func (c *TransCMD) Execute(_ context.Context) error {
 		Reset   = "\033[0m"
 	)
 	if c.auth {
-		_, err := utils.Auth.GetTokenSource()
-		if err != nil {
-			logrus.Error(err)
-			return nil
+		if utils.Auth.LoggedIn() {
+			logrus.Info("Already Logged in")
+		} else {
+			utils.Auth.Login(ctx, nil)
 		}
 	}
 	fmt.Println(BlackFg + Bold + Blue + " Trans " + Pink + " Rights " + White + " Are " + Pink + " Human " + Blue + " Rights " + Reset)

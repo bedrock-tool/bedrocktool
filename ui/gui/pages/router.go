@@ -3,6 +3,7 @@ package pages
 import (
 	"context"
 	"errors"
+	"image/color"
 	"log"
 	"reflect"
 	"sync"
@@ -32,7 +33,6 @@ type Router struct {
 	cmdCtx       context.Context
 	cmdCtxCancel context.CancelFunc
 	Wg           sync.WaitGroup
-	msAuth       *msAuth
 	Invalidate   func()
 	LogWidget    func(layout.Context, *material.Theme) layout.Dimensions
 
@@ -45,6 +45,8 @@ type Router struct {
 	ModalLayer     *component.ModalLayer
 	NonModalDrawer bool
 
+	loggingIn       bool
+	loginButton     widget.Clickable
 	updateButton    widget.Clickable
 	updateAvailable bool
 
@@ -61,7 +63,6 @@ func NewRouter(uii ui.UI) *Router {
 	r := &Router{
 		ui:             uii,
 		pages:          make(map[string]func() Page),
-		msAuth:         &msAuth{},
 		ModalLayer:     modal,
 		ModalNavDrawer: component.ModalNavFrom(&nav, modal),
 		AppBar:         component.NewAppBar(modal),
@@ -70,8 +71,6 @@ func NewRouter(uii ui.UI) *Router {
 			Duration: time.Millisecond * 250,
 		},
 	}
-	r.msAuth.router = r
-	utils.Auth.MSHandler = r.msAuth
 
 	return r
 }
@@ -183,8 +182,35 @@ func (r *Router) Layout(gtx layout.Context, th *material.Theme) layout.Dimension
 	return layout.Dimensions{Size: gtx.Constraints.Max}
 }
 
+func (r *Router) layoutLoginButton(gtx layout.Context, fg, bg color.NRGBA) layout.Dimensions {
+	if r.loginButton.Clicked(gtx) {
+		if !utils.Auth.LoggedIn() {
+			if !r.loggingIn {
+				messages.Router.Handle(&messages.Message{
+					Source: "ui",
+					Target: "ui",
+					Data:   messages.RequestLogin{},
+				})
+			}
+		} else {
+			utils.Auth.Logout()
+		}
+	}
+
+	var text = "Login"
+	if utils.Auth.LoggedIn() {
+		text = "Logout"
+	}
+	button := material.Button(r.th, &r.loginButton, text)
+	button.Background.R -= 20
+	button.Background.G -= 20
+	button.Background.B -= 32
+	return button.Layout(gtx)
+}
+
 func (r *Router) setActions() {
 	var extra []component.AppBarAction
+	extra = append(extra, component.AppBarAction{Layout: r.layoutLoginButton})
 	extra = append(extra, AppBarSwitch(&r.logToggle, "Logs", &r.th))
 
 	if r.updateAvailable {
@@ -230,6 +256,34 @@ func (r *Router) HandleMessage(msg *messages.Message) *messages.Message {
 		case "popup":
 			r.RemovePopup(data.ID)
 		}
+
+	case messages.RequestLogin:
+		if r.loggingIn {
+			logrus.Info("RequestLogin, while already logging in")
+			break
+		}
+		r.loggingIn = true
+		ctx, cancel := context.WithCancel(r.Ctx)
+		loginPopup := popups.NewGuiAuth(r.Invalidate, cancel, func(err error) {})
+		r.PushPopup(loginPopup)
+		c := make(chan struct{})
+		go func() {
+			err := utils.Auth.Login(ctx, loginPopup)
+			if err != nil {
+				if !errors.Is(err, context.Canceled) {
+					r.PushPopup(popups.NewErrorPopup(err, nil, false))
+				}
+			}
+			r.loggingIn = false
+			r.Invalidate()
+			close(c)
+		}()
+		if data.Wait {
+			<-c
+		}
+
+	case messages.Error:
+		r.PushPopup(popups.NewErrorPopup(data, nil, false))
 	}
 
 	for _, p := range r.popups {
