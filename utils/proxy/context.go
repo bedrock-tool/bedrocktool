@@ -507,6 +507,10 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 				}
 				return
 			}
+			if p.Client != nil {
+				p.Client.Close()
+			}
+			p.Server.Close()
 		}
 
 		// server to client

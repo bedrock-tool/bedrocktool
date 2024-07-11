@@ -105,6 +105,8 @@ type rpHandler struct {
 
 	// optional callback that is called as soon as a resource pack is added to the proxies list
 	OnFinishedPack func(resource.Pack)
+
+	clientDone chan struct{}
 }
 
 func newRpHandler(ctx context.Context, addedPacks []resource.Pack, filterDownloadResourcePacks func(string) bool) *rpHandler {
@@ -134,6 +136,7 @@ func (r *rpHandler) SetClient(c minecraft.IConn) {
 	r.Client = c
 	r.nextPackToClient = make(chan resource.Pack)
 	r.knowPacksRequestedFromServer = make(chan struct{})
+	r.clientDone = make(chan struct{})
 }
 
 // from server
@@ -509,6 +512,8 @@ func (r *rpHandler) OnResourcePackStack(pk *packet.ResourcePackStack) error {
 	close(r.receivedRemoteStack)
 	r.log.Debug("received remote resourcepack stack, starting game")
 
+	<-r.clientDone
+
 	r.Server.Expect(packet.IDStartGame)
 	_ = r.Server.WritePacket(&packet.ResourcePackClientResponse{Response: packet.PackResponseCompleted})
 	return nil
@@ -558,7 +563,7 @@ func (r *rpHandler) nextResourcePackDownload() (ok bool, err error) {
 		packType = packet.ResourcePackTypeSkins
 	}
 
-	_ = r.Client.WritePacket(&packet.ResourcePackDataInfo{
+	err = r.Client.WritePacket(&packet.ResourcePackDataInfo{
 		UUID:          pack.UUID(),
 		DataChunkSize: packChunkSize,
 		ChunkCount:    uint32(pack.DataChunkCount(packChunkSize)),
@@ -566,6 +571,9 @@ func (r *rpHandler) nextResourcePackDownload() (ok bool, err error) {
 		Hash:          checksum[:],
 		PackType:      packType,
 	})
+	if err != nil {
+		return false, err
+	}
 	// Set the next expected packet to ResourcePackChunkRequest packets.
 	r.Client.Expect(packet.IDResourcePackChunkRequest)
 	return true, nil
@@ -626,7 +634,7 @@ func (r *rpHandler) processClientRequest(packs []string) error {
 
 		found := false
 		if r.cache.Has(id, ver) {
-			r.log.Debug("using", packUUID, "from cache")
+			r.log.Debugf("using %s from cache", packUUID)
 
 			pack := r.cache.Get(id, ver)
 
@@ -708,6 +716,7 @@ func (r *rpHandler) OnResourcePackClientResponse(pk *packet.ResourcePackClientRe
 	case packet.PackResponseRefused:
 		// Even though this response is never sent, we handle it appropriately in case it is changed to work
 		// correctly again.
+		close(r.clientDone)
 		return r.Client.Close()
 	case packet.PackResponseSendPacks:
 		r.clientHasRequested = true
@@ -736,6 +745,7 @@ func (r *rpHandler) OnResourcePackClientResponse(pk *packet.ResourcePackClientRe
 			return fmt.Errorf("error writing resource pack stack packet: %v", err)
 		}
 	case packet.PackResponseCompleted:
+		close(r.clientDone)
 		r.Client.SetLoggedIn()
 	default:
 		return fmt.Errorf("unknown resource pack client response: %v", pk.Response)
@@ -751,7 +761,18 @@ func (r *rpHandler) GetResourcePacksInfo(texturePacksRequired bool) *packet.Reso
 
 	var pk packet.ResourcePacksInfo
 	if r.remotePacksInfo != nil {
-		pk = *r.remotePacksInfo
+		for _, bp := range r.remotePacksInfo.BehaviourPacks {
+			pk.BehaviourPacks = append(pk.BehaviourPacks, bp)
+		}
+		for _, rp := range r.remotePacksInfo.TexturePacks {
+			rp.RTXEnabled = false
+			pk.TexturePacks = append(pk.TexturePacks, rp)
+		}
+		pk.TexturePackRequired = r.remotePacksInfo.TexturePackRequired
+		pk.HasAddons = r.remotePacksInfo.HasAddons
+		pk.HasScripts = r.remotePacksInfo.HasScripts
+		pk.ForcingServerPacks = r.remotePacksInfo.ForcingServerPacks
+		pk.PackURLs = r.remotePacksInfo.PackURLs
 	}
 
 	// add r.addedPacks to the info
