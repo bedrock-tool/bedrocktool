@@ -83,7 +83,8 @@ type NewSkin struct {
 }
 
 type InitialPacksInfo struct {
-	Packs []protocol.TexturePackInfo
+	Packs    []protocol.TexturePackInfo
+	OnlyKeys bool
 }
 
 type PackDownloadProgress struct {
