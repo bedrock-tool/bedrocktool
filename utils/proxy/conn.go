@@ -81,6 +81,9 @@ func (p *Context) connectServer(ctx context.Context) (err error) {
 
 	server, err := d.DialContext(ctx, "raknet", p.serverAddress, 10*time.Second)
 	if err != nil {
+		if p.expectDisconnect {
+			return nil
+		}
 		return err
 	}
 	p.Server = server

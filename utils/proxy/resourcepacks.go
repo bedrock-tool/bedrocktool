@@ -57,6 +57,8 @@ type rpHandler struct {
 	ctx    context.Context
 	log    *logrus.Entry
 
+	filterDownloadResourcePacks func(id string) bool
+
 	// wait for downloads to be done
 	dlwg sync.WaitGroup
 
@@ -105,7 +107,7 @@ type rpHandler struct {
 	OnFinishedPack func(resource.Pack)
 }
 
-func newRpHandler(ctx context.Context, addedPacks []resource.Pack) *rpHandler {
+func newRpHandler(ctx context.Context, addedPacks []resource.Pack, filterDownloadResourcePacks func(string) bool) *rpHandler {
 	r := &rpHandler{
 		ctx:        ctx,
 		log:        logrus.WithField("part", "ResourcePacks"),
@@ -118,6 +120,8 @@ func newRpHandler(ctx context.Context, addedPacks []resource.Pack) *rpHandler {
 		cache:                  &packCache{},
 		receivedRemotePackInfo: make(chan struct{}),
 		receivedRemoteStack:    make(chan struct{}),
+
+		filterDownloadResourcePacks: filterDownloadResourcePacks,
 	}
 	return r
 }
@@ -209,7 +213,6 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 			continue
 		}
 
-		// This UUID_Version is a hack Mojang put in place.
 		packsToDownload = append(packsToDownload, packID)
 
 		m, ok := r.downloadQueue.downloadingPacks[pack.UUID]
@@ -271,6 +274,18 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 			return r.ctx.Err()
 		}
 	}
+
+	packsToDownload = slices.DeleteFunc(packsToDownload, func(id string) bool {
+		ignore := r.filterDownloadResourcePacks(id)
+		if ignore {
+			idsplit := strings.Split(id, "_")
+			r.ignoredResourcePacks = append(r.ignoredResourcePacks, exemptedResourcePack{
+				uuid:    idsplit[0],
+				version: idsplit[1],
+			})
+		}
+		return ignore
+	})
 
 	if len(packsToDownload) != 0 {
 		// start downloading from server whenever a pack info is sent

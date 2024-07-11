@@ -10,7 +10,9 @@ import (
 	"github.com/google/subcommands"
 )
 
-type CLI struct{}
+type CLI struct {
+	ctx context.Context
+}
 
 func (c *CLI) Init() bool {
 	messages.Router.AddHandler("ui", c.HandleMessage)
@@ -18,6 +20,7 @@ func (c *CLI) Init() bool {
 }
 
 func (c *CLI) Start(ctx context.Context, cancel context.CancelCauseFunc) error {
+	c.ctx = ctx
 	isDebug := updater.Version == ""
 	if !isDebug {
 		go updater.UpdateCheck(c)
@@ -32,9 +35,9 @@ func (c *CLI) HandleMessage(msg *messages.Message) *messages.Message {
 	switch data := msg.Data.(type) {
 	case messages.RequestLogin:
 		if data.Wait {
-			utils.Auth.Login(context.Background(), nil)
+			utils.Auth.Login(c.ctx, nil)
 		} else {
-			go utils.Auth.Login(context.Background(), nil)
+			go utils.Auth.Login(c.ctx, nil)
 		}
 	}
 	return nil

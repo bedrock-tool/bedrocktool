@@ -22,9 +22,10 @@ type ingameCommand struct {
 type Handler struct {
 	Name string
 
-	ProxyReference   func(c *Context)
-	GameDataModifier func(gameData *minecraft.GameData)
-	OnAddressAndName func(address, hostname string) error
+	ProxyReference     func(c *Context)
+	GameDataModifier   func(gameData *minecraft.GameData)
+	OnAddressAndName   func(address, hostname string) error
+	FilterResourcePack func(id string) bool
 
 	PacketRaw      func(header packet.Header, payload []byte, src, dst net.Addr)
 	PacketCallback func(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error)

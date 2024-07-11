@@ -28,13 +28,14 @@ import (
 )
 
 type Context struct {
-	Server        minecraft.IConn
-	Client        minecraft.IConn
-	listener      *minecraft.Listener
-	Player        Player
-	ExtraDebug    bool
-	PlayerMoveCB  []func()
-	ListenAddress string
+	Server           minecraft.IConn
+	Client           minecraft.IConn
+	expectDisconnect bool
+	listener         *minecraft.Listener
+	Player           Player
+	ExtraDebug       bool
+	PlayerMoveCB     []func()
+	ListenAddress    string
 
 	withClient bool
 	addedPacks []resource.Pack
@@ -222,6 +223,7 @@ func (p *Context) DisconnectServer() {
 	if p.Server == nil {
 		return
 	}
+	p.expectDisconnect = true
 	_ = p.Server.Close()
 }
 
@@ -347,11 +349,21 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 		},
 	})
 
+	filterDownloadResourcePacks := func(id string) bool {
+		ignore := false
+		for _, handler := range p.handlers {
+			if handler.FilterResourcePack != nil {
+				ignore = handler.FilterResourcePack(id)
+			}
+		}
+		return ignore
+	}
+
 	// setup Client and Server Connections
 	wg := sync.WaitGroup{}
 	if isReplay {
 		filename := p.serverAddress[5:]
-		server, err := CreateReplayConnector(ctx, filename, p.packetFunc, p.onResourcePacksInfo, p.onFinishedPack)
+		server, err := CreateReplayConnector(ctx, filename, p.packetFunc, p.onResourcePacksInfo, p.onFinishedPack, filterDownloadResourcePacks)
 		if err != nil {
 			return err
 		}
@@ -361,7 +373,7 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 			return err
 		}
 	} else {
-		p.rpHandler = newRpHandler(ctx, p.addedPacks)
+		p.rpHandler = newRpHandler(ctx, p.addedPacks, filterDownloadResourcePacks)
 		p.rpHandler.OnResourcePacksInfoCB = p.onResourcePacksInfo
 		p.rpHandler.OnFinishedPack = p.onFinishedPack
 

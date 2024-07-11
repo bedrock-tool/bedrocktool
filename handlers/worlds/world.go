@@ -286,7 +286,7 @@ func (w *worldsHandler) preloadReplay() error {
 		if err != nil {
 			log.Error(err)
 		}
-	}, func() {}, func(p resource.Pack) {})
+	}, func() {}, func(p resource.Pack) {}, func(s string) bool { return false })
 	if err != nil {
 		return err
 	}

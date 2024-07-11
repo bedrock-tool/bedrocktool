@@ -19,7 +19,9 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type TUI struct{}
+type TUI struct {
+	ctx context.Context
+}
 
 var _ ui.UI = &TUI{}
 
@@ -29,6 +31,7 @@ func (c *TUI) Init() bool {
 }
 
 func (c *TUI) Start(ctx context.Context, cancel context.CancelCauseFunc) error {
+	c.ctx = ctx
 	isDebug := updater.Version == ""
 	if !isDebug {
 		go updater.UpdateCheck(c)
@@ -71,14 +74,14 @@ func (c *TUI) HandleMessage(msg *messages.Message) *messages.Message {
 	switch msg := msg.Data.(type) {
 	case messages.RequestLogin:
 		if msg.Wait {
-			utils.Auth.Login(context.Background(), nil)
+			utils.Auth.Login(c.ctx, nil)
 		} else {
-			go utils.Auth.Login(context.Background(), nil)
+			go utils.Auth.Login(c.ctx, nil)
 		}
 	case *messages.ServerInput:
 		_ = msg
 		var cancelled bool
-		server, cancelled := utils.UserInput(context.Background(), locale.Loc("enter_server", nil), utils.ValidateServerInput)
+		server, cancelled := utils.UserInput(c.ctx, locale.Loc("enter_server", nil), utils.ValidateServerInput)
 		if cancelled {
 			return &messages.Message{
 				Source: "gui",
@@ -86,7 +89,7 @@ func (c *TUI) HandleMessage(msg *messages.Message) *messages.Message {
 			}
 		}
 
-		ret, err := utils.ParseServer(context.Background(), server)
+		ret, err := utils.ParseServer(c.ctx, server)
 		if err != nil {
 			return &messages.Message{
 				Source: "gui",
