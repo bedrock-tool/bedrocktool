@@ -2,6 +2,7 @@ package mctext
 
 import (
 	"image/color"
+	"math/rand/v2"
 	"regexp"
 
 	"gioui.org/font"
@@ -13,7 +14,7 @@ import (
 
 var splitter = regexp.MustCompile("((?:§.)?(?:[^§]+)?)")
 
-func Label(th *material.Theme, size unit.Sp, txt string) func(gtx layout.Context) layout.Dimensions {
+func Label(th *material.Theme, size unit.Sp, txt string, invalidate func(), frame int) func(gtx layout.Context) layout.Dimensions {
 	split := splitter.FindAllString(txt, -1)
 	var Styles []styledtext.SpanStyle
 
@@ -97,9 +98,7 @@ func Label(th *material.Theme, size unit.Sp, txt string) func(gtx layout.Context
 			_ = obfuscated
 		}
 
-		partT := string(partR)
-
-		if len(partT) == 0 {
+		if len(partR) == 0 {
 			continue
 		}
 
@@ -112,6 +111,15 @@ func Label(th *material.Theme, size unit.Sp, txt string) func(gtx layout.Context
 			fontWeight = font.Bold
 		}
 
+		if obfuscated {
+			obfuscatedDict := []rune{'a', 'b', 'c', 'd'}
+			r := rand.New(rand.NewPCG(0, uint64(frame/3)))
+			for i := 0; i < len(partR); i++ {
+				partR[i] = obfuscatedDict[r.IntN(len(obfuscatedDict))]
+			}
+			invalidate()
+		}
+
 		Styles = append(Styles, styledtext.SpanStyle{
 			Font: font.Font{
 				Typeface: th.Face,
@@ -120,7 +128,7 @@ func Label(th *material.Theme, size unit.Sp, txt string) func(gtx layout.Context
 			},
 			Size:    size,
 			Color:   activeColor,
-			Content: partT,
+			Content: string(partR),
 		})
 	}
 

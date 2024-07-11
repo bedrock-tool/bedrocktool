@@ -82,18 +82,6 @@ type NewSkin struct {
 	Skin       *protocol.Skin
 }
 
-type SavingWorld struct {
-	World *SavedWorld
-}
-
-type SavedWorld struct {
-	Name     string
-	Path     string
-	Chunks   int
-	Entities int
-	Image    image.Image
-}
-
 type InitialPacksInfo struct {
 	Packs []protocol.TexturePackInfo
 }
@@ -145,6 +133,23 @@ type Error error
 
 type RequestLogin struct {
 	Wait bool
+}
+
+type ProcessingWorldUpdate struct {
+	Name  string
+	State string
+}
+
+type FinishedSavingWorld struct {
+	World *SavedWorld
+}
+
+type SavedWorld struct {
+	Name     string
+	Path     string
+	Chunks   int
+	Entities int
+	Image    image.Image
 }
 
 type ServerInput struct {

@@ -416,20 +416,24 @@ func (w *worldsHandler) saveWorldState(worldState *worldstate.World) error {
 	messages.Router.Handle(&messages.Message{
 		Source: "subcommand",
 		Target: "ui",
-		Data: messages.SavingWorld{
-			World: &messages.SavedWorld{
-				Name:     worldState.Name,
-				Path:     filename,
-				Chunks:   len(worldState.StoredChunks),
-				Entities: len(worldState.StoredChunks),
-			},
+		Data: messages.ProcessingWorldUpdate{
+			Name:  worldState.Name,
+			State: "Saving",
 		},
 	})
-
 	err := worldState.Finish(w.playerData(), w.settings.ExcludedMobs, w.settings.Players, spawnPos, w.proxy.Server.GameData(), w.bp)
 	if err != nil {
 		return err
 	}
+
+	messages.Router.Handle(&messages.Message{
+		Source: "subcommand",
+		Target: "ui",
+		Data: messages.ProcessingWorldUpdate{
+			Name:  worldState.Name,
+			State: "Writing mcworld file",
+		},
+	})
 
 	f, err := os.Create(filename)
 	if err != nil {
@@ -445,7 +449,7 @@ func (w *worldsHandler) saveWorldState(worldState *worldstate.World) error {
 	ofs := &utils.OSWriter{Base: worldState.Folder}
 	mfs := &utils.MultiWriterFS{FSs: []utils.WriterFS{zfs, ofs}}
 
-	err = w.AddPacks(mfs)
+	err = w.AddPacks(worldState.Name, mfs)
 	if err != nil {
 		return err
 	}
@@ -455,6 +459,20 @@ func (w *worldsHandler) saveWorldState(worldState *worldstate.World) error {
 	}
 
 	w.log.Info(locale.Loc("saved", locale.Strmap{"Name": filename}))
+
+	messages.Router.Handle(&messages.Message{
+		Source: "subcommand",
+		Target: "ui",
+		Data: messages.FinishedSavingWorld{
+			World: &messages.SavedWorld{
+				Name:     worldState.Name,
+				Path:     filename,
+				Chunks:   len(worldState.StoredChunks),
+				Entities: worldState.EntityCount(),
+			},
+		},
+	})
+
 	return nil
 }
 

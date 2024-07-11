@@ -9,13 +9,14 @@ import (
 	"slices"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
+	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/flytam/filenamify"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 	"github.com/sirupsen/logrus"
 )
 
-func (w *worldsHandler) AddPacks(fs utils.WriterFS) error {
+func (w *worldsHandler) AddPacks(worldName string, fs utils.WriterFS) error {
 	type dep struct {
 		PackID  string `json:"pack_id"`
 		Version [3]int `json:"version"`
@@ -78,6 +79,15 @@ func (w *worldsHandler) AddPacks(fs utils.WriterFS) error {
 				continue
 			}
 			logrus.Infof(locale.Loc("adding_pack", locale.Strmap{"Name": pack.Name()}))
+
+			messages.Router.Handle(&messages.Message{
+				Source: "subcommand",
+				Target: "ui",
+				Data: messages.ProcessingWorldUpdate{
+					Name:  worldName,
+					State: "Adding Resourcepack " + pack.Name(),
+				},
+			})
 
 			packName := pack.Name()
 			if packIds := packNames[packName]; len(packIds) > 1 {

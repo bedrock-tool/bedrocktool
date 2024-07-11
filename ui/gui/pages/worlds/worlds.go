@@ -3,6 +3,7 @@ package worlds
 import (
 	"fmt"
 	"image"
+	"slices"
 	"sync"
 
 	"gioui.org/layout"
@@ -23,10 +24,12 @@ const ID = "worlds"
 
 type Page struct {
 	worldMap *Map2
-	//Map3       *Map3
-	worlds     []*messages.SavedWorld
-	worldsList widget.List
-	l          sync.Mutex
+
+	l                    sync.Mutex
+	finishedWorlds       []*messages.SavedWorld
+	finishedWorldsList   widget.List
+	processingWorlds     []*processingWorld
+	processingWorldsList widget.List
 
 	State      messages.UIState
 	chunkCount int
@@ -35,19 +38,29 @@ type Page struct {
 	back       widget.Clickable
 }
 
-func New() pages.Page {
+func New(invalidate func()) pages.Page {
 	return &Page{
 		worldMap: &Map2{
 			images:   make(map[image.Point]*image.RGBA),
 			imageOps: make(map[image.Point]paint.ImageOp),
 		},
-		//Map3: NewMap3(),
-		worldsList: widget.List{
+		finishedWorldsList: widget.List{
 			List: layout.List{
 				Axis: layout.Vertical,
 			},
 		},
+		processingWorldsList: widget.List{
+			List: layout.List{
+				Axis:        layout.Vertical,
+				ScrollToEnd: true,
+			},
+		},
 	}
+}
+
+type processingWorld struct {
+	Name  string
+	State string
 }
 
 var _ pages.Page = &Page{}
@@ -89,6 +102,24 @@ func displayWorldEntry(gtx C, th *material.Theme, entry *messages.SavedWorld) D 
 	})
 }
 
+func displayWorldProcessing(gtx C, th *material.Theme, entry *processingWorld) D {
+	return layout.Inset{Top: 0, Bottom: 8, Left: 8, Right: 8}.Layout(gtx, func(gtx C) D {
+		return component.Surface(&material.Theme{
+			Palette: material.Palette{
+				Bg: component.WithAlpha(th.ContrastFg, 8),
+			},
+		}).Layout(gtx, func(gtx C) D {
+			return layout.UniformInset(5).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+					layout.Rigid(material.Label(th, th.TextSize, "Saving World").Layout),
+					layout.Rigid(material.Label(th, th.TextSize, entry.Name).Layout),
+					layout.Rigid(material.Label(th, th.TextSize, entry.State).Layout),
+				)
+			})
+		})
+	})
+}
+
 func (p *Page) Layout(gtx C, th *material.Theme) D {
 	if p.back.Clicked(gtx) {
 		messages.Router.Handle(&messages.Message{
@@ -98,42 +129,54 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 		})
 	}
 
-	switch p.State {
-	case messages.UIStateMain:
-		return p.worldMap.Layout(gtx)
-	case messages.UIStateFinished:
-		return layout.UniformInset(25).Layout(gtx, func(gtx C) D {
-			return layout.Flex{
-				Axis:    layout.Vertical,
-				Spacing: layout.SpaceBetween,
-			}.Layout(gtx,
-				layout.Flexed(0.9, func(gtx C) D {
-					return layout.UniformInset(15).Layout(gtx, func(gtx C) D {
-						return layout.Flex{
-							Axis: layout.Vertical,
-						}.Layout(gtx,
-							layout.Rigid(material.Label(th, 20, "Worlds Saved").Layout),
-							layout.Flexed(1, func(gtx C) D {
-								p.l.Lock()
-								defer p.l.Unlock()
-								return material.List(th, &p.worldsList).Layout(gtx, len(p.worlds), func(gtx C, index int) D {
-									entry := p.worlds[len(p.worlds)-index-1]
-									return displayWorldEntry(gtx, th, entry)
-								})
-							}),
-						)
-					})
-				}),
-				layout.Flexed(0.1, func(gtx C) D {
-					gtx.Constraints.Max.Y = gtx.Dp(40)
-					gtx.Constraints.Max.X = gtx.Constraints.Max.X / 6
-					return material.Button(th, &p.back, "Return").Layout(gtx)
-				}),
-			)
-		})
-	default:
-		return D{}
-	}
+	return layout.Stack{}.Layout(gtx,
+		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+			switch p.State {
+			case messages.UIStateMain:
+				return p.worldMap.Layout(gtx)
+			case messages.UIStateFinished:
+				return layout.UniformInset(25).Layout(gtx, func(gtx C) D {
+					return layout.Flex{
+						Axis:    layout.Vertical,
+						Spacing: layout.SpaceBetween,
+					}.Layout(gtx,
+						layout.Flexed(1, func(gtx C) D {
+							return layout.UniformInset(15).Layout(gtx, func(gtx C) D {
+								return layout.Flex{
+									Axis: layout.Vertical,
+								}.Layout(gtx,
+									layout.Rigid(material.Label(th, 20, "Worlds Saved").Layout),
+									layout.Flexed(1, func(gtx C) D {
+										p.l.Lock()
+										defer p.l.Unlock()
+										return material.List(th, &p.finishedWorldsList).
+											Layout(gtx, len(p.finishedWorlds), func(gtx C, index int) D {
+												entry := p.finishedWorlds[len(p.finishedWorlds)-index-1]
+												return displayWorldEntry(gtx, th, entry)
+											})
+									}),
+								)
+							})
+						}),
+						layout.Rigid(func(gtx C) D {
+							gtx.Constraints.Max.Y = gtx.Dp(40)
+							gtx.Constraints.Max.X = gtx.Constraints.Max.X / 6
+							return material.Button(th, &p.back, "Return").Layout(gtx)
+						}),
+					)
+				})
+			default:
+				return D{}
+			}
+		}),
+		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+			return material.List(th, &p.processingWorldsList).
+				Layout(gtx, len(p.processingWorlds), func(gtx C, index int) D {
+					entry := p.processingWorlds[index]
+					return displayWorldProcessing(gtx, th, entry)
+				})
+		}),
+	)
 }
 
 func (u *Page) HandleMessage(msg *messages.Message) *messages.Message {
@@ -165,9 +208,29 @@ func (u *Page) HandleMessage(msg *messages.Message) *messages.Message {
 		case "worldName":
 			u.worldName = m.Value
 		}
-	case messages.SavingWorld:
+	case messages.FinishedSavingWorld:
 		u.l.Lock()
-		u.worlds = append(u.worlds, m.World)
+		u.finishedWorlds = append(u.finishedWorlds, m.World)
+		u.processingWorlds = slices.DeleteFunc(u.processingWorlds, func(p *processingWorld) bool {
+			return p.Name == m.World.Name
+		})
+		u.l.Unlock()
+	case messages.ProcessingWorldUpdate:
+		u.l.Lock()
+		exists := false
+		for _, w := range u.processingWorlds {
+			if w.Name == m.Name {
+				w.State = m.State
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			u.processingWorlds = append(u.processingWorlds, &processingWorld{
+				Name:  m.Name,
+				State: m.State,
+			})
+		}
 		u.l.Unlock()
 	}
 	return nil

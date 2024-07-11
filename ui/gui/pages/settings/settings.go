@@ -42,7 +42,7 @@ type Page struct {
 	startButton widget.Clickable
 }
 
-func New() pages.Page {
+func New(invalidate func()) pages.Page {
 	p := &Page{
 		settings: make(map[string]*settingsPage),
 	}

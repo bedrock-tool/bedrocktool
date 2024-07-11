@@ -28,7 +28,7 @@ type Page struct {
 	back      widget.Clickable
 }
 
-func New() pages.Page {
+func New(invalidate func()) pages.Page {
 	return &Page{
 		SkinsList: widget.List{
 			List: layout.List{

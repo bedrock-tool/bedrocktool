@@ -40,6 +40,9 @@ type Page struct {
 
 	State messages.UIState
 	back  widget.Clickable
+
+	frame      int
+	invalidate func()
 }
 
 type packEntry struct {
@@ -59,13 +62,14 @@ type packEntry struct {
 	Err     error
 }
 
-func New() pages.Page {
+func New(invalidate func()) pages.Page {
 	return &Page{
 		packsList: widget.List{
 			List: layout.List{
 				Axis: layout.Vertical,
 			},
 		},
+		invalidate: invalidate,
 	}
 }
 
@@ -114,7 +118,7 @@ func MulAlpha(c color.NRGBA, alpha uint8) color.NRGBA {
 	return c
 }
 
-func drawPackEntry(gtx C, th *material.Theme, pack *packEntry) D {
+func (p *Page) drawPackEntry(gtx C, th *material.Theme, pack *packEntry) D {
 	var size = ""
 	var colorSize = th.Palette.Fg
 	if pack.IsFinished {
@@ -145,7 +149,7 @@ func drawPackEntry(gtx C, th *material.Theme, pack *packEntry) D {
 					}),
 					layout.Flexed(1, func(gtx C) D {
 						return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-							layout.Rigid(mctext.Label(th, th.TextSize, pack.Name)),
+							layout.Rigid(mctext.Label(th, th.TextSize, pack.Name, p.invalidate, p.frame)),
 							layout.Rigid(material.Label(th, th.TextSize, pack.Version).Layout),
 							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
 								var c color.NRGBA
@@ -203,6 +207,8 @@ func drawPackEntry(gtx C, th *material.Theme, pack *packEntry) D {
 }
 
 func (p *Page) Layout(gtx C, th *material.Theme) D {
+	p.frame++
+
 	for _, pack := range p.Packs {
 		if pack.button.Clicked(gtx) {
 			if pack.IsFinished {
@@ -249,7 +255,7 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 
 						return material.List(th, &p.packsList).Layout(gtx, len(p.Packs), func(gtx C, index int) D {
 							pack := p.Packs[index]
-							return drawPackEntry(gtx, th, pack)
+							return p.drawPackEntry(gtx, th, pack)
 						})
 					}),
 				)

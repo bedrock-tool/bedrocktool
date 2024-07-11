@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
+	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/behaviourpack"
 	"github.com/df-mc/dragonfly/server/block/cube"
@@ -468,11 +469,29 @@ func (w *World) Finish(playerData map[string]any, excludedMobs []string, withPla
 		}
 	}
 
+	messages.Router.Handle(&messages.Message{
+		Source: "subcommand",
+		Target: "ui",
+		Data: messages.ProcessingWorldUpdate{
+			Name:  w.Name,
+			State: "Storing Chunks",
+		},
+	})
+
 	w.applyBlockUpdates()
 	err := w.storeMemToProvider()
 	if err != nil {
 		return err
 	}
+
+	messages.Router.Handle(&messages.Message{
+		Source: "subcommand",
+		Target: "ui",
+		Data: messages.ProcessingWorldUpdate{
+			Name:  w.Name,
+			State: "Storing Entities",
+		},
+	})
 
 	chunkEntities := make(map[world.ChunkPos][]world.Entity)
 	for _, es := range w.memState.entities {
