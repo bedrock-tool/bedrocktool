@@ -54,6 +54,8 @@ type Router struct {
 	showLogs  bool
 
 	popups []popups.Popup
+
+	ShuttingDown bool
 }
 
 func NewRouter(uii ui.UI) *Router {

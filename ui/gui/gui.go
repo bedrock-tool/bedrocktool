@@ -3,6 +3,7 @@ package gui
 import (
 	"context"
 	"errors"
+	"fmt"
 	"image/color"
 
 	"gioui.org/app"
@@ -112,6 +113,7 @@ func (g *GUI) loop(window *app.Window) error {
 
 	for {
 		e := window.Event()
+		fmt.Printf("window.Event %+#v\n", e)
 
 		if g.ctx.Err() != nil && !closing {
 			logrus.Info("Closing")
@@ -121,6 +123,7 @@ func (g *GUI) loop(window *app.Window) error {
 		}
 		switch e := e.(type) {
 		case app.DestroyEvent:
+			g.router.ShuttingDown = true
 			logrus.Info("Closing")
 			g.cancel(errors.New("Closing"))
 			g.router.Wg.Wait()

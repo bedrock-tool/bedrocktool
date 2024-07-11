@@ -55,6 +55,8 @@ func (l *logger) Fire(e *logrus.Entry) error {
 	l.l.Lock()
 	l.lines = append(l.lines, e)
 	l.l.Unlock()
-	l.router.Invalidate()
+	if !l.router.ShuttingDown {
+		l.router.Invalidate()
+	}
 	return nil
 }
