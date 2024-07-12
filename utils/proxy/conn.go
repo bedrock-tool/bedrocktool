@@ -25,12 +25,21 @@ func (p *Context) onResourcePacksInfo() {
 	})
 }
 
-func (p *Context) onFinishedPack(pack resource.Pack) {
+func (p *Context) onFinishedPack(pack resource.Pack) error {
 	messages.Router.Handle(&messages.Message{
 		Source: "proxy",
 		Target: "ui",
 		Data:   messages.FinishedPack{Pack: pack},
 	})
+	for _, handler := range p.handlers {
+		if handler.OnFinishedPack != nil {
+			err := handler.OnFinishedPack(pack)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (p *Context) connectServer(ctx context.Context) (err error) {

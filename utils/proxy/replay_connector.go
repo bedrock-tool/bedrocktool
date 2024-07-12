@@ -104,7 +104,7 @@ func (r *ReplayConnector) ReadUntilLogin() error {
 	return nil
 }
 
-func CreateReplayConnector(ctx context.Context, filename string, packetFunc PacketFunc, onResourcePackInfo func(), OnFinishedPack func(resource.Pack), filterDownloadResourcePacks func(string) bool) (r *ReplayConnector, err error) {
+func CreateReplayConnector(ctx context.Context, filename string, packetFunc PacketFunc, onResourcePackInfo func(), OnFinishedPack func(resource.Pack) error, filterDownloadResourcePacks func(string) bool) (r *ReplayConnector, err error) {
 	r = &ReplayConnector{
 		spawn: make(chan struct{}),
 		close: make(chan struct{}),
