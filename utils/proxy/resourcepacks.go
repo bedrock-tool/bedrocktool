@@ -512,7 +512,9 @@ func (r *rpHandler) OnResourcePackStack(pk *packet.ResourcePackStack) error {
 	close(r.receivedRemoteStack)
 	r.log.Debug("received remote resourcepack stack, starting game")
 
-	<-r.clientDone
+	if r.clientDone != nil {
+		<-r.clientDone
+	}
 
 	r.Server.Expect(packet.IDStartGame)
 	_ = r.Server.WritePacket(&packet.ResourcePackClientResponse{Response: packet.PackResponseCompleted})

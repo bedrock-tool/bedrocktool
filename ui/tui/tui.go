@@ -81,7 +81,8 @@ func (c *TUI) HandleMessage(msg *messages.Message) *messages.Message {
 	case *messages.ServerInput:
 		_ = msg
 		var cancelled bool
-		server, cancelled := utils.UserInput(c.ctx, locale.Loc("enter_server", nil), utils.ValidateServerInput)
+		// utils.ValidateServerInput
+		server, cancelled := utils.UserInput(c.ctx, locale.Loc("enter_server", nil), nil)
 		if cancelled {
 			return &messages.Message{
 				Source: "gui",
