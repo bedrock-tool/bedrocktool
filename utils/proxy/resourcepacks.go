@@ -104,7 +104,7 @@ type rpHandler struct {
 	OnResourcePacksInfoCB func()
 
 	// optional callback that is called as soon as a resource pack is added to the proxies list
-	OnFinishedPack func(resource.Pack)
+	OnFinishedPack func(resource.Pack) error
 
 	clientDone chan struct{}
 }
@@ -170,7 +170,10 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 				r.log.Error(err)
 			} else {
 				r.resourcePacks = append(r.resourcePacks, newPack)
-				r.OnFinishedPack(newPack)
+				err = r.OnFinishedPack(newPack)
+				if err != nil {
+					return err
+				}
 			}
 			r.downloadQueue.serverPackAmount--
 			continue
@@ -199,7 +202,11 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 					return
 				}
 				r.resourcePacks = append(r.resourcePacks, newPack)
-				r.OnFinishedPack(newPack)
+				err = r.OnFinishedPack(newPack)
+				if err != nil {
+					r.log.Error(err)
+					return
+				}
 
 				if r.Client != nil {
 					select {
@@ -246,7 +253,10 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 			})
 			newPack := r.cache.Get(pack.UUID, pack.Version).WithContentKey(pack.ContentKey)
 			r.resourcePacks = append(r.resourcePacks, newPack)
-			r.OnFinishedPack(newPack)
+			err := r.OnFinishedPack(newPack)
+			if err != nil {
+				return err
+			}
 			r.downloadQueue.serverPackAmount--
 			continue
 		}
@@ -418,7 +428,10 @@ func (r *rpHandler) downloadResourcePack(pk *packet.ResourcePackDataInfo) error 
 	r.downloadQueue.serverPackAmount--
 	// Finally we add the resource to the resource packs slice.
 	r.resourcePacks = append(r.resourcePacks, newPack)
-	r.OnFinishedPack(newPack)
+	err = r.OnFinishedPack(newPack)
+	if err != nil {
+		return err
+	}
 
 	// if theres a client and the client needs resource packs send it to its queue
 	if r.nextPackToClient != nil {

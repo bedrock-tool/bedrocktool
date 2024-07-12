@@ -7,7 +7,6 @@ require (
 	gioui.org/shader v1.0.8
 	gioui.org/x v0.7.0
 	github.com/OneOfOne/xxhash v1.2.8
-	github.com/beevik/ntp v1.4.3
 	github.com/cloudfoundry/jibber_jabber v0.0.0-20151120183258-bcc4c8345a21
 	github.com/dblezek/tga v0.0.0-20150626111426-80720cbc1017
 	github.com/df-mc/dragonfly v0.9.15
@@ -29,7 +28,6 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/tailscale/hujson v0.0.0-20221223112325-20486734a56a
 	github.com/thomaso-mirodin/intmath v0.0.0-20160323211736-5dc6d854e46e
-	github.com/undefinedlabs/go-mpatch v1.0.7
 	golang.design/x/lockfree v0.0.1
 	golang.org/x/crypto v0.24.0
 	golang.org/x/exp v0.0.0-20240613232115-7f521ea00fb8
@@ -46,7 +44,6 @@ require (
 	gioui.org/cpu v0.0.0-20220412190645-f1e9e8c3b1f7 // indirect
 	git.wow.st/gmp/jni v0.0.0-20210610011705-34026c7e22d0 // indirect
 	github.com/brentp/intintmap v0.0.0-20190211203843-30dc0ade9af9 // indirect
-	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/changkun/lockfree v0.0.1 // indirect
 	github.com/df-mc/atomic v1.10.0 // indirect
 	github.com/df-mc/worldupgrader v1.0.15 // indirect
@@ -64,7 +61,6 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/muhammadmuzzammil1998/jsonc v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
-	github.com/rogpeppe/go-internal v1.11.0 // indirect
 	github.com/segmentio/fasthash v1.0.3 // indirect
 	github.com/tklauser/go-sysconf v0.3.14 // indirect
 	github.com/tklauser/numcpus v0.8.0 // indirect

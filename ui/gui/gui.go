@@ -3,7 +3,6 @@ package gui
 import (
 	"context"
 	"errors"
-	"fmt"
 	"image/color"
 
 	"gioui.org/app"
@@ -113,7 +112,7 @@ func (g *GUI) loop(window *app.Window) error {
 
 	for {
 		e := window.Event()
-		fmt.Printf("window.Event %+#v\n", e)
+		//fmt.Printf("window.Event %+#v\n", e)
 
 		if g.ctx.Err() != nil && !closing {
 			logrus.Info("Closing")
