@@ -153,6 +153,11 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 	for _, pack := range pk.TexturePacks {
 		packID := pack.UUID + "_" + pack.Version
 
+		if r.filterDownloadResourcePacks(packID) {
+			r.downloadQueue.serverPackAmount--
+			continue
+		}
+
 		_, alreadyDownloading := r.downloadQueue.downloadingPacks[pack.UUID]
 		alreadyIgnored := slices.ContainsFunc(r.ignoredResourcePacks, func(e exemptedResourcePack) bool { return e.uuid == pack.UUID })
 		if alreadyDownloading || alreadyIgnored {
@@ -287,18 +292,6 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 			return r.ctx.Err()
 		}
 	}
-
-	packsToDownload = slices.DeleteFunc(packsToDownload, func(id string) bool {
-		ignore := r.filterDownloadResourcePacks(id)
-		if ignore {
-			idsplit := strings.Split(id, "_")
-			r.ignoredResourcePacks = append(r.ignoredResourcePacks, exemptedResourcePack{
-				uuid:    idsplit[0],
-				version: idsplit[1],
-			})
-		}
-		return ignore
-	})
 
 	if len(packsToDownload) != 0 {
 		// start downloading from server whenever a pack info is sent

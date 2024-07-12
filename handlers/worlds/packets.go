@@ -27,7 +27,31 @@ func (w *worldsHandler) getEntity(id worldstate.EntityRuntimeID) *worldstate.Ent
 	return w.currentWorld.GetEntity(id)
 }
 
+type pkRecv struct {
+	pk           packet.Packet
+	toServer     bool
+	timeReceived time.Time
+	preLogin     bool
+}
+
 func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
+	if !w.serverState.haveStartGame {
+		switch _pk.(type) {
+		case *packet.LevelChunk, *packet.SubChunk, *packet.SetTime, *packet.BlockActorData, *packet.UpdateBlock, *packet.UpdateBlockSynced, *packet.UpdateSubChunkBlocks:
+			w.worldPacketsHeld = append(w.worldPacketsHeld, pkRecv{_pk, toServer, timeReceived, preLogin})
+			return _pk, nil
+		}
+	} else if len(w.worldPacketsHeld) > 0 {
+		held := w.worldPacketsHeld
+		w.worldPacketsHeld = nil
+		for _, recv := range held {
+			_, err := w.packetCB(recv.pk, recv.toServer, recv.timeReceived, recv.preLogin)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	// general / startup
 	switch pk := _pk.(type) {
 	case *packet.CompressedBiomeDefinitionList: // for client side generation, disabled by proxy

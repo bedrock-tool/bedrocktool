@@ -88,6 +88,8 @@ type worldsHandler struct {
 	serverState  serverState
 	settings     WorldSettings
 	customBlocks []protocol.BlockEntry
+
+	worldPacketsHeld []pkRecv
 }
 
 type itemContainer struct {
