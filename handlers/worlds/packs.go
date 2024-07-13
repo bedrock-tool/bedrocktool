@@ -13,6 +13,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/flytam/filenamify"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
+	"github.com/sandertv/gophertunnel/minecraft/text"
 	"github.com/sirupsen/logrus"
 )
 
@@ -93,6 +94,7 @@ func (w *worldsHandler) AddPacks(worldName string, fs utils.WriterFS) error {
 			if packIds := packNames[packName]; len(packIds) > 1 {
 				packName = fmt.Sprintf("%s_%d", packName, slices.Index(packIds, pack.UUID()))
 			}
+			packName = text.Clean(packName)
 			packName, _ = filenamify.FilenamifyV2(packName)
 			err := writePackToFs(pack, fs, path.Join("resource_packs", packName))
 			if err != nil {
