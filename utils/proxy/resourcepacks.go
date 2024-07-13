@@ -134,7 +134,6 @@ func (r *rpHandler) SetServer(c minecraft.IConn) {
 
 func (r *rpHandler) SetClient(c minecraft.IConn) {
 	r.Client = c
-	r.nextPackToClient = make(chan resource.Pack)
 	r.knowPacksRequestedFromServer = make(chan struct{})
 	r.clientDone = make(chan struct{})
 }
@@ -211,17 +210,6 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 				if err != nil {
 					r.log.Error(err)
 					return
-				}
-
-				if r.Client != nil {
-					select {
-					case <-r.knowPacksRequestedFromServer:
-					case <-r.ctx.Done():
-						return
-					}
-					if slices.Contains(r.packsRequestedFromServer, newPack.UUID()) {
-						r.nextPackToClient <- newPack
-					}
 				}
 			}()
 			r.downloadQueue.serverPackAmount--
@@ -451,6 +439,9 @@ func (r *rpHandler) downloadResourcePack(pk *packet.ResourcePackDataInfo) error 
 
 // from server
 func (r *rpHandler) OnResourcePackDataInfo(pk *packet.ResourcePackDataInfo) error {
+	if _, ok := r.cache.(*replayCache); ok {
+		return nil
+	}
 	r.packDownloads <- pk
 	return nil
 }
@@ -712,6 +703,10 @@ func (r *rpHandler) processClientRequest(packs []string) error {
 
 	if len(r.packsFromCache)+len(r.packsRequestedFromServer)+len(r.addedPacks) < len(packs) {
 		r.log.Errorf("BUG: not enough packs sent to client, client will stall %d + %d  %d", len(r.packsFromCache), len(r.packsRequestedFromServer), len(packs))
+	}
+
+	if len(r.packsRequestedFromServer) == 0 {
+		close(r.nextPackToClient)
 	}
 
 	close(r.knowPacksRequestedFromServer)

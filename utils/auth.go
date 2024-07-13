@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 
 	"github.com/sandertv/gophertunnel/minecraft/auth"
@@ -30,6 +31,9 @@ func (a *authsrv) Startup() (err error) {
 	a.liveToken, err = a.readToken()
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
+	}
+	if err != nil {
+		return err
 	}
 	a.tokenSource = auth.RefreshTokenSource(a.liveToken)
 	a.realms = realms.NewClient(a.tokenSource)
@@ -85,6 +89,11 @@ func (a *authsrv) refreshLiveToken() (err error) {
 	return nil
 }
 
+var Ver1token func(f io.ReadSeeker) (*oauth2.Token, error)
+var Tokene = func(t *oauth2.Token, w io.Writer) error {
+	return json.NewEncoder(w).Encode(t)
+}
+
 // writes the livetoken to storage
 func (a *authsrv) writeToken(token *oauth2.Token) error {
 	f, err := os.Create(TokenFile)
@@ -92,24 +101,37 @@ func (a *authsrv) writeToken(token *oauth2.Token) error {
 		return err
 	}
 	defer f.Close()
-	e := json.NewEncoder(f)
-	return e.Encode(token)
+	return Tokene(token, f)
 }
 
 // reads the live token from storage, returns os.ErrNotExist if no token is stored
 func (a *authsrv) readToken() (*oauth2.Token, error) {
-	var token oauth2.Token
 	f, err := os.Open(TokenFile)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
-	e := json.NewDecoder(f)
-	err = e.Decode(&token)
+
+	var b = make([]byte, 1)
+	_, err = f.ReadAt(b, 0)
 	if err != nil {
 		return nil, err
 	}
-	return &token, nil
+
+	switch b[0] {
+	case '{':
+		var token oauth2.Token
+		e := json.NewDecoder(f)
+		err = e.Decode(&token)
+		if err != nil {
+			return nil, err
+		}
+		return &token, nil
+	case '1':
+		return Ver1token(f)
+	}
+
+	return nil, errors.New("unsupported token file")
 }
 
 var ErrNotLoggedIn = errors.New("not logged in")

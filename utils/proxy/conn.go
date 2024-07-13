@@ -131,6 +131,10 @@ func (p *Context) connectClient(ctx context.Context, serverAddress string) (err 
 			close(p.haveClientData)
 		},
 		EarlyConnHandler: func(c *minecraft.Conn) {
+			if p.Client != nil {
+				p.listener.Disconnect(c, "You are Already connected!")
+				return
+			}
 			p.Client = c
 			p.rpHandler.SetClient(c)
 			c.ResourcePackHandler = p.rpHandler
