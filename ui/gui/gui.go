@@ -39,13 +39,7 @@ func (g *GUI) Init() bool {
 			Axis: layout.Vertical,
 		},
 	}
-	g.router = pages.NewRouter(g)
-	g.router.Register(settings.New, settings.ID)
-	g.router.Register(worlds.New, worlds.ID)
-	g.router.Register(skins.New, skins.ID)
-	g.router.Register(packs.New, packs.ID)
-	g.logger.router = g.router
-	g.router.LogWidget = g.logger.Layout
+
 	return true
 }
 
@@ -64,7 +58,14 @@ var paletteDark = material.Palette{
 }
 
 func (g *GUI) Start(ctx context.Context, cancel context.CancelCauseFunc) (err error) {
-	g.router.Ctx = ctx
+	g.router = pages.NewRouter(g, ctx)
+	g.router.Register(settings.New, settings.ID)
+	g.router.Register(worlds.New, worlds.ID)
+	g.router.Register(skins.New, skins.ID)
+	g.router.Register(packs.New, packs.ID)
+	g.logger.router = g.router
+	g.router.LogWidget = g.logger.Layout
+
 	g.ctx = ctx
 	g.cancel = cancel
 

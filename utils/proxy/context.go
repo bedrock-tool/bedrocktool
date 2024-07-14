@@ -24,7 +24,6 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/oauth2"
 )
 
 type Context struct {
@@ -41,7 +40,6 @@ type Context struct {
 	addedPacks []resource.Pack
 
 	dimensionData    *packet.DimensionData
-	tokenSource      oauth2.TokenSource
 	clientConnecting chan struct{}
 	haveClientData   chan struct{}
 	clientData       login.ClientData
@@ -329,10 +327,6 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 					Wait: true,
 				},
 			})
-		}
-		p.tokenSource, err = utils.Auth.TokenSource()
-		if err != nil {
-			return err
 		}
 	}
 

@@ -32,6 +32,7 @@ func (c *TUI) Init() bool {
 
 func (c *TUI) Start(ctx context.Context, cancel context.CancelCauseFunc) error {
 	c.ctx = ctx
+	utils.Auth.SetHandler(nil)
 	isDebug := updater.Version == ""
 	if !isDebug {
 		go updater.UpdateCheck(c)
@@ -74,9 +75,9 @@ func (c *TUI) HandleMessage(msg *messages.Message) *messages.Message {
 	switch msg := msg.Data.(type) {
 	case messages.RequestLogin:
 		if msg.Wait {
-			utils.Auth.Login(c.ctx, nil)
+			utils.Auth.Login(c.ctx)
 		} else {
-			go utils.Auth.Login(c.ctx, nil)
+			go utils.Auth.Login(c.ctx)
 		}
 	case *messages.ServerInput:
 		_ = msg

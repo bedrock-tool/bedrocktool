@@ -8,6 +8,7 @@ import (
 
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
+	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/login"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
@@ -60,8 +61,7 @@ func (p *Context) connectServer(ctx context.Context) (err error) {
 	})
 	logrus.Info(locale.Loc("connecting", locale.Strmap{"Address": p.serverAddress}))
 	d := minecraft.Dialer{
-		TokenSource: p.tokenSource,
-		PacketFunc:  p.packetFunc,
+		PacketFunc: p.packetFunc,
 		GetClientData: func() login.ClientData {
 			if p.withClient {
 				select {
@@ -78,7 +78,7 @@ func (p *Context) connectServer(ctx context.Context) (err error) {
 		},
 	}
 	for retry := 0; retry < 3; retry++ {
-		d.ChainKey, d.ChainData, err = minecraft.CreateChain(ctx, p.tokenSource)
+		d.ChainKey, d.ChainData, err = minecraft.CreateChain(ctx, utils.Auth)
 		if err != nil {
 			continue
 		}

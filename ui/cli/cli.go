@@ -35,9 +35,9 @@ func (c *CLI) HandleMessage(msg *messages.Message) *messages.Message {
 	switch data := msg.Data.(type) {
 	case messages.RequestLogin:
 		if data.Wait {
-			utils.Auth.Login(c.ctx, nil)
+			utils.Auth.Login(c.ctx)
 		} else {
-			go utils.Auth.Login(c.ctx, nil)
+			go utils.Auth.Login(c.ctx)
 		}
 	}
 	return nil

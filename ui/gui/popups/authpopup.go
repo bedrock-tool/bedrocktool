@@ -9,9 +9,7 @@ import (
 )
 
 type guiAuth struct {
-	invalidate func()
 	cancel     func()
-	onError    func(error)
 	uri        string
 	click      widget.Clickable
 	code       string
@@ -19,26 +17,8 @@ type guiAuth struct {
 	close      widget.Clickable
 }
 
-func (g *guiAuth) AuthCode(uri string, code string) {
-	g.uri = uri
-	g.code = code
-	g.invalidate()
-}
-
-func (g *guiAuth) Finished(err error) {
-	if err != nil {
-		g.onError(err)
-	}
-	messages.Router.Handle(&messages.Message{
-		Source: "ui",
-		Target: "ui",
-		Data:   messages.Close{Type: "popup", ID: g.ID()},
-	})
-	g.cancel()
-}
-
-func NewGuiAuth(invalidate func(), cancel func(), onError func(error)) *guiAuth {
-	return &guiAuth{invalidate: invalidate, cancel: cancel, onError: onError}
+func NewGuiAuth(cancel func(), uri, code string) *guiAuth {
+	return &guiAuth{cancel: cancel, uri: uri, code: code}
 }
 
 func (guiAuth) ID() string {
@@ -65,9 +45,6 @@ func (g *guiAuth) Layout(gtx layout.Context, th *material.Theme) layout.Dimensio
 		}.Layout(gtx,
 			layout.Flexed(1, func(gtx C) D {
 				return layout.Center.Layout(gtx, func(gtx C) D {
-					if g.code == "" {
-						return material.Body1(th, "Loading").Layout(gtx)
-					}
 					return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
 						layout.Rigid(func(gtx C) D {
 							return layout.Flex{

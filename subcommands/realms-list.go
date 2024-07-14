@@ -17,7 +17,7 @@ func (*RealmListCMD) Synopsis() string           { return locale.Loc("list_realm
 func (c *RealmListCMD) SetFlags(f *flag.FlagSet) {}
 func (c *RealmListCMD) Execute(ctx context.Context) error {
 	if !utils.Auth.LoggedIn() {
-		err := utils.Auth.Login(ctx, nil)
+		err := utils.Auth.Login(ctx)
 		if err != nil {
 			return err
 		}

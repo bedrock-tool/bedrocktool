@@ -16,13 +16,13 @@ import (
 const TokenFile = "token.json"
 
 type authsrv struct {
-	liveToken   *oauth2.Token
-	tokenSource oauth2.TokenSource
-	realms      *realms.Client
-	log         *logrus.Entry
+	log       *logrus.Entry
+	handler   auth.MSAuthHandler
+	liveToken *oauth2.Token
+	realms    *realms.Client
 }
 
-var Auth authsrv = authsrv{
+var Auth *authsrv = &authsrv{
 	log: logrus.WithField("part", "Auth"),
 }
 
@@ -35,23 +35,23 @@ func (a *authsrv) Startup() (err error) {
 	if err != nil {
 		return err
 	}
-	a.tokenSource = auth.RefreshTokenSource(a.liveToken)
-	a.realms = realms.NewClient(a.tokenSource)
-	_, err = a.TokenSource()
-	if err != nil {
-		return err
-	}
+	a.realms = realms.NewClient(a)
 	return nil
 }
 
 // if the user is currently logged in or not
 func (a *authsrv) LoggedIn() bool {
-	return a.tokenSource != nil
+	return a.liveToken != nil
 }
 
 // performs microsoft login using the handler passed
-func (a *authsrv) Login(ctx context.Context, handler auth.MSAuthHandler) (err error) {
-	a.liveToken, err = auth.RequestLiveTokenWriter(ctx, handler)
+func (a *authsrv) SetHandler(handler auth.MSAuthHandler) (err error) {
+	a.handler = handler
+	return nil
+}
+
+func (a *authsrv) Login(ctx context.Context) (err error) {
+	a.liveToken, err = auth.RequestLiveTokenWriter(ctx, a.handler)
 	if err != nil {
 		return err
 	}
@@ -59,15 +59,12 @@ func (a *authsrv) Login(ctx context.Context, handler auth.MSAuthHandler) (err er
 	if err != nil {
 		return err
 	}
-	a.tokenSource = auth.RefreshTokenSource(a.liveToken)
-	a.realms = realms.NewClient(a.tokenSource)
+
 	return nil
 }
 
 func (a *authsrv) Logout() {
 	a.liveToken = nil
-	a.tokenSource = nil
-	a.realms = nil
 	os.Remove(TokenFile)
 }
 
@@ -75,17 +72,18 @@ func (a *authsrv) refreshLiveToken() (err error) {
 	if a.liveToken.Valid() {
 		return nil
 	}
+
 	a.log.Info("Refreshing Microsoft Token")
-	a.liveToken, err = a.tokenSource.Token()
+
+	a.liveToken, err = auth.RefreshToken(a.liveToken)
 	if err != nil {
 		return err
 	}
+
 	err = a.writeToken(a.liveToken)
 	if err != nil {
 		return err
 	}
-	a.tokenSource = auth.RefreshTokenSource(a.liveToken)
-	a.realms = realms.NewClient(a.tokenSource)
 	return nil
 }
 
@@ -128,7 +126,9 @@ func (a *authsrv) readToken() (*oauth2.Token, error) {
 		}
 		return &token, nil
 	case '1':
-		return Ver1token(f)
+		if Ver1token != nil {
+			return Ver1token(f)
+		}
 	}
 
 	return nil, errors.New("unsupported token file")
@@ -136,20 +136,24 @@ func (a *authsrv) readToken() (*oauth2.Token, error) {
 
 var ErrNotLoggedIn = errors.New("not logged in")
 
-func (a *authsrv) TokenSource() (src oauth2.TokenSource, err error) {
-	if a.tokenSource == nil {
+// Token implements oauth2.TokenSource, returns ErrNotLoggedIn if there is no token, refreshes it if it expired
+func (a *authsrv) Token() (t *oauth2.Token, err error) {
+	if a.liveToken == nil {
 		return nil, ErrNotLoggedIn
 	}
-	err = a.refreshLiveToken()
-	if err != nil {
-		return nil, err
+	if !a.liveToken.Valid() {
+		err = a.refreshLiveToken()
+		if err != nil {
+			return nil, err
+		}
 	}
-	return a.tokenSource, nil
+	return a.liveToken, nil
 }
 
 func (a *authsrv) Realms() (*realms.Client, error) {
 	if a.realms != nil {
 		return a.realms, nil
 	}
-	return nil, ErrNotLoggedIn
+	a.realms = realms.NewClient(a)
+	return a.realms, nil
 }

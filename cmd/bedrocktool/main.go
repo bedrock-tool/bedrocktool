@@ -166,7 +166,7 @@ func (c *TransCMD) Execute(ctx context.Context) error {
 		if utils.Auth.LoggedIn() {
 			logrus.Info("Already Logged in")
 		} else {
-			utils.Auth.Login(ctx, nil)
+			utils.Auth.Login(ctx)
 		}
 	}
 	fmt.Println(BlackFg + Bold + Blue + " Trans " + Pink + " Rights " + White + " Are " + Pink + " Human " + Blue + " Rights " + Reset)

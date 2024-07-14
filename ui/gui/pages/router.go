@@ -27,14 +27,17 @@ import (
 )
 
 type Router struct {
-	ui           ui.UI
-	th           *material.Theme
-	Ctx          context.Context
+	ui   ui.UI
+	th   *material.Theme
+	auth *authHandler
+
+	ctx          context.Context
 	cmdCtx       context.Context
 	cmdCtxCancel context.CancelFunc
-	Wg           sync.WaitGroup
-	Invalidate   func()
-	LogWidget    func(layout.Context, *material.Theme) layout.Dimensions
+
+	Wg         sync.WaitGroup
+	Invalidate func()
+	LogWidget  func(layout.Context, *material.Theme) layout.Dimensions
 
 	pages       map[string]func(invalidate func()) Page
 	currentPage Page
@@ -58,12 +61,13 @@ type Router struct {
 	ShuttingDown bool
 }
 
-func NewRouter(uii ui.UI) *Router {
+func NewRouter(ui ui.UI, ctx context.Context) *Router {
 	modal := component.NewModal()
 	nav := component.NewNav("Navigation Drawer", "This is an example.")
 
 	r := &Router{
-		ui:             uii,
+		ctx:            ctx,
+		ui:             ui,
 		pages:          make(map[string]func(invalidate func()) Page),
 		ModalLayer:     modal,
 		ModalNavDrawer: component.ModalNavFrom(&nav, modal),
@@ -74,7 +78,31 @@ func NewRouter(uii ui.UI) *Router {
 		},
 	}
 
+	r.auth = &authHandler{r: r}
+	utils.Auth.SetHandler(r.auth)
+
 	return r
+}
+
+type authHandler struct {
+	r *Router
+
+	cancel context.CancelFunc
+}
+
+func (a *authHandler) AuthCode(uri, code string) {
+	loginPopup := popups.NewGuiAuth(a.r.Invalidate, uri, code)
+	a.r.PushPopup(loginPopup)
+}
+
+func (a *authHandler) Finished(err error) {
+	a.cancel()
+	a.r.RemovePopup("ms-auth")
+	if err != nil {
+		if !errors.Is(err, context.Canceled) {
+			a.r.PushPopup(popups.NewErrorPopup(err, nil, false))
+		}
+	}
 }
 
 func (r *Router) Register(p func(invalidate func()) Page, id string) {
@@ -265,17 +293,11 @@ func (r *Router) HandleMessage(msg *messages.Message) *messages.Message {
 			break
 		}
 		r.loggingIn = true
-		ctx, cancel := context.WithCancel(r.Ctx)
-		loginPopup := popups.NewGuiAuth(r.Invalidate, cancel, func(err error) {})
-		r.PushPopup(loginPopup)
+		ctx, cancel := context.WithCancel(r.ctx)
+		r.auth.cancel = cancel
 		c := make(chan struct{})
 		go func() {
-			err := utils.Auth.Login(ctx, loginPopup)
-			if err != nil {
-				if !errors.Is(err, context.Canceled) {
-					r.PushPopup(popups.NewErrorPopup(err, nil, false))
-				}
-			}
+			_ = utils.Auth.Login(ctx)
 			r.loggingIn = false
 			r.Invalidate()
 			close(c)
@@ -301,7 +323,7 @@ func (r *Router) Execute(cmd commands.Command) {
 	r.Wg.Add(1)
 	go func() {
 		defer r.Wg.Done()
-		r.cmdCtx, r.cmdCtxCancel = context.WithCancel(r.Ctx)
+		r.cmdCtx, r.cmdCtxCancel = context.WithCancel(r.ctx)
 
 		recovery.ErrorHandler = func(err error) {
 			utils.PrintPanic(err)
