@@ -353,11 +353,22 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 		return ignore
 	}
 
+	OnFinishedAll := func() bool {
+		for _, handler := range p.handlers {
+			if handler.ResourcePacksFinished != nil {
+				if handler.ResourcePacksFinished() {
+					return true
+				}
+			}
+		}
+		return false
+	}
+
 	// setup Client and Server Connections
 	wg := sync.WaitGroup{}
 	if isReplay {
 		filename := p.serverAddress[5:]
-		server, err := CreateReplayConnector(ctx, filename, p.packetFunc, p.onResourcePacksInfo, p.onFinishedPack, filterDownloadResourcePacks)
+		server, err := CreateReplayConnector(ctx, filename, p.packetFunc, p.onResourcePacksInfo, p.onFinishedPack, filterDownloadResourcePacks, OnFinishedAll)
 		if err != nil {
 			return err
 		}
@@ -370,6 +381,7 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 		p.rpHandler = newRpHandler(ctx, p.addedPacks, filterDownloadResourcePacks)
 		p.rpHandler.OnResourcePacksInfoCB = p.onResourcePacksInfo
 		p.rpHandler.OnFinishedPack = p.onFinishedPack
+		p.rpHandler.OnFinishedAll = OnFinishedAll
 
 		if p.withClient {
 			wg.Add(1)
@@ -429,6 +441,10 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 		} else {
 			p.disconnectReason = "Disconnect"
 		}
+
+		if p.expectDisconnect {
+			return nil
+		}
 		return err
 	}
 
@@ -470,6 +486,9 @@ func (p *Context) doSession(ctx context.Context, cancel context.CancelCauseFunc)
 		err = context.Cause(ctx)
 		if err != nil {
 			p.disconnectReason = err.Error()
+			if p.expectDisconnect {
+				return nil
+			}
 			return err
 		}
 

@@ -106,6 +106,8 @@ type rpHandler struct {
 	// optional callback that is called as soon as a resource pack is added to the proxies list
 	OnFinishedPack func(resource.Pack) error
 
+	OnFinishedAll func() bool
+
 	clientDone chan struct{}
 }
 
@@ -507,11 +509,19 @@ func (r *rpHandler) OnResourcePackStack(pk *packet.ResourcePackStack) error {
 
 	r.remoteStack = pk
 	close(r.receivedRemoteStack)
-	r.log.Debug("received remote resourcepack stack, starting game")
 
 	if r.clientDone != nil {
+		r.log.Debug("waiting for client to finish downloading")
 		<-r.clientDone
 	}
+
+	if r.OnFinishedAll != nil {
+		if r.OnFinishedAll() {
+			return nil
+		}
+	}
+
+	r.log.Debug("starting game")
 
 	r.Server.Expect(packet.IDStartGame)
 	_ = r.Server.WritePacket(&packet.ResourcePackClientResponse{Response: packet.PackResponseCompleted})

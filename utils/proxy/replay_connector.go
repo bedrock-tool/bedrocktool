@@ -104,7 +104,7 @@ func (r *ReplayConnector) ReadUntilLogin() error {
 	return nil
 }
 
-func CreateReplayConnector(ctx context.Context, filename string, packetFunc PacketFunc, onResourcePackInfo func(), OnFinishedPack func(resource.Pack) error, filterDownloadResourcePacks func(string) bool) (r *ReplayConnector, err error) {
+func CreateReplayConnector(ctx context.Context, filename string, packetFunc PacketFunc, onResourcePackInfo func(), OnFinishedPack func(resource.Pack) error, filterDownloadResourcePacks func(string) bool, OnFinishedAll func() bool) (r *ReplayConnector, err error) {
 	r = &ReplayConnector{
 		spawn: make(chan struct{}),
 		close: make(chan struct{}),
@@ -112,6 +112,7 @@ func CreateReplayConnector(ctx context.Context, filename string, packetFunc Pack
 	r.resourcePackHandler = newRpHandler(ctx, nil, filterDownloadResourcePacks)
 	r.resourcePackHandler.OnResourcePacksInfoCB = onResourcePackInfo
 	r.resourcePackHandler.OnFinishedPack = OnFinishedPack
+	r.resourcePackHandler.OnFinishedAll = OnFinishedAll
 	r.resourcePackHandler.SetServer(r)
 
 	logrus.Infof("Reading replay %s", filename)
