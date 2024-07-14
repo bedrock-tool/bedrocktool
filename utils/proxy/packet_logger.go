@@ -42,6 +42,8 @@ var mutedPackets = []uint32{
 	packet.IDNetworkStackLatency,
 	packet.IDInventoryTransaction,
 	packet.IDPlaySound,
+	packet.IDPlayerAction,
+	packet.IDSetTitle,
 }
 
 var dirS2C = color.GreenString("S") + "->" + color.CyanString("C")

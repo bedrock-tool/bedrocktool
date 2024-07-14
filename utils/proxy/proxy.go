@@ -29,6 +29,8 @@ type Handler struct {
 	FilterResourcePack func(id string) bool
 	OnFinishedPack     func(pack resource.Pack) error
 
+	ResourcePacksFinished func() bool
+
 	PacketRaw      func(header packet.Header, payload []byte, src, dst net.Addr)
 	PacketCallback func(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error)
 
