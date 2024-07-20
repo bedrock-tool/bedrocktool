@@ -27,36 +27,100 @@ func (w *worldsHandler) getEntity(id worldstate.EntityRuntimeID) *worldstate.Ent
 	return w.currentWorld.GetEntity(id)
 }
 
-type pkRecv struct {
-	pk           packet.Packet
-	toServer     bool
-	timeReceived time.Time
-	preLogin     bool
-}
-
 func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
-	if !w.serverState.haveStartGame {
-		switch _pk.(type) {
-		case *packet.LevelChunk, *packet.SubChunk, *packet.SetTime, *packet.BlockActorData, *packet.UpdateBlock, *packet.UpdateBlockSynced, *packet.UpdateSubChunkBlocks:
-			w.worldPacketsHeld = append(w.worldPacketsHeld, pkRecv{_pk, toServer, timeReceived, preLogin})
-			return _pk, nil
-		}
-	} else if len(w.worldPacketsHeld) > 0 {
-		held := w.worldPacketsHeld
-		w.worldPacketsHeld = nil
-		for _, recv := range held {
-			_, err := w.packetCB(recv.pk, recv.toServer, recv.timeReceived, recv.preLogin)
-			if err != nil {
-				return nil, err
+	if preLogin {
+		switch pk := _pk.(type) {
+		case *packet.CompressedBiomeDefinitionList: // for client side generation, disabled by proxy
+			return nil, nil
+		case *packet.StartGame:
+			if !w.serverState.haveStartGame {
+				w.serverState.haveStartGame = true
+				w.currentWorld.SetTime(timeReceived, int(pk.Time))
+				w.serverState.useHashedRids = pk.UseBlockNetworkIDHashes
+
+				w.serverState.blocks = world.DefaultBlockRegistry.Clone().(*world.BlockRegistryImpl)
+
+				world.InsertCustomItems(pk.Items)
+				for _, ie := range pk.Items {
+					w.bp.AddItem(ie)
+				}
+				if len(pk.Blocks) > 0 {
+					w.log.Info(locale.Loc("using_customblocks", nil))
+					for _, be := range pk.Blocks {
+						w.bp.AddBlock(be)
+					}
+					world.AddCustomBlocks(w.serverState.blocks, pk.Blocks)
+					w.serverState.customBlocks = pk.Blocks
+				}
+				w.serverState.blocks.Finalize()
+
+				w.serverState.WorldName = pk.WorldName
+				if pk.WorldName != "" {
+					w.currentWorld.Name = pk.WorldName
+				}
+
+				if len(pk.BaseGameVersion) > 0 && pk.BaseGameVersion != "*" { // check game version
+					gv := strings.Split(pk.BaseGameVersion, ".")
+					var err error
+					if len(gv) > 1 {
+						var ver int
+						ver, err = strconv.Atoi(gv[1])
+						w.serverState.useOldBiomes = ver < 18
+					}
+					if err != nil || len(gv) <= 1 {
+						w.log.Info(locale.Loc("guessing_version", nil))
+					}
+
+					if w.serverState.useOldBiomes {
+						w.log.Info(locale.Loc("using_under_118", nil))
+						w.serverState.dimensions[0] = protocol.DimensionDefinition{
+							Name:      "minecraft:overworld",
+							Range:     [2]int32{0, 256},
+							Generator: 1,
+						}
+					}
+				}
+				dim, _ := world.DimensionByID(int(pk.Dimension))
+				w.currentWorld.SetDimension(dim)
+
+				w.currentWorld.BiomeRegistry = w.serverState.biomes
+				w.currentWorld.BlockRegistry = w.serverState.blocks
+				w.openWorldState(w.settings.StartPaused)
 			}
+
+		case *packet.DimensionData:
+			for _, dd := range pk.Definitions {
+				if dd.Name == "minecraft:overworld" {
+					w.serverState.dimensions[0] = dd
+				}
+			}
+
+		case *packet.ItemComponent:
+			w.bp.ApplyComponentEntries(pk.Items)
+
+		case *packet.BiomeDefinitionList:
+			var biomes map[string]any
+			err := nbt.UnmarshalEncoding(pk.SerialisedBiomeDefinitions, &biomes, nbt.NetworkLittleEndian)
+			if err != nil {
+				w.log.WithField("packet", "BiomeDefinitionList").Error(err)
+			}
+
+			for k, v := range biomes {
+				_, ok := w.serverState.biomes.BiomeByName(k)
+				if !ok {
+					w.serverState.biomes.Register(&customBiome{
+						name: k,
+						data: v.(map[string]any),
+					})
+				}
+			}
+			w.bp.AddBiomes(biomes)
 		}
+
+		return _pk, nil
 	}
 
-	// general / startup
 	switch pk := _pk.(type) {
-	case *packet.CompressedBiomeDefinitionList: // for client side generation, disabled by proxy
-		return nil, nil
-
 	case *packet.RequestChunkRadius:
 		pk.ChunkRadius = w.settings.ChunkRadius
 		pk.MaxChunkRadius = w.settings.ChunkRadius
@@ -70,90 +134,6 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 
 	case *packet.SetTime:
 		w.currentWorld.SetTime(timeReceived, int(pk.Time))
-
-	case *packet.StartGame:
-		if !w.serverState.haveStartGame {
-			w.serverState.haveStartGame = true
-			w.currentWorld.SetTime(timeReceived, int(pk.Time))
-			w.serverState.useHashedRids = pk.UseBlockNetworkIDHashes
-
-			w.serverState.blocks = world.DefaultBlockRegistry.Clone().(*world.BlockRegistryImpl)
-
-			world.InsertCustomItems(pk.Items)
-			for _, ie := range pk.Items {
-				w.bp.AddItem(ie)
-			}
-			if len(pk.Blocks) > 0 {
-				w.log.Info(locale.Loc("using_customblocks", nil))
-				for _, be := range pk.Blocks {
-					w.bp.AddBlock(be)
-				}
-				world.AddCustomBlocks(w.serverState.blocks, pk.Blocks)
-				w.customBlocks = pk.Blocks
-			}
-			w.serverState.blocks.Finalize()
-
-			w.serverState.WorldName = pk.WorldName
-			if pk.WorldName != "" {
-				w.currentWorld.Name = pk.WorldName
-			}
-
-			if len(pk.BaseGameVersion) > 0 && pk.BaseGameVersion != "*" { // check game version
-				gv := strings.Split(pk.BaseGameVersion, ".")
-				var err error
-				if len(gv) > 1 {
-					var ver int
-					ver, err = strconv.Atoi(gv[1])
-					w.serverState.useOldBiomes = ver < 18
-				}
-				if err != nil || len(gv) <= 1 {
-					w.log.Info(locale.Loc("guessing_version", nil))
-				}
-
-				if w.serverState.useOldBiomes {
-					w.log.Info(locale.Loc("using_under_118", nil))
-					w.serverState.dimensions[0] = protocol.DimensionDefinition{
-						Name:      "minecraft:overworld",
-						Range:     [2]int32{0, 256},
-						Generator: 1,
-					}
-				}
-			}
-			dim, _ := world.DimensionByID(int(pk.Dimension))
-			w.currentWorld.SetDimension(dim)
-
-			w.currentWorld.BiomeRegistry = w.serverState.biomes
-			w.currentWorld.BlockRegistry = w.serverState.blocks
-			w.openWorldState(w.settings.StartPaused)
-		}
-
-	case *packet.DimensionData:
-		for _, dd := range pk.Definitions {
-			if dd.Name == "minecraft:overworld" {
-				w.serverState.dimensions[0] = dd
-			}
-		}
-
-	case *packet.ItemComponent:
-		w.bp.ApplyComponentEntries(pk.Items)
-
-	case *packet.BiomeDefinitionList:
-		var biomes map[string]any
-		err := nbt.UnmarshalEncoding(pk.SerialisedBiomeDefinitions, &biomes, nbt.NetworkLittleEndian)
-		if err != nil {
-			w.log.WithField("packet", "BiomeDefinitionList").Error(err)
-		}
-
-		for k, v := range biomes {
-			_, ok := w.serverState.biomes.BiomeByName(k)
-			if !ok {
-				w.serverState.biomes.Register(&customBiome{
-					name: k,
-					data: v.(map[string]any),
-				})
-			}
-		}
-		w.bp.AddBiomes(biomes)
 
 	// chunk
 
@@ -302,7 +282,7 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 	case *packet.Animate:
 		if toServer && pk.ActionType == packet.AnimateActionSwingArm {
 			w.mapUI.ChangeZoom()
-			w.proxy.SendPopup(locale.Loc("zoom_level", locale.Strmap{"Level": w.mapUI.zoomLevel}))
+			w.session.SendPopup(locale.Loc("zoom_level", locale.Strmap{"Level": w.mapUI.zoomLevel}))
 		}
 
 	// items
@@ -419,7 +399,7 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 				"Items": nbtconv.InvToNBT(inv),
 			}, true)
 
-			w.proxy.SendMessage(locale.Loc("saved_block_inv", nil))
+			w.session.SendMessage(locale.Loc("saved_block_inv", nil))
 
 			// remove it again
 			delete(w.serverState.openItemContainers, byte(pk.WindowID))

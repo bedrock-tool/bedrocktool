@@ -109,7 +109,7 @@ type rpHandler struct {
 	clientDone       chan struct{}
 }
 
-func newRpHandler(ctx context.Context, addedPacks []resource.Pack, filterDownloadResourcePacks func(string) bool) *rpHandler {
+func newRpHandler(ctx context.Context, addedPacks []resource.Pack) *rpHandler {
 	r := &rpHandler{
 		ctx:        ctx,
 		log:        logrus.WithField("part", "ResourcePacks"),
@@ -119,8 +119,6 @@ func newRpHandler(ctx context.Context, addedPacks []resource.Pack, filterDownloa
 		receivedRemotePackInfo: make(chan struct{}),
 		receivedRemoteStack:    make(chan struct{}),
 		downloadingPacks:       make(map[string]map[uint64]downloadingPack),
-
-		filterDownloadResourcePacks: filterDownloadResourcePacks,
 	}
 	return r
 }

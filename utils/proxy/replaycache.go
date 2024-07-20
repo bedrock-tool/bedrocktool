@@ -17,10 +17,12 @@ type replayCache struct {
 func (r *replayCache) Get(id, ver string) resource.Pack {
 	return r.packs[id+"_"+ver]
 }
+
 func (r *replayCache) Has(id, ver string) bool {
 	_, ok := r.packs[id+"_"+ver]
 	return ok
 }
+
 func (r *replayCache) Create(id, ver string) (*closeMoveWriter, error) { return nil, nil }
 
 func (r *replayCache) ReadFrom(reader io.ReaderAt, readerSize int64) error {

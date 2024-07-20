@@ -26,7 +26,9 @@ func (c *CaptureCMD) Execute(ctx context.Context) error {
 		return err
 	}
 	utils.Options.Capture = true
-	return p.Run(ctx, c.ServerAddress)
+
+	server := ctx.Value(utils.ConnectInfoKey).(*utils.ConnectInfo)
+	return p.Run(ctx, server)
 }
 func init() {
 	commands.RegisterCommand(&CaptureCMD{})

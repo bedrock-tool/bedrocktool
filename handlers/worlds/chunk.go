@@ -76,7 +76,7 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 		}
 
 		dimId, _ := world.DimensionID(w.currentWorld.Dimension())
-		_ = w.proxy.Server.WritePacket(&packet.SubChunkRequest{
+		_ = w.session.Server.WritePacket(&packet.SubChunkRequest{
 			Dimension: int32(dimId),
 			Position: protocol.SubChunkPos{
 				pk.Position.X(), 0, pk.Position.Z(),
@@ -97,7 +97,7 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 		//}
 	}
 
-	w.proxy.SendPopup(locale.Locm("popup_chunk_count", locale.Strmap{
+	w.session.SendPopup(locale.Locm("popup_chunk_count", locale.Strmap{
 		"Chunks":   len(w.currentWorld.StoredChunks),
 		"Entities": w.currentWorld.EntityCount(),
 		"Name":     w.currentWorld.Name,

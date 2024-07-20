@@ -16,7 +16,6 @@ require (
 	github.com/fatih/color v1.17.0
 	github.com/flytam/filenamify v1.2.0
 	github.com/go-gl/mathgl v1.1.0
-	github.com/google/subcommands v1.2.0
 	github.com/google/uuid v1.6.0
 	github.com/gregwebs/go-recovery v0.3.2
 	github.com/klauspost/compress v1.17.9
@@ -45,7 +44,6 @@ require (
 	gioui.org/cpu v0.0.0-20220412190645-f1e9e8c3b1f7 // indirect
 	git.wow.st/gmp/jni v0.0.0-20210610011705-34026c7e22d0 // indirect
 	github.com/brentp/intintmap v0.0.0-20190211203843-30dc0ade9af9 // indirect
-	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/changkun/lockfree v0.0.1 // indirect
 	github.com/df-mc/atomic v1.10.0 // indirect
 	github.com/df-mc/worldupgrader v1.0.15 // indirect
@@ -63,7 +61,6 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/muhammadmuzzammil1998/jsonc v1.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
-	github.com/rogpeppe/go-internal v1.11.0 // indirect
 	github.com/segmentio/fasthash v1.0.3 // indirect
 	github.com/tklauser/go-sysconf v0.3.14 // indirect
 	github.com/tklauser/numcpus v0.8.0 // indirect

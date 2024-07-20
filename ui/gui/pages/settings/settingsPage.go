@@ -101,7 +101,7 @@ func (s *settingsPage) Valid() bool {
 	if !ok {
 		return true
 	}
-	if addr.Value() == "" {
+	if addr.GetConnectInfo() == nil {
 		return false
 	}
 	return true
@@ -129,7 +129,7 @@ func (s *settingsPage) Apply() error {
 		case *component.TextField:
 			value = flagWidget.Text()
 		case *addressInput:
-			value = flagWidget.Value()
+			continue
 		default:
 			return errors.New("unknown widget " + flagName)
 		}

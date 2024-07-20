@@ -36,8 +36,8 @@ func NewChatLogger() *proxy.Handler {
 	return &proxy.Handler{
 		Name:           "Packet Capturer",
 		PacketCallback: c.PacketCB,
-		OnAddressAndName: func(address, hostname string) error {
-			filename := fmt.Sprintf("%s_%s_chat.log", hostname, time.Now().Format("2006-01-02_15-04-05_Z07"))
+		SessionStart: func(s *proxy.Session, serverName string) error {
+			filename := fmt.Sprintf("%s_%s_chat.log", serverName, time.Now().Format("2006-01-02_15-04-05_Z07"))
 			f, err := os.Create(filename)
 			if err != nil {
 				return err
@@ -45,7 +45,7 @@ func NewChatLogger() *proxy.Handler {
 			c.fio = f
 			return nil
 		},
-		OnProxyEnd: func() {
+		OnSessionEnd: func() {
 			c.fio.Close()
 		},
 	}

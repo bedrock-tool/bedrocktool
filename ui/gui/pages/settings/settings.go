@@ -13,6 +13,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/popups"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
+	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/sirupsen/logrus"
 )
@@ -92,7 +93,7 @@ func (p *Page) NavItem() component.NavItem {
 }
 
 func (p *Page) Layout(gtx C, th *material.Theme) D {
-	var validSettings = true
+	var validSettings = false
 	if p.cmdMenu.selected != "" {
 		s := p.settings[p.cmdMenu.selected]
 		validSettings = s.Valid()
@@ -116,11 +117,14 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 					},
 				})
 			} else {
+				info := AddressInput.GetConnectInfo()
 				messages.Router.Handle(&messages.Message{
 					Source: p.ID(),
 					Target: "ui",
 					Data: messages.StartSubcommand{
-						Command: cmd,
+						Command:  cmd,
+						CtxKey:   utils.ConnectInfoKey,
+						CtxValue: info,
 					},
 				})
 			}
@@ -193,8 +197,8 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 						gtx.Constraints.Max = image.Pt(gtx.Constraints.Max.X/3, gtx.Dp(40))
 						b := material.Button(th, &p.startButton, "Start")
 						if !validSettings {
-							b.Color = th.ContrastFg
-							b.Background = th.ContrastBg
+							b.Color = th.Bg
+							b.Background = th.Fg
 						}
 						return b.Layout(gtx)
 					})

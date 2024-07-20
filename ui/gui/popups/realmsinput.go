@@ -19,17 +19,20 @@ type RealmsList struct {
 	close    widget.Clickable
 	l        sync.Mutex
 	list     widget.List
-	realms   []realms.Realm
-	buttons  map[int]*widget.Clickable
+	realms   []*realmButton
 	loaded   bool
 	loading  bool
-	setRealm func(realms.Realm)
+	setRealm func(*realms.Realm)
 }
 
-func NewRealmsList(setRealm func(realms.Realm)) Popup {
+type realmButton struct {
+	*realms.Realm
+	widget.Clickable
+}
+
+func NewRealmsList(setRealm func(*realms.Realm)) Popup {
 	return &RealmsList{
 		setRealm: setRealm,
-		buttons:  make(map[int]*widget.Clickable),
 	}
 }
 
@@ -48,29 +51,27 @@ func (r *RealmsList) Load() error {
 	if err != nil {
 		return err
 	}
-	r.realms, err = realmsClient.Realms(context.Background())
+	realms, err := realmsClient.Realms(context.Background())
 	if err != nil {
 		return err
 	}
-	clear(r.buttons)
-	for _, realm := range r.realms {
-		r.buttons[realm.ID] = &widget.Clickable{}
+	r.realms = nil
+	for _, realm := range realms {
+		r.realms = append(r.realms, &realmButton{
+			Realm: &realm,
+		})
 	}
+
 	r.loading = false
 	r.loaded = true
 	return nil
 }
 
 func (r *RealmsList) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
-	for k, c := range r.buttons {
-		if c.Clicked(gtx) {
-			for _, realm := range r.realms {
-				if realm.ID == k {
-					r.setRealm(realm)
-					r.close.Click()
-					break
-				}
-			}
+	for _, realm := range r.realms {
+		if realm.Clicked(gtx) {
+			r.setRealm(realm.Realm)
+			r.close.Click()
 		}
 	}
 
@@ -133,7 +134,7 @@ func (r *RealmsList) Layout(gtx layout.Context, th *material.Theme) layout.Dimen
 					realm := r.realms[index]
 					return material.ButtonLayoutStyle{
 						Background:   component.WithAlpha(th.ContrastBg, 0x80),
-						Button:       r.buttons[realm.ID],
+						Button:       &realm.Clickable,
 						CornerRadius: 8,
 					}.Layout(gtx, func(gtx C) D {
 						return layout.UniformInset(15).Layout(gtx, func(gtx C) D {

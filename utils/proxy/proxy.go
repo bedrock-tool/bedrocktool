@@ -14,7 +14,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type PacketFunc func(header packet.Header, payload []byte, src, dst net.Addr)
+type PacketFunc func(header packet.Header, payload []byte, src, dst net.Addr, timeReceived time.Time)
 type ingameCommand struct {
 	Exec func(cmdline []string) bool
 	Cmd  protocol.Command
@@ -23,18 +23,16 @@ type ingameCommand struct {
 type Handler struct {
 	Name string
 
-	ProxyReference     func(c *Context)
+	SessionStart       func(s *Session, serverName string) error
 	GameDataModifier   func(gameData *minecraft.GameData)
-	OnAddressAndName   func(address, hostname string) error
 	FilterResourcePack func(id string) bool
 	OnFinishedPack     func(pack resource.Pack) error
 
 	ResourcePacksFinished func() bool
 
-	PacketRaw      func(header packet.Header, payload []byte, src, dst net.Addr)
+	PacketRaw      func(header packet.Header, payload []byte, src, dst net.Addr, timeReceived time.Time)
 	PacketCallback func(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error)
 
-	OnClientConnect func()
 	OnServerConnect func() (cancel bool, err error)
 	OnConnect       func() (cancel bool)
 

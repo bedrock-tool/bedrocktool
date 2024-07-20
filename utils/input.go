@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -9,9 +10,8 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/bedrock-tool/bedrocktool/locale"
-	"github.com/bedrock-tool/bedrocktool/ui/messages"
-	"github.com/sirupsen/logrus"
+	"github.com/bedrock-tool/bedrocktool/utils/gatherings"
+	"github.com/sandertv/gophertunnel/minecraft/realms"
 	"golang.org/x/term"
 )
 
@@ -103,17 +103,10 @@ func UserInput(ctx context.Context, q string, validator func(string) bool) (stri
 	}
 }
 
-func serverGetHostname(server string) string {
-	host, _, err := net.SplitHostPort(server)
-	if err != nil {
-		logrus.Fatalf(locale.Loc("invalid_server", locale.Strmap{"Err": err.Error()}))
-	}
-	return host
-}
-
 var (
-	realmRegex = regexp.MustCompile("realm:(?P<Name>.*)(?::(?P<ID>.*))+")
-	pcapRegex  = regexp.MustCompile(`(?P<Filename>(?P<Name>.*)\.pcap2)(?:\?(?P<Args>.*))?`)
+	realmRegex     = regexp.MustCompile("realm:(?P<Name>.*)(?::(?P<ID>.*))+")
+	pcapRegex      = regexp.MustCompile(`(?P<Filename>(?P<Name>.*)\.pcap2)(?:\?(?P<Args>.*))?`)
+	gatheringRegex = regexp.MustCompile("gathering:(?::(?P<Title>.*))+")
 )
 
 func regexGetParams(r *regexp.Regexp, s string) (params map[string]string) {
@@ -127,30 +120,71 @@ func regexGetParams(r *regexp.Regexp, s string) (params map[string]string) {
 	return params
 }
 
-func ParseServer(ctx context.Context, server string) (*messages.ServerInput, error) {
-	// realm
-	if realmRegex.MatchString(server) {
-		p := regexGetParams(realmRegex, server)
-		name, address, err := getRealm(ctx, p["Name"], p["ID"])
+func ParseServer(ctx context.Context, server string) (*ConnectInfo, error) {
+	// gathering
+	if gatheringRegex.MatchString(server) {
+		p := regexGetParams(gatheringRegex, server)
+
+		gatheringsClient, err := Auth.Gatherings(ctx)
 		if err != nil {
 			return nil, err
 		}
-		host, port, _ := net.SplitHostPort(address)
-		return &messages.ServerInput{
-			IsReplay: false,
-			Address:  host,
-			Port:     port,
-			Name:     CleanupName(name),
+		gatheringsList, err := gatheringsClient.Gatherings(ctx)
+		if err != nil {
+			return nil, err
+		}
+		var gathering *gatherings.Gathering
+		for _, gg := range gatheringsList {
+			if gg.Title == p["Title"] {
+				gathering = gg
+				break
+			}
+		}
+		if gathering == nil {
+			return nil, errors.New("gathering not foun")
+		}
+
+		return &ConnectInfo{
+			Gathering: gathering,
+		}, nil
+	}
+
+	// realm
+	if realmRegex.MatchString(server) {
+		p := regexGetParams(realmRegex, server)
+
+		realmsClient, err := Auth.Realms()
+		if err != nil {
+			return nil, err
+		}
+
+		realmsList, err := realmsClient.Realms(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		var realm *realms.Realm
+		for _, rr := range realmsList {
+			if strings.HasPrefix(rr.Name, p["Name"]) {
+				realm = &rr
+				break
+			}
+		}
+
+		if realm == nil {
+			return nil, errors.New("realm not found")
+		}
+
+		return &ConnectInfo{
+			Realm: realm,
 		}, nil
 	}
 
 	// pcap replay
 	if pcapRegex.MatchString(server) {
 		p := regexGetParams(pcapRegex, server)
-		return &messages.ServerInput{
-			IsReplay: true,
-			Address:  p["Filename"],
-			Name:     p["Name"],
+		return &ConnectInfo{
+			Replay: p["Filename"],
 		}, nil
 	}
 
@@ -158,13 +192,8 @@ func ParseServer(ctx context.Context, server string) (*messages.ServerInput, err
 	if len(strings.Split(server, ":")) == 1 {
 		server += ":19132"
 	}
-	host, port, _ := net.SplitHostPort(server)
-	name := serverGetHostname(server)
-	return &messages.ServerInput{
-		IsReplay: false,
-		Address:  host,
-		Port:     port,
-		Name:     name,
+	return &ConnectInfo{
+		ServerAddress: server,
 	}, nil
 }
 
@@ -175,6 +204,10 @@ func ValidateServerInput(server string) bool {
 
 	if realmRegex.MatchString(server) {
 		return true // todo
+	}
+
+	if gatheringRegex.MatchString(server) {
+		return true
 	}
 
 	host, _, err := net.SplitHostPort(server)

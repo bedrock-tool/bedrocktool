@@ -7,6 +7,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/handlers"
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
+	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/bedrock-tool/bedrocktool/utils/proxy"
 )
@@ -58,7 +59,8 @@ func (c *SkinCMD) Execute(ctx context.Context) error {
 		},
 	})
 
-	err = p.Run(ctx, c.ServerAddress)
+	server := ctx.Value(utils.ConnectInfoKey).(*utils.ConnectInfo)
+	err = p.Run(ctx, server)
 	return err
 }
 

@@ -21,8 +21,8 @@ import (
 )
 
 type SkinSaver struct {
-	proxy *proxy.Context
-	log   *logrus.Entry
+	session *proxy.Session
+	log     *logrus.Entry
 
 	PlayerNameFilter  string
 	OnlyIfHasGeometry bool
@@ -88,7 +88,7 @@ func (s *SkinSaver) AddSkin(player *skinPlayer, playerSkin *protocol.Skin) (*uti
 	}
 	if player.SkinPack.AddSkin(skin) {
 		addedStr := fmt.Sprintf("Added a skin %s", player.Name)
-		s.proxy.SendPopup(addedStr)
+		s.session.SendPopup(addedStr)
 		s.log.Info(addedStr)
 		added = true
 	}
@@ -155,7 +155,7 @@ func (s *SkinSaver) ProcessPacket(pk packet.Packet) (out []SkinAdd) {
 		player.AltName = pk.Username
 		player.RuntimeID = pk.EntityRuntimeID
 	case *packet.Animate:
-		if pk.EntityRuntimeID == s.proxy.Player.RuntimeID && pk.ActionType == packet.AnimateActionSwingArm {
+		if pk.EntityRuntimeID == s.session.Player.RuntimeID && pk.ActionType == packet.AnimateActionSwingArm {
 			s.stealSkin()
 		}
 	case *packet.ChangeDimension:
@@ -180,10 +180,8 @@ func NewSkinSaver(skinCB func(SkinAdd)) *proxy.Handler {
 	}
 	return &proxy.Handler{
 		Name: "Skin Saver",
-		ProxyReference: func(pc *proxy.Context) {
-			s.proxy = pc
-		},
-		OnAddressAndName: func(address, hostname string) error {
+		SessionStart: func(session *proxy.Session, hostname string) error {
+			s.session = session
 			outPathBase := fmt.Sprintf("skins/%s", hostname)
 			os.MkdirAll(outPathBase, 0o755)
 			s.baseDir = outPathBase
@@ -212,8 +210,8 @@ func (s *SkinSaver) stealSkin() {
 
 	var dist float64 = 40
 
-	pitch := mgl64.DegToRad(float64(s.proxy.Player.Pitch))
-	yaw := mgl64.DegToRad(float64(s.proxy.Player.HeadYaw + 90))
+	pitch := mgl64.DegToRad(float64(s.session.Player.Pitch))
+	yaw := mgl64.DegToRad(float64(s.session.Player.HeadYaw + 90))
 
 	dir := mgl64.Vec3{
 		math.Cos(yaw) * math.Cos(pitch),
@@ -221,10 +219,10 @@ func (s *SkinSaver) stealSkin() {
 		math.Sin(yaw) * math.Cos(pitch),
 	}.Normalize()
 
-	pos := s.proxy.Player.Position
+	pos := s.session.Player.Position
 	traceStart := mgl64.Vec3{float64(pos[0]), float64(pos[1]), float64(pos[2])}
 	traceEnd := traceStart.Add(dir.Mul(dist))
-	s.proxy.ClientWritePacket(&packet.SpawnParticleEffect{
+	s.session.ClientWritePacket(&packet.SpawnParticleEffect{
 		Dimension:      0,
 		EntityUniqueID: -1,
 		Position:       mgl32.Vec3{float32(traceEnd[0]), float32(traceEnd[1]), float32(traceEnd[2])},
@@ -243,21 +241,21 @@ func (s *SkinSaver) stealSkin() {
 			fmt.Printf("res: %v\n", res.Position())
 			interceptPos := res.Position()
 
-			s.proxy.ClientWritePacket(&packet.SpawnParticleEffect{
+			s.session.ClientWritePacket(&packet.SpawnParticleEffect{
 				Dimension:      0,
 				EntityUniqueID: -1,
 				Position:       mgl32.Vec3{float32(interceptPos[0]), float32(interceptPos[1]), float32(interceptPos[2])},
 				ParticleName:   "hivehub:emote_confounded",
 			})
 
-			id := uuid.MustParse(s.proxy.Client.IdentityData().Identity)
+			id := uuid.MustParse(s.session.Client.IdentityData().Identity)
 
-			s.proxy.ClientWritePacket(&packet.PlayerSkin{
+			s.session.ClientWritePacket(&packet.PlayerSkin{
 				UUID: id,
 				Skin: *sp.CurrentSkin.Skin,
 			})
 
-			s.proxy.Server.WritePacket(&packet.PlayerSkin{
+			s.session.Server.WritePacket(&packet.PlayerSkin{
 				UUID: id,
 				Skin: *sp.CurrentSkin.Skin,
 			})

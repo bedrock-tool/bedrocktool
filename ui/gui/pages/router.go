@@ -145,7 +145,17 @@ func (r *Router) GetPopup(id string) (p popups.Popup) {
 
 func (r *Router) RemovePopup(id string) {
 	r.popups = slices.DeleteFunc(r.popups, func(p popups.Popup) bool {
-		return p.ID() == id
+		isIt := p.ID() == id
+		if isIt {
+			p.HandleMessage(&messages.Message{
+				Source: "ui",
+				Target: id,
+				Data: messages.Close{
+					ID: id,
+				},
+			})
+		}
+		return isIt
 	})
 	r.Invalidate()
 }
@@ -277,7 +287,7 @@ func (r *Router) HandleMessage(msg *messages.Message) *messages.Message {
 	case messages.StartSubcommand:
 		cmd := data.Command.(commands.Command)
 		r.SwitchTo(cmd.Name())
-		r.Execute(cmd)
+		r.Execute(cmd, data.CtxKey, data.CtxValue)
 	case messages.ExitSubcommand:
 		r.ExitCommand()
 
@@ -319,11 +329,11 @@ func (r *Router) HandleMessage(msg *messages.Message) *messages.Message {
 	return resp
 }
 
-func (r *Router) Execute(cmd commands.Command) {
+func (r *Router) Execute(cmd commands.Command, ctxKey, ctxVal any) {
 	r.Wg.Add(1)
 	go func() {
 		defer r.Wg.Done()
-		r.cmdCtx, r.cmdCtxCancel = context.WithCancel(r.ctx)
+		r.cmdCtx, r.cmdCtxCancel = context.WithCancel(context.WithValue(r.ctx, ctxKey, ctxVal))
 
 		recovery.ErrorHandler = func(err error) {
 			utils.PrintPanic(err)

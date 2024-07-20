@@ -140,7 +140,9 @@ func (r *Pcap2Reader) ReadPacket(skip bool) (pk packet.Packet, toServer bool, re
 		if toServer {
 			src, dst = replayLocalAddr, replayRemoteAddr
 		}
-		pkData, err := minecraft.ParseData(payload, r.PacketFunc, src, dst)
+		pkData, err := minecraft.ParseData(payload, func(header packet.Header, packetData []byte) {
+			r.PacketFunc(header, packetData, src, dst, receivedTime)
+		})
 		if err != nil {
 			return nil, toServer, receivedTime, err
 		}

@@ -23,13 +23,15 @@ func (c *DebugProxyCMD) SetFlags(f *flag.FlagSet) {
 }
 
 func (c *DebugProxyCMD) Execute(ctx context.Context) error {
-	proxy, err := proxy.New(true)
+	proxyContext, err := proxy.New(true)
 	if err != nil {
 		return err
 	}
-	proxy.ListenAddress = c.ListenAddress
+	proxyContext.ListenAddress = c.ListenAddress
 	utils.Options.Debug = true
-	return proxy.Run(ctx, c.ServerAddress)
+
+	server := ctx.Value(utils.ConnectInfoKey).(*utils.ConnectInfo)
+	return proxyContext.Run(ctx, server)
 }
 
 func init() {

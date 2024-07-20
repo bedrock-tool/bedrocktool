@@ -7,6 +7,8 @@ import (
 	"io"
 	"os"
 
+	"github.com/bedrock-tool/bedrocktool/utils/gatherings"
+	"github.com/bedrock-tool/bedrocktool/utils/playfab"
 	"github.com/sandertv/gophertunnel/minecraft/auth"
 	"github.com/sandertv/gophertunnel/minecraft/realms"
 	"github.com/sirupsen/logrus"
@@ -19,7 +21,10 @@ type authsrv struct {
 	log       *logrus.Entry
 	handler   auth.MSAuthHandler
 	liveToken *oauth2.Token
-	realms    *realms.Client
+
+	realms     *realms.Client
+	playfab    *playfab.Client
+	gatherings *gatherings.GatheringsClient
 }
 
 var Auth *authsrv = &authsrv{
@@ -36,6 +41,7 @@ func (a *authsrv) Startup() (err error) {
 		return err
 	}
 	a.realms = realms.NewClient(a)
+	a.playfab = playfab.NewClient()
 	return nil
 }
 
@@ -74,7 +80,6 @@ func (a *authsrv) refreshLiveToken() (err error) {
 	}
 
 	a.log.Info("Refreshing Microsoft Token")
-
 	a.liveToken, err = auth.RefreshToken(a.liveToken)
 	if err != nil {
 		return err
@@ -156,4 +161,35 @@ func (a *authsrv) Realms() (*realms.Client, error) {
 	}
 	a.realms = realms.NewClient(a)
 	return a.realms, nil
+}
+
+func (a *authsrv) Playfab(ctx context.Context) (*playfab.Client, error) {
+	if a.playfab.LoggedIn() {
+		return a.playfab, nil
+	}
+	liveToken, err := a.Token()
+	if err != nil {
+		return nil, err
+	}
+	err = a.playfab.Login(ctx, liveToken)
+	if err != nil {
+		return nil, err
+	}
+	return a.playfab, nil
+}
+
+func (a *authsrv) Gatherings(ctx context.Context) (*gatherings.GatheringsClient, error) {
+	if a.gatherings != nil {
+		return a.gatherings, nil
+	}
+	playfabClient, err := a.Playfab(ctx)
+	if err != nil {
+		return nil, err
+	}
+	mcToken, err := playfabClient.MCToken()
+	if err != nil {
+		return nil, err
+	}
+	a.gatherings = gatherings.NewGatheringsClient(mcToken)
+	return a.gatherings, nil
 }

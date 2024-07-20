@@ -31,7 +31,6 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
-	"github.com/sandertv/gophertunnel/minecraft/resource"
 	"github.com/sirupsen/logrus"
 )
 
@@ -61,6 +60,7 @@ type serverState struct {
 	biomes *world.BiomeRegistry
 	blocks *world.BlockRegistryImpl
 
+	customBlocks       []protocol.BlockEntry
 	openItemContainers map[byte]*itemContainer
 	playerInventory    []protocol.ItemInstance
 	dimensions         map[int]protocol.DimensionDefinition
@@ -70,11 +70,11 @@ type serverState struct {
 }
 
 type worldsHandler struct {
-	wg    sync.WaitGroup
-	ctx   context.Context
-	proxy *proxy.Context
-	mapUI *MapUI
-	log   *logrus.Entry
+	wg      sync.WaitGroup
+	ctx     context.Context
+	session *proxy.Session
+	mapUI   *MapUI
+	log     *logrus.Entry
 
 	bp *behaviourpack.Pack
 	rp *resourcepack.Pack
@@ -85,11 +85,8 @@ type worldsHandler struct {
 	currentWorld   *worldstate.World
 	worldStateLock sync.Mutex
 
-	serverState  serverState
-	settings     WorldSettings
-	customBlocks []protocol.BlockEntry
-
-	worldPacketsHeld []pkRecv
+	serverState serverState
+	settings    WorldSettings
 }
 
 type itemContainer struct {
@@ -109,16 +106,8 @@ func NewWorldsHandler(settings WorldSettings) *proxy.Handler {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	w := &worldsHandler{
-		ctx: ctx,
-		log: logrus.WithField("part", "WorldsHandler"),
-		serverState: serverState{
-			useOldBiomes:       false,
-			worldCounter:       0,
-			openItemContainers: make(map[byte]*itemContainer),
-			dimensions:         make(map[int]protocol.DimensionDefinition),
-			playerSkins:        make(map[uuid.UUID]*protocol.Skin),
-			biomes:             world.DefaultBiomes.Clone(),
-		},
+		ctx:      ctx,
+		log:      logrus.WithField("part", "WorldsHandler"),
 		settings: settings,
 	}
 	w.mapUI = NewMapUI(w)
@@ -126,47 +115,58 @@ func NewWorldsHandler(settings WorldSettings) *proxy.Handler {
 
 	h := &proxy.Handler{
 		Name: "Worlds",
-		ProxyReference: func(pc *proxy.Context) {
-			w.proxy = pc
 
-			w.proxy.AddCommand(func(cmdline []string) bool {
+		SessionStart: func(session *proxy.Session, serverName string) error {
+			w.session = session
+			w.bp = nil
+			w.currentWorld = nil
+			w.serverState = serverState{
+				useOldBiomes:       false,
+				worldCounter:       0,
+				openItemContainers: make(map[byte]*itemContainer),
+				dimensions:         make(map[int]protocol.DimensionDefinition),
+				playerSkins:        make(map[uuid.UUID]*protocol.Skin),
+				biomes:             world.DefaultBiomes.Clone(),
+			}
+
+			w.session.AddCommand(func(cmdline []string) bool {
 				return w.setWorldName(strings.Join(cmdline, " "))
 			}, protocol.Command{
 				Name:        "setname",
 				Description: locale.Loc("setname_desc", nil),
 			})
 
-			w.proxy.AddCommand(func(cmdline []string) bool {
+			w.session.AddCommand(func(cmdline []string) bool {
 				return w.setVoidGen(!w.currentWorld.VoidGen)
 			}, protocol.Command{
 				Name:        "void",
 				Description: locale.Loc("void_desc", nil),
 			})
 
-			w.proxy.AddCommand(func(s []string) bool {
+			w.session.AddCommand(func(s []string) bool {
 				w.settings.ExcludedMobs = append(w.settings.ExcludedMobs, s...)
-				w.proxy.SendMessage(fmt.Sprintf("Exluding: %s", strings.Join(w.settings.ExcludedMobs, ", ")))
+				w.session.SendMessage(fmt.Sprintf("Exluding: %s", strings.Join(w.settings.ExcludedMobs, ", ")))
 				return true
 			}, protocol.Command{
 				Name:        "exclude-mob",
 				Description: "add a mob to the list of mobs to ignore",
 			})
 
-			w.proxy.AddCommand(func(s []string) bool {
+			w.session.AddCommand(func(s []string) bool {
 				w.currentWorld.PauseCapture()
-				w.proxy.SendMessage("Paused Capturing")
+				w.session.SendMessage("Paused Capturing")
 				return true
 			}, protocol.Command{
 				Name:        "stop-capture",
 				Description: "stop capturing entities, chunks",
 			})
 
-			w.proxy.AddCommand(func(s []string) bool {
-				w.proxy.SendMessage("Restarted Capturing")
+			w.session.AddCommand(func(s []string) bool {
+				w.session.SendMessage("Restarted Capturing")
 				pos := cube.Pos{
-					int(math.Floor(float64(w.proxy.Player.Position[0]))),
-					int(math.Floor(float64(w.proxy.Player.Position[1]))),
-					int(math.Floor(float64(w.proxy.Player.Position[2]))),
+					int(math.Floor(float64(w.session.Player.Position[0]))),
+					int(math.Floor(float64(w.session.Player.Position[1]))),
+					int(math.Floor(float64(w.session.Player.Position[2]))),
 				}
 				w.currentWorld.UnpauseCapture(pos, w.serverState.radius)
 				return true
@@ -175,21 +175,20 @@ func NewWorldsHandler(settings WorldSettings) *proxy.Handler {
 				Description: "start capturing entities, chunks",
 			})
 
-			w.proxy.AddCommand(func(s []string) bool {
+			w.session.AddCommand(func(s []string) bool {
 				w.SaveAndReset(false, nil)
 				return true
 			}, protocol.Command{
 				Name:        "save-world",
 				Description: "immediately save and reset the world state",
 			})
-		},
 
-		OnAddressAndName: func(address, hostname string) (err error) {
-			w.bp = behaviourpack.New(hostname)
+			w.bp = behaviourpack.New(serverName)
 			w.rp = resourcepack.New()
-			w.serverState.Name = hostname
+			w.serverState.Name = serverName
 
 			// initialize a worldstate
+			var err error
 			w.currentWorld, err = worldstate.New(w.serverState.dimensions, w.mapUI.SetChunk)
 			if err != nil {
 				return err
@@ -234,22 +233,22 @@ func NewWorldsHandler(settings WorldSettings) *proxy.Handler {
 				},
 			})
 
-			w.proxy.ClientWritePacket(&packet.ChunkRadiusUpdated{
+			w.session.ClientWritePacket(&packet.ChunkRadiusUpdated{
 				ChunkRadius: w.settings.ChunkRadius,
 			})
 
-			w.proxy.Server.WritePacket(&packet.RequestChunkRadius{
+			w.session.Server.WritePacket(&packet.RequestChunkRadius{
 				ChunkRadius: w.settings.ChunkRadius,
 			})
 
-			gd := w.proxy.Server.GameData()
+			gd := w.session.Server.GameData()
 			mapItemID, _ := world.ItemRidByName("minecraft:filled_map")
 			mapItemPacket.Content[0].Stack.ItemType.NetworkID = mapItemID
 			if gd.ServerAuthoritativeInventory {
 				mapItemPacket.Content[0].StackNetworkID = 0xffff + rand.Int31n(0xfff)
 			}
 
-			w.proxy.SendMessage(locale.Loc("use_setname", nil))
+			w.session.SendMessage(locale.Loc("use_setname", nil))
 			w.mapUI.Start(ctx)
 			return false
 		},
@@ -272,7 +271,7 @@ func (w *worldsHandler) preloadReplay() error {
 	log := w.log.WithField("func", "preloadReplay")
 	var conn *proxy.ReplayConnector
 	var err error
-	conn, err = proxy.CreateReplayConnector(context.Background(), w.settings.PreloadReplay, func(header packet.Header, payload []byte, src, dst net.Addr) {
+	conn, err = proxy.CreateReplayConnector(context.Background(), w.settings.PreloadReplay, func(header packet.Header, payload []byte, src, dst net.Addr, timeReceived time.Time) {
 		pk, ok := proxy.DecodePacket(header, payload, conn.ShieldID())
 		if !ok {
 			log.Error("unknown packet", header)
@@ -288,11 +287,11 @@ func (w *worldsHandler) preloadReplay() error {
 		if err != nil {
 			log.Error(err)
 		}
-	}, func() {}, func(p resource.Pack) error { return nil }, func(s string) bool { return false }, func() bool { return false })
+	}, nil)
 	if err != nil {
 		return err
 	}
-	w.proxy.Server = conn
+	w.session.Server = conn
 
 	err = conn.ReadUntilLogin()
 	if err != nil {
@@ -305,7 +304,7 @@ func (w *worldsHandler) preloadReplay() error {
 			break
 		}
 	}
-	w.proxy.Server = nil
+	w.session.Server = nil
 
 	log.Info("finished preload")
 	w.serverState.blocks = nil
@@ -318,7 +317,7 @@ func (w *worldsHandler) setVoidGen(val bool) bool {
 	if w.currentWorld.VoidGen {
 		s = locale.Loc("void_generator_true", nil)
 	}
-	w.proxy.SendMessage(s)
+	w.session.SendMessage(s)
 
 	var voidGen = "false"
 	if w.currentWorld.VoidGen {
@@ -343,7 +342,7 @@ func (w *worldsHandler) setWorldName(val string) bool {
 		w.log.Error(err)
 		return false
 	}
-	w.proxy.SendMessage(locale.Loc("worldname_set", locale.Strmap{"Name": w.currentWorld.Name}))
+	w.session.SendMessage(locale.Loc("worldname_set", locale.Strmap{"Name": w.currentWorld.Name}))
 
 	messages.Router.Handle(&messages.Message{
 		Source: "subcommand",
@@ -406,12 +405,12 @@ func (w *worldsHandler) SaveAndReset(end bool, dim world.Dimension) {
 }
 
 func (w *worldsHandler) saveWorldState(worldState *worldstate.World) error {
-	playerPos := w.proxy.Player.Position
+	playerPos := w.session.Player.Position
 	spawnPos := cube.Pos{int(playerPos.X()), int(playerPos.Y()), int(playerPos.Z())}
 
 	text := locale.Loc("saving_world", locale.Strmap{"Name": worldState.Name, "Count": len(worldState.StoredChunks)})
 	w.log.Info(text)
-	w.proxy.SendMessage(text)
+	w.session.SendMessage(text)
 
 	filename := worldState.Folder + ".mcworld"
 
@@ -423,7 +422,7 @@ func (w *worldsHandler) saveWorldState(worldState *worldstate.World) error {
 			State: "Saving",
 		},
 	})
-	err := worldState.Finish(w.playerData(), w.settings.ExcludedMobs, w.settings.Players, spawnPos, w.proxy.Server.GameData(), w.bp)
+	err := worldState.Finish(w.playerData(), w.settings.ExcludedMobs, w.settings.Players, spawnPos, w.session.Server.GameData(), w.bp)
 	if err != nil {
 		return err
 	}

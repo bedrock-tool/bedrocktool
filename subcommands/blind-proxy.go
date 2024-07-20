@@ -40,10 +40,7 @@ func packet_forward(src, dst *raknet.Conn) error {
 }
 
 func (c *BlindProxyCMD) Execute(ctx context.Context) error {
-	server, err := utils.ParseServer(ctx, c.ServerAddress)
-	if err != nil {
-		return err
-	}
+	server := ctx.Value(utils.ConnectInfoKey).(*utils.ConnectInfo)
 
 	if c.ListenAddress == "" {
 		c.ListenAddress = "0.0.0.0:19132"
@@ -57,7 +54,7 @@ func (c *BlindProxyCMD) Execute(ctx context.Context) error {
 	logrus.Infof("Listening on %s", c.ListenAddress)
 
 	listener.PongData([]byte(fmt.Sprintf("MCPE;%v;%v;%v;%v;%v;%v;Gophertunnel;%v;%v;%v;%v;",
-		"Proxy For "+server.Name, protocol.CurrentProtocol, protocol.CurrentVersion, 0, 1,
+		"Proxy For "+server.Name(), protocol.CurrentProtocol, protocol.CurrentVersion, 0, 1,
 		listener.ID(), "Creative", 1, listener.Addr().(*net.UDPAddr).Port, listener.Addr().(*net.UDPAddr).Port,
 	)))
 
@@ -68,7 +65,12 @@ func (c *BlindProxyCMD) Execute(ctx context.Context) error {
 	defer clientConn.Close()
 	logrus.Info("Client Connected")
 
-	serverConn, err := raknet.DialContext(ctx, server.Address+":"+server.Port)
+	address, err := server.Address(ctx)
+	if err != nil {
+		return err
+	}
+
+	serverConn, err := raknet.DialContext(ctx, address)
 	if err != nil {
 		return err
 	}

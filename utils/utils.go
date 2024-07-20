@@ -30,11 +30,10 @@ import (
 )
 
 var Options struct {
-	Debug              bool
-	IsInteractive      bool
-	ExtraDebug         bool
-	Capture            bool
-	PathCustomUserData string
+	Debug         bool
+	IsInteractive bool
+	ExtraDebug    bool
+	Capture       bool
 }
 
 var nameRegexp = regexp.MustCompile(`\||(?:§.?)`)

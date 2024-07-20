@@ -123,7 +123,9 @@ type ShowPopup struct {
 }
 
 type StartSubcommand struct {
-	Command any
+	Command  any
+	CtxKey   any
+	CtxValue any
 }
 
 type ExitSubcommand struct{}
@@ -153,13 +155,7 @@ type SavedWorld struct {
 	Image    image.Image
 }
 
-type ServerInput struct {
-	Request  bool // if this is a request for input
-	IsReplay bool
-	Address  string
-	Port     string
-	Name     string
-}
+type Invalidate struct{}
 
 func Decode(bytes []byte) (*Message, error) {
 	var dec struct {
@@ -177,8 +173,6 @@ func Decode(bytes []byte) (*Message, error) {
 	switch dec.Type {
 	case "SetValue":
 		data = &SetValue{}
-	case "ServerInput":
-		data = &ServerInput{}
 	case "Error":
 		data = errors.New("")
 	case "Features":

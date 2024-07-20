@@ -42,7 +42,7 @@ func (w *worldsHandler) AddPacks(worldName string, fs utils.WriterFS) error {
 		}
 		packFolder := path.Join("behavior_packs", name)
 
-		for _, p := range w.proxy.Server.ResourcePacks() {
+		for _, p := range w.session.Server.ResourcePacks() {
 			w.bp.CheckAddLink(p)
 		}
 
@@ -66,7 +66,7 @@ func (w *worldsHandler) AddPacks(worldName string, fs utils.WriterFS) error {
 	// add resource packs
 	if w.settings.WithPacks {
 		packNames := make(map[string][]string)
-		packs := w.proxy.Server.ResourcePacks()
+		packs := w.session.Server.ResourcePacks()
 		for _, pack := range packs {
 			packName := pack.Name()
 			packNames[packName] = append(packNames[packName], pack.UUID())

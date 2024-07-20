@@ -10,7 +10,10 @@ func (r *router) AddHandler(name string, handler HandlerFunc) {
 
 func (r *router) Handle(msg *Message) *Message {
 	if msg.Target == "" {
-		panic("no message target")
+		for _, handler := range r.handlers {
+			handler(msg)
+		}
+		return nil
 	}
 	handler, ok := r.handlers[msg.Target]
 	if !ok {

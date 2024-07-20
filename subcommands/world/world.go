@@ -8,6 +8,7 @@ import (
 
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds"
 	"github.com/bedrock-tool/bedrocktool/locale"
+	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/bedrock-tool/bedrocktool/utils/proxy"
 )
@@ -74,7 +75,8 @@ func (c *WorldCMD) Execute(ctx context.Context) error {
 		Script:          script,
 	}))
 
-	err = proxy.Run(ctx, c.ServerAddress)
+	server := ctx.Value(utils.ConnectInfoKey).(*utils.ConnectInfo)
+	err = proxy.Run(ctx, server)
 	if err != nil {
 		return err
 	}

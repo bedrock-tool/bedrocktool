@@ -120,7 +120,7 @@ func (m *MapUI) Start(ctx context.Context) {
 	}
 
 	// init map
-	err := m.w.proxy.ClientWritePacket(&packet.ClientBoundMapItemData{
+	err := m.w.session.ClientWritePacket(&packet.ClientBoundMapItemData{
 		MapID:          ViewMapID,
 		Scale:          4,
 		MapsIncludedIn: []int64{ViewMapID},
@@ -133,7 +133,7 @@ func (m *MapUI) Start(ctx context.Context) {
 
 	m.ticker = time.NewTicker(33 * time.Millisecond)
 	go func() {
-		m.ChunkRenderer.ResolveColors(m.w.customBlocks, m.w.proxy.Server.ResourcePacks())
+		m.ChunkRenderer.ResolveColors(m.w.serverState.customBlocks, m.w.session.Server.ResourcePacks())
 		close(m.haveColors)
 	}()
 	go func() {
@@ -142,7 +142,7 @@ func (m *MapUI) Start(ctx context.Context) {
 			if ctx.Err() != nil {
 				return
 			}
-			newPos := m.w.proxy.Player.Position
+			newPos := m.w.session.Player.Position
 			if int(oldPos.X()) != int(newPos.X()) || int(oldPos.Z()) != int(newPos.Z()) {
 				m.needRedraw = true
 				oldPos = newPos
@@ -152,7 +152,7 @@ func (m *MapUI) Start(ctx context.Context) {
 				m.needRedraw = false
 				m.redraw()
 
-				if err := m.w.proxy.ClientWritePacket(&packet.ClientBoundMapItemData{
+				if err := m.w.session.ClientWritePacket(&packet.ClientBoundMapItemData{
 					MapID:       ViewMapID,
 					Scale:       4,
 					Width:       128,
@@ -172,10 +172,10 @@ func (m *MapUI) Start(ctx context.Context) {
 	go func() { // send map item
 		t := time.NewTicker(1 * time.Second)
 		for range t.C {
-			if m.w.proxy.Client == nil {
+			if m.w.session.Client == nil {
 				return
 			}
-			err := m.w.proxy.ClientWritePacket(&mapItemPacket)
+			err := m.w.session.ClientWritePacket(&mapItemPacket)
 			if err != nil {
 				if errors.Is(err, net.ErrClosed) {
 					return
@@ -264,8 +264,8 @@ func (m *MapUI) redraw() {
 
 	// draw ingame map
 	middle := protocol.ChunkPos{
-		int32(m.w.proxy.Player.Position.X()),
-		int32(m.w.proxy.Player.Position.Z()),
+		int32(m.w.session.Player.Position.X()),
+		int32(m.w.session.Player.Position.Z()),
 	}
 	chunksPerLine := float64(128 / m.zoomLevel)
 	pxPerBlock := 128 / chunksPerLine / 16 // how many pixels per block
@@ -294,7 +294,7 @@ func (m *MapUI) redraw() {
 			Target: "ui",
 			Data: messages.UpdateMap{
 				ChunkCount:    len(m.renderedChunks),
-				Rotation:      m.w.proxy.Player.Yaw,
+				Rotation:      m.w.session.Player.Yaw,
 				UpdatedChunks: updatedChunks,
 				Chunks:        m.renderedChunks,
 			},

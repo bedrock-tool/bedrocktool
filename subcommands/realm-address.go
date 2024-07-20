@@ -25,7 +25,12 @@ func (c *RealmAddressCMD) Execute(ctx context.Context) error {
 		return err
 	}
 
-	logrus.Infof("Address: %s", server.Address)
+	address, err := server.Address(ctx)
+	if err != nil {
+		return err
+	}
+
+	logrus.Infof("Address: %s", address)
 	return nil
 }
 

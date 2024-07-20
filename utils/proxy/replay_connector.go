@@ -24,10 +24,40 @@ type ReplayConnector struct {
 	close  chan struct{}
 	closed atomic.Bool
 
+	expectedIDs     atomic.Value
+	deferredPackets []packet.Packet
+
 	clientData login.ClientData
 	gameData   minecraft.GameData
 
 	resourcePackHandler *rpHandler
+}
+
+func CreateReplayConnector(ctx context.Context, filename string, packetFunc PacketFunc, resourcePackHandler *rpHandler) (r *ReplayConnector, err error) {
+	r = &ReplayConnector{
+		spawn:               make(chan struct{}),
+		close:               make(chan struct{}),
+		resourcePackHandler: resourcePackHandler,
+	}
+	if r.resourcePackHandler != nil {
+		r.resourcePackHandler.SetServer(r)
+	}
+
+	logrus.Infof("Reading replay %s", filename)
+	r.f, err = os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	r.reader, err = NewPcap2Reader(r.f)
+	if err != nil {
+		return nil, err
+	}
+	r.reader.PacketFunc = packetFunc
+	if r.resourcePackHandler != nil {
+		r.resourcePackHandler.cache = r.reader.ResourcePacks
+	}
+
+	return r, nil
 }
 
 func (r *ReplayConnector) ShieldID() int32 {
@@ -69,13 +99,21 @@ func (r *ReplayConnector) handleLoginSequence(pk packet.Packet) (bool, error) {
 		})
 
 	case *packet.ResourcePacksInfo:
-		return false, r.resourcePackHandler.OnResourcePacksInfo(pk)
+		if r.resourcePackHandler != nil {
+			return false, r.resourcePackHandler.OnResourcePacksInfo(pk)
+		}
 	case *packet.ResourcePackDataInfo:
-		return false, r.resourcePackHandler.OnResourcePackDataInfo(pk)
+		if r.resourcePackHandler != nil {
+			return false, r.resourcePackHandler.OnResourcePackDataInfo(pk)
+		}
 	case *packet.ResourcePackChunkData:
-		return false, r.resourcePackHandler.OnResourcePackChunkData(pk)
+		if r.resourcePackHandler != nil {
+			return false, r.resourcePackHandler.OnResourcePackChunkData(pk)
+		}
 	case *packet.ResourcePackStack:
-		return false, r.resourcePackHandler.OnResourcePackStack(pk)
+		if r.resourcePackHandler != nil {
+			return false, r.resourcePackHandler.OnResourcePackStack(pk)
+		}
 
 	case *packet.SetLocalPlayerAsInitialised:
 		if pk.EntityRuntimeID != r.gameData.EntityRuntimeID {
@@ -96,45 +134,30 @@ func (r *ReplayConnector) ReadUntilLogin() error {
 		}
 		_ = timeReceived
 
-		gameStarted, err = r.handleLoginSequence(pk)
-		if err != nil {
-			return err
+		var handled bool
+		for _, id := range r.expectedIDs.Load().([]uint32) {
+			if id == pk.ID() {
+				gameStarted, err = r.handleLoginSequence(pk)
+				if err != nil {
+					return err
+				}
+				handled = true
+			}
+		}
+
+		if !handled {
+			r.deferredPackets = append(r.deferredPackets, pk)
 		}
 	}
 	return nil
-}
-
-func CreateReplayConnector(ctx context.Context, filename string, packetFunc PacketFunc, onResourcePackInfo func(), OnFinishedPack func(resource.Pack) error, filterDownloadResourcePacks func(string) bool, OnFinishedAll func() bool) (r *ReplayConnector, err error) {
-	r = &ReplayConnector{
-		spawn: make(chan struct{}),
-		close: make(chan struct{}),
-	}
-	r.resourcePackHandler = newRpHandler(ctx, nil, filterDownloadResourcePacks)
-	r.resourcePackHandler.OnResourcePacksInfoCB = onResourcePackInfo
-	r.resourcePackHandler.OnFinishedPack = OnFinishedPack
-	r.resourcePackHandler.OnFinishedAll = OnFinishedAll
-	r.resourcePackHandler.SetServer(r)
-
-	logrus.Infof("Reading replay %s", filename)
-	r.f, err = os.Open(filename)
-	if err != nil {
-		return nil, err
-	}
-	r.reader, err = NewPcap2Reader(r.f)
-	if err != nil {
-		return nil, err
-	}
-	r.reader.PacketFunc = packetFunc
-	r.resourcePackHandler.cache = r.reader.ResourcePacks
-
-	return r, nil
 }
 
 func (r *ReplayConnector) OnDisconnect() <-chan struct{} {
 	return r.close
 }
 
-func (r *ReplayConnector) Expect(...uint32) {
+func (r *ReplayConnector) Expect(ids ...uint32) {
+	r.expectedIDs.Store(ids)
 }
 
 func (r *ReplayConnector) SetLoggedIn() {}
@@ -210,6 +233,14 @@ func (r *ReplayConnector) ReadPacketWithTime() (pk packet.Packet, receivedAt tim
 	if r.closed.Load() {
 		return nil, time.Time{}, net.ErrClosed
 	}
+
+	if len(r.deferredPackets) > 0 {
+		pk = r.deferredPackets[0]
+		r.deferredPackets = r.deferredPackets[1:]
+		receivedAt = time.Now() // fixme
+		return
+	}
+
 	pk, toServer, receivedTime, err := r.reader.ReadPacket(false)
 	if err != nil {
 		return nil, time.Time{}, err

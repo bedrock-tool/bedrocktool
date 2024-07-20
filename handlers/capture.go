@@ -18,7 +18,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func (p *packetCapturer) dumpPacket(toServer bool, payload []byte) {
+func (p *packetCapturer) dumpPacket(toServer bool, payload []byte, timeReceived time.Time) {
 	p.dumpLock.Lock()
 	payloadCompressed := s2.EncodeBetter(nil, payload)
 
@@ -30,7 +30,7 @@ func (p *packetCapturer) dumpPacket(toServer bool, payload []byte) {
 	} else {
 		buf = append(buf, 0)
 	}
-	buf = binary.LittleEndian.AppendUint64(buf, uint64(time.Now().UnixMilli()))
+	buf = binary.LittleEndian.AppendUint64(buf, uint64(timeReceived.UnixMilli()))
 	buf = append(buf, payloadCompressed...)
 	buf = append(buf, []byte{0xBB, 0xBB, 0xBB, 0xBB}...)
 	p.wPacket.Write(buf)
@@ -38,7 +38,7 @@ func (p *packetCapturer) dumpPacket(toServer bool, payload []byte) {
 }
 
 type packetCapturer struct {
-	proxy    *proxy.Context
+	session  *proxy.Session
 	file     *os.File
 	wPacket  io.Writer
 	tempBuf  *bytes.Buffer
@@ -47,7 +47,7 @@ type packetCapturer struct {
 	log      *logrus.Entry
 }
 
-func (p *packetCapturer) AddressAndName(address, hostname string) (err error) {
+func (p *packetCapturer) onServerName(hostname string) (err error) {
 	p.hostname = hostname
 	// temporary buffer
 	p.tempBuf = bytes.NewBuffer(nil)
@@ -62,7 +62,7 @@ func (p *packetCapturer) OnServerConnect() (disconnect bool, err error) {
 		return false, err
 	}
 
-	packs := p.proxy.Server.ResourcePacks()
+	packs := p.session.Server.ResourcePacks()
 
 	p.file.WriteString("BTCP")
 	binary.Write(p.file, binary.LittleEndian, uint32(5))
@@ -113,11 +113,11 @@ func (p *packetCapturer) OnServerConnect() (disconnect bool, err error) {
 	return false, nil
 }
 
-func (p *packetCapturer) PacketFunc(header packet.Header, payload []byte, src, dst net.Addr) {
+func (p *packetCapturer) PacketFunc(header packet.Header, payload []byte, src, dst net.Addr, timeReceived time.Time) {
 	buf := bytes.NewBuffer(nil)
 	header.Write(buf)
 	buf.Write(payload)
-	p.dumpPacket(p.proxy.IsClient(src), buf.Bytes())
+	p.dumpPacket(p.session.IsClient(src), buf.Bytes(), timeReceived)
 }
 
 func NewPacketCapturer() *proxy.Handler {
@@ -126,12 +126,12 @@ func NewPacketCapturer() *proxy.Handler {
 	}
 	return &proxy.Handler{
 		Name: "Packet Capturer",
-		ProxyReference: func(pc *proxy.Context) {
-			p.proxy = pc
+		SessionStart: func(s *proxy.Session, serverName string) error {
+			p.session = s
+			return p.onServerName(serverName)
 		},
-		OnAddressAndName: p.AddressAndName,
-		OnServerConnect:  p.OnServerConnect,
-		PacketRaw:        p.PacketFunc,
+		OnServerConnect: p.OnServerConnect,
+		PacketRaw:       p.PacketFunc,
 		OnSessionEnd: func() {
 			p.dumpLock.Lock()
 			defer p.dumpLock.Unlock()

@@ -24,28 +24,23 @@ import (
 	_ "github.com/bedrock-tool/bedrocktool/subcommands/skins"
 	_ "github.com/bedrock-tool/bedrocktool/subcommands/world"
 
-	"github.com/google/subcommands"
 	"github.com/sirupsen/logrus"
 )
 
 var uis = map[string]ui.UI{}
 
 func selectUI() ui.UI {
-	var ui ui.UI
 	if len(os.Args) < 2 {
-		var ok bool
-		ui, ok = uis["gui"]
-		if !ok {
-			ui = uis["tui"]
-		}
 		utils.Options.IsInteractive = true
-	} else {
-		ui = uis["cli"]
+		ui, ok := uis["gui"]
+		if ok {
+			return ui
+		}
 	}
-	return ui
+	return uis["cli"]
 }
 
-func setupLogging() {
+func setupLogging(isDebug bool) {
 	logFile, err := os.Create("bedrocktool.log")
 	if err != nil {
 		panic(err)
@@ -63,6 +58,10 @@ func setupLogging() {
 
 	redirectStderr(logFile)
 
+	logrus.SetLevel(logrus.DebugLevel)
+	if isDebug {
+		logrus.SetLevel(logrus.TraceLevel)
+	}
 	logrus.SetOutput(originalStdout)
 	logrus.AddHook(lfshook.NewHook(logFile, &logrus.TextFormatter{
 		DisableColors: true,
@@ -70,9 +69,9 @@ func setupLogging() {
 }
 
 func main() {
-	setupLogging()
-
 	isDebug := updater.Version == ""
+
+	setupLogging(isDebug)
 
 	if isDebug {
 		f, err := os.Create("cpu.pprof")
@@ -83,7 +82,6 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	logrus.SetLevel(logrus.DebugLevel)
 	log := logrus.WithField("part", "main")
 
 	if !isDebug {
@@ -111,17 +109,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
 	//flag.StringVar(&utils.RealmsEnv, "realms-env", "", "realms env")
 	flag.BoolVar(&utils.Options.Debug, "debug", false, locale.Loc("debug_mode", nil))
 	flag.BoolVar(&utils.Options.ExtraDebug, "extra-debug", false, locale.Loc("extra_debug", nil))
-	flag.StringVar(&utils.Options.PathCustomUserData, "userdata", "", locale.Loc("custom_user_data", nil))
 	flag.String("lang", "", "lang")
 	flag.BoolVar(&utils.Options.Capture, "capture", false, "Capture pcap2 file")
-
-	subcommands.Register(subcommands.HelpCommand(), "")
-	subcommands.ImportantFlag("debug")
-	subcommands.ImportantFlag("capture")
-	subcommands.HelpCommand()
 
 	ui := selectUI()
 
@@ -173,34 +166,6 @@ func (c *TransCMD) Execute(ctx context.Context) error {
 	return nil
 }
 
-/*
-type CreateCustomDataCMD struct {
-	path string
-}
-
-func (*CreateCustomDataCMD) Name() string     { return "create-customdata" }
-func (*CreateCustomDataCMD) Synopsis() string { return "" }
-
-func (c *CreateCustomDataCMD) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&c.path, "path", "customdata.json", "where to save")
-}
-
-func (c *CreateCustomDataCMD) Execute(_ context.Context, ui ui.UI) error {
-	var data proxy.CustomClientData
-	fio, err := os.Create(c.path)
-	if err != nil {
-		return err
-	}
-	defer fio.Close()
-	e := json.NewEncoder(fio)
-	if err = e.Encode(data); err != nil {
-		return err
-	}
-	return nil
-}
-*/
-
 func init() {
 	commands.RegisterCommand(&TransCMD{})
-	//commands.RegisterCommand(&CreateCustomDataCMD{})
 }
