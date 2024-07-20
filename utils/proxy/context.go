@@ -23,7 +23,7 @@ type errTransfer struct {
 	transfer *packet.Transfer
 }
 
-func (e errTransfer) Error() string {
+func (e *errTransfer) Error() string {
 	return fmt.Sprintf("transfer to %s:%d", e.transfer.Address, e.transfer.Port)
 }
 

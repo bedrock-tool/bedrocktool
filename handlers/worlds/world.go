@@ -110,8 +110,6 @@ func NewWorldsHandler(settings WorldSettings) *proxy.Handler {
 		log:      logrus.WithField("part", "WorldsHandler"),
 		settings: settings,
 	}
-	w.mapUI = NewMapUI(w)
-	w.scripting = scripting.New()
 
 	h := &proxy.Handler{
 		Name: "Worlds",
@@ -128,6 +126,9 @@ func NewWorldsHandler(settings WorldSettings) *proxy.Handler {
 				playerSkins:        make(map[uuid.UUID]*protocol.Skin),
 				biomes:             world.DefaultBiomes.Clone(),
 			}
+
+			w.mapUI = NewMapUI(w)
+			w.scripting = scripting.New()
 
 			w.session.AddCommand(func(cmdline []string) bool {
 				return w.setWorldName(strings.Join(cmdline, " "))

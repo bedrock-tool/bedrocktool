@@ -280,12 +280,7 @@ func (s *Session) Run(ctx context.Context, connect *utils.ConnectInfo) error {
 			if !errors.Is(err, context.Canceled) {
 				cancel(err)
 			}
-			return
 		}
-		if s.Client != nil {
-			s.Client.Close()
-		}
-		s.Server.Close()
 	}
 
 	// server to client
@@ -300,6 +295,11 @@ func (s *Session) Run(ctx context.Context, connect *utils.ConnectInfo) error {
 
 	wg.Wait()
 	err = context.Cause(ctx)
+	if !errors.Is(err, &errTransfer{}) {
+		if s.Client != nil {
+			s.Client.Close()
+		}
+	}
 	if err != nil {
 		s.disconnectReason = err.Error()
 		return err
@@ -460,18 +460,6 @@ func (s *Session) proxyLoop(ctx context.Context, toServer bool) (err error) {
 		c2 = s.Client
 	}
 
-	if false {
-		defer func() {
-			rec := recover()
-			if rec != nil {
-				if s, ok := rec.(string); ok {
-					rec = errors.New(s)
-				}
-				err = rec.(error)
-			}
-		}()
-	}
-
 	for {
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -524,7 +512,7 @@ func (s *Session) proxyLoop(ctx context.Context, toServer bool) (err error) {
 		}
 
 		if transfer != nil {
-			return errTransfer{transfer: transfer}
+			return &errTransfer{transfer: transfer}
 		}
 	}
 }
