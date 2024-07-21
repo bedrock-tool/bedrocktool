@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -116,6 +117,9 @@ func (p *Context) Run(ctx context.Context, connect *utils.ConnectInfo) (err erro
 				Wait: true,
 			},
 		})
+		if !utils.Auth.LoggedIn() {
+			return errors.New("not Logged In")
+		}
 	}
 
 	if utils.Options.Debug || utils.Options.ExtraDebug {

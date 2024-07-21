@@ -2,6 +2,7 @@ package popups
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"image"
 	"sync"
@@ -63,6 +64,10 @@ func (*Gatherings) ID() string {
 var _ Popup = &Gatherings{}
 
 func (g *Gatherings) Load() error {
+	if !utils.Auth.LoggedIn() {
+		return errors.New("not Logged In")
+	}
+
 	gatheringsClient, err := utils.Auth.Gatherings(context.TODO())
 	if err != nil {
 		return err

@@ -2,6 +2,7 @@ package popups
 
 import (
 	"context"
+	"errors"
 	"image"
 	"sync"
 
@@ -47,6 +48,9 @@ func (*RealmsList) ID() string {
 var _ Popup = &RealmsList{}
 
 func (r *RealmsList) Load() error {
+	if !utils.Auth.LoggedIn() {
+		return errors.New("not Logged In")
+	}
 	realms, err := utils.Auth.Realms.Realms(context.Background())
 	if err != nil {
 		return err

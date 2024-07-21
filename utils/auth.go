@@ -51,12 +51,14 @@ func (a *authsrv) afterLogin() (err error) {
 		return err
 	}
 
-	realmsService, err := a.discovery.RealmsfrontendService()
-	if err != nil {
-		return err
-	}
+	/*
+		realmsService, err := a.discovery.RealmsfrontendService()
+		if err != nil {
+			return err
+		}
+	*/
 
-	a.Realms = realms.NewClient(a, realmsService.ServiceURI)
+	a.Realms = realms.NewClient(a, "")
 	a.playfab = playfab.NewClient(a.discovery)
 	return nil
 }

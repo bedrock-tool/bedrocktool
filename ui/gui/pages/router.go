@@ -48,7 +48,7 @@ type Router struct {
 	ModalLayer     *component.ModalLayer
 	NonModalDrawer bool
 
-	loggingIn       bool
+	login           chan struct{}
 	loginButton     widget.Clickable
 	updateButton    widget.Clickable
 	updateAvailable bool
@@ -225,13 +225,11 @@ func (r *Router) Layout(gtx layout.Context, th *material.Theme) layout.Dimension
 func (r *Router) layoutLoginButton(gtx layout.Context, fg, bg color.NRGBA) layout.Dimensions {
 	if r.loginButton.Clicked(gtx) {
 		if !utils.Auth.LoggedIn() {
-			if !r.loggingIn {
-				messages.Router.Handle(&messages.Message{
-					Source: "ui",
-					Target: "ui",
-					Data:   messages.RequestLogin{},
-				})
-			}
+			messages.Router.Handle(&messages.Message{
+				Source: "ui",
+				Target: "ui",
+				Data:   messages.RequestLogin{},
+			})
 		} else {
 			utils.Auth.Logout()
 		}
@@ -298,22 +296,20 @@ func (r *Router) HandleMessage(msg *messages.Message) *messages.Message {
 		}
 
 	case messages.RequestLogin:
-		if r.loggingIn {
-			logrus.Info("RequestLogin, while already logging in")
-			break
+		if r.login == nil {
+			ctx, cancel := context.WithCancel(r.ctx)
+			r.auth.cancel = cancel
+			r.login = make(chan struct{})
+			go func() {
+				defer func() {
+					close(r.login)
+					r.login = nil
+				}()
+				utils.Auth.Login(ctx)
+			}()
 		}
-		r.loggingIn = true
-		ctx, cancel := context.WithCancel(r.ctx)
-		r.auth.cancel = cancel
-		c := make(chan struct{})
-		go func() {
-			_ = utils.Auth.Login(ctx)
-			r.loggingIn = false
-			r.Invalidate()
-			close(c)
-		}()
 		if data.Wait {
-			<-c
+			<-r.login
 		}
 
 	case messages.Error:
