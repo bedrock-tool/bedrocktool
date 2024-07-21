@@ -34,6 +34,7 @@ var Options struct {
 	IsInteractive bool
 	ExtraDebug    bool
 	Capture       bool
+	Env           string
 }
 
 var nameRegexp = regexp.MustCompile(`\||(?:§.?)`)

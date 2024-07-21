@@ -156,7 +156,7 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 							} else {
 								return gtx.Dp(40)
 							}
-						}, func(gtx layout.Context, row, col int) layout.Dimensions {
+						}, func(gtx C, row, col int) D {
 							name := p.cmdMenu.names[col]
 							c := p.cmdMenu.clickables[name]
 							b := material.Button(th, c.Clickable, c.Text)
@@ -170,7 +170,7 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 				})
 			}),
 
-			layout.Flexed(1, func(gtx layout.Context) (d layout.Dimensions) {
+			layout.Flexed(1, func(gtx C) (d D) {
 				if p.cmdMenu.selected == "" {
 					d = layout.Center.Layout(gtx, material.H5(th, "Select a Mode").Layout)
 					d.Size.Y = gtx.Constraints.Max.Y

@@ -41,18 +41,11 @@ type Session struct {
 	commands         map[string]any
 
 	// from proxy
-	withClient            bool
-	extraDebug            bool
-	addedPacks            []resource.Pack
-	listenAddress         string
-	packetCallback        func(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error)
-	packetRaw             func(header packet.Header, payload []byte, src, dst net.Addr, timeReceived time.Time)
-	filterResourcePack    func(id string) bool
-	onFinishedPack        func(pack resource.Pack) error
-	resourcePacksFinished func() bool
-	onServerConnect       func() error
-	gameDataModifier      func(gd *minecraft.GameData)
-	onConnect             func() bool
+	withClient    bool
+	extraDebug    bool
+	addedPacks    []resource.Pack
+	listenAddress string
+	handlers      Handlers
 }
 
 func NewSession() *Session {
@@ -147,9 +140,9 @@ func (s *Session) Run(ctx context.Context, connect *utils.ConnectInfo) error {
 	rpHandler := newRpHandler(ctx, s.addedPacks)
 	s.rpHandler = rpHandler
 	rpHandler.OnResourcePacksInfoCB = onResourcePacksInfo
-	rpHandler.OnFinishedPack = s.onFinishedPack
-	rpHandler.filterDownloadResourcePacks = s.filterResourcePack
-	rpHandler.OnFinishedAll = s.resourcePacksFinished
+	rpHandler.OnFinishedPack = s.handlers.OnFinishedPack
+	rpHandler.filterDownloadResourcePacks = s.handlers.FilterResourcePack
+	rpHandler.OnFinishedAll = s.handlers.ResourcePacksFinished
 
 	if connect.Replay != "" {
 		server, err := CreateReplayConnector(ctx, connect.Replay, s.packetFunc, rpHandler)
@@ -216,13 +209,17 @@ func (s *Session) Run(ctx context.Context, connect *utils.ConnectInfo) error {
 		return err
 	}
 
-	err := s.onServerConnect()
+	disconnect, err := s.handlers.OnServerConnect()
+	if disconnect {
+		err = errCancelConnect
+	}
 	if err != nil {
 		cancel(err)
+		return err
 	}
 
 	gameData := s.Server.GameData()
-	s.gameDataModifier(&gameData)
+	s.handlers.GameDataModifier(&gameData)
 
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -261,7 +258,7 @@ func (s *Session) Run(ctx context.Context, connect *utils.ConnectInfo) error {
 		return err
 	}
 
-	if s.onConnect() {
+	if s.handlers.OnConnect() {
 		logrus.Info("Disconnecting")
 		return nil
 	}
@@ -475,7 +472,7 @@ func (s *Session) proxyLoop(ctx context.Context, toServer bool) (err error) {
 
 		pkName := reflect.TypeOf(pk).String()
 
-		pk, err = s.packetCallback(pk, toServer, timeReceived, false)
+		pk, err = s.handlers.PacketCallback(pk, toServer, timeReceived, false)
 		if err != nil {
 			return err
 		}
@@ -531,7 +528,7 @@ func (s *Session) packetFunc(header packet.Header, payload []byte, src, dst net.
 		s.spawned = true
 	}
 
-	s.packetRaw(header, payload, src, dst, timeReceived)
+	s.handlers.PacketRaw(header, payload, src, dst, timeReceived)
 
 	if !s.spawned {
 		pk, ok := DecodePacket(header, payload, s.Server.ShieldID())
@@ -546,7 +543,7 @@ func (s *Session) packetFunc(header packet.Header, payload []byte, src, dst net.
 
 		var err error
 		toServer := s.IsClient(src)
-		pk, err = s.packetCallback(pk, toServer, time.Now(), true)
+		pk, err = s.handlers.PacketCallback(pk, toServer, time.Now(), true)
 		if err != nil {
 			logrus.Error(err)
 		}

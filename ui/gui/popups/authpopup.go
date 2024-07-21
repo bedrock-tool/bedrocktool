@@ -25,7 +25,7 @@ func (guiAuth) ID() string {
 	return "ms-auth"
 }
 
-func (g *guiAuth) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
+func (g *guiAuth) Layout(gtx C, th *material.Theme) D {
 	if g.click.Clicked(gtx) {
 		utils.OpenUrl(g.uri)
 	}
@@ -51,7 +51,7 @@ func (g *guiAuth) Layout(gtx layout.Context, th *material.Theme) layout.Dimensio
 								Axis: layout.Horizontal,
 							}.Layout(gtx,
 								layout.Rigid(material.Body1(th, "Authenticate at: ").Layout),
-								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								layout.Rigid(func(gtx C) D {
 									return material.Clickable(gtx, &g.click,
 										material.Body1(th, g.uri).Layout,
 									)
@@ -63,7 +63,7 @@ func (g *guiAuth) Layout(gtx layout.Context, th *material.Theme) layout.Dimensio
 								Axis: layout.Horizontal,
 							}.Layout(gtx,
 								layout.Rigid(material.Body1(th, "Using Code: ").Layout),
-								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								layout.Rigid(func(gtx C) D {
 									t := material.Body1(th, g.code)
 									t.State = &g.codeSelect
 									return t.Layout(gtx)

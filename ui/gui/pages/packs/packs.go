@@ -145,7 +145,7 @@ func (p *Page) drawPackEntry(gtx C, th *material.Theme, pack *packEntry, onlyKey
 			},
 		}).Layout(gtx, func(gtx C) D {
 			return layout.UniformInset(5).
-				Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				Layout(gtx, func(gtx C) D {
 					return layout.Flex{Axis: layout.Horizontal}.
 						Layout(gtx,
 							layout.Rigid(func(gtx C) D {
@@ -155,7 +155,7 @@ func (p *Page) drawPackEntry(gtx C, th *material.Theme, pack *packEntry, onlyKey
 							layout.Flexed(1, func(gtx C) D {
 								return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 									layout.Rigid(mctext.Label(th, th.TextSize, pack.Name+" §rv"+pack.Version, p.invalidate, p.frame)),
-									layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+									layout.Rigid(func(gtx C) D {
 										if onlyKeys {
 											t := material.Body1(th, pack.Key)
 											t.State = &pack.keySelect
@@ -208,14 +208,14 @@ func (p *Page) drawPackEntry(gtx C, th *material.Theme, pack *packEntry, onlyKey
 									}),
 								)
 							}),
-							layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+							layout.Rigid(func(gtx C) D {
 								if pack.Path != "" {
 									return layout.Flex{
 										Axis:      layout.Vertical,
 										Alignment: layout.End,
 									}.Layout(gtx, layout.Rigid(material.Button(th, &pack.button, "Show").Layout))
 								}
-								return layout.Dimensions{}
+								return D{}
 							}),
 						)
 				})

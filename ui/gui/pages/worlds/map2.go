@@ -9,7 +9,6 @@ import (
 	"gioui.org/f32"
 	"gioui.org/io/event"
 	"gioui.org/io/pointer"
-	"gioui.org/layout"
 	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
@@ -62,7 +61,7 @@ func (m *mapInput) HandlePointerEvent(e pointer.Event) {
 	}
 }
 
-func (m *mapInput) Layout(gtx layout.Context) func() {
+func (m *mapInput) Layout(gtx C) func() {
 	if m.scaleFactor == 0 {
 		m.scaleFactor = 1
 	}
@@ -102,7 +101,7 @@ func (m *mapInput) Layout(gtx layout.Context) func() {
 	}
 }
 
-func (m *Map2) Layout(gtx layout.Context) layout.Dimensions {
+func (m *Map2) Layout(gtx C) D {
 	defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
 	defer m.mapInput.Layout(gtx)()
 	m.l.Lock()
@@ -128,7 +127,7 @@ func (m *Map2) Layout(gtx layout.Context) layout.Dimensions {
 		aff.Pop()
 	}
 
-	return layout.Dimensions{Size: gtx.Constraints.Max}
+	return D{Size: gtx.Constraints.Max}
 }
 
 func chunkPosToTilePos(cp protocol.ChunkPos) (tile image.Point, offset image.Point) {

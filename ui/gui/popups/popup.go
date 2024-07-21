@@ -13,17 +13,22 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 )
 
+type (
+	C = layout.Context
+	D = layout.Dimensions
+)
+
 type Popup interface {
 	ID() string
-	Layout(gtx layout.Context, th *material.Theme) layout.Dimensions
+	Layout(gtx C, th *material.Theme) D
 	messages.Handler
 }
 
-func LayoutPopupBackground(gtx layout.Context, th *material.Theme, tag string, widget layout.Widget) layout.Dimensions {
+func LayoutPopupBackground(gtx C, th *material.Theme, tag string, widget layout.Widget) D {
 	paint.ColorOp{Color: color.NRGBA{A: 170}}.Add(gtx.Ops)
 	paint.PaintOp{}.Add(gtx.Ops)
 
-	width := min(500, gtx.Constraints.Max.X)
+	width := gtx.Constraints.Max.X - 300
 	return layout.Center.Layout(gtx, func(gtx C) D {
 		defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
 		component.Rect{

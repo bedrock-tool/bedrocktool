@@ -11,11 +11,6 @@ import (
 	"github.com/bedrock-tool/bedrocktool/utils"
 )
 
-type (
-	C = layout.Context
-	D = layout.Dimensions
-)
-
 type ConnectPopup struct {
 	ui    ui.UI
 	state string
@@ -63,7 +58,7 @@ func (p *ConnectPopup) Layout(gtx C, th *material.Theme) D {
 			layout.Flexed(1, func(gtx C) D {
 				return layout.Center.Layout(gtx, func(gtx C) D {
 					return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
-						layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+						layout.Rigid(func(gtx C) D {
 							switch p.state {
 							case "listening":
 								return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
@@ -88,25 +83,25 @@ func (p *ConnectPopup) Layout(gtx C, th *material.Theme) D {
 					Spacing:   layout.SpaceBetween,
 					Alignment: layout.End,
 				}.Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					layout.Rigid(func(gtx C) D {
 						b := material.Button(th, &p.close, "Close")
 						b.CornerRadius = 8
 						return b.Layout(gtx)
 					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					layout.Rigid(func(gtx C) D {
 						if p.state == "listening" {
 							return layout.Flex{
 								Axis:      layout.Horizontal,
 								Alignment: layout.Middle,
 							}.Layout(gtx,
-								layout.Flexed(1, func(gtx layout.Context) layout.Dimensions {
+								layout.Flexed(1, func(gtx C) D {
 									b := material.Button(th, &p.connectButton, "Open Minecraft")
 									b.CornerRadius = 8
 									return b.Layout(gtx)
 								}),
 							)
 						}
-						return layout.Dimensions{}
+						return D{}
 					}),
 				)
 			}),

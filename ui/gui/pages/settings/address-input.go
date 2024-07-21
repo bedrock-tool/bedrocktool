@@ -65,7 +65,7 @@ func (a *addressInput) setGathering(gathering *gatherings.Gathering) {
 	a.editor.SetText(fmt.Sprintf("gathering:%s", gathering.Title))
 }
 
-func (a *addressInput) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
+func (a *addressInput) Layout(gtx C, th *material.Theme) D {
 	if a.showRealmsList.Clicked(gtx) {
 		messages.Router.Handle(&messages.Message{
 			Source: "addressInput",
@@ -110,7 +110,7 @@ func (a *addressInput) Layout(gtx layout.Context, th *material.Theme) layout.Dim
 				return layout.Flex{
 					Axis: layout.Horizontal,
 				}.Layout(gtx,
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					layout.Rigid(func(gtx C) D {
 						gtx.Constraints.Max.X = 100
 						return layout.Inset{
 							Top:    5,
@@ -119,7 +119,7 @@ func (a *addressInput) Layout(gtx layout.Context, th *material.Theme) layout.Dim
 							Right:  5,
 						}.Layout(gtx, material.Button(th, &a.showRealmsList, "Realms").Layout)
 					}),
-					layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+					layout.Rigid(func(gtx C) D {
 						gtx.Constraints.Max.X = 100
 						return layout.Inset{
 							Top:    5,

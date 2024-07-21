@@ -22,7 +22,7 @@ type logger struct {
 type C = layout.Context
 type D = layout.Dimensions
 
-func (l *logger) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
+func (l *logger) Layout(gtx C, th *material.Theme) D {
 	gtx.Constraints.Min = gtx.Constraints.Max
 	return layout.UniformInset(20).Layout(gtx, func(gtx C) D {
 		component.Rect{
@@ -31,7 +31,7 @@ func (l *logger) Layout(gtx layout.Context, th *material.Theme) layout.Dimension
 			Radii: 15,
 		}.Layout(gtx)
 		return layout.UniformInset(8).Layout(gtx, func(gtx C) D {
-			return material.List(th, &l.list).Layout(gtx, len(l.lines), func(gtx layout.Context, index int) layout.Dimensions {
+			return material.List(th, &l.list).Layout(gtx, len(l.lines), func(gtx C, index int) D {
 				line := l.lines[index]
 				t := material.Body1(th, line.Message)
 				t.Color = color.NRGBA{0xff, 0xff, 0xff, 0xff}

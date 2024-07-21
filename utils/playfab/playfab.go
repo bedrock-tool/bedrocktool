@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bedrock-tool/bedrocktool/utils/discovery"
 	"github.com/google/uuid"
 	"github.com/sandertv/gophertunnel/minecraft/auth"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
@@ -16,12 +17,12 @@ import (
 	"golang.org/x/oauth2"
 )
 
-const minecraftTitleID = "20ca2"
 const minecraftUserAgent = "libhttpclient/1.0.0.0"
 const minecraftDefaultSDK = "XPlatCppSdk-3.6.190304"
 
 type Client struct {
-	http *http.Client
+	http      *http.Client
+	discovery *discovery.Discovery
 
 	accountID     string
 	sessionTicket string
@@ -31,9 +32,10 @@ type Client struct {
 	masterToken *EntityToken
 }
 
-func NewClient() *Client {
+func NewClient(discovery *discovery.Discovery) *Client {
 	return &Client{
-		http: http.DefaultClient,
+		http:      http.DefaultClient,
+		discovery: discovery,
 	}
 }
 
@@ -66,13 +68,18 @@ func (c *Client) loginWithXbox(ctx context.Context, liveToken *oauth2.Token) err
 		return err
 	}
 
-	resp, err := doPlayfabRequest[loginResponse](ctx, c.http, "/Client/LoginWithXbox?sdk="+minecraftDefaultSDK, xboxLoginRequest{
+	authService, err := c.discovery.AuthService()
+	if err != nil {
+		return err
+	}
+
+	resp, err := doPlayfabRequest[loginResponse](ctx, c.http, authService.PlayfabTitleID, "/Client/LoginWithXbox?sdk="+minecraftDefaultSDK, xboxLoginRequest{
 		CreateAccount: true,
 		InfoRequestParameters: infoRequestParameters{
 			PlayerProfile:   true,
 			UserAccountInfo: true,
 		},
-		TitleID:   strings.ToUpper(minecraftTitleID),
+		TitleID:   strings.ToUpper(authService.PlayfabTitleID),
 		XboxToken: fmt.Sprintf("XBL3.0 x=%v;%v", xboxToken.AuthorizationToken.DisplayClaims.UserInfo[0].UserHash, xboxToken.AuthorizationToken.Token),
 	}, nil)
 	if err != nil {
@@ -86,7 +93,12 @@ func (c *Client) loginWithXbox(ctx context.Context, liveToken *oauth2.Token) err
 }
 
 func (c *Client) loginMaster(ctx context.Context) error {
-	resp, err := doPlayfabRequest[EntityToken](ctx, c.http, "/Authentication/GetEntityToken?sdk="+minecraftDefaultSDK, entityTokenRequest{
+	authService, err := c.discovery.AuthService()
+	if err != nil {
+		return err
+	}
+
+	resp, err := doPlayfabRequest[EntityToken](ctx, c.http, authService.PlayfabTitleID, "/Authentication/GetEntityToken?sdk="+minecraftDefaultSDK, entityTokenRequest{
 		Entity: &Entity{
 			ID:   c.accountID,
 			Type: "master_player_account",
@@ -101,7 +113,12 @@ func (c *Client) loginMaster(ctx context.Context) error {
 }
 
 func (c *Client) startSession(ctx context.Context) error {
-	resp, err := doRequest[mcTokenResponse](ctx, c.http, "https://authorization.franchise.minecraft-services.net/api/v1.0/session/start", mcTokenRequest{
+	authService, err := c.discovery.AuthService()
+	if err != nil {
+		return err
+	}
+
+	resp, err := doRequest[mcTokenResponse](ctx, c.http, fmt.Sprintf("%s/api/v1.0/session/start", authService.ServiceURI), mcTokenRequest{
 		Device: mcTokenDevice{
 			ApplicationType:    "MinecraftPE",
 			Capabilities:       []string{"RayTracing"},
@@ -109,7 +126,7 @@ func (c *Client) startSession(ctx context.Context) error {
 			ID:                 uuid.New().String(),
 			Memory:             fmt.Sprint(16 * (1024 * 1024 * 1024)), // 16 GB
 			Platform:           "Windows10",
-			PlayFabTitleID:     strings.ToUpper(minecraftTitleID),
+			PlayFabTitleID:     strings.ToUpper(authService.PlayfabTitleID),
 			StorePlatform:      "uwp.store",
 			TreatmentOverrides: nil,
 			Type:               "Windows10",
@@ -164,13 +181,13 @@ func doRequest[T any](ctx context.Context, client *http.Client, url string, payl
 	return &resp, nil
 }
 
-func doPlayfabRequest[T any](ctx context.Context, client *http.Client, endpoint string, payload any, token func(*http.Request)) (*Response[T], error) {
+func doPlayfabRequest[T any](ctx context.Context, client *http.Client, titleID, endpoint string, payload any, token func(*http.Request)) (*Response[T], error) {
 	logrus.Tracef("doPlayfabRequest: %s", endpoint)
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequestWithContext(ctx, "POST", "https://"+minecraftTitleID+".playfabapi.com"+endpoint, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, "POST", "https://"+titleID+".playfabapi.com"+endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}

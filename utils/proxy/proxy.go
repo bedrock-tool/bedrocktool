@@ -7,10 +7,8 @@ import (
 	"net"
 	"time"
 
-	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
-	"github.com/sandertv/gophertunnel/minecraft/resource"
 	"github.com/sirupsen/logrus"
 )
 
@@ -18,26 +16,6 @@ type PacketFunc func(header packet.Header, payload []byte, src, dst net.Addr, ti
 type ingameCommand struct {
 	Exec func(cmdline []string) bool
 	Cmd  protocol.Command
-}
-
-type Handler struct {
-	Name string
-
-	SessionStart       func(s *Session, serverName string) error
-	GameDataModifier   func(gameData *minecraft.GameData)
-	FilterResourcePack func(id string) bool
-	OnFinishedPack     func(pack resource.Pack) error
-
-	ResourcePacksFinished func() bool
-
-	PacketRaw      func(header packet.Header, payload []byte, src, dst net.Addr, timeReceived time.Time)
-	PacketCallback func(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error)
-
-	OnServerConnect func() (cancel bool, err error)
-	OnConnect       func() (cancel bool)
-
-	OnSessionEnd func()
-	OnProxyEnd   func()
 }
 
 var NewPacketCapturer func() *Handler

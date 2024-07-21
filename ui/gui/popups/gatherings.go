@@ -17,7 +17,6 @@ import (
 )
 
 type Gatherings struct {
-	Show         widget.Bool
 	close        widget.Clickable
 	l            sync.Mutex
 	list         widget.List
@@ -99,7 +98,7 @@ func (g *Gatherings) Load() error {
 	return nil
 }
 
-func (g *Gatherings) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
+func (g *Gatherings) Layout(gtx C, th *material.Theme) D {
 	for _, gg := range g.gatherings {
 		if gg.Clicked(gtx) {
 			g.setGathering(gg.Gathering)
@@ -162,7 +161,9 @@ func (g *Gatherings) Layout(gtx layout.Context, th *material.Theme) layout.Dimen
 					return layout.Center.Layout(gtx, material.H5(th, "there are no gatherings active").Layout)
 				}
 
-				return material.List(th, &g.list).Layout(gtx, len(g.gatherings), func(gtx layout.Context, index int) layout.Dimensions {
+				l := material.List(th, &g.list)
+				l.AnchorStrategy = material.Overlay
+				return l.Layout(gtx, len(g.gatherings), func(gtx C, index int) D {
 					gathering := g.gatherings[index]
 
 					var start = time.Now().Add(-1 * time.Hour)
@@ -186,24 +187,24 @@ func (g *Gatherings) Layout(gtx layout.Context, th *material.Theme) layout.Dimen
 					gtx.Constraints.Max.Y = 75
 					gtx.Constraints.Min.X = gtx.Constraints.Max.X
 					b := material.ButtonLayoutStyle{
-						Background:   component.WithAlpha(th.ContrastBg, 0x80),
+						Background:   component.WithAlpha(th.Fg, 10),
 						Button:       click,
 						CornerRadius: 8,
 					}
-					b.Background = component.WithAlpha(th.Fg, 10)
-
 					return b.Layout(gtx, func(gtx C) D {
 						return layout.UniformInset(8).Layout(gtx, func(gtx C) D {
 							return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								layout.Rigid(func(gtx C) D {
 									return material.Label(th, th.TextSize, gatheringName).Layout(gtx)
 								}),
-								layout.Rigid(func(gtx layout.Context) layout.Dimensions {
+								layout.Rigid(func(gtx C) D {
+									var text string
 									if hasStarted {
-										return material.Label(th, th.TextSize, fmt.Sprintf("Ends in %s", time.Until(end).Truncate(time.Second))).Layout(gtx)
+										text = fmt.Sprintf("Ends in %s", time.Until(end).Truncate(time.Second))
 									} else {
-										return material.Label(th, th.TextSize, fmt.Sprintf("Starts in %s", time.Until(start).Truncate(time.Second))).Layout(gtx)
+										text = fmt.Sprintf("Starts in %s", time.Until(start).Truncate(time.Second))
 									}
+									return material.Label(th, th.TextSize, text).Layout(gtx)
 								}),
 							)
 						})

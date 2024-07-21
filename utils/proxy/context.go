@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
-	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,7 +11,6 @@ import (
 
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
-	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
@@ -35,7 +33,7 @@ type Context struct {
 
 	addedPacks []resource.Pack
 	commands   map[string]ingameCommand
-	handlers   []*Handler
+	handlers   Handlers
 
 	session *Session
 }
@@ -80,108 +78,11 @@ func (p *Context) connect(ctx context.Context, connect *utils.ConnectInfo) (err 
 	p.session.extraDebug = p.ExtraDebug
 	p.session.addedPacks = p.addedPacks
 	p.session.listenAddress = p.ListenAddress
-	p.session.packetCallback = func(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
-		for _, handler := range p.handlers {
-			pk, err = handler.PacketCallback(pk, toServer, timeReceived, preLogin)
-			if err != nil {
-				return nil, err
-			}
-			if pk == nil {
-				break
-			}
-		}
-		return pk, err
-	}
-	p.session.packetRaw = func(header packet.Header, payload []byte, src, dst net.Addr, timeReceived time.Time) {
-		for _, handler := range p.handlers {
-			if handler.PacketRaw != nil {
-				handler.PacketRaw(header, payload, src, dst, timeReceived)
-			}
-		}
-	}
-	p.session.filterResourcePack = func(id string) bool {
-		ignore := false
-		for _, handler := range p.handlers {
-			if handler.FilterResourcePack != nil {
-				ignore = handler.FilterResourcePack(id)
-			}
-		}
-		return ignore
-	}
-	p.session.onFinishedPack = func(pack resource.Pack) error {
-		messages.Router.Handle(&messages.Message{
-			Source: "proxy",
-			Target: "ui",
-			Data:   messages.FinishedPack{Pack: pack},
-		})
-		for _, handler := range p.handlers {
-			if handler.OnFinishedPack != nil {
-				err := handler.OnFinishedPack(pack)
-				if err != nil {
-					return err
-				}
-			}
-		}
-		return nil
-	}
-	p.session.resourcePacksFinished = func() bool {
-		for _, handler := range p.handlers {
-			if handler.ResourcePacksFinished != nil {
-				if handler.ResourcePacksFinished() {
-					return true
-				}
-			}
-		}
-		return false
-	}
-	p.session.onServerConnect = func() error {
-		for _, handler := range p.handlers {
-			if handler.OnServerConnect == nil {
-				continue
-			}
-			disconnect, err := handler.OnServerConnect()
-			if err != nil {
-				return err
-			}
-			if disconnect {
-				return errCancelConnect
-			}
-		}
-		return nil
-	}
-	p.session.gameDataModifier = func(gd *minecraft.GameData) {
-		for _, handler := range p.handlers {
-			if handler.GameDataModifier == nil {
-				continue
-			}
-			handler.GameDataModifier(gd)
-		}
-	}
-	p.session.onConnect = func() bool {
-		for _, handler := range p.handlers {
-			if handler.OnConnect == nil {
-				continue
-			}
-			if handler.OnConnect() {
-				return true
-			}
-		}
-		return false
-	}
+	p.session.handlers = p.handlers
 
-	for _, handler := range p.handlers {
-		if handler.SessionStart != nil {
-			handler.SessionStart(p.session, connect.Name())
-		}
-	}
-
+	p.handlers.SessionStart(p.session, connect.Name())
 	err = p.session.Run(ctx, connect)
-
-	for _, handler := range p.handlers {
-		if handler.OnSessionEnd != nil {
-			handler.OnSessionEnd()
-		}
-	}
+	p.handlers.OnSessionEnd()
 
 	if err, ok := err.(*errTransfer); ok {
 		address := fmt.Sprintf("%s:%d", err.transfer.Address, err.transfer.Port)
@@ -230,6 +131,14 @@ func (p *Context) Run(ctx context.Context, connect *utils.ConnectInfo) (err erro
 	})
 	p.AddHandler(&Handler{
 		Name: "Player",
+		OnFinishedPack: func(pack resource.Pack) error {
+			messages.Router.Handle(&messages.Message{
+				Source: "proxy",
+				Target: "ui",
+				Data:   messages.FinishedPack{Pack: pack},
+			})
+			return nil
+		},
 		PacketCallback: func(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
 			haveMoved := p.session.Player.handlePackets(pk)
 			if haveMoved {

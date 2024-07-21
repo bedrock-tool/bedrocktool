@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/bedrock-tool/bedrocktool/utils/discovery"
 	"github.com/bedrock-tool/bedrocktool/utils/gatherings"
 	"github.com/bedrock-tool/bedrocktool/utils/playfab"
 	"github.com/sandertv/gophertunnel/minecraft/auth"
@@ -18,11 +19,11 @@ import (
 const TokenFile = "token.json"
 
 type authsrv struct {
-	log       *logrus.Entry
-	handler   auth.MSAuthHandler
-	liveToken *oauth2.Token
-
-	realms     *realms.Client
+	log        *logrus.Entry
+	handler    auth.MSAuthHandler
+	liveToken  *oauth2.Token
+	discovery  *discovery.Discovery
+	Realms     *realms.Client
 	playfab    *playfab.Client
 	gatherings *gatherings.GatheringsClient
 }
@@ -40,8 +41,23 @@ func (a *authsrv) Startup() (err error) {
 	if err != nil {
 		return err
 	}
-	a.realms = realms.NewClient(a)
-	a.playfab = playfab.NewClient()
+
+	return a.afterLogin()
+}
+
+func (a *authsrv) afterLogin() (err error) {
+	a.discovery, err = discovery.GetDiscovery(Options.Env)
+	if err != nil {
+		return err
+	}
+
+	realmsService, err := a.discovery.RealmsfrontendService()
+	if err != nil {
+		return err
+	}
+
+	a.Realms = realms.NewClient(a, realmsService.ServiceURI)
+	a.playfab = playfab.NewClient(a.discovery)
 	return nil
 }
 
@@ -65,8 +81,7 @@ func (a *authsrv) Login(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
-
-	return nil
+	return a.afterLogin()
 }
 
 func (a *authsrv) Logout() {
@@ -155,14 +170,6 @@ func (a *authsrv) Token() (t *oauth2.Token, err error) {
 	return a.liveToken, nil
 }
 
-func (a *authsrv) Realms() (*realms.Client, error) {
-	if a.realms != nil {
-		return a.realms, nil
-	}
-	a.realms = realms.NewClient(a)
-	return a.realms, nil
-}
-
 func (a *authsrv) Playfab(ctx context.Context) (*playfab.Client, error) {
 	if a.playfab.LoggedIn() {
 		return a.playfab, nil
@@ -190,6 +197,6 @@ func (a *authsrv) Gatherings(ctx context.Context) (*gatherings.GatheringsClient,
 	if err != nil {
 		return nil, err
 	}
-	a.gatherings = gatherings.NewGatheringsClient(mcToken)
+	a.gatherings = gatherings.NewGatheringsClient(mcToken, a.discovery)
 	return a.gatherings, nil
 }

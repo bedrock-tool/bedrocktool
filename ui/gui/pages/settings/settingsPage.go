@@ -147,14 +147,14 @@ func (s *settingsPage) Apply() error {
 	return nil
 }
 
-func (s *settingsPage) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
-	return material.List(th, &s.list).Layout(gtx, len(s.flagsNamesOrdered)+2, func(gtx layout.Context, index int) layout.Dimensions {
+func (s *settingsPage) Layout(gtx C, th *material.Theme) D {
+	return material.List(th, &s.list).Layout(gtx, len(s.flagsNamesOrdered)+2, func(gtx C, index int) D {
 		if index == 0 { // address input
 			w, ok := s.widgets["address"].(*addressInput)
 			if ok {
 				return w.Layout(gtx, th)
 			}
-			return layout.Dimensions{}
+			return D{}
 		}
 		if index == 1 { // bool flags
 			var widgets []layout.Widget
@@ -179,7 +179,7 @@ func (s *settingsPage) Layout(gtx layout.Context, th *material.Theme) layout.Dim
 					return gtx.Dp(40)
 				}
 				return 0
-			}, func(gtx layout.Context, row, col int) layout.Dimensions {
+			}, func(gtx C, row, col int) D {
 				idx := col + cols*row
 				return widgets[idx](gtx)
 			})
@@ -190,11 +190,11 @@ func (s *settingsPage) Layout(gtx layout.Context, th *material.Theme) layout.Dim
 
 		switch w := w.(type) {
 		case *widget.Bool:
-			return layout.Dimensions{}
+			return D{}
 		case *component.TextField:
 			return w.Layout(gtx, th, w.Helper)
 		default:
-			return layout.Dimensions{}
+			return D{}
 		}
 	})
 }

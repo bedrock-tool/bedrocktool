@@ -153,12 +153,7 @@ func ParseServer(ctx context.Context, server string) (*ConnectInfo, error) {
 	if realmRegex.MatchString(server) {
 		p := regexGetParams(realmRegex, server)
 
-		realmsClient, err := Auth.Realms()
-		if err != nil {
-			return nil, err
-		}
-
-		realmsList, err := realmsClient.Realms(ctx)
+		realmsList, err := Auth.Realms.Realms(ctx)
 		if err != nil {
 			return nil, err
 		}

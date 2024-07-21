@@ -10,12 +10,13 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/bedrock-tool/bedrocktool/utils/discovery"
 	"github.com/bedrock-tool/bedrocktool/utils/playfab"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
+	"github.com/sirupsen/logrus"
 )
 
 const minecraftUserAgent = "libhttpclient/1.0.0.0"
-const gatheringListUrl = "https://gatherings-secondary.franchise.minecraft-services.net/api/v1.0/config/public?lang=en-GB&clientVersion=%s&clientPlatform=Windows10&clientSubPlatform=Windows10"
 
 type Segment struct {
 	SegmentType  string    `json:"segmentType"`
@@ -65,20 +66,24 @@ func (g *Gathering) Address(ctx context.Context) (string, error) {
 		} `json:"result"`
 	}
 
-	now := time.Now()
-	var activeSegment *Segment
-	for _, segment := range g.Segments {
-		if segment.StartTimeUtc.Before(now) && segment.EndTimeUtc.After(now) {
-			activeSegment = &segment
-			break
-		}
+	gatheringsService, err := g.client.discovery.GatheringsService()
+	if err != nil {
+		return "", err
 	}
 
-	if activeSegment == nil {
-		return "", errors.New("no Active Gathering Segment")
+	resp1, err := doRequest[map[string]any](ctx, g.client.http, "GET",
+		fmt.Sprintf("%s/api/v1.0/access?lang=en-US&clientVersion=%s&clientPlatform=Windows10&clientSubPlatform=Windows10", gatheringsService.ServiceURI, protocol.CurrentVersion),
+		nil, g.client.mcTokenAuth,
+	)
+	if err != nil {
+		return "", err
 	}
+	_ = resp1
 
-	resp, err := doRequest[venueResponse](ctx, g.client.http, "GET", fmt.Sprintf("https://gatherings.franchise.minecraft-services.net/api/v1.0/venue/%s", g.GatheringID), nil, g.client.mcTokenAuth)
+	resp, err := doRequest[venueResponse](ctx, g.client.http, "GET",
+		fmt.Sprintf("%s/api/v1.0/venue/%s", gatheringsService.ServiceURI, g.GatheringID),
+		nil, g.client.mcTokenAuth,
+	)
 	if err != nil {
 		return "", err
 	}
@@ -91,15 +96,17 @@ func (g *Gathering) Address(ctx context.Context) (string, error) {
 }
 
 type GatheringsClient struct {
-	http  *http.Client
-	token *playfab.MCToken
+	http      *http.Client
+	token     *playfab.MCToken
+	discovery *discovery.Discovery
 }
 
-func NewGatheringsClient(token *playfab.MCToken) *GatheringsClient {
+func NewGatheringsClient(token *playfab.MCToken, discovery *discovery.Discovery) *GatheringsClient {
 	client := &http.Client{}
 	return &GatheringsClient{
-		http:  client,
-		token: token,
+		http:      client,
+		token:     token,
+		discovery: discovery,
 	}
 }
 
@@ -107,7 +114,13 @@ func (g *GatheringsClient) Gatherings(ctx context.Context) ([]*Gathering, error)
 	type gatheringsResponse struct {
 		Result []Gathering `json:"result"`
 	}
-	resp, err := doRequest[gatheringsResponse](ctx, g.http, "GET", fmt.Sprintf(gatheringListUrl, protocol.CurrentVersion), nil, g.mcTokenAuth)
+
+	gatheringService, err := g.discovery.GatheringsService()
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := doRequest[gatheringsResponse](ctx, g.http, "GET", fmt.Sprintf("%s/api/v1.0/config/public?lang=en-GB&clientVersion=%s&clientPlatform=Windows10&clientSubPlatform=Windows10", gatheringService.ServiceURI, protocol.CurrentVersion), nil, g.mcTokenAuth)
 	if err != nil {
 		return nil, err
 	}
@@ -137,6 +150,7 @@ func (e JsonResponseError) Error() string {
 }
 
 func doRequest[T any](ctx context.Context, client *http.Client, method, url string, payload any, header func(*http.Request)) (*T, error) {
+	logrus.Tracef("doRequest: %s", url)
 	var err error
 	var body []byte
 	if payload != nil {

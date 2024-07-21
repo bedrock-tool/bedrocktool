@@ -2,10 +2,7 @@ package locale
 
 import (
 	"embed"
-	"flag"
 	"fmt"
-	"io"
-	"os"
 
 	"github.com/nicksnyder/go-i18n/v2/i18n"
 	"github.com/sirupsen/logrus"
@@ -28,16 +25,8 @@ func init() {
 	var defaultTag language.Tag = language.English
 	var err error
 
-	var languageName string
-	f := flag.NewFlagSet("bedrocktool", flag.ContinueOnError)
-	f.SetOutput(io.Discard)
-	f.StringVar(&languageName, "lang", "", "")
-	f.Parse(os.Args[1:])
-
 	// get default language
-	if languageName == "" {
-		languageName = getLanguageName()
-	}
+	languageName := getLanguageName()
 	defaultTag, err = language.Parse(languageName)
 	if err != nil {
 		logrus.Warn("failed to parse language name")

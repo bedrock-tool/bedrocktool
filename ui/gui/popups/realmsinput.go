@@ -47,11 +47,7 @@ func (*RealmsList) ID() string {
 var _ Popup = &RealmsList{}
 
 func (r *RealmsList) Load() error {
-	realmsClient, err := utils.Auth.Realms()
-	if err != nil {
-		return err
-	}
-	realms, err := realmsClient.Realms(context.Background())
+	realms, err := utils.Auth.Realms.Realms(context.Background())
 	if err != nil {
 		return err
 	}
@@ -67,7 +63,7 @@ func (r *RealmsList) Load() error {
 	return nil
 }
 
-func (r *RealmsList) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
+func (r *RealmsList) Layout(gtx C, th *material.Theme) D {
 	for _, realm := range r.realms {
 		if realm.Clicked(gtx) {
 			r.setRealm(realm.Realm)
@@ -130,7 +126,7 @@ func (r *RealmsList) Layout(gtx layout.Context, th *material.Theme) layout.Dimen
 					return layout.Center.Layout(gtx, material.H5(th, "you have no realms").Layout)
 				}
 
-				return material.List(th, &r.list).Layout(gtx, len(r.realms), func(gtx layout.Context, index int) layout.Dimensions {
+				return material.List(th, &r.list).Layout(gtx, len(r.realms), func(gtx C, index int) D {
 					realm := r.realms[index]
 					return material.ButtonLayoutStyle{
 						Background:   component.WithAlpha(th.ContrastBg, 0x80),

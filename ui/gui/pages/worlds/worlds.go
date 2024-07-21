@@ -109,7 +109,7 @@ func displayWorldProcessing(gtx C, th *material.Theme, entry *processingWorld) D
 				Bg: component.WithAlpha(th.ContrastFg, 8),
 			},
 		}).Layout(gtx, func(gtx C) D {
-			return layout.UniformInset(5).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+			return layout.UniformInset(5).Layout(gtx, func(gtx C) D {
 				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 					layout.Rigid(material.Label(th, th.TextSize, "Saving World").Layout),
 					layout.Rigid(material.Label(th, th.TextSize, entry.Name).Layout),
@@ -130,7 +130,7 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 	}
 
 	return layout.Stack{}.Layout(gtx,
-		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+		layout.Stacked(func(gtx C) D {
 			switch p.State {
 			case messages.UIStateMain:
 				return p.worldMap.Layout(gtx)
@@ -169,7 +169,7 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 				return D{}
 			}
 		}),
-		layout.Stacked(func(gtx layout.Context) layout.Dimensions {
+		layout.Stacked(func(gtx C) D {
 			return material.List(th, &p.processingWorldsList).
 				Layout(gtx, len(p.processingWorlds), func(gtx C, index int) D {
 					entry := p.processingWorlds[index]

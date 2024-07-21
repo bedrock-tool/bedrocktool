@@ -30,7 +30,7 @@ import (
 var uis = map[string]ui.UI{}
 
 func selectUI() ui.UI {
-	if len(os.Args) < 2 {
+	if flag.CommandLine.NArg() == 0 {
 		utils.Options.IsInteractive = true
 		ui, ok := uis["gui"]
 		if ok {
@@ -88,11 +88,6 @@ func main() {
 		log.Infof(locale.Loc("bedrocktool_version", locale.Strmap{"Version": updater.Version}))
 	}
 
-	err := utils.Auth.Startup()
-	if err != nil {
-		logrus.Fatal(err)
-	}
-
 	ctx, cancel := context.WithCancelCause(context.Background())
 
 	recovery.ErrorHandler = func(err error) {
@@ -110,11 +105,20 @@ func main() {
 	}
 
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
-	//flag.StringVar(&utils.RealmsEnv, "realms-env", "", "realms env")
+	flag.StringVar(&utils.Options.Env, "env", "prod", "api env")
 	flag.BoolVar(&utils.Options.Debug, "debug", false, locale.Loc("debug_mode", nil))
 	flag.BoolVar(&utils.Options.ExtraDebug, "extra-debug", false, locale.Loc("extra_debug", nil))
-	flag.String("lang", "", "lang")
 	flag.BoolVar(&utils.Options.Capture, "capture", false, "Capture pcap2 file")
+
+	err := flag.CommandLine.Parse(os.Args[1:])
+	if err != nil {
+		logrus.Fatal(err)
+	}
+
+	err = utils.Auth.Startup()
+	if err != nil {
+		logrus.Fatal(err)
+	}
 
 	ui := selectUI()
 
