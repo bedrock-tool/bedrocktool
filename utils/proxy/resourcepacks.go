@@ -178,13 +178,11 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 
 		idxURL := slices.IndexFunc(pk.PackURLs, func(pu protocol.PackURL) bool { return pu.UUIDVersion == packID })
 		if idxURL != -1 {
-			url := pk.PackURLs[idxURL]
-
 			r.dlwg.Add(1)
-			go func() {
+			go func(url string) {
 				defer r.dlwg.Done()
-				r.log.Infof("Downloading Resourcepack: %s", url.URL)
-				newPack, err := resource.ReadURL(url.URL)
+				r.log.Infof("Downloading Resourcepack: %s", url)
+				newPack, err := resource.ReadURL(url)
 				if err != nil {
 					r.log.Error(err)
 					return
@@ -217,7 +215,7 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 						r.nextPackToClient <- newPack
 					}
 				}
-			}()
+			}(pk.PackURLs[idxURL].URL)
 
 			return nil
 		}
@@ -267,6 +265,7 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 	}
 
 	if len(packsToDownload) == 0 {
+		r.dlwg.Wait()
 		r.Server.Expect(packet.IDResourcePackStack)
 		return r.Server.WritePacket(&packet.ResourcePackClientResponse{Response: packet.PackResponseAllPacksDownloaded})
 	}
@@ -453,6 +452,7 @@ func (r *rpHandler) downloadResourcePack(pk *packet.ResourcePackDataInfo) error 
 
 	// finished downloading
 	if len(r.downloadingPacks) == 0 {
+		r.dlwg.Wait()
 		if r.nextPackToClient != nil {
 			close(r.nextPackToClient)
 		}
@@ -545,6 +545,7 @@ func (r *rpHandler) OnResourcePackStack(pk *packet.ResourcePackStack) error {
 		}
 	}
 
+	r.dlwg.Wait()
 	r.log.Debug("starting game")
 	r.Server.Expect(packet.IDStartGame)
 	_ = r.Server.WritePacket(&packet.ResourcePackClientResponse{Response: packet.PackResponseCompleted})
