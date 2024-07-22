@@ -91,6 +91,15 @@ func main() {
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
 
+		defer func() {
+			f, err := os.Create("mem.pprof")
+			if err != nil {
+				panic(err)
+			}
+			defer f.Close()
+			pprof.WriteHeapProfile(f)
+		}()
+
 		http.DefaultTransport = &logTransport{rt: http.DefaultTransport}
 	}
 

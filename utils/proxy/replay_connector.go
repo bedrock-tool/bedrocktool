@@ -66,6 +66,23 @@ func (r *ReplayConnector) ShieldID() int32 {
 
 func (r *ReplayConnector) handleLoginSequence(pk packet.Packet) (bool, error) {
 	switch pk := pk.(type) {
+	case *packet.ResourcePacksInfo:
+		if r.resourcePackHandler != nil {
+			return false, r.resourcePackHandler.OnResourcePacksInfo(pk)
+		}
+		r.Expect(packet.IDResourcePackClientResponse)
+	case *packet.ResourcePackDataInfo:
+		if r.resourcePackHandler != nil {
+			return false, r.resourcePackHandler.OnResourcePackDataInfo(pk)
+		}
+	case *packet.ResourcePackChunkData:
+		if r.resourcePackHandler != nil {
+			return false, r.resourcePackHandler.OnResourcePackChunkData(pk)
+		}
+	case *packet.ResourcePackStack:
+		if r.resourcePackHandler != nil {
+			return false, r.resourcePackHandler.OnResourcePackStack(pk)
+		}
 	case *packet.StartGame:
 		r.SetGameData(minecraft.GameData{
 			WorldName:                    pk.WorldName,
@@ -97,24 +114,6 @@ func (r *ReplayConnector) handleLoginSequence(pk packet.Packet) (bool, error) {
 			DisablePlayerInteractions:    pk.DisablePlayerInteractions,
 			UseBlockNetworkIDHashes:      pk.UseBlockNetworkIDHashes,
 		})
-
-	case *packet.ResourcePacksInfo:
-		if r.resourcePackHandler != nil {
-			return false, r.resourcePackHandler.OnResourcePacksInfo(pk)
-		}
-	case *packet.ResourcePackDataInfo:
-		if r.resourcePackHandler != nil {
-			return false, r.resourcePackHandler.OnResourcePackDataInfo(pk)
-		}
-	case *packet.ResourcePackChunkData:
-		if r.resourcePackHandler != nil {
-			return false, r.resourcePackHandler.OnResourcePackChunkData(pk)
-		}
-	case *packet.ResourcePackStack:
-		if r.resourcePackHandler != nil {
-			return false, r.resourcePackHandler.OnResourcePackStack(pk)
-		}
-
 	case *packet.SetLocalPlayerAsInitialised:
 		if pk.EntityRuntimeID != r.gameData.EntityRuntimeID {
 			return false, fmt.Errorf("entity runtime ID mismatch: entity runtime ID in StartGame and SetLocalPlayerAsInitialised packets should be equal")
@@ -134,19 +133,9 @@ func (r *ReplayConnector) ReadUntilLogin() error {
 		}
 		_ = timeReceived
 
-		var handled bool
-		for _, id := range r.expectedIDs.Load().([]uint32) {
-			if id == pk.ID() {
-				gameStarted, err = r.handleLoginSequence(pk)
-				if err != nil {
-					return err
-				}
-				handled = true
-			}
-		}
-
-		if !handled {
-			r.deferredPackets = append(r.deferredPackets, pk)
+		gameStarted, err = r.handleLoginSequence(pk)
+		if err != nil {
+			return err
 		}
 	}
 	return nil
