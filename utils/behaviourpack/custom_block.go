@@ -143,6 +143,11 @@ func parseBlock(block protocol.BlockEntry) MinecraftBlock {
 				// fix missing * instance
 				if k == "minecraft:material_instances" {
 					if m, ok := v["materials"].(map[string]any); ok {
+						if mm, ok := m["mappings"].(map[string]any); ok {
+							if len(mm) == 0 {
+								delete(m, "mappings")
+							}
+						}
 						comps[k] = m
 					}
 					materials := comps[k].(map[string]any)
