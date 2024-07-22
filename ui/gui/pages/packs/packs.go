@@ -5,7 +5,6 @@ import (
 	"image"
 	"image/color"
 	"image/png"
-	"io/fs"
 	"strings"
 	"sync"
 
@@ -342,14 +341,12 @@ func (p *Page) HandleMessage(msg *messages.Message) *messages.Message {
 
 	case messages.FinishedPack:
 		var icon image.Image
-		if fs, _ := fs.Sub(m.Pack, m.Pack.BaseDir()); fs != nil {
-			f, err := fs.Open("pack_icon.png")
-			if err == nil {
-				defer f.Close()
-				icon, err = png.Decode(f)
-				if err != nil {
-					logrus.Warnf("Failed to Parse pack_icon.png %s", m.Pack.Name())
-				}
+		f, err := m.Pack.Open("pack_icon.png")
+		if err == nil {
+			defer f.Close()
+			icon, err = png.Decode(f)
+			if err != nil {
+				logrus.Warnf("Failed to Parse pack_icon.png %s", m.Pack.Name())
 			}
 		}
 		for _, pe := range p.Packs {

@@ -1,6 +1,12 @@
 package behaviourpack
 
-import "github.com/sandertv/gophertunnel/minecraft/protocol"
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+
+	"github.com/sandertv/gophertunnel/minecraft/protocol"
+)
 
 type description struct {
 	Identifier             string         `json:"identifier"`
@@ -34,10 +40,13 @@ func permutation_from_map(in map[string]any) permutation {
 	}
 }
 
+type Trait map[string]any
+
 type MinecraftBlock struct {
-	Description  description    `json:"description"`
-	Components   map[string]any `json:"components,omitempty"`
-	Permutations []permutation  `json:"permutations,omitempty"`
+	Description  description      `json:"description"`
+	Components   map[string]any   `json:"components,omitempty"`
+	Permutations []permutation    `json:"permutations,omitempty"`
+	Traits       map[string]Trait `json:"traits,omitempty"`
 }
 
 func parseBlock(block protocol.BlockEntry) MinecraftBlock {
@@ -47,6 +56,44 @@ func parseBlock(block protocol.BlockEntry) MinecraftBlock {
 			IsExperimental:         true,
 			RegisterToCreativeMenu: true,
 		},
+	}
+
+	if block.Name == "noxcrew.ft:plush_pink" {
+		b := bytes.NewBuffer(nil)
+		e := json.NewEncoder(b)
+		e.SetIndent("", "  ")
+		e.Encode(block)
+		fmt.Printf(b.String())
+		println()
+	}
+
+	if traits, ok := block.Properties["traits"].([]any); ok {
+		entry.Traits = make(map[string]Trait)
+
+		for _, traitIn := range traits {
+			traitIn := traitIn.(map[string]any)
+			traitOut := Trait{}
+			name := traitIn["name"].(string)
+			for k, v := range traitIn {
+				if k == "name" {
+					continue
+				}
+				if k == "enabled_states" {
+					var enabled_states []string
+					v := v.(map[string]any)
+					for name2, v2 := range v {
+						v2 := v2.(uint8)
+						if v2 == 1 {
+							enabled_states = append(enabled_states, name2)
+						}
+					}
+					traitOut[k] = enabled_states
+					continue
+				}
+				traitOut[k] = v
+			}
+			entry.Traits[name] = traitOut
+		}
 	}
 
 	if perms, ok := block.Properties["permutations"].([]any); ok {

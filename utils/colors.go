@@ -170,14 +170,8 @@ func ResolveColors(entries []protocol.BlockEntry, packs []resource.Pack) map[str
 	log := logrus.WithField("func", "ResolveColors")
 	colors := make(map[string]color.RGBA)
 
-	processPack := func(p resource.Pack, textureNames map[string]string) error {
-		baseDir := p.BaseDir()
-		pfs, err := fs.Sub(p, baseDir)
-		if err != nil {
-			return err
-		}
-
-		blocksJson, err := readBlocksJson(pfs)
+	processPack := func(pack resource.Pack, textureNames map[string]string) error {
+		blocksJson, err := readBlocksJson(pack)
 		if err != nil {
 			return err
 		}
@@ -186,12 +180,12 @@ func ResolveColors(entries []protocol.BlockEntry, packs []resource.Pack) map[str
 			textureNames[block] = name
 		}
 
-		flipbooks, err := loadFlipbooks(pfs)
+		flipbooks, err := loadFlipbooks(pack)
 		if err != nil {
 			return err
 		}
 
-		terrainTextures, err := loadTerrainTexture(pfs)
+		terrainTextures, err := loadTerrainTexture(pack)
 		if err != nil {
 			return err
 		}
@@ -215,7 +209,7 @@ func ResolveColors(entries []protocol.BlockEntry, packs []resource.Pack) map[str
 				continue
 			}
 
-			matches, err := fs.Glob(pfs, texturePath+".*")
+			matches, err := fs.Glob(pack, texturePath+".*")
 			if err != nil {
 				log.Warn(err)
 				continue
@@ -227,7 +221,7 @@ func ResolveColors(entries []protocol.BlockEntry, packs []resource.Pack) map[str
 			texturePath = matches[0]
 
 			delete(textureNames, block)
-			r, err := p.Open(texturePath)
+			r, err := pack.Open(texturePath)
 			if err != nil {
 				log.Error(err)
 				continue
