@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"strings"
 	"sync"
 
@@ -143,6 +145,15 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 	totalPacks := len(pk.TexturePacks) + len(pk.BehaviourPacks)
 	packsToDownload := make([]string, 0, totalPacks)
 
+	var httpClient = http.Client{
+		Transport: &http.Transport{
+			ForceAttemptHTTP2: false,
+			TLSClientConfig: &tls.Config{
+				NextProtos: []string{"http/1.1"},
+			},
+		},
+	}
+
 	packFunc := func(id, ver, key string, size uint64) (err error) {
 		packID := id + "_" + ver
 		if r.filterDownloadResourcePacks(packID) {
@@ -182,7 +193,7 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 			go func(url string) {
 				defer r.dlwg.Done()
 				r.log.Infof("Downloading Resourcepack: %s", url)
-				newPack, err := resource.ReadURL(url)
+				newPack, err := resource.ReadURL(&httpClient, url)
 				if err != nil {
 					r.log.Error(err)
 					return
