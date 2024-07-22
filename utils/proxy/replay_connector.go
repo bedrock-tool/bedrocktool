@@ -64,24 +64,24 @@ func (r *ReplayConnector) ShieldID() int32 {
 	return r.reader.shieldID.Load()
 }
 
-func (r *ReplayConnector) handleLoginSequence(pk packet.Packet) (bool, error) {
+func (r *ReplayConnector) handleLoginSequence(pk packet.Packet) (bool, bool, error) {
 	switch pk := pk.(type) {
 	case *packet.ResourcePacksInfo:
 		if r.resourcePackHandler != nil {
-			return false, r.resourcePackHandler.OnResourcePacksInfo(pk)
+			return false, true, r.resourcePackHandler.OnResourcePacksInfo(pk)
 		}
 		r.Expect(packet.IDResourcePackClientResponse)
 	case *packet.ResourcePackDataInfo:
 		if r.resourcePackHandler != nil {
-			return false, r.resourcePackHandler.OnResourcePackDataInfo(pk)
+			return false, true, r.resourcePackHandler.OnResourcePackDataInfo(pk)
 		}
 	case *packet.ResourcePackChunkData:
 		if r.resourcePackHandler != nil {
-			return false, r.resourcePackHandler.OnResourcePackChunkData(pk)
+			return false, true, r.resourcePackHandler.OnResourcePackChunkData(pk)
 		}
 	case *packet.ResourcePackStack:
 		if r.resourcePackHandler != nil {
-			return false, r.resourcePackHandler.OnResourcePackStack(pk)
+			return false, true, r.resourcePackHandler.OnResourcePackStack(pk)
 		}
 	case *packet.StartGame:
 		r.SetGameData(minecraft.GameData{
@@ -116,12 +116,12 @@ func (r *ReplayConnector) handleLoginSequence(pk packet.Packet) (bool, error) {
 		})
 	case *packet.SetLocalPlayerAsInitialised:
 		if pk.EntityRuntimeID != r.gameData.EntityRuntimeID {
-			return false, fmt.Errorf("entity runtime ID mismatch: entity runtime ID in StartGame and SetLocalPlayerAsInitialised packets should be equal")
+			return false, true, fmt.Errorf("entity runtime ID mismatch: entity runtime ID in StartGame and SetLocalPlayerAsInitialised packets should be equal")
 		}
 		close(r.spawn)
-		return true, nil
+		return true, true, nil
 	}
-	return false, nil
+	return false, false, nil
 }
 
 func (r *ReplayConnector) ReadUntilLogin() error {
@@ -133,9 +133,13 @@ func (r *ReplayConnector) ReadUntilLogin() error {
 		}
 		_ = timeReceived
 
-		gameStarted, err = r.handleLoginSequence(pk)
+		var handled bool
+		gameStarted, handled, err = r.handleLoginSequence(pk)
 		if err != nil {
 			return err
+		}
+		if !handled {
+			r.deferredPackets = append(r.deferredPackets, pk)
 		}
 	}
 	return nil
