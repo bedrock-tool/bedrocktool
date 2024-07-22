@@ -347,7 +347,7 @@ func (s *Session) connectServer(ctx context.Context, connect *utils.ConnectInfo)
 		},
 	}
 	for retry := 0; retry < 3; retry++ {
-		d.ChainKey, d.ChainData, err = minecraft.CreateChain(ctx, utils.Auth)
+		d.ChainKey, d.ChainData, err = utils.Auth.Chain(ctx)
 		if err != nil {
 			continue
 		}

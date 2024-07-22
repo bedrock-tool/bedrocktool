@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/signal"
 	"runtime/pprof"
@@ -68,6 +69,15 @@ func setupLogging(isDebug bool) {
 	}))
 }
 
+type logTransport struct {
+	rt http.RoundTripper
+}
+
+func (t *logTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	logrus.Tracef("Request %s", req.URL.String())
+	return t.rt.RoundTrip(req)
+}
+
 func main() {
 	isDebug := updater.Version == ""
 
@@ -80,6 +90,8 @@ func main() {
 		}
 		pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
+
+		http.DefaultTransport = &logTransport{rt: http.DefaultTransport}
 	}
 
 	log := logrus.WithField("part", "main")

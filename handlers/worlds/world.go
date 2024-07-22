@@ -443,15 +443,16 @@ func (w *worldsHandler) saveWorldState(worldState *worldstate.World) error {
 	}
 	defer f.Close()
 	zw := zip.NewWriter(f)
+	utils.ZipCompressPool(zw)
 	err = zw.AddFS(os.DirFS(worldState.Folder))
 	if err != nil {
 		return err
 	}
-	zfs := &utils.ZipWriter{Writer: zw}
-	ofs := &utils.OSWriter{Base: worldState.Folder}
-	mfs := &utils.MultiWriterFS{FSs: []utils.WriterFS{zfs, ofs}}
 
-	err = w.AddPacks(worldState.Name, mfs)
+	err = w.AddPacks(worldState.Name, utils.MultiWriterFS{FSs: []utils.WriterFS{
+		utils.ZipWriter{Writer: zw},
+		utils.OSWriter{Base: worldState.Folder},
+	}})
 	if err != nil {
 		return err
 	}

@@ -334,8 +334,9 @@ func (r *rpHandler) downloadResourcePack(pk *packet.ResourcePackDataInfo) error 
 		return err
 	}
 
+	chunksDone := 0
 	dataWritten := 0
-	for i := uint32(0); i < chunkCount; i++ {
+	for i := uint32(0); i < min(4, chunkCount); i++ {
 		err = r.Server.WritePacket(&packet.ResourcePackChunkRequest{
 			UUID:       pk.UUID,
 			ChunkIndex: i,
@@ -343,29 +344,63 @@ func (r *rpHandler) downloadResourcePack(pk *packet.ResourcePackDataInfo) error 
 		if err != nil {
 			return err
 		}
+		chunksDone++
+	}
+	for {
+		var frag *packet.ResourcePackChunkData
+		var ok bool
 		select {
 		case <-r.Server.OnDisconnect():
 			return net.ErrClosed
-		case frag := <-pack.newFrag:
-			// Write the fragment to the full buffer of the downloading resource pack.
-			lastData := dataWritten+int(pack.chunkSize) >= int(pack.size)
-			if !lastData && uint32(len(frag.Data)) != pack.chunkSize {
-				// The chunk data didn't have the full size and wasn't the last data to be sent for the resource pack,
-				// meaning we got too little data.
-				return fmt.Errorf("resource pack chunk data had a length of %v, but expected %v", len(frag.Data), pack.chunkSize)
-			}
+		case frag, ok = <-pack.newFrag:
+		}
+		if !ok {
+			break
+		}
 
-			if frag.DataOffset != uint64(dataWritten) {
-				return fmt.Errorf("resourcepack current offset %d != %d fragment offset", dataWritten, frag.DataOffset)
-			}
+		// Write the fragment to the full buffer of the downloading resource pack.
+		lastData := dataWritten+int(pack.chunkSize) >= int(pack.size)
+		if !lastData && uint32(len(frag.Data)) != pack.chunkSize {
+			// The chunk data didn't have the full size and wasn't the last data to be sent for the resource pack,
+			// meaning we got too little data.
+			return fmt.Errorf("resource pack chunk data had a length of %v, but expected %v", len(frag.Data), pack.chunkSize)
+		}
 
-			_, err := f.Write(frag.Data)
+		if frag.DataOffset != uint64(dataWritten) {
+			return fmt.Errorf("resourcepack current offset %d != %d fragment offset", dataWritten, frag.DataOffset)
+		}
+
+		_, err := f.Write(frag.Data)
+		if err != nil {
+			return err
+		}
+		dataWritten += len(frag.Data)
+
+		if lastData {
+			break
+		}
+
+		if chunksDone < int(chunkCount) {
+			err = r.Server.WritePacket(&packet.ResourcePackChunkRequest{
+				UUID:       pk.UUID,
+				ChunkIndex: uint32(chunksDone),
+			})
 			if err != nil {
 				return err
 			}
-			dataWritten += len(frag.Data)
+			chunksDone++
 		}
 	}
+
+	/*
+		sf, ok := r.Server.(interface {
+			Stats() *raknet.RakNetStatistics
+		})
+		if ok {
+			stats := sf.Stats()
+			utils.DumpStruct(os.Stdout, stats.Total)
+		}
+	*/
 
 	if dataWritten != int(pack.size) {
 		return fmt.Errorf("incorrect resource pack size: expected %v, but got %v", pack.size, dataWritten)

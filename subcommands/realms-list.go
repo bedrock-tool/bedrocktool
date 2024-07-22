@@ -22,7 +22,7 @@ func (c *RealmListCMD) Execute(ctx context.Context) error {
 			return err
 		}
 	}
-	realms, err := utils.Auth.Realms.Realms(ctx)
+	realms, err := utils.Auth.Realms().Realms(ctx)
 	if err != nil {
 		return err
 	}

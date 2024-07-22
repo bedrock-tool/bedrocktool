@@ -15,7 +15,7 @@ type OSWriter struct {
 	Base string
 }
 
-func (o *OSWriter) Create(filename string) (w io.WriteCloser, err error) {
+func (o OSWriter) Create(filename string) (w io.WriteCloser, err error) {
 	fullpath := o.Base + "/" + filename
 	err = os.MkdirAll(path.Dir(fullpath), 0777)
 	if err != nil {
@@ -32,13 +32,16 @@ type ZipWriter struct {
 	Writer *zip.Writer
 }
 
-func (z *ZipWriter) Create(filename string) (w io.WriteCloser, err error) {
-	z.Writer.RegisterCompressor(zip.Deflate, func(out io.Writer) (io.WriteCloser, error) {
+func (z ZipWriter) Create(filename string) (w io.WriteCloser, err error) {
+	zw, err := z.Writer.Create(filename)
+	return nullCloser{zw}, err
+}
+
+func ZipCompressPool(zw *zip.Writer) {
+	zw.RegisterCompressor(zip.Deflate, func(out io.Writer) (io.WriteCloser, error) {
 		w := deflate.GetWriter(out)
 		return closePutback{w}, nil
 	})
-	zw, err := z.Writer.Create(filename)
-	return nullCloser{zw}, err
 }
 
 type nullCloser struct {
@@ -53,7 +56,7 @@ type MultiWriterFS struct {
 	FSs []WriterFS
 }
 
-func (m *MultiWriterFS) Create(filename string) (w io.WriteCloser, err error) {
+func (m MultiWriterFS) Create(filename string) (w io.WriteCloser, err error) {
 	var files []io.Writer
 	var closers []func() error
 	for _, fs := range m.FSs {

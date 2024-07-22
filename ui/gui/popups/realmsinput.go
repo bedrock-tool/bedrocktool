@@ -51,7 +51,7 @@ func (r *RealmsList) Load() error {
 	if !utils.Auth.LoggedIn() {
 		return errors.New("not Logged In")
 	}
-	realms, err := utils.Auth.Realms.Realms(context.Background())
+	realms, err := utils.Auth.Realms().Realms(context.Background())
 	if err != nil {
 		return err
 	}
