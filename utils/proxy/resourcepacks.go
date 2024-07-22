@@ -222,7 +222,7 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 					case <-r.ctx.Done():
 						return
 					}
-					if slices.Contains(r.packsRequestedFromServer, newPack.UUID()) {
+					if slices.Contains(r.packsRequestedFromServer, newPack.UUID()+"_"+newPack.Version()) {
 						r.nextPackToClient <- newPack
 					}
 				}
