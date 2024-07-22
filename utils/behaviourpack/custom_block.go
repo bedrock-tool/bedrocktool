@@ -92,124 +92,150 @@ func parseBlock(block protocol.BlockEntry) MinecraftBlock {
 		}
 	}
 
-	if perms, ok := block.Properties["permutations"].([]any); ok {
-		for _, v := range perms {
+	processMaterialInstances := func(material_instances map[string]any) map[string]any {
+		if mappings, ok := material_instances["mappings"].(map[string]any); ok {
+			if len(mappings) == 0 {
+				delete(material_instances, "mappings")
+			}
+		}
+		if materials, ok := material_instances["materials"].(map[string]any); ok {
+			for _, material := range materials {
+				material := material.(map[string]any)
+				ambient_occlusion, ok := material["ambient_occlusion"].(uint8)
+				if ok {
+					material["ambient_occlusion"] = ambient_occlusion == 1
+				}
+				face_dimming, ok := material["face_dimming"].(uint8)
+				if ok {
+					material["face_dimming"] = face_dimming == 1
+				}
+			}
+
+			if _, ok := materials["*"]; !ok {
+				up, ok := materials["up"]
+				if ok {
+					materials["*"] = up
+				} else {
+					for _, side := range materials {
+						materials["*"] = side
+						break
+					}
+				}
+			}
+
+			return materials
+		}
+		return material_instances
+	}
+
+	processComponents := func(components map[string]any) {
+		delete(components, "minecraft:creative_category")
+
+		for k, v := range components {
+			if v, ok := v.(map[string]any); ok {
+				// fix missing * instance
+				if k == "minecraft:material_instances" {
+					components[k] = processMaterialInstances(v)
+					if m, ok := v["materials"].(map[string]any); ok {
+						components[k] = m
+					}
+					continue
+				}
+
+				if k == "minecraft:transformation" {
+					// rotation
+					rx, _ := v["RX"].(int32)
+					ry, _ := v["RY"].(int32)
+					rz, _ := v["RZ"].(int32)
+
+					// scale
+					sx, _ := v["SX"].(float32)
+					sy, _ := v["SY"].(float32)
+					sz, _ := v["SZ"].(float32)
+
+					// translation
+					tx, _ := v["TX"].(float32)
+					ty, _ := v["TY"].(float32)
+					tz, _ := v["TZ"].(float32)
+
+					components[k] = map[string][]float32{
+						"translation": {tx, ty, tz},
+						"scale":       {sx, sy, sz},
+						"rotation":    {float32(rx) * 90, float32(ry) * 90, float32(rz) * 90},
+					}
+					continue
+				}
+
+				if k == "minecraft:geometry" {
+					if identifier, ok := v["identifier"].(string); ok {
+						components[k] = identifier
+					}
+					continue
+				}
+
+				// fix {"value": 0.1} -> 0.1
+				if v, ok := v["value"]; ok {
+					components[k] = v
+					continue
+				}
+
+				// fix {"lightLevel": 15} -> 15
+				if v, ok := v["lightLevel"]; ok {
+					components[k] = v
+					continue
+				}
+
+				// fix {"identifier": "name"} -> "name"
+				if v, ok := v["identifier"]; ok {
+					components[k] = v
+					continue
+				}
+
+				// fix {"emission": "name"} -> "name"
+				if v, ok := v["emission"]; ok {
+					components[k] = v
+					continue
+				}
+
+				if v, ok := v["triggerType"]; ok {
+					components[k] = map[string]any{
+						"event": v.(string),
+					}
+					continue
+				}
+			}
+
+			if k == "minecraft:custom_components" {
+				delete(components, k)
+				continue
+			}
+
+			if k == "minecraft:friction" {
+				if friction, ok := v.(float32); ok {
+					if friction == 0.4 {
+						delete(components, "minecraft:friction")
+					}
+				}
+				continue
+			}
+		}
+	}
+
+	if permutations, ok := block.Properties["permutations"].([]any); ok {
+		for _, v := range permutations {
 			perm := permutation_from_map(v.(map[string]any))
-			if v, ok := perm.Components["minecraft:transformation"].(map[string]any); ok {
-				// rotation
-				rx, _ := v["RX"].(int32)
-				ry, _ := v["RY"].(int32)
-				rz, _ := v["RZ"].(int32)
-
-				// scale
-				sx, _ := v["SX"].(float32)
-				sy, _ := v["SY"].(float32)
-				sz, _ := v["SZ"].(float32)
-
-				// translation
-				tx, _ := v["TX"].(float32)
-				ty, _ := v["TY"].(float32)
-				tz, _ := v["TZ"].(float32)
-
-				perm.Components["minecraft:transformation"] = map[string][]float32{
-					"translation": {tx, ty, tz},
-					"scale":       {sx, sy, sz},
-					"rotation":    {float32(rx) * 90, float32(ry) * 90, float32(rz) * 90},
-				}
-			}
-			if v, ok := perm.Components["minecraft:geometry"].(map[string]any); ok {
-				if identifier, ok := v["identifier"].(string); ok {
-					perm.Components["minecraft:geometry"] = identifier
-				}
-			}
+			processComponents(perm.Components)
 			entry.Permutations = append(entry.Permutations, perm)
 		}
 	}
 
-	if comps, ok := block.Properties["components"].(map[string]any); ok {
-		delete(comps, "minecraft:creative_category")
-
-		for k, v := range comps {
-			if v, ok := v.(map[string]any); ok {
-				// fix {"value": 0.1} -> 0.1
-				if v, ok := v["value"]; ok {
-					comps[k] = v
-				}
-				// fix {"lightLevel": 15} -> 15
-				if v, ok := v["lightLevel"]; ok {
-					comps[k] = v
-				}
-
-				// fix missing * instance
-				if k == "minecraft:material_instances" {
-					if m, ok := v["materials"].(map[string]any); ok {
-						if mm, ok := m["mappings"].(map[string]any); ok {
-							if len(mm) == 0 {
-								delete(m, "mappings")
-							}
-						}
-						comps[k] = m
-					}
-					materials := comps[k].(map[string]any)
-					for _, material := range materials {
-						material, ok := material.(map[string]any)
-						if !ok {
-							continue
-						}
-						for prop, value := range material {
-							switch prop {
-							case "ambient_occlusion", "face_dimming":
-								if value, ok := value.(uint8); ok {
-									material[prop] = value > 0
-								}
-							}
-						}
-					}
-					if _, ok := materials["*"]; !ok {
-						up, ok := materials["up"]
-						if ok {
-							materials["*"] = up
-						} else {
-							for _, side := range materials {
-								materials["*"] = side
-								break
-							}
-						}
-
-					}
-				}
-				// fix {"identifier": "name"} -> "name"
-				if v, ok := v["identifier"]; ok {
-					comps[k] = v
-				}
-				// fix {"emission": "name"} -> "name"
-				if v, ok := v["emission"]; ok {
-					comps[k] = v
-				}
-
-				if v, ok := v["triggerType"]; ok {
-					comps[k] = map[string]any{
-						"event": v.(string),
-					}
-				}
-
-				if k == "minecraft:custom_components" {
-					delete(comps, k)
-				}
-			}
-		}
-
-		if friction, ok := comps["minecraft:friction"].(float32); ok {
-			if friction == 0.4 {
-				delete(comps, "minecraft:friction")
-			}
-		}
-
-		entry.Components = comps
+	if components, ok := block.Properties["components"].(map[string]any); ok {
+		processComponents(components)
+		entry.Components = components
 	}
 
-	if menu, ok := block.Properties["menu_category"].(map[string]any); ok {
-		entry.Description.MenuCategory = menu_category_from_map(menu)
+	if menu_category, ok := block.Properties["menu_category"].(map[string]any); ok {
+		entry.Description.MenuCategory = menu_category_from_map(menu_category)
 	}
 
 	if props, ok := block.Properties["properties"].([]any); ok {
