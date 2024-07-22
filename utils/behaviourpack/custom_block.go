@@ -192,6 +192,10 @@ func parseBlock(block protocol.BlockEntry) MinecraftBlock {
 						"event": v.(string),
 					}
 				}
+
+				if k == "minecraft:custom_components" {
+					delete(comps, k)
+				}
 			}
 		}
 
