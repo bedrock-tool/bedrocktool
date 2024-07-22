@@ -1,19 +1,18 @@
 package behaviourpack
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
+	"strings"
 
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 )
 
 type description struct {
-	Identifier             string         `json:"identifier"`
-	IsExperimental         bool           `json:"is_experimental"`
-	RegisterToCreativeMenu bool           `json:"register_to_creative_menu"`
-	Properties             map[string]any `json:"properties,omitempty"`
-	MenuCategory           menuCategory   `json:"menu_category,omitempty"`
+	Identifier             string           `json:"identifier"`
+	IsExperimental         bool             `json:"is_experimental"`
+	RegisterToCreativeMenu bool             `json:"register_to_creative_menu"`
+	Properties             map[string]any   `json:"properties,omitempty"`
+	MenuCategory           menuCategory     `json:"menu_category,omitempty"`
+	Traits                 map[string]Trait `json:"traits,omitempty"`
 }
 
 type menuCategory struct {
@@ -43,10 +42,9 @@ func permutation_from_map(in map[string]any) permutation {
 type Trait map[string]any
 
 type MinecraftBlock struct {
-	Description  description      `json:"description"`
-	Components   map[string]any   `json:"components,omitempty"`
-	Permutations []permutation    `json:"permutations,omitempty"`
-	Traits       map[string]Trait `json:"traits,omitempty"`
+	Description  description    `json:"description"`
+	Components   map[string]any `json:"components,omitempty"`
+	Permutations []permutation  `json:"permutations,omitempty"`
 }
 
 func parseBlock(block protocol.BlockEntry) MinecraftBlock {
@@ -58,22 +56,17 @@ func parseBlock(block protocol.BlockEntry) MinecraftBlock {
 		},
 	}
 
-	if block.Name == "noxcrew.ft:plush_pink" {
-		b := bytes.NewBuffer(nil)
-		e := json.NewEncoder(b)
-		e.SetIndent("", "  ")
-		e.Encode(block)
-		fmt.Printf(b.String())
-		println()
-	}
-
 	if traits, ok := block.Properties["traits"].([]any); ok {
-		entry.Traits = make(map[string]Trait)
+		entry.Description.Traits = make(map[string]Trait)
 
 		for _, traitIn := range traits {
 			traitIn := traitIn.(map[string]any)
 			traitOut := Trait{}
 			name := traitIn["name"].(string)
+			if !strings.ContainsRune(name, ':') {
+				name = "minecraft:" + name
+			}
+
 			for k, v := range traitIn {
 				if k == "name" {
 					continue
@@ -83,6 +76,9 @@ func parseBlock(block protocol.BlockEntry) MinecraftBlock {
 					v := v.(map[string]any)
 					for name2, v2 := range v {
 						v2 := v2.(uint8)
+						if !strings.ContainsRune(name2, ':') {
+							name2 = "minecraft:" + name2
+						}
 						if v2 == 1 {
 							enabled_states = append(enabled_states, name2)
 						}
@@ -92,7 +88,7 @@ func parseBlock(block protocol.BlockEntry) MinecraftBlock {
 				}
 				traitOut[k] = v
 			}
-			entry.Traits[name] = traitOut
+			entry.Description.Traits[name] = traitOut
 		}
 	}
 
