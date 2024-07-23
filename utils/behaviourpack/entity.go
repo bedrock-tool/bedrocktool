@@ -50,6 +50,13 @@ type EntityPropertyJson struct {
 	ClientSync bool   `json:"client_sync"`
 }
 
+const (
+	PropertyTypeInt = iota
+	PropertyTypeFloat
+	PropertyTypeBool
+	PropertyTypeEnum
+)
+
 func (bp *Pack) AddEntity(entity EntityIn) {
 	ns, _ := ns_name_split(entity.Identifier)
 	if ns == "minecraft" {
@@ -130,18 +137,18 @@ func (bp *Pack) AddEntity(entity EntityIn) {
 			var prop EntityPropertyJson
 			prop.ClientSync = true
 			switch v.Type {
-			case propertyTypeInt:
+			case PropertyTypeInt:
 				prop.Type = "int"
 				prop.Range = []any{int(v.Min), int(v.Max)}
 				prop.Default = int(v.Min)
-			case propertyTypeFloat:
+			case PropertyTypeFloat:
 				prop.Type = "float"
 				prop.Range = []any{v.Min, v.Max}
 				prop.Default = v.Min
-			case propertyTypeBool:
+			case PropertyTypeBool:
 				prop.Type = "bool"
 				prop.Default = false
-			case propertyTypeEnum:
+			case PropertyTypeEnum:
 				prop.Type = "enum"
 				prop.Values = v.Enum
 				prop.Default = v.Enum[0]
@@ -153,13 +160,6 @@ func (bp *Pack) AddEntity(entity EntityIn) {
 
 	bp.entities[entity.Identifier] = entry
 }
-
-const (
-	propertyTypeInt = iota
-	propertyTypeFloat
-	propertyTypeBool
-	propertyTypeEnum
-)
 
 func (bp *Pack) GetEntityTypeProperties(entityType string) []EntityProperty {
 	return bp.entityProperties[entityType]
@@ -192,7 +192,7 @@ func (bp *Pack) SyncActorProperty(pk *packet.SyncActorProperty) {
 		prop.Type = propertyType
 
 		switch propertyType {
-		case propertyTypeInt:
+		case PropertyTypeInt:
 			min, ok := property["min"].(int32)
 			if !ok {
 				continue
@@ -203,7 +203,7 @@ func (bp *Pack) SyncActorProperty(pk *packet.SyncActorProperty) {
 			}
 			prop.Min = float32(min)
 			prop.Max = float32(max)
-		case propertyTypeFloat:
+		case PropertyTypeFloat:
 			min, ok := property["min"].(int32)
 			if !ok {
 				continue
@@ -214,8 +214,8 @@ func (bp *Pack) SyncActorProperty(pk *packet.SyncActorProperty) {
 			}
 			prop.Min = float32(min)
 			prop.Max = float32(max)
-		case propertyTypeBool:
-		case propertyTypeEnum:
+		case PropertyTypeBool:
+		case PropertyTypeEnum:
 			prop.Enum, _ = property["enum"].([]any)
 		default:
 			fmt.Printf("Unknown property type %d", propertyType)

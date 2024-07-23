@@ -41,6 +41,12 @@ type worldStateInterface interface {
 	GetEntity(id EntityRuntimeID) *EntityState
 	AddEntityLink(el protocol.EntityLink)
 }
+
+type resourcePackDependency struct {
+	UUID    string `json:"pack_id"`
+	Version [3]int `json:"version"`
+}
+
 type World struct {
 	// called when a chunk is added
 	ChunkFunc func(world.ChunkPos, *chunk.Chunk)
@@ -66,7 +72,7 @@ type World struct {
 
 	ResourcePacks            []resource.Pack
 	resourcePacksDone        chan error
-	resourcePackDependencies []resource.Dependency
+	resourcePackDependencies []resourcePackDependency
 
 	// closed when this world is done
 	finish chan struct{}
@@ -188,7 +194,7 @@ func (w *World) storeMemToProvider() error {
 	return nil
 }
 
-func addPacksJSON(fs utils.WriterFS, name string, deps []resource.Dependency) error {
+func addPacksJSON(fs utils.WriterFS, name string, deps []resourcePackDependency) error {
 	f, err := fs.Create(name)
 	if err != nil {
 		return err
@@ -200,10 +206,20 @@ func addPacksJSON(fs utils.WriterFS, name string, deps []resource.Dependency) er
 	return nil
 }
 
+var removeSpace = strings.NewReplacer(" ", "")
+
+func formatPackName(packName string) string {
+	packName = text.Clean(packName)
+	packName, _ = filenamify.FilenamifyV2(packName)
+	packName = removeSpace.Replace(packName)
+	packName = packName[:10]
+	return packName
+}
+
 func (w *World) addResourcePacks() error {
 	packNames := make(map[string][]string)
 	for _, pack := range w.ResourcePacks {
-		packName := pack.Name()
+		packName := formatPackName(pack.Name())
 		packNames[packName] = append(packNames[packName], pack.UUID())
 	}
 
@@ -213,30 +229,29 @@ func (w *World) addResourcePacks() error {
 			log.Warn("Cant add is encrypted")
 			continue
 		}
-		logrus.Infof(locale.Loc("adding_pack", locale.Strmap{"Name": pack.Name()}))
+		logrus.Infof(locale.Loc("adding_pack", locale.Strmap{"Name": text.Clean(pack.Name())}))
 
 		messages.Router.Handle(&messages.Message{
 			Source: "subcommand",
 			Target: "ui",
 			Data: messages.ProcessingWorldUpdate{
 				Name:  w.Name,
-				State: "Adding Resourcepack " + pack.Name(),
+				State: "Adding Resourcepack " + text.Clean(pack.Name()),
 			},
 		})
 
-		packName := pack.Name()
+		packName := formatPackName(pack.Name())
 		if packIds := packNames[packName]; len(packIds) > 1 {
-			packName = fmt.Sprintf("%s_%d", packName, slices.Index(packIds, pack.UUID()))
+			packName = fmt.Sprintf("%s_%d", packName[:8], slices.Index(packIds, pack.UUID()))
 		}
-		packName = text.Clean(packName)
-		packName, _ = filenamify.FilenamifyV2(packName)
+
 		err := utils.CopyFS(pack, utils.SubFS(utils.OSWriter{Base: w.Folder}, path.Join("resource_packs", packName)))
 		if err != nil {
 			log.Error(err)
 			continue
 		}
 
-		w.resourcePackDependencies = append(w.resourcePackDependencies, resource.Dependency{
+		w.resourcePackDependencies = append(w.resourcePackDependencies, resourcePackDependency{
 			UUID:    pack.Manifest().Header.UUID,
 			Version: pack.Manifest().Header.Version,
 		})
@@ -287,7 +302,7 @@ func (w *World) FinalizePacks(serverName string) error {
 			return err
 		}
 
-		err = addPacksJSON(fs, "world_behavior_packs.json", []resource.Dependency{{
+		err = addPacksJSON(fs, "world_behavior_packs.json", []resourcePackDependency{{
 			UUID:    w.BehaviorPack.Manifest.Header.UUID,
 			Version: w.BehaviorPack.Manifest.Header.Version,
 		}})

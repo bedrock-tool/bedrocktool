@@ -43,6 +43,18 @@ func (bp *Pack) ApplyComponentEntries(entries []protocol.ItemComponentEntry) {
 			continue
 		}
 		if components, ok := ice.Data["components"].(map[string]any); ok {
+			if _, ok := components["minecraft:icon"]; !ok {
+				if item_properties, ok := components["item_properties"].(map[string]any); ok {
+					components["minecraft:icon"] = item_properties["minecraft:icon"]
+				}
+			}
+
+			if icon, ok := components["minecraft:icon"].(map[string]any); ok {
+				if textures, ok := icon["textures"].(map[string]any); ok {
+					icon["textures"] = textures["default"]
+				}
+			}
+
 			item.MinecraftItem.Components = components
 		}
 	}

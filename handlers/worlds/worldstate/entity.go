@@ -307,6 +307,23 @@ func (s *EntityState) ToServerEntity(links []int64, properties []behaviourpack.E
 	}
 	s.toNBT(e.EntityType.NBT)
 
+	if len(s.Properties.FloatProperties)+len(s.Properties.IntegerProperties) > 0 {
+		nbtProperties := map[string]any{}
+		for _, prop := range s.Properties.FloatProperties {
+			propDef := properties[prop.Index]
+			nbtProperties[propDef.Name] = prop.Value
+		}
+		for _, prop := range s.Properties.IntegerProperties {
+			propDef := properties[prop.Index]
+			if propDef.Type == behaviourpack.PropertyTypeBool {
+				nbtProperties[propDef.Name] = prop.Value == 1
+			} else {
+				nbtProperties[propDef.Name] = prop.Value
+			}
+		}
+		e.EntityType.NBT["properties"] = nbtProperties
+	}
+
 	var linksTag []map[string]any
 	for i, el := range links {
 		linksTag = append(linksTag, map[string]any{
