@@ -106,7 +106,7 @@ func UserInput(ctx context.Context, q string, validator func(string) bool) (stri
 var (
 	realmRegex     = regexp.MustCompile("realm:(?P<Name>.*)(?::(?P<ID>.*))+")
 	pcapRegex      = regexp.MustCompile(`(?P<Filename>(?P<Name>.*)\.pcap2)(?:\?(?P<Args>.*))?`)
-	gatheringRegex = regexp.MustCompile("gathering:(?::(?P<Title>.*))+")
+	gatheringRegex = regexp.MustCompile("gathering:(?P<Title>.*)+")
 )
 
 func regexGetParams(r *regexp.Regexp, s string) (params map[string]string) {
@@ -123,6 +123,7 @@ func regexGetParams(r *regexp.Regexp, s string) (params map[string]string) {
 func ParseServer(ctx context.Context, server string) (*ConnectInfo, error) {
 	// gathering
 	if gatheringRegex.MatchString(server) {
+		println("gatheitnrg")
 		p := regexGetParams(gatheringRegex, server)
 
 		gatheringsClient, err := Auth.Gatherings(ctx)

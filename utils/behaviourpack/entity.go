@@ -43,7 +43,11 @@ type EntityProperty struct {
 }
 
 type EntityPropertyJson struct {
-	Values any `json:"values"`
+	Type       string `json:"type"`
+	Values     any    `json:"values,omitempty"`
+	Range      []any  `json:"range,omitempty"`
+	Default    any    `json:"default,omitempty"`
+	ClientSync bool   `json:"client_sync"`
 }
 
 func (bp *Pack) AddEntity(entity EntityIn) {
@@ -124,21 +128,23 @@ func (bp *Pack) AddEntity(entity EntityIn) {
 		properties := make(map[string]EntityPropertyJson)
 		for _, v := range props {
 			var prop EntityPropertyJson
+			prop.ClientSync = true
 			switch v.Type {
 			case propertyTypeInt:
-				prop.Values = map[string]any{
-					"min": int(v.Min),
-					"max": int(v.Max),
-				}
+				prop.Type = "int"
+				prop.Range = []any{int(v.Min), int(v.Max)}
+				prop.Default = int(v.Min)
 			case propertyTypeFloat:
-				prop.Values = map[string]any{
-					"min": v.Min,
-					"max": v.Max,
-				}
+				prop.Type = "float"
+				prop.Range = []any{v.Min, v.Max}
+				prop.Default = v.Min
 			case propertyTypeBool:
-				prop.Values = []any{true, false}
+				prop.Type = "bool"
+				prop.Default = false
 			case propertyTypeEnum:
+				prop.Type = "enum"
 				prop.Values = v.Enum
+				prop.Default = v.Enum[0]
 			}
 			properties[v.Name] = prop
 		}

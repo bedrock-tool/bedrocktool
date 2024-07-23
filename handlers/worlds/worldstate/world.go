@@ -756,7 +756,20 @@ func (w *World) Finish(playerData map[string]any, excludedMobs []string, withPla
 			ld.RespawnBlocksExplode = gr.Value.(bool)
 		case "showbordereffect":
 			ld.ShowBorderEffect = gr.Value.(bool)
-		// todo
+		case "recipesunlock":
+			ld.RecipesUnlock = gr.Value.(bool)
+		case "dolimitedcrafting":
+			ld.DoLimitedCrafting = gr.Value.(bool)
+		case "showdaysplayed":
+			ld.ShowDaysPlayed = gr.Value.(bool)
+		case "showrecipemessages":
+			ld.ShowRecipeMessages = gr.Value.(bool)
+		case "playerssleepingpercentage":
+			ld.PlayersSleepingPercentage = int32(gr.Value.(uint32))
+		case "projectilescanbreakblocks":
+			ld.ProjectilesCanBreakBlocks = gr.Value.(bool)
+		case "tntexplosiondropdecay":
+			ld.TNTExplosionDropDecay = gr.Value.(bool)
 		default:
 			w.log.Warnf(locale.Loc("unknown_gamerule", locale.Strmap{"Name": gr.Name}))
 		}
