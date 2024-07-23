@@ -9,10 +9,10 @@ import (
 )
 
 func DumpStruct(f io.StringWriter, inputStruct any) {
-	dumpValue(f, 0, reflect.ValueOf(inputStruct), true)
+	dumpValue(f, 0, reflect.ValueOf(inputStruct), true, false)
 }
 
-func dumpValue(f io.StringWriter, level int, value reflect.Value, withType bool) {
+func dumpValue(f io.StringWriter, level int, value reflect.Value, withType, isEntityMetadata bool) {
 	tabs := strings.Repeat("\t", level)
 
 	typeName := value.Type().String()
@@ -38,7 +38,7 @@ func dumpValue(f io.StringWriter, level int, value reflect.Value, withType bool)
 			f.WriteString(typeName + " Not Set")
 		} else {
 			f.WriteString(typeName + "{\n" + tabs + "\t")
-			dumpValue(f, level+1, val, false)
+			dumpValue(f, level+1, val, false, false)
 			f.WriteString("\n" + tabs + "}")
 		}
 		return
@@ -56,7 +56,7 @@ func dumpValue(f io.StringWriter, level int, value reflect.Value, withType bool)
 			fieldType := valueType.Field(i)
 			if fieldType.IsExported() {
 				f.WriteString(tabs + "\t" + fieldType.Name + ": ")
-				dumpValue(f, level+1, value.Field(i), true)
+				dumpValue(f, level+1, value.Field(i), true, fieldType.Name == "EntityMetadata")
 				f.WriteString(",\n")
 			} else {
 				f.WriteString(tabs + "\t" + fieldType.Name + " (unexported)\n")
@@ -81,13 +81,23 @@ func dumpValue(f io.StringWriter, level int, value reflect.Value, withType bool)
 		iter := value.MapRange()
 		for iter.Next() {
 			f.WriteString(tabs + "\t")
-			dumpValue(f, level+1, iter.Key(), false)
+			var kevV bool
+			if isEntityMetadata {
+				idx := int(iter.Key().Uint())
+				if idx < len(entityDataKeys) {
+					f.WriteString(entityDataKeys[idx][len("EntityDataKey"):])
+					kevV = true
+				}
+			}
+			if !kevV {
+				dumpValue(f, level+1, iter.Key(), false, false)
+			}
 			f.WriteString(": ")
 			elem := iter.Value()
 			if isAny {
 				elem = elem.Elem()
 			}
-			dumpValue(f, level+1, elem, isAny)
+			dumpValue(f, level+1, elem, isAny, false)
 			f.WriteString(",\n")
 		}
 		f.WriteString(tabs + "}")
@@ -128,7 +138,7 @@ func dumpValue(f io.StringWriter, level int, value reflect.Value, withType bool)
 			if isAny {
 				elem = elem.Elem()
 			}
-			dumpValue(f, level+1, elem, isAny)
+			dumpValue(f, level+1, elem, isAny, false)
 			if isStructish {
 				f.WriteString(",\n")
 			} else if i == value.Len()-1 {
@@ -173,4 +183,138 @@ func dumpValue(f io.StringWriter, level int, value reflect.Value, withType bool)
 			f.WriteString(")")
 		}
 	}
+}
+
+var entityDataKeys = []string{
+	"EntityDataKeyFlags",
+	"EntityDataKeyStructuralIntegrity",
+	"EntityDataKeyVariant",
+	"EntityDataKeyColorIndex",
+	"EntityDataKeyName",
+	"EntityDataKeyOwner",
+	"EntityDataKeyTarget",
+	"EntityDataKeyAirSupply",
+	"EntityDataKeyEffectColor",
+	"EntityDataKeyEffectAmbience",
+	"EntityDataKeyJumpDuration",
+	"EntityDataKeyHurt",
+	"EntityDataKeyHurtDirection",
+	"EntityDataKeyRowTimeLeft",
+	"EntityDataKeyRowTimeRight",
+	"EntityDataKeyValue",
+	"EntityDataKeyDisplayTileRuntimeID",
+	"EntityDataKeyDisplayOffset",
+	"EntityDataKeyCustomDisplay",
+	"EntityDataKeySwell",
+	"EntityDataKeyOldSwell",
+	"EntityDataKeySwellDirection",
+	"EntityDataKeyChargeAmount",
+	"EntityDataKeyCarryBlockRuntimeID",
+	"EntityDataKeyClientEvent",
+	"EntityDataKeyUsingItem",
+	"EntityDataKeyPlayerFlags",
+	"EntityDataKeyPlayerIndex",
+	"EntityDataKeyBedPosition",
+	"EntityDataKeyPowerX",
+	"EntityDataKeyPowerY",
+	"EntityDataKeyPowerZ",
+	"EntityDataKeyAuxPower",
+	"EntityDataKeyFishX",
+	"EntityDataKeyFishZ",
+	"EntityDataKeyFishAngle",
+	"EntityDataKeyAuxValueData",
+	"EntityDataKeyLeashHolder",
+	"EntityDataKeyScale",
+	"EntityDataKeyHasNPC",
+	"EntityDataKeyNPCData",
+	"EntityDataKeyActions",
+	"EntityDataKeyAirSupplyMax",
+	"EntityDataKeyMarkVariant",
+	"EntityDataKeyContainerType",
+	"EntityDataKeyContainerSize",
+	"EntityDataKeyContainerStrengthModifier",
+	"EntityDataKeyBlockTarget",
+	"EntityDataKeyInventory",
+	"EntityDataKeyTargetA",
+	"EntityDataKeyTargetB",
+	"EntityDataKeyTargetC",
+	"EntityDataKeyAerialAttack",
+	"EntityDataKeyWidth",
+	"EntityDataKeyHeight",
+	"EntityDataKeyFuseTime",
+	"EntityDataKeySeatOffset",
+	"EntityDataKeySeatLockPassengerRotation",
+	"EntityDataKeySeatLockPassengerRotationDegrees",
+	"EntityDataKeySeatRotationOffset",
+	"EntityDataKeySeatRotationOffstDegrees",
+	"EntityDataKeyDataRadius",
+	"EntityDataKeyDataWaiting",
+	"EntityDataKeyDataParticle",
+	"EntityDataKeyPeekID",
+	"EntityDataKeyAttachFace",
+	"EntityDataKeyAttached",
+	"EntityDataKeyAttachedPosition",
+	"EntityDataKeyTradeTarget",
+	"EntityDataKeyCareer",
+	"EntityDataKeyHasCommandBlock",
+	"EntityDataKeyCommandName",
+	"EntityDataKeyLastCommandOutput",
+	"EntityDataKeyTrackCommandOutput",
+	"EntityDataKeyControllingSeatIndex",
+	"EntityDataKeyStrength",
+	"EntityDataKeyStrengthMax",
+	"EntityDataKeyDataSpellCastingColor",
+	"EntityDataKeyDataLifetimeTicks",
+	"EntityDataKeyPoseIndex",
+	"EntityDataKeyDataTickOffset",
+	"EntityDataKeyAlwaysShowNameTag",
+	"EntityDataKeyColorTwoIndex",
+	"EntityDataKeyNameAuthor",
+	"EntityDataKeyScore",
+	"EntityDataKeyBalloonAnchor",
+	"EntityDataKeyPuffedState",
+	"EntityDataKeyBubbleTime",
+	"EntityDataKeyAgent",
+	"EntityDataKeySittingAmount",
+	"EntityDataKeySittingAmountPrevious",
+	"EntityDataKeyEatingCounter",
+	"EntityDataKeyFlagsTwo",
+	"EntityDataKeyLayingAmount",
+	"EntityDataKeyLayingAmountPrevious",
+	"EntityDataKeyDataDuration",
+	"EntityDataKeyDataSpawnTime",
+	"EntityDataKeyDataChangeRate",
+	"EntityDataKeyDataChangeOnPickup",
+	"EntityDataKeyDataPickupCount",
+	"EntityDataKeyInteractText",
+	"EntityDataKeyTradeTier",
+	"EntityDataKeyMaxTradeTier",
+	"EntityDataKeyTradeExperience",
+	"EntityDataKeySkinID",
+	"EntityDataKeySpawningFrames",
+	"EntityDataKeyCommandBlockTickDelay",
+	"EntityDataKeyCommandBlockExecuteOnFirstTick",
+	"EntityDataKeyAmbientSoundInterval",
+	"EntityDataKeyAmbientSoundIntervalRange",
+	"EntityDataKeyAmbientSoundEventName",
+	"EntityDataKeyFallDamageMultiplier",
+	"EntityDataKeyNameRawText",
+	"EntityDataKeyCanRideTarget",
+	"EntityDataKeyLowTierCuredTradeDiscount",
+	"EntityDataKeyHighTierCuredTradeDiscount",
+	"EntityDataKeyNearbyCuredTradeDiscount",
+	"EntityDataKeyNearbyCuredDiscountTimeStamp",
+	"EntityDataKeyHitBox",
+	"EntityDataKeyIsBuoyant",
+	"EntityDataKeyFreezingEffectStrength",
+	"EntityDataKeyBuoyancyData",
+	"EntityDataKeyGoatHornCount",
+	"EntityDataKeyBaseRuntimeID",
+	"EntityDataKeyMovementSoundDistanceOffset",
+	"EntityDataKeyHeartbeatIntervalTicks",
+	"EntityDataKeyHeartbeatSoundEvent",
+	"EntityDataKeyPlayerLastDeathPosition",
+	"EntityDataKeyPlayerLastDeathDimension",
+	"EntityDataKeyPlayerHasDied",
+	"EntityDataKeyCollisionBox",
 }

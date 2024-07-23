@@ -278,7 +278,7 @@ func (c *chain) Expired() bool {
 	}
 	exp := mm["exp"].(float64)
 	t := time.Unix(int64(exp), 0)
-	return time.Until(t) < 30*time.Second
+	return time.Until(t) < 1*time.Hour
 }
 
 func (a *authsrv) readChain() (*chain, error) {

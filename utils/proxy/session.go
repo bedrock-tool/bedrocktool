@@ -384,7 +384,8 @@ func (s *Session) connectClient(ctx context.Context, connect *utils.ConnectInfo)
 	}
 
 	s.listener, err = minecraft.ListenConfig{
-		StatusProvider: minecraft.NewStatusProvider(fmt.Sprintf("%s Proxy", connect.Name()), "Bedrocktool"),
+		AuthenticationDisabled: true,
+		StatusProvider:         minecraft.NewStatusProvider(fmt.Sprintf("%s Proxy", connect.Name()), "Bedrocktool"),
 		PacketFunc: func(header packet.Header, payload []byte, src, dst net.Addr, timeReceived time.Time) {
 			if extraClientDebug != nil {
 				pk, ok := DecodePacket(header, payload, s.Client.ShieldID())
