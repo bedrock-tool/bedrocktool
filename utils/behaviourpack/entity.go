@@ -1,7 +1,10 @@
 package behaviourpack
 
 import (
+	"fmt"
+
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
+	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 )
 
 type EntityDescription struct {
@@ -9,24 +12,38 @@ type EntityDescription struct {
 	Spawnable    bool   `json:"is_spawnable"`
 	Summonable   bool   `json:"is_summonable"`
 	Experimental bool   `json:"is_experimental"`
+
+	Properties map[string]EntityPropertyJson `json:"properties,omitempty"`
 }
 
 type MinecraftEntity struct {
-	Description     EntityDescription `json:"description"`
-	ComponentGroups map[string]any    `json:"component_groups"`
-	Components      map[string]any    `json:"components"`
-	Events          map[string]any    `json:"events,omitempty"`
+	Description     *EntityDescription `json:"description"`
+	ComponentGroups map[string]any     `json:"component_groups,omitempty"`
+	Components      map[string]any     `json:"components,omitempty"`
+	Events          map[string]any     `json:"events,omitempty"`
 }
 
 type entityBehaviour struct {
-	FormatVersion   string          `json:"format_version"`
-	MinecraftEntity MinecraftEntity `json:"minecraft:entity"`
+	FormatVersion   string           `json:"format_version"`
+	MinecraftEntity *MinecraftEntity `json:"minecraft:entity"`
 }
 
 type EntityIn struct {
 	Identifier string
 	Attr       []protocol.AttributeValue
 	Meta       protocol.EntityMetadata
+}
+
+type EntityProperty struct {
+	Type int32
+	Name string
+	Min  float32
+	Max  float32
+	Enum []any
+}
+
+type EntityPropertyJson struct {
+	Values any `json:"values"`
 }
 
 func (bp *Pack) AddEntity(entity EntityIn) {
@@ -39,8 +56,8 @@ func (bp *Pack) AddEntity(entity EntityIn) {
 	if !ok {
 		entry = &entityBehaviour{
 			FormatVersion: bp.formatVersion,
-			MinecraftEntity: MinecraftEntity{
-				Description: EntityDescription{
+			MinecraftEntity: &MinecraftEntity{
+				Description: &EntityDescription{
 					Identifier:   entity.Identifier,
 					Spawnable:    true,
 					Summonable:   true,
@@ -102,5 +119,105 @@ func (bp *Pack) AddEntity(entity EntityIn) {
 	entry.MinecraftEntity.Components["minecraft:is_stackable"] = map[string]any{}
 	entry.MinecraftEntity.Components["minecraft:push_through"] = 1
 
+	props, ok := bp.entityProperties[entity.Identifier]
+	if ok {
+		properties := make(map[string]EntityPropertyJson)
+		for _, v := range props {
+			var prop EntityPropertyJson
+			switch v.Type {
+			case propertyTypeInt:
+				prop.Values = map[string]any{
+					"min": int(v.Min),
+					"max": int(v.Max),
+				}
+			case propertyTypeFloat:
+				prop.Values = map[string]any{
+					"min": v.Min,
+					"max": v.Max,
+				}
+			case propertyTypeBool:
+				prop.Values = []any{true, false}
+			case propertyTypeEnum:
+				prop.Values = v.Enum
+			}
+			properties[v.Name] = prop
+		}
+		entry.MinecraftEntity.Description.Properties = properties
+	}
+
 	bp.entities[entity.Identifier] = entry
+}
+
+const (
+	propertyTypeInt = iota
+	propertyTypeFloat
+	propertyTypeBool
+	propertyTypeEnum
+)
+
+func (bp *Pack) GetEntityTypeProperties(entityType string) []EntityProperty {
+	return bp.entityProperties[entityType]
+}
+
+func (bp *Pack) SyncActorProperty(pk *packet.SyncActorProperty) {
+	entityType, ok := pk.PropertyData["type"].(string)
+	if !ok {
+		return
+	}
+	properties, ok := pk.PropertyData["properties"].([]any)
+	if !ok {
+		return
+	}
+
+	var propertiesOut = make([]EntityProperty, 0, len(properties))
+	for _, property := range properties {
+		property := property.(map[string]any)
+		propertyName, ok := property["name"].(string)
+		if !ok {
+			continue
+		}
+		propertyType, ok := property["type"].(int32)
+		if !ok {
+			continue
+		}
+
+		var prop EntityProperty
+		prop.Name = propertyName
+		prop.Type = propertyType
+
+		switch propertyType {
+		case propertyTypeInt:
+			min, ok := property["min"].(int32)
+			if !ok {
+				continue
+			}
+			max, ok := property["max"].(int32)
+			if !ok {
+				continue
+			}
+			prop.Min = float32(min)
+			prop.Max = float32(max)
+		case propertyTypeFloat:
+			min, ok := property["min"].(int32)
+			if !ok {
+				continue
+			}
+			max, ok := property["max"].(int32)
+			if !ok {
+				continue
+			}
+			prop.Min = float32(min)
+			prop.Max = float32(max)
+		case propertyTypeBool:
+		case propertyTypeEnum:
+			prop.Enum, _ = property["enum"].([]any)
+		default:
+			fmt.Printf("Unknown property type %d", propertyType)
+			continue
+		}
+
+		propertiesOut = append(propertiesOut, prop)
+	}
+
+	bp.entityProperties[entityType] = propertiesOut
 }

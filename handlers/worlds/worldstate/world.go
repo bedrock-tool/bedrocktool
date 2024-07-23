@@ -1,11 +1,13 @@
 package worldstate
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -20,11 +22,14 @@ import (
 	"github.com/df-mc/dragonfly/server/world/mcdb"
 	"github.com/df-mc/goleveldb/leveldb"
 	"github.com/df-mc/goleveldb/leveldb/opt"
+	"github.com/flytam/filenamify"
 	"github.com/google/uuid"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/nbt"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
+	"github.com/sandertv/gophertunnel/minecraft/resource"
+	"github.com/sandertv/gophertunnel/minecraft/text"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/maps"
 )
@@ -42,6 +47,7 @@ type World struct {
 
 	BlockRegistry world.BlockRegistry
 	BiomeRegistry *world.BiomeRegistry
+	BehaviorPack  *behaviourpack.Pack
 
 	dimension            world.Dimension
 	dimRange             cube.Range
@@ -57,6 +63,10 @@ type World struct {
 	pausedState *worldStateDefer
 	// access to states
 	l sync.Mutex
+
+	ResourcePacks            []resource.Pack
+	resourcePacksDone        chan error
+	resourcePackDependencies []resource.Dependency
 
 	// closed when this world is done
 	finish chan struct{}
@@ -144,6 +154,15 @@ func (w *World) storeMemToProvider() error {
 		if w.err != nil {
 			return w.err
 		}
+
+		w.resourcePacksDone = make(chan error)
+		go func() {
+			defer close(w.resourcePacksDone)
+			err := w.addResourcePacks()
+			if err != nil {
+				w.resourcePacksDone <- err
+			}
+		}()
 	}
 	for pos, ch := range w.memState.chunks {
 		// dont put empty chunks in the world db, keep them in memory
@@ -166,6 +185,124 @@ func (w *World) storeMemToProvider() error {
 		}
 		delete(w.memState.chunks, pos)
 	}
+	return nil
+}
+
+func addPacksJSON(fs utils.WriterFS, name string, deps []resource.Dependency) error {
+	f, err := fs.Create(name)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	if err := json.NewEncoder(f).Encode(deps); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (w *World) addResourcePacks() error {
+	packNames := make(map[string][]string)
+	for _, pack := range w.ResourcePacks {
+		packName := pack.Name()
+		packNames[packName] = append(packNames[packName], pack.UUID())
+	}
+
+	for _, pack := range w.ResourcePacks {
+		log := w.log.WithField("pack", pack.Name())
+		if pack.Encrypted() && !pack.CanRead() {
+			log.Warn("Cant add is encrypted")
+			continue
+		}
+		logrus.Infof(locale.Loc("adding_pack", locale.Strmap{"Name": pack.Name()}))
+
+		messages.Router.Handle(&messages.Message{
+			Source: "subcommand",
+			Target: "ui",
+			Data: messages.ProcessingWorldUpdate{
+				Name:  w.Name,
+				State: "Adding Resourcepack " + pack.Name(),
+			},
+		})
+
+		packName := pack.Name()
+		if packIds := packNames[packName]; len(packIds) > 1 {
+			packName = fmt.Sprintf("%s_%d", packName, slices.Index(packIds, pack.UUID()))
+		}
+		packName = text.Clean(packName)
+		packName, _ = filenamify.FilenamifyV2(packName)
+		err := utils.CopyFS(pack, utils.SubFS(utils.OSWriter{Base: w.Folder}, path.Join("resource_packs", packName)))
+		if err != nil {
+			log.Error(err)
+			continue
+		}
+
+		w.resourcePackDependencies = append(w.resourcePackDependencies, resource.Dependency{
+			UUID:    pack.Manifest().Header.UUID,
+			Version: pack.Manifest().Header.Version,
+		})
+	}
+
+	messages.Router.Handle(&messages.Message{
+		Source: "subcommand",
+		Target: "ui",
+		Data: messages.ProcessingWorldUpdate{
+			Name:  w.Name,
+			State: "",
+		},
+	})
+
+	return nil
+}
+
+func (w *World) FinalizePacks(serverName string) error {
+	err := <-w.resourcePacksDone
+	if err != nil {
+		return err
+	}
+
+	messages.Router.Handle(&messages.Message{
+		Source: "subcommand",
+		Target: "ui",
+		Data: messages.ProcessingWorldUpdate{
+			Name:  w.Name,
+			State: "Adding Behaviorpack",
+		},
+	})
+
+	fs := utils.OSWriter{Base: w.Folder}
+
+	if w.BehaviorPack.HasContent() {
+		name, err := filenamify.FilenamifyV2(serverName)
+		if err != nil {
+			return err
+		}
+		packFolder := path.Join("behavior_packs", name)
+
+		for _, p := range w.ResourcePacks {
+			w.BehaviorPack.CheckAddLink(p)
+		}
+
+		err = w.BehaviorPack.Save(fs, packFolder)
+		if err != nil {
+			return err
+		}
+
+		err = addPacksJSON(fs, "world_behavior_packs.json", []resource.Dependency{{
+			UUID:    w.BehaviorPack.Manifest.Header.UUID,
+			Version: w.BehaviorPack.Manifest.Header.Version,
+		}})
+		if err != nil {
+			return err
+		}
+	}
+
+	if len(w.resourcePackDependencies) > 0 {
+		err := addPacksJSON(fs, "world_resource_packs.json", w.resourcePackDependencies)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -494,11 +631,11 @@ func (w *World) Finish(playerData map[string]any, excludedMobs []string, withPla
 	})
 
 	chunkEntities := make(map[world.ChunkPos][]world.Entity)
-	for _, es := range w.memState.entities {
+	for _, entityState := range w.memState.entities {
 		var ignore bool
 		for _, ex := range excludedMobs {
-			if ok, err := path.Match(ex, es.EntityType); ok {
-				w.log.Debugf("Excluding: %s %v", es.EntityType, es.Position)
+			if ok, err := path.Match(ex, entityState.EntityType); ok {
+				w.log.Debugf("Excluding: %s %v", entityState.EntityType, entityState.Position)
 				ignore = true
 				break
 			} else if err != nil {
@@ -506,9 +643,10 @@ func (w *World) Finish(playerData map[string]any, excludedMobs []string, withPla
 			}
 		}
 		if !ignore {
-			cp := world.ChunkPos{int32(es.Position.X()) >> 4, int32(es.Position.Z()) >> 4}
-			links := maps.Keys(w.memState.entityLinks[es.UniqueID])
-			chunkEntities[cp] = append(chunkEntities[cp], es.ToServerEntity(links))
+			cp := world.ChunkPos{int32(entityState.Position.X()) >> 4, int32(entityState.Position.Z()) >> 4}
+			links := maps.Keys(w.memState.entityLinks[entityState.UniqueID])
+			properties := w.BehaviorPack.GetEntityTypeProperties(entityState.EntityType)
+			chunkEntities[cp] = append(chunkEntities[cp], entityState.ToServerEntity(links, properties))
 		}
 	}
 

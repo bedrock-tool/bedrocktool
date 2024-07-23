@@ -42,12 +42,12 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 
 				world.InsertCustomItems(pk.Items)
 				for _, ie := range pk.Items {
-					w.bp.AddItem(ie)
+					w.serverState.behaviorPack.AddItem(ie)
 				}
 				if len(pk.Blocks) > 0 {
 					w.log.Info(locale.Loc("using_customblocks", nil))
 					for _, be := range pk.Blocks {
-						w.bp.AddBlock(be)
+						w.serverState.behaviorPack.AddBlock(be)
 					}
 					world.AddCustomBlocks(w.serverState.blocks, pk.Blocks)
 					w.serverState.customBlocks = pk.Blocks
@@ -82,9 +82,6 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 				}
 				dim, _ := world.DimensionByID(int(pk.Dimension))
 				w.currentWorld.SetDimension(dim)
-
-				w.currentWorld.BiomeRegistry = w.serverState.biomes
-				w.currentWorld.BlockRegistry = w.serverState.blocks
 				w.openWorldState(w.settings.StartPaused)
 			}
 
@@ -96,7 +93,7 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 			}
 
 		case *packet.ItemComponent:
-			w.bp.ApplyComponentEntries(pk.Items)
+			w.serverState.behaviorPack.ApplyComponentEntries(pk.Items)
 
 		case *packet.BiomeDefinitionList:
 			var biomes map[string]any
@@ -114,7 +111,7 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 					})
 				}
 			}
-			w.bp.AddBiomes(biomes)
+			w.serverState.behaviorPack.AddBiomes(biomes)
 		}
 
 		return _pk, nil
@@ -191,19 +188,23 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 
 	// entity
 
+	case *packet.SyncActorProperty:
+		w.serverState.behaviorPack.SyncActorProperty(pk)
+
 	case *packet.AddActor:
 		w.currentWorld.ProcessAddActor(pk, func(es *worldstate.EntityState) bool {
 			return w.scripting.OnEntityAdd(es, es.Metadata)
-		}, w.bp.AddEntity)
+		}, w.serverState.behaviorPack.AddEntity)
 
 	case *packet.SetActorData:
 		if e := w.getEntity(pk.EntityRuntimeID); e != nil {
 			metadata := make(protocol.EntityMetadata)
 			maps.Copy(metadata, pk.EntityMetadata)
 			w.scripting.OnEntityDataUpdate(e, metadata)
-
 			maps.Copy(e.Metadata, metadata)
-			w.bp.AddEntity(behaviourpack.EntityIn{
+			e.Properties = pk.EntityProperties
+
+			w.serverState.behaviorPack.AddEntity(behaviourpack.EntityIn{
 				Identifier: e.EntityType,
 				Attr:       nil,
 				Meta:       metadata,
@@ -422,13 +423,18 @@ func (w *worldsHandler) addPlayer(pk *packet.AddPlayer) {
 		}
 
 		var resourcePatch map[string]map[string]string
-		err := utils.ParseJson(skin.SkinResourcePatch, &resourcePatch)
-		if err != nil {
-			w.log.WithField("data", "SkinResourcePatch").Error(err)
-			return
+		if len(skin.SkinResourcePatch) > 0 {
+			err := utils.ParseJson(skin.SkinResourcePatch, &resourcePatch)
+			if err != nil {
+				w.log.WithField("data", "SkinResourcePatch").Error(err)
+				return
+			}
 		}
 
-		geometryName := resourcePatch["geometry"]["default"]
+		var geometryName = ""
+		if resourcePatch != nil {
+			geometryName = resourcePatch["geometry"]["default"]
+		}
 
 		var geometry *resourcepack.GeometryFile
 		var isDefault bool
@@ -466,6 +472,6 @@ func (w *worldsHandler) addPlayer(pk *packet.AddPlayer) {
 			isDefault = true
 		}
 
-		w.rp.AddPlayer(pk.UUID.String(), skinTexture, capeTexture, skin.CapeID, geometry, isDefault)
+		w.serverState.resourcePack.AddPlayer(pk.UUID.String(), skinTexture, capeTexture, skin.CapeID, geometry, isDefault)
 	}
 }

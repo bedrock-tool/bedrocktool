@@ -3,12 +3,54 @@ package utils
 import (
 	"archive/zip"
 	"io"
+	"io/fs"
 	"os"
 	"path"
 )
 
 type WriterFS interface {
 	Create(filename string) (w io.WriteCloser, err error)
+}
+
+func SubFS(base WriterFS, dir string) WriterFS {
+	return &subFS{base: base, dir: dir}
+}
+
+type subFS struct {
+	base WriterFS
+	dir  string
+}
+
+func (s *subFS) Create(filename string) (w io.WriteCloser, err error) {
+	filename = path.Clean(filename)
+	filename = path.Join(s.dir, filename)
+	return s.base.Create(filename)
+}
+
+func CopyFS(src fs.FS, dst WriterFS) error {
+	return fs.WalkDir(src, ".", func(fpath string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		r, err := src.Open(fpath)
+		if err != nil {
+			return err
+		}
+		defer r.Close()
+		w, err := dst.Create(fpath)
+		if err != nil {
+			return err
+		}
+		defer w.Close()
+		_, err = io.Copy(w, r)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
 }
 
 type OSWriter struct {

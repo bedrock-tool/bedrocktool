@@ -23,9 +23,10 @@ type EntityState struct {
 	Velocity            mgl32.Vec3
 	HasMoved            bool
 
-	Metadata  protocol.EntityMetadata
-	Inventory map[byte]map[byte]protocol.ItemInstance
+	Metadata   protocol.EntityMetadata
+	Properties protocol.EntityProperties
 
+	Inventory  map[byte]map[byte]protocol.ItemInstance
 	Helmet     *protocol.ItemInstance
 	Chestplate *protocol.ItemInstance
 	Leggings   *protocol.ItemInstance
@@ -80,6 +81,7 @@ func (w *World) ProcessAddActor(pk *packet.AddActor, ignoreCB func(*EntityState)
 	e.Yaw = pk.Yaw
 	e.HeadYaw = pk.HeadYaw
 	e.Velocity = pk.Velocity
+	e.Properties = pk.EntityProperties
 
 	metadata := make(protocol.EntityMetadata)
 	maps.Copy(metadata, pk.EntityMetadata)
@@ -291,7 +293,7 @@ func vec3float32(x mgl32.Vec3) []float32 {
 	return []float32{float32(x[0]), float32(x[1]), float32(x[2])}
 }
 
-func (s *EntityState) ToServerEntity(links []int64) serverEntity {
+func (s *EntityState) ToServerEntity(links []int64, properties []behaviourpack.EntityProperty) serverEntity {
 	e := serverEntity{
 		EntityType: serverEntityType{
 			Encoded: s.EntityType,

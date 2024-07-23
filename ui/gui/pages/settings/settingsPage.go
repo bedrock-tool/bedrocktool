@@ -4,6 +4,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"math"
 	"reflect"
 	"strings"
 
@@ -170,7 +171,7 @@ func (s *settingsPage) Layout(gtx C, th *material.Theme) D {
 				}
 			}
 
-			rows, cols := max(1, len(widgets)/4), min(len(widgets), 4)
+			rows, cols := max(1, int(math.Ceil(float64(len(widgets))/4))), min(len(widgets), 4)
 			return s.grid.Layout(gtx, rows, cols, func(axis layout.Axis, index, constraint int) int {
 				switch axis {
 				case layout.Horizontal:
@@ -181,6 +182,9 @@ func (s *settingsPage) Layout(gtx C, th *material.Theme) D {
 				return 0
 			}, func(gtx C, row, col int) D {
 				idx := col + cols*row
+				if idx >= len(widgets) {
+					return D{}
+				}
 				return widgets[idx](gtx)
 			})
 		}

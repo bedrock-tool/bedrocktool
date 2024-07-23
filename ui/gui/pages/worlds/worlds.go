@@ -217,19 +217,25 @@ func (u *Page) HandleMessage(msg *messages.Message) *messages.Message {
 		u.l.Unlock()
 	case messages.ProcessingWorldUpdate:
 		u.l.Lock()
-		exists := false
-		for _, w := range u.processingWorlds {
-			if w.Name == m.Name {
-				w.State = m.State
-				exists = true
-				break
-			}
-		}
-		if !exists {
-			u.processingWorlds = append(u.processingWorlds, &processingWorld{
-				Name:  m.Name,
-				State: m.State,
+		if m.State == "" {
+			u.processingWorlds = slices.DeleteFunc(u.processingWorlds, func(w *processingWorld) bool {
+				return w.Name == m.Name
 			})
+		} else {
+			exists := false
+			for _, w := range u.processingWorlds {
+				if w.Name == m.Name {
+					w.State = m.State
+					exists = true
+					break
+				}
+			}
+			if !exists {
+				u.processingWorlds = append(u.processingWorlds, &processingWorld{
+					Name:  m.Name,
+					State: m.State,
+				})
+			}
 		}
 		u.l.Unlock()
 	}

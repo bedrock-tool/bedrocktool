@@ -36,7 +36,6 @@ import (
 
 type WorldSettings struct {
 	VoidGen         bool
-	WithPacks       bool
 	SaveImage       bool
 	SaveEntities    bool
 	SaveInventories bool
@@ -60,6 +59,9 @@ type serverState struct {
 	biomes *world.BiomeRegistry
 	blocks *world.BlockRegistryImpl
 
+	behaviorPack *behaviourpack.Pack
+	resourcePack *resourcepack.Pack
+
 	customBlocks       []protocol.BlockEntry
 	openItemContainers map[byte]*itemContainer
 	playerInventory    []protocol.ItemInstance
@@ -75,9 +77,6 @@ type worldsHandler struct {
 	session *proxy.Session
 	mapUI   *MapUI
 	log     *logrus.Entry
-
-	bp *behaviourpack.Pack
-	rp *resourcepack.Pack
 
 	scripting *scripting.VM
 
@@ -116,7 +115,6 @@ func NewWorldsHandler(settings WorldSettings) *proxy.Handler {
 
 		SessionStart: func(session *proxy.Session, serverName string) error {
 			w.session = session
-			w.bp = nil
 			w.currentWorld = nil
 			w.serverState = serverState{
 				useOldBiomes:       false,
@@ -184,8 +182,8 @@ func NewWorldsHandler(settings WorldSettings) *proxy.Handler {
 				Description: "immediately save and reset the world state",
 			})
 
-			w.bp = behaviourpack.New(serverName)
-			w.rp = resourcepack.New()
+			w.serverState.behaviorPack = behaviourpack.New(serverName)
+			w.serverState.resourcePack = resourcepack.New()
 			w.serverState.Name = serverName
 
 			// initialize a worldstate
@@ -423,7 +421,12 @@ func (w *worldsHandler) saveWorldState(worldState *worldstate.World) error {
 			State: "Saving",
 		},
 	})
-	err := worldState.Finish(w.playerData(), w.settings.ExcludedMobs, w.settings.Players, spawnPos, w.session.Server.GameData(), w.bp)
+	err := worldState.Finish(w.playerData(), w.settings.ExcludedMobs, w.settings.Players, spawnPos, w.session.Server.GameData(), w.serverState.behaviorPack)
+	if err != nil {
+		return err
+	}
+
+	err = worldState.FinalizePacks(w.serverState.Name)
 	if err != nil {
 		return err
 	}
@@ -445,14 +448,6 @@ func (w *worldsHandler) saveWorldState(worldState *worldstate.World) error {
 	zw := zip.NewWriter(f)
 	utils.ZipCompressPool(zw)
 	err = zw.AddFS(os.DirFS(worldState.Folder))
-	if err != nil {
-		return err
-	}
-
-	err = w.AddPacks(worldState.Name, utils.MultiWriterFS{FSs: []utils.WriterFS{
-		utils.ZipWriter{Writer: zw},
-		utils.OSWriter{Base: worldState.Folder},
-	}})
 	if err != nil {
 		return err
 	}
@@ -508,6 +503,8 @@ func (w *worldsHandler) openWorldState(deferred bool) {
 	folder := fmt.Sprintf("worlds/%s/%s", serverName, name)
 	w.currentWorld.BiomeRegistry = w.serverState.biomes
 	w.currentWorld.BlockRegistry = w.serverState.blocks
+	w.currentWorld.BehaviorPack = w.serverState.behaviorPack
+	w.currentWorld.ResourcePacks = w.session.Server.ResourcePacks()
 	w.currentWorld.Open(name, folder, deferred)
 }
 
