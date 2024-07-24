@@ -55,7 +55,7 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk, timeReceived ti
 	}
 
 	pos := world.ChunkPos(pk.Position)
-	if w.scripting.OnChunkAdd(pos, timeReceived) {
+	if !w.scripting.OnChunkAdd(pos, timeReceived) {
 		w.currentWorld.IgnoredChunks[pos] = true
 		return
 	}
