@@ -3,6 +3,7 @@ package worlds
 import (
 	"bytes"
 	"errors"
+	"time"
 
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds/worldstate"
 	"github.com/bedrock-tool/bedrocktool/locale"
@@ -14,7 +15,7 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 )
 
-func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
+func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk, timeReceived time.Time) {
 	if len(pk.RawPayload) == 0 {
 		w.log.Info(locale.Loc("empty_chunk", nil))
 		return
@@ -54,9 +55,11 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk) {
 	}
 
 	pos := world.ChunkPos(pk.Position)
-	if w.scripting.OnChunkAdd(pos) {
+	if w.scripting.OnChunkAdd(pos, timeReceived) {
+		w.currentWorld.IgnoredChunks[pos] = true
 		return
 	}
+	w.currentWorld.IgnoredChunks[pos] = false
 
 	err = w.currentWorld.StoreChunk(pos, ch, chunkBlockNBT)
 	if err != nil {
@@ -121,6 +124,10 @@ func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) error {
 			pos  = world.ChunkPos{absX, absZ}
 		)
 
+		if w.currentWorld.IgnoredChunks[pos] {
+			continue
+		}
+
 		if _, ok := chunks[pos]; ok {
 			continue
 		}
@@ -160,7 +167,10 @@ func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) error {
 				return err
 			}
 
-			ch := chunks[pos]
+			ch, ok := chunks[pos]
+			if !ok {
+				continue
+			}
 			ch.Sub()[index] = sub
 
 			if buf.Len() > 0 {

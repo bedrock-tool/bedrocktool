@@ -139,7 +139,7 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 		w.SaveAndReset(false, dim)
 
 	case *packet.LevelChunk:
-		w.processLevelChunk(pk)
+		w.processLevelChunk(pk, timeReceived)
 
 	case *packet.SubChunk:
 		if err := w.processSubChunk(pk); err != nil {
@@ -157,10 +157,7 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 			if !found {
 				break
 			}
-			apply, err := w.scripting.OnBlockUpdate(name, properties, timeReceived)
-			if err != nil {
-				return nil, err
-			}
+			apply := w.scripting.OnBlockUpdate(name, properties, timeReceived)
 			if apply {
 				w.currentWorld.QueueBlockUpdate(pk.Position, rid, uint8(pk.Layer))
 			}
@@ -172,10 +169,7 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 			if !found {
 				break
 			}
-			apply, err := w.scripting.OnBlockUpdate(name, properties, timeReceived)
-			if err != nil {
-				return nil, err
-			}
+			apply := w.scripting.OnBlockUpdate(name, properties, timeReceived)
 			if apply {
 				w.currentWorld.QueueBlockUpdate(pk.Position, rid, uint8(pk.Layer))
 			}
@@ -188,10 +182,7 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 				if !found {
 					break
 				}
-				apply, err := w.scripting.OnBlockUpdate(name, properties, timeReceived)
-				if err != nil {
-					return nil, err
-				}
+				apply := w.scripting.OnBlockUpdate(name, properties, timeReceived)
 				if apply {
 					w.currentWorld.QueueBlockUpdate(block.BlockPos, rid, uint8(0))
 				}
@@ -201,6 +192,9 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 
 	case *packet.ClientBoundMapItemData:
 		w.currentWorld.StoreMap(pk)
+
+	case *packet.SpawnParticleEffect:
+		w.scripting.OnSpawnParticle(pk.ParticleName, pk.Position, timeReceived)
 
 		// player
 	case *packet.AddPlayer:
@@ -223,7 +217,7 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 
 	case *packet.AddActor:
 		w.currentWorld.ProcessAddActor(pk, func(es *worldstate.EntityState) bool {
-			return w.scripting.OnEntityAdd(es, es.Metadata)
+			return w.scripting.OnEntityAdd(es, es.Metadata, timeReceived)
 		}, w.serverState.behaviorPack.AddEntity)
 
 	case *packet.RemoveActor:
@@ -233,7 +227,7 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 		if e := w.getEntity(pk.EntityRuntimeID); e != nil {
 			metadata := make(protocol.EntityMetadata)
 			maps.Copy(metadata, pk.EntityMetadata)
-			w.scripting.OnEntityDataUpdate(e, metadata)
+			w.scripting.OnEntityDataUpdate(e, metadata, timeReceived)
 			maps.Copy(e.Metadata, metadata)
 			e.Properties = pk.EntityProperties
 

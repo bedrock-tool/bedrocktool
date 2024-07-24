@@ -85,7 +85,7 @@ func (w *World) ProcessRemoveActor(pk *packet.RemoveActor, playerPos mgl32.Vec3,
 	*/
 }
 
-func (w *World) ProcessAddActor(pk *packet.AddActor, ignoreCB func(*EntityState) bool, bpCB func(behaviourpack.EntityIn)) {
+func (w *World) ProcessAddActor(pk *packet.AddActor, applyCallback func(es *EntityState) bool, bpCB func(behaviourpack.EntityIn)) {
 	e := w.GetEntity(pk.EntityRuntimeID)
 	if e == nil {
 		e = &EntityState{
@@ -108,8 +108,7 @@ func (w *World) ProcessAddActor(pk *packet.AddActor, ignoreCB func(*EntityState)
 	maps.Copy(metadata, pk.EntityMetadata)
 	e.Metadata = metadata
 
-	ignore := ignoreCB(e)
-	if ignore {
+	if !applyCallback(e) {
 		logrus.Infof("Ignoring Entity: %s %d", e.EntityType, e.UniqueID)
 		return
 	}

@@ -2,6 +2,12 @@ declare const console: {
     log(data: any);
 };
 
+declare type EventNames = "EntityAdd"|"EntityDataUpdate"|"ChunkAdd"|"BlockUpdate"|"SpawnParticle"
+
+declare const events: {
+    register(name: EventNames, callback: CallableFunction);
+};
+
 declare type WindowID = number;
 declare type Slot = number;
 

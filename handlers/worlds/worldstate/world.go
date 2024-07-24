@@ -79,16 +79,16 @@ type World struct {
 
 	players worldPlayers
 
-	VoidGen       bool
-	timeSync      time.Time
-	time          int
-	Name          string
-	Folder        string
+	VoidGen  bool
+	timeSync time.Time
+	time     int
+	Name     string
+	Folder   string
+
 	UseHashedRids bool
-
-	blockUpdates map[world.ChunkPos][]blockUpdate
-
+	blockUpdates  map[world.ChunkPos][]blockUpdate
 	onChunkUpdate func(pos world.ChunkPos, chunk *chunk.Chunk, isPaused bool)
+	IgnoredChunks map[world.ChunkPos]bool
 
 	log *logrus.Entry
 }
@@ -135,6 +135,7 @@ func New(dimensionDefinitions map[int]protocol.DimensionDefinition, onChunkUpdat
 
 		blockUpdates:  make(map[world.ChunkPos][]blockUpdate),
 		onChunkUpdate: onChunkUpdate,
+		IgnoredChunks: make(map[world.ChunkPos]bool),
 		log:           logrus.WithFields(logrus.Fields{"part": "world"}),
 	}
 

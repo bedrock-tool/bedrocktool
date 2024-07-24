@@ -505,6 +505,7 @@ func (w *worldsHandler) openWorldState(deferred bool) {
 	w.currentWorld.BlockRegistry = w.serverState.blocks
 	w.currentWorld.BehaviorPack = w.serverState.behaviorPack
 	w.currentWorld.ResourcePacks = w.session.Server.ResourcePacks()
+	w.currentWorld.UseHashedRids = w.serverState.useHashedRids
 	w.currentWorld.Open(name, folder, deferred)
 }
 

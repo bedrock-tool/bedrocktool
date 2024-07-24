@@ -20,6 +20,7 @@ type WorldCMD struct {
 	SaveEntities    bool
 	SaveInventories bool
 	SaveImage       bool
+	BlockUpdates    bool
 	ExcludeMobs     string
 	StartPaused     bool
 	PreloadReplay   string
@@ -37,6 +38,7 @@ func (c *WorldCMD) SetFlags(f *flag.FlagSet) {
 	f.BoolVar(&c.SaveImage, "image", false, locale.Loc("save_image", nil))
 	f.BoolVar(&c.SaveEntities, "save-entities", true, "Save Entities")
 	f.BoolVar(&c.SaveInventories, "save-inventories", true, "Save Inventories")
+	f.BoolVar(&c.BlockUpdates, "block-updates", false, "Block updates")
 	f.StringVar(&c.ExcludeMobs, "exclude-mobs", "", "list of mobs to exclude seperated by comma")
 	f.BoolVar(&c.StartPaused, "start-paused", false, "pause the capturing on startup (can be restarted using /start-capture ingame)")
 	f.StringVar(&c.PreloadReplay, "preload-replay", "", "preload from a replay")
@@ -70,6 +72,7 @@ func (c *WorldCMD) Execute(ctx context.Context) error {
 		PreloadReplay:   c.PreloadReplay,
 		ChunkRadius:     int32(c.ChunkRadius),
 		Script:          script,
+		BlockUpdates:    c.BlockUpdates,
 	}))
 
 	server := ctx.Value(utils.ConnectInfoKey).(*utils.ConnectInfo)
