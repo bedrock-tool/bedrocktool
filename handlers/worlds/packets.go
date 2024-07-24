@@ -229,7 +229,13 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 			maps.Copy(metadata, pk.EntityMetadata)
 			w.scripting.OnEntityDataUpdate(e, metadata, timeReceived)
 			maps.Copy(e.Metadata, metadata)
-			e.Properties = pk.EntityProperties
+
+			for _, prop := range pk.EntityProperties.IntegerProperties {
+				e.IntegerProperties[prop.Index] = prop.Value
+			}
+			for _, prop := range pk.EntityProperties.FloatProperties {
+				e.FloatProperties[prop.Index] = prop.Value
+			}
 
 			w.serverState.behaviorPack.AddEntity(behaviourpack.EntityIn{
 				Identifier: e.EntityType,

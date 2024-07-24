@@ -23,8 +23,10 @@ type EntityState struct {
 	Velocity            mgl32.Vec3
 	HasMoved            bool
 
-	Metadata   protocol.EntityMetadata
-	Properties protocol.EntityProperties
+	Metadata protocol.EntityMetadata
+
+	IntegerProperties map[uint32]int32
+	FloatProperties   map[uint32]float32
 
 	Inventory  map[byte]map[byte]protocol.ItemInstance
 	Helmet     *protocol.ItemInstance
@@ -94,6 +96,9 @@ func (w *World) ProcessAddActor(pk *packet.AddActor, applyCallback func(es *Enti
 			EntityType: pk.EntityType,
 			Inventory:  make(map[byte]map[byte]protocol.ItemInstance),
 			Metadata:   make(map[uint32]any),
+
+			IntegerProperties: make(map[uint32]int32),
+			FloatProperties:   make(map[uint32]float32),
 		}
 		w.currState().uniqueIDsToRuntimeIDs[e.UniqueID] = e.RuntimeID
 	}
@@ -102,7 +107,13 @@ func (w *World) ProcessAddActor(pk *packet.AddActor, applyCallback func(es *Enti
 	e.Yaw = pk.Yaw
 	e.HeadYaw = pk.HeadYaw
 	e.Velocity = pk.Velocity
-	e.Properties = pk.EntityProperties
+
+	for _, prop := range pk.EntityProperties.IntegerProperties {
+		e.IntegerProperties[prop.Index] = prop.Value
+	}
+	for _, prop := range pk.EntityProperties.FloatProperties {
+		e.FloatProperties[prop.Index] = prop.Value
+	}
 
 	metadata := make(protocol.EntityMetadata)
 	maps.Copy(metadata, pk.EntityMetadata)
@@ -327,18 +338,18 @@ func (s *EntityState) ToServerEntity(links []int64, properties []behaviourpack.E
 	}
 	s.toNBT(e.EntityType.NBT)
 
-	if len(s.Properties.FloatProperties)+len(s.Properties.IntegerProperties) > 0 {
+	if len(s.FloatProperties)+len(s.IntegerProperties) > 0 {
 		nbtProperties := map[string]any{}
-		for _, prop := range s.Properties.FloatProperties {
-			propDef := properties[prop.Index]
-			nbtProperties[propDef.Name] = prop.Value
+		for index, value := range s.FloatProperties {
+			propDef := properties[index]
+			nbtProperties[propDef.Name] = value
 		}
-		for _, prop := range s.Properties.IntegerProperties {
-			propDef := properties[prop.Index]
+		for index, value := range s.IntegerProperties {
+			propDef := properties[index]
 			if propDef.Type == behaviourpack.PropertyTypeBool {
-				nbtProperties[propDef.Name] = prop.Value == 1
+				nbtProperties[propDef.Name] = value == 1
 			} else {
-				nbtProperties[propDef.Name] = prop.Value
+				nbtProperties[propDef.Name] = value
 			}
 		}
 		e.EntityType.NBT["properties"] = nbtProperties
