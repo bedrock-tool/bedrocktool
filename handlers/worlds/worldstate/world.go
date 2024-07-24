@@ -66,7 +66,9 @@ type World struct {
 	paused      bool
 	pausedState *worldStateMem
 	// access to states
-	l sync.Mutex
+	stateLock sync.Mutex
+
+	entityLock sync.Mutex
 
 	ResourcePacks            []resource.Pack
 	resourcePacksDone        chan error
@@ -84,10 +86,11 @@ type World struct {
 	Name     string
 	Folder   string
 
-	UseHashedRids bool
-	blockUpdates  map[world.ChunkPos][]blockUpdate
-	onChunkUpdate func(pos world.ChunkPos, chunk *chunk.Chunk, isPaused bool)
-	IgnoredChunks map[world.ChunkPos]bool
+	UseHashedRids    bool
+	blockUpdatesLock sync.Mutex
+	blockUpdates     map[world.ChunkPos][]blockUpdate
+	onChunkUpdate    func(pos world.ChunkPos, chunk *chunk.Chunk, isPaused bool)
+	IgnoredChunks    map[world.ChunkPos]bool
 
 	log *logrus.Entry
 }
@@ -341,9 +344,12 @@ func (w *World) SetTime(real time.Time, ingame int) {
 }
 
 func (w *World) StoreChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cube.Pos]DummyBlock) (err error) {
-	w.l.Lock()
-	defer w.l.Unlock()
+	w.stateLock.Lock()
+	defer w.stateLock.Unlock()
+	return w.storeChunkLocked(pos, ch, blockNBT)
+}
 
+func (w *World) storeChunkLocked(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cube.Pos]DummyBlock) (err error) {
 	var empty = true
 	for _, sub := range ch.Sub() {
 		if !sub.Empty() {
@@ -362,10 +368,10 @@ func (w *World) StoreChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cub
 					case <-w.finish:
 						return
 					case <-t.C:
-						w.l.Lock()
+						w.stateLock.Lock()
 						w.applyBlockUpdates()
 						w.storeMemToProvider()
-						w.l.Unlock()
+						w.stateLock.Unlock()
 					}
 				}
 			}()
@@ -378,9 +384,12 @@ func (w *World) StoreChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cub
 }
 
 func (w *World) LoadChunk(pos world.ChunkPos) (*chunk.Chunk, bool, error) {
-	w.l.Lock()
-	defer w.l.Unlock()
+	w.stateLock.Lock()
+	defer w.stateLock.Unlock()
+	return w.loadChunkLocked(pos)
+}
 
+func (w *World) loadChunkLocked(pos world.ChunkPos) (*chunk.Chunk, bool, error) {
 	if w.paused {
 		ch, ok := w.pausedState.chunks[pos]
 		if ok {
@@ -408,28 +417,27 @@ func (w *World) LoadChunk(pos world.ChunkPos) (*chunk.Chunk, bool, error) {
 }
 
 func (w *World) QueueBlockUpdate(pos protocol.BlockPos, ridTo uint32, layer uint8) {
-	w.l.Lock()
 	cp := world.ChunkPos{pos.X() >> 4, pos.Z() >> 4}
+	w.blockUpdatesLock.Lock()
+	defer w.blockUpdatesLock.Unlock()
 	w.blockUpdates[cp] = append(w.blockUpdates[cp], blockUpdate{rid: ridTo, pos: pos, layer: layer})
-	w.l.Unlock()
 }
 
 func (w *World) SetBlockNBT(pos cube.Pos, nbt map[string]any, merge bool) {
-	w.l.Lock()
-	defer w.l.Unlock()
+	w.entityLock.Lock()
+	defer w.entityLock.Unlock()
 	w.currState().SetBlockNBT(pos, nbt, merge)
 }
 
 func (w *World) StoreEntity(id entity.RuntimeID, es *entity.Entity) {
-	w.l.Lock()
-	defer w.l.Unlock()
-	state := w.currState()
-	state.StoreEntity(id, es)
+	w.entityLock.Lock()
+	defer w.entityLock.Unlock()
+	w.currState().StoreEntity(id, es)
 }
 
 func (w *World) StoreMap(m *packet.ClientBoundMapItemData) {
-	w.l.Lock()
-	defer w.l.Unlock()
+	w.entityLock.Lock()
+	defer w.entityLock.Unlock()
 	w.currState().StoreMap(m)
 }
 
@@ -439,8 +447,8 @@ func (w *World) GetEntityUniqueID(id entity.UniqueID) *entity.Entity {
 }
 
 func (w *World) GetEntity(id entity.RuntimeID) *entity.Entity {
-	w.l.Lock()
-	defer w.l.Unlock()
+	w.entityLock.Lock()
+	defer w.entityLock.Unlock()
 	if w.paused {
 		es := w.pausedState.GetEntity(id)
 		if es != nil {
@@ -455,13 +463,13 @@ func (w *World) EntityCount() int {
 }
 
 func (w *World) AddEntityLink(el protocol.EntityLink) {
-	w.l.Lock()
-	defer w.l.Unlock()
+	w.entityLock.Lock()
+	defer w.entityLock.Unlock()
 	w.currState().AddEntityLink(el)
 }
 
 func (w *World) PauseCapture() {
-	w.l.Lock()
+	w.entityLock.Lock()
 	w.paused = true
 	w.pausedState = &worldStateMem{
 		chunks:      make(map[world.ChunkPos]*chunk.Chunk),
@@ -471,12 +479,12 @@ func (w *World) PauseCapture() {
 
 		uniqueIDsToRuntimeIDs: make(map[int64]uint64),
 	}
-	w.l.Unlock()
+	w.stateLock.Unlock()
 }
 
 func (w *World) UnpauseCapture(around cube.Pos, radius int32) {
-	w.l.Lock()
-	defer w.l.Unlock()
+	w.stateLock.Lock()
+	defer w.stateLock.Unlock()
 	if !w.paused {
 		panic("attempt to unpause when not paused")
 	}
@@ -492,8 +500,8 @@ func (w *World) IsPaused() bool {
 }
 
 func (w *World) Open(name string, folder string, deferred bool) {
-	w.l.Lock()
-	defer w.l.Unlock()
+	w.stateLock.Lock()
+	defer w.stateLock.Unlock()
 	w.Name = name
 	w.Folder = folder
 
@@ -525,9 +533,11 @@ func (w *World) BlockByID(rid uint32) (runtimeID uint32, name string, properties
 }
 
 func (w *World) applyBlockUpdates() {
+	w.blockUpdatesLock.Lock()
+	defer w.blockUpdatesLock.Unlock()
 	for pos, updates := range w.blockUpdates {
 		delete(w.blockUpdates, pos)
-		chunk, ok, err := w.LoadChunk(world.ChunkPos(pos))
+		chunk, ok, err := w.loadChunkLocked(world.ChunkPos(pos))
 		if !ok {
 			w.log.Warnf("Chunk updates for a chunk we dont have pos = %v", pos)
 			continue
@@ -541,14 +551,14 @@ func (w *World) applyBlockUpdates() {
 			x, y, z := blockPosInChunk(update.pos)
 			chunk.SetBlock(x, y, z, update.layer, update.rid)
 		}
-		w.StoreChunk(pos, chunk, nil)
+		w.storeChunkLocked(pos, chunk, nil)
 	}
 }
 
 // Rename moves the folder and reopens it
 func (w *World) Rename(name, folder string) error {
-	w.l.Lock()
-	defer w.l.Unlock()
+	w.stateLock.Lock()
+	defer w.stateLock.Unlock()
 
 	os.RemoveAll(folder)
 	if w.provider != nil {
@@ -576,8 +586,8 @@ func (w *World) Rename(name, folder string) error {
 }
 
 func (w *World) Finish(playerData map[string]any, excludedMobs []string, withPlayers bool, spawn cube.Pos, gd minecraft.GameData, experimental bool) error {
-	w.l.Lock()
-	defer w.l.Unlock()
+	w.stateLock.Lock()
+	defer w.stateLock.Unlock()
 	close(w.finish)
 
 	if withPlayers {

@@ -25,7 +25,7 @@ func (bp *Pack) AddItem(item protocol.ItemEntry) {
 	}
 
 	bp.items[item.Name] = &itemBehaviour{
-		FormatVersion: bp.formatVersion,
+		FormatVersion: "1.20.50",
 		MinecraftItem: minecraftItem{
 			Description: itemDescription{
 				Identifier:     item.Name,
@@ -43,19 +43,45 @@ func (bp *Pack) ApplyComponentEntries(entries []protocol.ItemComponentEntry) {
 			continue
 		}
 		if components, ok := ice.Data["components"].(map[string]any); ok {
+			var componentsOut = make(map[string]any)
+
 			if _, ok := components["minecraft:icon"]; !ok {
 				if item_properties, ok := components["item_properties"].(map[string]any); ok {
 					components["minecraft:icon"] = item_properties["minecraft:icon"]
 				}
 			}
 
-			if icon, ok := components["minecraft:icon"].(map[string]any); ok {
-				if textures, ok := icon["textures"].(map[string]any); ok {
-					icon["textures"] = textures["default"]
+			for key, component := range components {
+				switch key {
+				case "item_properties":
+					if item_properties, ok := component.(map[string]any); ok {
+						if icon, ok := item_properties["minecraft:icon"].(map[string]any); ok {
+							if textures, ok := icon["textures"].(map[string]any); ok {
+								componentsOut["minecraft:icon"] = map[string]any{
+									"texture": textures["default"],
+								}
+							}
+						}
+					}
+
+				case "minecraft:icon":
+					if icon, ok := component.(map[string]any); ok {
+						if textures, ok := icon["textures"].(map[string]any); ok {
+							componentsOut[key] = map[string]any{
+								"texture": textures["default"],
+							}
+						}
+					}
+				case "minecraft:interact_button":
+					if interact_button, ok := component.(map[string]any); ok {
+						componentsOut[key] = interact_button["interact_text"]
+					}
+				default:
+					componentsOut[key] = component
 				}
 			}
 
-			item.MinecraftItem.Components = components
+			item.MinecraftItem.Components = componentsOut
 		}
 	}
 }

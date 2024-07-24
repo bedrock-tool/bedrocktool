@@ -126,6 +126,11 @@ func (s *Entity) toNBT(nbt map[string]any) {
 	if name, ok := metadata[protocol.EntityDataKeyName]; ok {
 		nbt["CustomName"] = name
 	}
+
+	if rawName, ok := metadata[protocol.EntityDataKeyNameRawText].(string); ok {
+		nbt["CustomName"] = rawName
+	}
+
 	if ShowNameTag, ok := metadata[protocol.EntityDataKeyAlwaysShowNameTag]; ok {
 		if ShowNameTag != 0 {
 			nbt["CustomNameVisible"] = true
