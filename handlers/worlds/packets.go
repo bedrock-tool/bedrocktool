@@ -28,6 +28,11 @@ func (w *worldsHandler) getEntity(id entity.RuntimeID) *entity.Entity {
 }
 
 func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
+	drop := w.scripting.OnPacket(_pk, toServer, timeReceived)
+	if drop {
+		return nil, nil
+	}
+
 	if preLogin {
 		switch pk := _pk.(type) {
 		case *packet.CompressedBiomeDefinitionList: // for client side generation, disabled by proxy

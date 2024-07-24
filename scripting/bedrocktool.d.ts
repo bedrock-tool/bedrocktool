@@ -61,6 +61,17 @@ declare type BlockUpdateCallback = (name: string, properties: {[k: string]: any}
  */
 declare type SpawnParticleCallback = (name: string, pos: [number, number, number], time: number) => void;
 
+/**
+ * Callback for the `Packet` event.
+ * 
+ * @param name - The name of the particle.
+ * @param packet - The packet data.
+ * @param time - The time the particle was spawned.
+ */
+declare type PacketCallback = (name: string, packet: any, time: number) => void;
+
+
+
 
 declare const events: {
     /**
@@ -181,6 +192,30 @@ declare const events: {
      * 
      */
     register(name: 'SpawnParticle', callback: SpawnParticleCallback): void;
+	/**
+     * Registers a callback function to be executed when a specified event occurs.
+     * 
+     * @param name - The name of the event to register. Possible values are:
+     *   - 'EntityAdd': Triggered when a new entity is added.
+     *   - 'EntityDataUpdate': Triggered when an entity's data is updated.
+     *   - 'ChunkAdd': Triggered when a new chunk is added.
+     *   - 'BlockUpdate': Triggered when a block is updated.
+     *   - 'SpawnParticle': Triggered when a particle is spawned.
+	 *   - 'Packet': Triggered when a packet is received.
+     * 
+     * @param callback - The callback function to invoke when the event occurs. The parameters of the callback function vary based on the event:
+     *   - For 'Packet':
+     *     - `name` - The name of the packet.
+	 *     - `packet` the packet data
+     *     - `time` - The time the packet was received.
+     * 
+     * @example
+     * events.register('Packet', (name, packet, time) => {
+     *     console.log(`Packet ${name}`);
+     * });
+     * 
+     */
+    register(name: 'Packet', callback: PacketCallback): void;
 };
 
 

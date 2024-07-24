@@ -21,3 +21,9 @@ events.register('BlockUpdate', (name, properties, pos, time) => {
 events.register('SpawnParticle', (name, pos, time) => {
     console.log(`SpawnParticle ${name}`);
 });
+
+events.register('Packet', (name, packet, time) => {
+    if(name == "LevelSoundEvent") {
+        console.log(`Packet ${name} ${JSON.stringify(packet)}`);
+    }
+});

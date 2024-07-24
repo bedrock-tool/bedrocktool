@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds/entity"
@@ -12,6 +13,7 @@ import (
 	"github.com/go-gl/mathgl/mgl32"
 	"github.com/gregwebs/go-recovery"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
+	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sirupsen/logrus"
 
 	_ "embed"
@@ -29,6 +31,7 @@ type VM struct {
 		OnEntityDataUpdate func(entity any, metadata entityDataObject, properties map[string]*entity.EntityProperty, timeReceived float64)
 		OnBlockUpdate      func(name string, properties map[string]any, pos protocol.BlockPos, timeReceived float64) (apply bool)
 		OnSpawnParticle    func(name string, pos mgl32.Vec3, timeReceived float64)
+		OnPacket           func(name string, pk packet.Packet, toServer bool, timeReceived float64) (drop bool)
 	}
 }
 
@@ -70,6 +73,8 @@ func New() *VM {
 			err = v.vm.ExportTo(callback, &v.CB.OnBlockUpdate)
 		case "SpawnParticle":
 			err = v.vm.ExportTo(callback, &v.CB.OnSpawnParticle)
+		case "Packet":
+			err = v.vm.ExportTo(callback, &v.CB.OnPacket)
 		}
 		return err
 	})
@@ -222,5 +227,21 @@ func (v *VM) OnSpawnParticle(name string, position mgl32.Vec3, timeReceived time
 	if err != nil {
 		v.log.Error(err)
 	}
-	return
+}
+
+func (v *VM) OnPacket(pk packet.Packet, toServer bool, timeReceived time.Time) (drop bool) {
+	if v.CB.OnPacket == nil {
+		return false
+	}
+
+	err := recovery.Call(func() error {
+		packetName := strings.Split(reflect.TypeOf(pk).String(), ".")[1]
+		drop = v.CB.OnPacket(packetName, pk, toServer, float64(timeReceived.UnixMilli()))
+		return nil
+	})
+	if err != nil {
+		v.log.Error(err)
+		return false
+	}
+	return drop
 }
