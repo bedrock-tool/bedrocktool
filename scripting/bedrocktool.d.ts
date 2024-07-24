@@ -47,7 +47,7 @@ declare type ChunkAddCallback = (pos: [number, number, number], time: number) =>
  * @param properties - Properties of the block.
  * @param time - The time the block was updated.
  */
-declare type BlockUpdateCallback = (name: string, properties: {[k: string]: any}, time: number) => void;
+declare type BlockUpdateCallback = (name: string, properties: {[k: string]: any}, pos: [number, number, number], time: number) => void;
 
 
 /**
@@ -59,7 +59,7 @@ declare type BlockUpdateCallback = (name: string, properties: {[k: string]: any}
  * @param z - The z-coordinate of the particle.
  * @param time - The time the particle was spawned.
  */
-declare type SpawnParticleCallback = (name: string, x: number, y: number, z: number, time: number) => void;
+declare type SpawnParticleCallback = (name: string, pos: [number, number, number], time: number) => void;
 
 
 declare const events: {

@@ -27,8 +27,8 @@ type VM struct {
 		OnEntityAdd        func(entity any, metadata entityDataObject, properties map[string]*entity.EntityProperty, timeReceived float64) (apply bool)
 		OnChunkAdd         func(pos world.ChunkPos, timeReceived float64) (apply bool)
 		OnEntityDataUpdate func(entity any, metadata entityDataObject, properties map[string]*entity.EntityProperty, timeReceived float64)
-		OnBlockUpdate      func(name string, properties map[string]any, timeReceived float64) (apply bool)
-		OnSpawnParticle    func(name string, x, y, z float32, timeReceived float64)
+		OnBlockUpdate      func(name string, properties map[string]any, pos protocol.BlockPos, timeReceived float64) (apply bool)
+		OnSpawnParticle    func(name string, pos mgl32.Vec3, timeReceived float64)
 	}
 }
 
@@ -193,13 +193,13 @@ func (v *VM) OnChunkAdd(pos world.ChunkPos, timeReceived time.Time) (apply bool)
 	return
 }
 
-func (v *VM) OnBlockUpdate(name string, properties map[string]any, timeReceived time.Time) (apply bool) {
+func (v *VM) OnBlockUpdate(name string, properties map[string]any, pos protocol.BlockPos, timeReceived time.Time) (apply bool) {
 	if v.CB.OnBlockUpdate == nil {
 		return true
 	}
 
 	err := recovery.Call(func() error {
-		apply = v.CB.OnBlockUpdate(name, properties, float64(timeReceived.UnixMilli()))
+		apply = v.CB.OnBlockUpdate(name, properties, pos, float64(timeReceived.UnixMilli()))
 		return nil
 	})
 	if err != nil {
@@ -216,8 +216,7 @@ func (v *VM) OnSpawnParticle(name string, position mgl32.Vec3, timeReceived time
 	}
 
 	err := recovery.Call(func() error {
-		x, y, z := position.Elem()
-		v.CB.OnSpawnParticle(name, x, y, z, float64(timeReceived.UnixMilli()))
+		v.CB.OnSpawnParticle(name, position, float64(timeReceived.UnixMilli()))
 		return nil
 	})
 	if err != nil {

@@ -13,11 +13,11 @@ events.register('ChunkAdd', (pos, time) => {
 });
 
 
-events.register('BlockUpdate', (name, properties, time) => {
+events.register('BlockUpdate', (name, properties, pos, time) => {
     console.log(`BlockUpdate ${name}`);
 });
 
 
-events.register('SpawnParticle', (name, x, y, z, time) => {
+events.register('SpawnParticle', (name, pos, time) => {
     console.log(`SpawnParticle ${name}`);
 });
