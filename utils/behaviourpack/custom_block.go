@@ -203,6 +203,15 @@ func parseBlock(block protocol.BlockEntry) MinecraftBlock {
 					}
 					continue
 				}
+
+				if k == "minecraft:collision_box" {
+					if enabled, ok := v["enabled"].(uint8); ok {
+						if enabled == 0 {
+							components[k] = false
+							continue
+						}
+					}
+				}
 			}
 
 			if k == "minecraft:custom_components" {
