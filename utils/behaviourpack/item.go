@@ -62,6 +62,7 @@ func (bp *Pack) ApplyComponentEntries(entries []protocol.ItemComponentEntry) {
 								}
 							}
 						}
+						componentsOut[key] = component
 					}
 
 				case "minecraft:icon":
@@ -76,6 +77,8 @@ func (bp *Pack) ApplyComponentEntries(entries []protocol.ItemComponentEntry) {
 					if interact_button, ok := component.(map[string]any); ok {
 						componentsOut[key] = interact_button["interact_text"]
 					}
+				case "item_tags":
+					// drop
 				default:
 					componentsOut[key] = component
 				}
