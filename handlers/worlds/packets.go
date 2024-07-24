@@ -157,7 +157,7 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 			if !found {
 				break
 			}
-			apply := w.scripting.OnBlockUpdate(name, properties, timeReceived)
+			apply := w.scripting.OnBlockUpdate(name, properties, pk.Position, timeReceived)
 			if apply {
 				w.currentWorld.QueueBlockUpdate(pk.Position, rid, uint8(pk.Layer))
 			}
@@ -169,7 +169,7 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 			if !found {
 				break
 			}
-			apply := w.scripting.OnBlockUpdate(name, properties, timeReceived)
+			apply := w.scripting.OnBlockUpdate(name, properties, pk.Position, timeReceived)
 			if apply {
 				w.currentWorld.QueueBlockUpdate(pk.Position, rid, uint8(pk.Layer))
 			}
@@ -182,7 +182,7 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 				if !found {
 					break
 				}
-				apply := w.scripting.OnBlockUpdate(name, properties, timeReceived)
+				apply := w.scripting.OnBlockUpdate(name, properties, block.BlockPos, timeReceived)
 				if apply {
 					w.currentWorld.QueueBlockUpdate(block.BlockPos, rid, uint8(0))
 				}
