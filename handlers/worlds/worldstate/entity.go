@@ -1,10 +1,7 @@
 package worldstate
 
 import (
-	"fmt"
-	"io"
 	"math"
-	"os"
 
 	"github.com/bedrock-tool/bedrocktool/utils/behaviourpack"
 	"github.com/df-mc/dragonfly/server/block/cube"
