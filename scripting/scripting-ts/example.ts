@@ -1,16 +1,23 @@
+events.register('EntityAdd', (entity, metadata, properties, time) => {
+    console.log(`EntityAdd ${entity.EntityType}`);
+});
 
-function OnEntityAdd(entity: Entity, data: EntityMetadata): boolean {
-    console.log("adding entity " + entity.EntityType);
-    console.log(`NoAI: ${data.Flag(EntityDataKey.Flags, EntityDataFlag.NoAI)}`)
-    console.log(`entity name: ${data[EntityDataKey.Name]}`)
-    return false;
-}
 
-function OnChunkAdd(pos: ChunkPos): boolean {
-    return false;
-}
+events.register('EntityDataUpdate', (entity, metadata, properties, time) => {
+    console.log(`EntityDataUpdate ${entity.EntityType}`);
+});
 
-function OnEntityDataUpdate(entity: Entity, data: EntityMetadata) {
-    console.log("OnEntityDataUpdate");
-    console.log("entity name: "+data[EntityDataKey.Name]);
-}
+
+events.register('ChunkAdd', (pos, time) => {
+    console.log(`ChunkAdd ${pos}`);
+});
+
+
+events.register('BlockUpdate', (name, properties, time) => {
+    console.log(`BlockUpdate ${name}`);
+});
+
+
+events.register('SpawnParticle', (name, x, y, z, time) => {
+    console.log(`SpawnParticle ${name}`);
+});
