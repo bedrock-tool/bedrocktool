@@ -153,20 +153,50 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 
 	case *packet.UpdateBlock:
 		if w.settings.BlockUpdates {
-			cp := world.ChunkPos{pk.Position.X() >> 4, pk.Position.Z() >> 4}
-			w.currentWorld.QueueBlockUpdate(cp, pk)
+			rid, name, properties, found := w.currentWorld.BlockByID(pk.NewBlockRuntimeID)
+			if !found {
+				break
+			}
+			apply, err := w.scripting.OnBlockUpdate(name, properties, timeReceived)
+			if err != nil {
+				return nil, err
+			}
+			if apply {
+				w.currentWorld.QueueBlockUpdate(pk.Position, rid, uint8(pk.Layer))
+			}
 		}
 
 	case *packet.UpdateBlockSynced:
 		if w.settings.BlockUpdates {
-			cp := world.ChunkPos{pk.Position.X() >> 4, pk.Position.Z() >> 4}
-			w.currentWorld.QueueBlockUpdate(cp, pk)
+			rid, name, properties, found := w.currentWorld.BlockByID(pk.NewBlockRuntimeID)
+			if !found {
+				break
+			}
+			apply, err := w.scripting.OnBlockUpdate(name, properties, timeReceived)
+			if err != nil {
+				return nil, err
+			}
+			if apply {
+				w.currentWorld.QueueBlockUpdate(pk.Position, rid, uint8(pk.Layer))
+			}
 		}
 
 	case *packet.UpdateSubChunkBlocks:
 		if w.settings.BlockUpdates {
-			cp := world.ChunkPos{pk.Position.X(), pk.Position.Z()}
-			w.currentWorld.QueueBlockUpdate(cp, pk)
+			for _, block := range pk.Blocks {
+				rid, name, properties, found := w.currentWorld.BlockByID(block.BlockRuntimeID)
+				if !found {
+					break
+				}
+				apply, err := w.scripting.OnBlockUpdate(name, properties, timeReceived)
+				if err != nil {
+					return nil, err
+				}
+				if apply {
+					w.currentWorld.QueueBlockUpdate(block.BlockPos, rid, uint8(0))
+				}
+			}
+
 		}
 
 	case *packet.ClientBoundMapItemData:
@@ -195,6 +225,9 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 		w.currentWorld.ProcessAddActor(pk, func(es *worldstate.EntityState) bool {
 			return w.scripting.OnEntityAdd(es, es.Metadata)
 		}, w.serverState.behaviorPack.AddEntity)
+
+	case *packet.RemoveActor:
+		w.currentWorld.ProcessRemoveActor(pk, w.session.Player.Position, int(w.serverState.radius))
 
 	case *packet.SetActorData:
 		if e := w.getEntity(pk.EntityRuntimeID); e != nil {

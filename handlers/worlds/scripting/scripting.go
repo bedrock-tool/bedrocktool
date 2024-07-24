@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"reflect"
 	"strconv"
+	"time"
 
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/dop251/goja"
@@ -21,9 +22,10 @@ type VM struct {
 	vm  *goja.Runtime
 	log *logrus.Entry
 	CB  struct {
-		OnEntityAdd        func(entity any, metadata *goja.Object) (ignore bool)
-		OnChunkAdd         func(pos world.ChunkPos) (ignore bool)
+		OnEntityAdd        func(entity any, metadata *goja.Object) (apply bool)
+		OnChunkAdd         func(pos world.ChunkPos) (apply bool)
 		OnEntityDataUpdate func(entity any, metadata *goja.Object)
+		OnBlockUpdate      func(name string, properties map[string]any, timeReceived time.Time) (apply bool)
 	}
 }
 
@@ -50,8 +52,17 @@ func New() *VM {
 		}
 		v.log.Println(string(data))
 	})
-
 	v.vm.GlobalObject().Set("console", console)
+
+	events := v.vm.NewObject()
+	events.Set("register", func(name string, callback goja.Callable) error {
+		switch name {
+		case "EntityAdd":
+
+		}
+		return nil
+	})
+	v.vm.GlobalObject().Set("events", events)
 
 	_, err := v.vm.RunString(enums_js)
 	if err != nil {
@@ -185,4 +196,12 @@ func (v *VM) OnChunkAdd(pos world.ChunkPos) (ignoreChunk bool) {
 		v.log.Error(err)
 	}
 	return
+}
+
+func (v *VM) OnBlockUpdate(name string, properties map[string]any, timeReceived time.Time) (apply bool, err error) {
+	if v.CB.OnBlockUpdate != nil {
+		v.CB.OnBlockUpdate(name, properties, timeReceived)
+	}
+
+	return true, nil
 }

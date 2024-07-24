@@ -1,7 +1,10 @@
 package worldstate
 
 import (
+	"fmt"
+	"io"
 	"math"
+	"os"
 
 	"github.com/bedrock-tool/bedrocktool/utils/behaviourpack"
 	"github.com/df-mc/dragonfly/server/block/cube"
@@ -65,6 +68,26 @@ func (e serverEntity) Type() world.EntityType {
 	return e.EntityType
 }
 
+func (w *World) ProcessRemoveActor(pk *packet.RemoveActor, playerPos mgl32.Vec3, viewDistance int) {
+	runtimeID, ok := w.currState().uniqueIDsToRuntimeIDs[pk.EntityUniqueID]
+	if !ok {
+		return
+	}
+	entity := w.GetEntity(runtimeID)
+	if entity == nil {
+		return
+	}
+
+	/*
+		dist := entity.Position.Vec2().Sub(playerPos.Vec2()).Len()
+
+		fmt.Fprintf(distf, "%.5f\t%s\n", dist, entity.EntityType)
+
+		_ = dist
+		println()
+	*/
+}
+
 func (w *World) ProcessAddActor(pk *packet.AddActor, ignoreCB func(*EntityState) bool, bpCB func(behaviourpack.EntityIn)) {
 	e := w.GetEntity(pk.EntityRuntimeID)
 	if e == nil {
@@ -75,6 +98,7 @@ func (w *World) ProcessAddActor(pk *packet.AddActor, ignoreCB func(*EntityState)
 			Inventory:  make(map[byte]map[byte]protocol.ItemInstance),
 			Metadata:   make(map[uint32]any),
 		}
+		w.currState().uniqueIDsToRuntimeIDs[e.UniqueID] = e.RuntimeID
 	}
 	e.Position = pk.Position
 	e.Pitch = pk.Pitch
@@ -93,7 +117,7 @@ func (w *World) ProcessAddActor(pk *packet.AddActor, ignoreCB func(*EntityState)
 		return
 	}
 
-	w.StoreEntity(uint64(pk.EntityUniqueID), e)
+	w.StoreEntity(pk.EntityRuntimeID, e)
 	for _, el := range pk.EntityLinks {
 		w.AddEntityLink(el)
 	}

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"reflect"
 	"slices"
 	"strings"
 	"sync"
@@ -87,11 +86,17 @@ type World struct {
 	Folder        string
 	UseHashedRids bool
 
-	blockUpdates map[world.ChunkPos][]packet.Packet
+	blockUpdates map[world.ChunkPos][]blockUpdate
 
 	onChunkUpdate func(pos world.ChunkPos, chunk *chunk.Chunk, isPaused bool)
 
 	log *logrus.Entry
+}
+
+type blockUpdate struct {
+	rid   uint32
+	pos   protocol.BlockPos
+	layer uint8
 }
 
 type Map struct {
@@ -118,16 +123,17 @@ func New(dimensionDefinitions map[int]protocol.DimensionDefinition, onChunkUpdat
 		memState: &worldStateDefer{
 			chunks: make(map[world.ChunkPos]*chunk.Chunk),
 			worldEntities: worldEntities{
-				entities:    make(map[EntityRuntimeID]*EntityState),
-				entityLinks: make(map[EntityUniqueID]map[EntityUniqueID]struct{}),
-				blockNBTs:   make(map[world.ChunkPos]map[cube.Pos]DummyBlock),
+				entities:              make(map[EntityRuntimeID]*EntityState),
+				entityLinks:           make(map[EntityUniqueID]map[EntityUniqueID]struct{}),
+				blockNBTs:             make(map[world.ChunkPos]map[cube.Pos]DummyBlock),
+				uniqueIDsToRuntimeIDs: make(map[int64]uint64),
 			},
 		},
 		players: worldPlayers{
 			players: make(map[uuid.UUID]*player),
 		},
 
-		blockUpdates:  make(map[world.ChunkPos][]packet.Packet),
+		blockUpdates:  make(map[world.ChunkPos][]blockUpdate),
 		onChunkUpdate: onChunkUpdate,
 		log:           logrus.WithFields(logrus.Fields{"part": "world"}),
 	}
@@ -212,7 +218,7 @@ func formatPackName(packName string) string {
 	packName = text.Clean(packName)
 	packName, _ = filenamify.FilenamifyV2(packName)
 	packName = removeSpace.Replace(packName)
-	packName = packName[:10]
+	packName = packName[:min(10, len(packName))]
 	return packName
 }
 
@@ -413,9 +419,10 @@ func (w *World) LoadChunk(pos world.ChunkPos) (*chunk.Chunk, bool, error) {
 	return nil, false, nil
 }
 
-func (w *World) QueueBlockUpdate(pos world.ChunkPos, pk packet.Packet) {
+func (w *World) QueueBlockUpdate(pos protocol.BlockPos, ridTo uint32, layer uint8) {
 	w.l.Lock()
-	w.blockUpdates[pos] = append(w.blockUpdates[pos], pk)
+	cp := world.ChunkPos{pos.X() >> 4, pos.Z() >> 4}
+	w.blockUpdates[cp] = append(w.blockUpdates[cp], blockUpdate{rid: ridTo, pos: pos, layer: layer})
 	w.l.Unlock()
 }
 
@@ -465,9 +472,10 @@ func (w *World) PauseCapture() {
 	w.pausedState = &worldStateDefer{
 		chunks: make(map[world.ChunkPos]*chunk.Chunk),
 		worldEntities: worldEntities{
-			entities:    make(map[EntityRuntimeID]*EntityState),
-			entityLinks: make(map[EntityUniqueID]map[EntityUniqueID]struct{}),
-			blockNBTs:   make(map[world.ChunkPos]map[cube.Pos]DummyBlock),
+			entities:              make(map[EntityRuntimeID]*EntityState),
+			entityLinks:           make(map[EntityUniqueID]map[EntityUniqueID]struct{}),
+			blockNBTs:             make(map[world.ChunkPos]map[cube.Pos]DummyBlock),
+			uniqueIDsToRuntimeIDs: make(map[int64]uint64),
 		},
 	}
 	w.l.Unlock()
@@ -511,8 +519,20 @@ func blockPosInChunk(bp protocol.BlockPos) (x uint8, y int16, z uint8) {
 	return uint8(bp.X() % 16), int16(bp.Y()), uint8(bp.Z() % 16)
 }
 
+func (w *World) BlockByID(rid uint32) (runtimeID uint32, name string, properties map[string]any, found bool) {
+	if w.UseHashedRids {
+		var ok bool
+		rid, ok = w.BlockRegistry.HashToRuntimeID(rid)
+		if !ok {
+			w.log.Warn("couldnt find block hash for block update")
+		}
+	}
+	name, properties, found = w.BlockRegistry.RuntimeIDToState(rid)
+	return rid, name, properties, found
+}
+
 func (w *World) applyBlockUpdates() {
-	for pos, pks := range w.blockUpdates {
+	for pos, updates := range w.blockUpdates {
 		delete(w.blockUpdates, pos)
 		chunk, ok, err := w.LoadChunk(world.ChunkPos(pos))
 		if !ok {
@@ -523,54 +543,10 @@ func (w *World) applyBlockUpdates() {
 			w.log.Warnf("Failed loading chunk %v %s", pos, err)
 			continue
 		}
-		for _, pk := range pks {
-			switch pk := pk.(type) {
-			case *packet.UpdateBlock:
-				x, y, z := blockPosInChunk(pk.Position)
-				rid := pk.NewBlockRuntimeID
-				if w.UseHashedRids {
-					rid, ok = chunk.BlockRegistry.HashToRuntimeID(pk.NewBlockRuntimeID)
-					if !ok {
-						w.log.Warn("couldnt find block hash for block update")
-					}
-				}
-				chunk.SetBlock(x, y, z, uint8(pk.Layer), rid)
-			case *packet.UpdateBlockSynced:
-				x, y, z := blockPosInChunk(pk.Position)
-				rid := pk.NewBlockRuntimeID
-				if w.UseHashedRids {
-					rid, ok = chunk.BlockRegistry.HashToRuntimeID(pk.NewBlockRuntimeID)
-					if !ok {
-						w.log.Warn("couldnt find block hash for block update")
-					}
-				}
-				chunk.SetBlock(x, y, z, uint8(pk.Layer), rid)
-			case *packet.UpdateSubChunkBlocks:
-				for _, block := range pk.Blocks {
-					x, y, z := blockPosInChunk(block.BlockPos)
-					rid := block.BlockRuntimeID
-					if w.UseHashedRids {
-						rid, ok = chunk.BlockRegistry.HashToRuntimeID(rid)
-						if !ok {
-							w.log.Warn("couldnt find block hash for block update")
-						}
-					}
-					chunk.SetBlock(x, y, z, 0, rid)
-				}
-				for _, block := range pk.Extra {
-					x, y, z := blockPosInChunk(block.BlockPos)
-					rid := block.BlockRuntimeID
-					if w.UseHashedRids {
-						rid, ok = chunk.BlockRegistry.HashToRuntimeID(rid)
-						if !ok {
-							w.log.Warn("couldnt find block hash for block update")
-						}
-					}
-					chunk.SetBlock(x, y, z, 1, rid)
-				}
-			default:
-				w.log.Warnf("Unhandled block update packet type %s", reflect.TypeOf(pk).String())
-			}
+
+		for _, update := range updates {
+			x, y, z := blockPosInChunk(update.pos)
+			chunk.SetBlock(x, y, z, update.layer, update.rid)
 		}
 		w.StoreChunk(pos, chunk, nil)
 	}

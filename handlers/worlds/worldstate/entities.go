@@ -14,6 +14,8 @@ type worldEntities struct {
 	entities    map[EntityRuntimeID]*EntityState
 	entityLinks map[EntityUniqueID]map[EntityUniqueID]struct{}
 	blockNBTs   map[world.ChunkPos]map[cube.Pos]DummyBlock
+
+	uniqueIDsToRuntimeIDs map[EntityUniqueID]EntityRuntimeID
 }
 
 func (w *worldEntities) StoreEntity(id EntityRuntimeID, es *EntityState) {
