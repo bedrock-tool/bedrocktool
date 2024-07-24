@@ -266,7 +266,7 @@ func (c *chain) Expired() bool {
 	if err != nil {
 		return true
 	}
-	chain := m["chain"].([]any)[0].(string)
+	chain := m["chain"].([]any)[1].(string)
 	tok, err := jwt.ParseSigned(chain)
 	if err != nil {
 		return true

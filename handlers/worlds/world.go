@@ -9,11 +9,13 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"path"
 	"slices"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/bedrock-tool/bedrocktool/handlers/worlds/entity"
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds/scripting"
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds/worldstate"
 	"github.com/bedrock-tool/bedrocktool/locale"
@@ -31,6 +33,7 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
+	"github.com/sandertv/gophertunnel/minecraft/resource"
 	"github.com/sirupsen/logrus"
 )
 
@@ -67,6 +70,7 @@ type serverState struct {
 	playerInventory    []protocol.ItemInstance
 	dimensions         map[int]protocol.DimensionDefinition
 	playerSkins        map[uuid.UUID]*protocol.Skin
+	entityProperties   map[string][]entity.EntityProperty
 
 	Name string
 }
@@ -123,6 +127,7 @@ func NewWorldsHandler(settings WorldSettings) *proxy.Handler {
 				dimensions:         make(map[int]protocol.DimensionDefinition),
 				playerSkins:        make(map[uuid.UUID]*protocol.Skin),
 				biomes:             world.DefaultBiomes.Clone(),
+				entityProperties:   make(map[string][]entity.EntityProperty),
 			}
 
 			w.mapUI = NewMapUI(w)
@@ -421,12 +426,30 @@ func (w *worldsHandler) saveWorldState(worldState *worldstate.World) error {
 			State: "Saving",
 		},
 	})
-	err := worldState.Finish(w.playerData(), w.settings.ExcludedMobs, w.settings.Players, spawnPos, w.session.Server.GameData(), w.serverState.behaviorPack)
+	err := worldState.Finish(w.playerData(), w.settings.ExcludedMobs, w.settings.Players, spawnPos, w.session.Server.GameData(), w.serverState.behaviorPack.HasContent())
 	if err != nil {
 		return err
 	}
 
-	err = worldState.FinalizePacks(w.serverState.Name)
+	err = worldState.FinalizePacks(func(fs utils.WriterFS) (*resource.Header, error) {
+		if w.serverState.behaviorPack.HasContent() {
+			name, err := filenamify.FilenamifyV2(w.serverState.Name)
+			if err != nil {
+				return nil, err
+			}
+			packFolder := path.Join("behavior_packs", name)
+
+			for _, p := range w.session.Server.ResourcePacks() {
+				w.serverState.behaviorPack.CheckAddLink(p)
+			}
+
+			err = w.serverState.behaviorPack.Save(fs, packFolder)
+			if err != nil {
+				return nil, err
+			}
+		}
+		return nil, nil
+	})
 	if err != nil {
 		return err
 	}
@@ -503,7 +526,6 @@ func (w *worldsHandler) openWorldState(deferred bool) {
 	folder := fmt.Sprintf("worlds/%s/%s", serverName, name)
 	w.currentWorld.BiomeRegistry = w.serverState.biomes
 	w.currentWorld.BlockRegistry = w.serverState.blocks
-	w.currentWorld.BehaviorPack = w.serverState.behaviorPack
 	w.currentWorld.ResourcePacks = w.session.Server.ResourcePacks()
 	w.currentWorld.UseHashedRids = w.serverState.useHashedRids
 	w.currentWorld.Open(name, folder, deferred)

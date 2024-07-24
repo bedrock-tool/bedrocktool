@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/bedrock-tool/bedrocktool/handlers/worlds/entity"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/dop251/goja"
 	"github.com/go-gl/mathgl/mgl32"
@@ -23,9 +24,9 @@ type VM struct {
 	vm  *goja.Runtime
 	log *logrus.Entry
 	CB  struct {
-		OnEntityAdd        func(entity any, metadata *goja.Object, timeReceived float64) (apply bool)
+		OnEntityAdd        func(entity any, metadata entityDataObject, properties map[string]*entity.EntityProperty, timeReceived float64) (apply bool)
 		OnChunkAdd         func(pos world.ChunkPos, timeReceived float64) (apply bool)
-		OnEntityDataUpdate func(entity any, metadata *goja.Object, timeReceived float64)
+		OnEntityDataUpdate func(entity any, metadata entityDataObject, properties map[string]*entity.EntityProperty, timeReceived float64)
 		OnBlockUpdate      func(name string, properties map[string]any, timeReceived float64) (apply bool)
 		OnSpawnParticle    func(name string, x, y, z float32, timeReceived float64)
 	}
@@ -150,13 +151,12 @@ func (m entityDataObject) Keys() (keys []string) {
 	return
 }
 
-func (v *VM) OnEntityAdd(entity any, metadata protocol.EntityMetadata, timeReceived time.Time) (apply bool) {
+func (v *VM) OnEntityAdd(entity any, metadata protocol.EntityMetadata, properties map[string]*entity.EntityProperty, timeReceived time.Time) (apply bool) {
 	if v.CB.OnEntityAdd == nil {
 		return true
 	}
-	data := v.vm.NewDynamicObject(entityDataObject{metadata, v.vm})
 	err := recovery.Call(func() error {
-		apply = v.CB.OnEntityAdd(entity, data, float64(timeReceived.UnixMilli()))
+		apply = v.CB.OnEntityAdd(entity, entityDataObject{metadata, v.vm}, properties, float64(timeReceived.UnixMilli()))
 		return nil
 	})
 	if err != nil {
@@ -165,13 +165,12 @@ func (v *VM) OnEntityAdd(entity any, metadata protocol.EntityMetadata, timeRecei
 	return
 }
 
-func (v *VM) OnEntityDataUpdate(entity any, metadata protocol.EntityMetadata, timeReceived time.Time) {
+func (v *VM) OnEntityDataUpdate(ent *entity.Entity, timeReceived time.Time) {
 	if v.CB.OnEntityDataUpdate == nil {
 		return
 	}
-	data := v.vm.NewDynamicObject(entityDataObject{metadata, v.vm})
 	err := recovery.Call(func() error {
-		v.CB.OnEntityDataUpdate(entity, data, float64(timeReceived.UnixMilli()))
+		v.CB.OnEntityDataUpdate(ent, entityDataObject{ent.Metadata, v.vm}, ent.Properties, float64(timeReceived.UnixMilli()))
 		return nil
 	})
 	if err != nil {

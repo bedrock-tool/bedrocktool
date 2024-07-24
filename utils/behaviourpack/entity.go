@@ -1,10 +1,8 @@
 package behaviourpack
 
 import (
-	"fmt"
-
+	"github.com/bedrock-tool/bedrocktool/handlers/worlds/entity"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
-	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 )
 
 type EntityDescription struct {
@@ -28,20 +26,6 @@ type entityBehaviour struct {
 	MinecraftEntity *MinecraftEntity `json:"minecraft:entity"`
 }
 
-type EntityIn struct {
-	Identifier string
-	Attr       []protocol.AttributeValue
-	Meta       protocol.EntityMetadata
-}
-
-type EntityProperty struct {
-	Type int32
-	Name string
-	Min  float32
-	Max  float32
-	Enum []any
-}
-
 type EntityPropertyJson struct {
 	Type       string `json:"type"`
 	Values     any    `json:"values,omitempty"`
@@ -50,26 +34,19 @@ type EntityPropertyJson struct {
 	ClientSync bool   `json:"client_sync"`
 }
 
-const (
-	PropertyTypeInt = iota
-	PropertyTypeFloat
-	PropertyTypeBool
-	PropertyTypeEnum
-)
-
-func (bp *Pack) AddEntity(entity EntityIn) {
-	ns, _ := ns_name_split(entity.Identifier)
+func (bp *Pack) AddEntity(EntityType string, attr []protocol.AttributeValue, meta protocol.EntityMetadata, props map[string]*entity.EntityProperty) {
+	ns, _ := ns_name_split(EntityType)
 	if ns == "minecraft" {
 		return
 	}
 
-	entry, ok := bp.entities[entity.Identifier]
+	entry, ok := bp.entities[EntityType]
 	if !ok {
 		entry = &entityBehaviour{
 			FormatVersion: bp.formatVersion,
 			MinecraftEntity: &MinecraftEntity{
 				Description: &EntityDescription{
-					Identifier:   entity.Identifier,
+					Identifier:   EntityType,
 					Spawnable:    true,
 					Summonable:   true,
 					Experimental: true,
@@ -81,27 +58,25 @@ func (bp *Pack) AddEntity(entity EntityIn) {
 		}
 	}
 
-	for _, av := range entity.Attr {
+	for _, av := range attr {
 		m := map[string]int{
 			"value": int(av.Value),
 			"min":   int(av.Min),
 		}
-
 		if av.Max > 0 && av.Max < 0xffffff {
 			m["max"] = int(av.Max)
 		}
-
 		entry.MinecraftEntity.Components[av.Name] = m
 	}
 
-	if scale, ok := entity.Meta[protocol.EntityDataKeyScale].(float32); ok {
+	if scale, ok := meta[protocol.EntityDataKeyScale].(float32); ok {
 		entry.MinecraftEntity.Components["minecraft:scale"] = map[string]any{
 			"value": scale,
 		}
 	}
 
-	width, widthOk := entity.Meta[protocol.EntityDataKeyWidth].(float32)
-	height, heightOk := entity.Meta[protocol.EntityDataKeyHeight].(float32)
+	width, widthOk := meta[protocol.EntityDataKeyWidth].(float32)
+	height, heightOk := meta[protocol.EntityDataKeyHeight].(float32)
 	if widthOk || heightOk {
 		entry.MinecraftEntity.Components["minecraft:collision_box"] = map[string]any{
 			"width":  width,
@@ -109,8 +84,8 @@ func (bp *Pack) AddEntity(entity EntityIn) {
 		}
 	}
 
-	if _, ok := entity.Meta[protocol.EntityDataKeyFlags]; ok {
-		AlwaysShowName := entity.Meta.Flag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagAlwaysShowName)
+	if _, ok := meta[protocol.EntityDataKeyFlags]; ok {
+		AlwaysShowName := meta.Flag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagAlwaysShowName)
 		if AlwaysShowName {
 			entry.MinecraftEntity.Components["minecraft:nameable"] = map[string]any{
 				"always_show": true,
@@ -130,25 +105,24 @@ func (bp *Pack) AddEntity(entity EntityIn) {
 	entry.MinecraftEntity.Components["minecraft:is_stackable"] = map[string]any{}
 	entry.MinecraftEntity.Components["minecraft:push_through"] = 1
 
-	props, ok := bp.entityProperties[entity.Identifier]
-	if ok {
+	if len(props) > 0 {
 		properties := make(map[string]EntityPropertyJson)
 		for _, v := range props {
 			var prop EntityPropertyJson
 			prop.ClientSync = true
 			switch v.Type {
-			case PropertyTypeInt:
+			case entity.PropertyTypeInt:
 				prop.Type = "int"
 				prop.Range = []any{int(v.Min), int(v.Max)}
 				prop.Default = int(v.Min)
-			case PropertyTypeFloat:
+			case entity.PropertyTypeFloat:
 				prop.Type = "float"
 				prop.Range = []any{v.Min, v.Max}
 				prop.Default = v.Min
-			case PropertyTypeBool:
+			case entity.PropertyTypeBool:
 				prop.Type = "bool"
 				prop.Default = false
-			case PropertyTypeEnum:
+			case entity.PropertyTypeEnum:
 				prop.Type = "enum"
 				prop.Values = v.Enum
 				prop.Default = v.Enum[0]
@@ -158,72 +132,5 @@ func (bp *Pack) AddEntity(entity EntityIn) {
 		entry.MinecraftEntity.Description.Properties = properties
 	}
 
-	bp.entities[entity.Identifier] = entry
-}
-
-func (bp *Pack) GetEntityTypeProperties(entityType string) []EntityProperty {
-	return bp.entityProperties[entityType]
-}
-
-func (bp *Pack) SyncActorProperty(pk *packet.SyncActorProperty) {
-	entityType, ok := pk.PropertyData["type"].(string)
-	if !ok {
-		return
-	}
-	properties, ok := pk.PropertyData["properties"].([]any)
-	if !ok {
-		return
-	}
-
-	var propertiesOut = make([]EntityProperty, 0, len(properties))
-	for _, property := range properties {
-		property := property.(map[string]any)
-		propertyName, ok := property["name"].(string)
-		if !ok {
-			continue
-		}
-		propertyType, ok := property["type"].(int32)
-		if !ok {
-			continue
-		}
-
-		var prop EntityProperty
-		prop.Name = propertyName
-		prop.Type = propertyType
-
-		switch propertyType {
-		case PropertyTypeInt:
-			min, ok := property["min"].(int32)
-			if !ok {
-				continue
-			}
-			max, ok := property["max"].(int32)
-			if !ok {
-				continue
-			}
-			prop.Min = float32(min)
-			prop.Max = float32(max)
-		case PropertyTypeFloat:
-			min, ok := property["min"].(int32)
-			if !ok {
-				continue
-			}
-			max, ok := property["max"].(int32)
-			if !ok {
-				continue
-			}
-			prop.Min = float32(min)
-			prop.Max = float32(max)
-		case PropertyTypeBool:
-		case PropertyTypeEnum:
-			prop.Enum, _ = property["enum"].([]any)
-		default:
-			fmt.Printf("Unknown property type %d", propertyType)
-			continue
-		}
-
-		propertiesOut = append(propertiesOut, prop)
-	}
-
-	bp.entityProperties[entityType] = propertiesOut
+	bp.entities[EntityType] = entry
 }

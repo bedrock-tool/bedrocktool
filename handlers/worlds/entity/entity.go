@@ -1,21 +1,28 @@
-package worldstate
+package entity
 
 import (
 	"math"
 
-	"github.com/bedrock-tool/bedrocktool/utils/behaviourpack"
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/go-gl/mathgl/mgl32"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
-	"github.com/sirupsen/logrus"
-	"golang.org/x/exp/maps"
 )
 
-type EntityState struct {
-	RuntimeID  EntityRuntimeID
-	UniqueID   EntityUniqueID
+type RuntimeID = uint64
+type UniqueID = int64
+
+const (
+	PropertyTypeInt = iota
+	PropertyTypeFloat
+	PropertyTypeBool
+	PropertyTypeEnum
+)
+
+type Entity struct {
+	RuntimeID  RuntimeID
+	UniqueID   UniqueID
 	EntityType string
 
 	Position            mgl32.Vec3
@@ -23,16 +30,23 @@ type EntityState struct {
 	Velocity            mgl32.Vec3
 	HasMoved            bool
 
-	Metadata protocol.EntityMetadata
-
-	IntegerProperties map[uint32]int32
-	FloatProperties   map[uint32]float32
+	Metadata   protocol.EntityMetadata
+	Properties map[string]*EntityProperty
 
 	Inventory  map[byte]map[byte]protocol.ItemInstance
 	Helmet     *protocol.ItemInstance
 	Chestplate *protocol.ItemInstance
 	Leggings   *protocol.ItemInstance
 	Boots      *protocol.ItemInstance
+}
+
+type EntityProperty struct {
+	Type  int32
+	Name  string
+	Min   float32
+	Max   float32
+	Enum  []any
+	Value any
 }
 
 type serverEntityType struct {
@@ -67,75 +81,6 @@ func (e serverEntity) Type() world.EntityType {
 	return e.EntityType
 }
 
-func (w *World) ProcessRemoveActor(pk *packet.RemoveActor, playerPos mgl32.Vec3, viewDistance int) {
-	runtimeID, ok := w.currState().uniqueIDsToRuntimeIDs[pk.EntityUniqueID]
-	if !ok {
-		return
-	}
-	entity := w.GetEntity(runtimeID)
-	if entity == nil {
-		return
-	}
-
-	/*
-		dist := entity.Position.Vec2().Sub(playerPos.Vec2()).Len()
-
-		fmt.Fprintf(distf, "%.5f\t%s\n", dist, entity.EntityType)
-
-		_ = dist
-		println()
-	*/
-}
-
-func (w *World) ProcessAddActor(pk *packet.AddActor, applyCallback func(es *EntityState) bool, bpCB func(behaviourpack.EntityIn)) {
-	e := w.GetEntity(pk.EntityRuntimeID)
-	if e == nil {
-		e = &EntityState{
-			RuntimeID:  pk.EntityRuntimeID,
-			UniqueID:   pk.EntityUniqueID,
-			EntityType: pk.EntityType,
-			Inventory:  make(map[byte]map[byte]protocol.ItemInstance),
-			Metadata:   make(map[uint32]any),
-
-			IntegerProperties: make(map[uint32]int32),
-			FloatProperties:   make(map[uint32]float32),
-		}
-		w.currState().uniqueIDsToRuntimeIDs[e.UniqueID] = e.RuntimeID
-	}
-	e.Position = pk.Position
-	e.Pitch = pk.Pitch
-	e.Yaw = pk.Yaw
-	e.HeadYaw = pk.HeadYaw
-	e.Velocity = pk.Velocity
-
-	for _, prop := range pk.EntityProperties.IntegerProperties {
-		e.IntegerProperties[prop.Index] = prop.Value
-	}
-	for _, prop := range pk.EntityProperties.FloatProperties {
-		e.FloatProperties[prop.Index] = prop.Value
-	}
-
-	metadata := make(protocol.EntityMetadata)
-	maps.Copy(metadata, pk.EntityMetadata)
-	e.Metadata = metadata
-
-	if !applyCallback(e) {
-		logrus.Infof("Ignoring Entity: %s %d", e.EntityType, e.UniqueID)
-		return
-	}
-
-	w.StoreEntity(pk.EntityRuntimeID, e)
-	for _, el := range pk.EntityLinks {
-		w.AddEntityLink(el)
-	}
-
-	bpCB(behaviourpack.EntityIn{
-		Identifier: pk.EntityType,
-		Attr:       pk.Attributes,
-		Meta:       pk.EntityMetadata,
-	})
-}
-
 var flagNames = map[uint8]string{
 	protocol.EntityDataFlagSheared:      "Sheared",
 	protocol.EntityDataFlagCaptain:      "IsIllagerCaptain",
@@ -157,7 +102,7 @@ var flagNames = map[uint8]string{
 	protocol.EntityDataFlagRoaring:      "IsRoaring",
 }
 
-func (s *EntityState) toNBT(nbt map[string]any) {
+func (s *Entity) toNBT(nbt map[string]any) {
 	metadata := s.Metadata
 
 	nbt["Persistent"] = true
@@ -324,7 +269,7 @@ func vec3float32(x mgl32.Vec3) []float32 {
 	return []float32{float32(x[0]), float32(x[1]), float32(x[2])}
 }
 
-func (s *EntityState) ToServerEntity(links []int64, properties []behaviourpack.EntityProperty) serverEntity {
+func (s *Entity) ToServerEntity(links []int64) serverEntity {
 	e := serverEntity{
 		EntityType: serverEntityType{
 			Encoded: s.EntityType,
@@ -337,20 +282,10 @@ func (s *EntityState) ToServerEntity(links []int64, properties []behaviourpack.E
 		},
 	}
 	s.toNBT(e.EntityType.NBT)
-
-	if len(s.FloatProperties)+len(s.IntegerProperties) > 0 {
+	if len(s.Properties) > 0 {
 		nbtProperties := map[string]any{}
-		for index, value := range s.FloatProperties {
-			propDef := properties[index]
-			nbtProperties[propDef.Name] = value
-		}
-		for index, value := range s.IntegerProperties {
-			propDef := properties[index]
-			if propDef.Type == behaviourpack.PropertyTypeBool {
-				nbtProperties[propDef.Name] = value == 1
-			} else {
-				nbtProperties[propDef.Name] = value
-			}
+		for name, prop := range s.Properties {
+			nbtProperties[name] = prop.Value
 		}
 		e.EntityType.NBT["properties"] = nbtProperties
 	}

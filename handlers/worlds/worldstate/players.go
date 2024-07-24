@@ -1,6 +1,7 @@
 package worldstate
 
 import (
+	"github.com/bedrock-tool/bedrocktool/handlers/worlds/entity"
 	"github.com/go-gl/mathgl/mgl32"
 	"github.com/google/uuid"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
@@ -33,7 +34,7 @@ func (w *World) playersToEntities() {
 		metadata.SetFlag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagAlwaysShowName)
 		metadata.SetFlag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagShowName)
 		metadata[protocol.EntityDataKeyName] = p.add.Username
-		w.currState().StoreEntity(p.add.EntityRuntimeID, &EntityState{
+		w.currState().StoreEntity(p.add.EntityRuntimeID, &entity.Entity{
 			RuntimeID:  p.add.EntityRuntimeID,
 			UniqueID:   int64(p.add.EntityRuntimeID),
 			EntityType: "player:" + p.add.UUID.String(),

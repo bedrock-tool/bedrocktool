@@ -17,8 +17,6 @@ type Pack struct {
 	items         map[string]*itemBehaviour
 	entities      map[string]*entityBehaviour
 	biomes        []biomeBehaviour
-
-	entityProperties map[string][]EntityProperty
 }
 
 func New(name string) *Pack {
@@ -44,10 +42,9 @@ func New(name string) *Pack {
 			Dependencies: []resource.Dependency{},
 			Capabilities: []resource.Capability{},
 		},
-		blocks:           make(map[string]*blockBehaviour),
-		items:            make(map[string]*itemBehaviour),
-		entities:         make(map[string]*entityBehaviour),
-		entityProperties: make(map[string][]EntityProperty),
+		blocks:   make(map[string]*blockBehaviour),
+		items:    make(map[string]*itemBehaviour),
+		entities: make(map[string]*entityBehaviour),
 	}
 }
 

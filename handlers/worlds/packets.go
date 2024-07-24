@@ -1,16 +1,16 @@
 package worlds
 
 import (
+	"fmt"
 	"image"
 	"maps"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/bedrock-tool/bedrocktool/handlers/worlds/worldstate"
+	"github.com/bedrock-tool/bedrocktool/handlers/worlds/entity"
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
-	"github.com/bedrock-tool/bedrocktool/utils/behaviourpack"
 	"github.com/bedrock-tool/bedrocktool/utils/nbtconv"
 	"github.com/bedrock-tool/bedrocktool/utils/resourcepack"
 	"github.com/df-mc/dragonfly/server/block/cube"
@@ -23,7 +23,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func (w *worldsHandler) getEntity(id worldstate.EntityRuntimeID) *worldstate.EntityState {
+func (w *worldsHandler) getEntity(id entity.RuntimeID) *entity.Entity {
 	return w.currentWorld.GetEntity(id)
 }
 
@@ -213,35 +213,55 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 	// entity
 
 	case *packet.SyncActorProperty:
-		w.serverState.behaviorPack.SyncActorProperty(pk)
+		w.syncActorProperty(pk)
 
 	case *packet.AddActor:
-		w.currentWorld.ProcessAddActor(pk, func(es *worldstate.EntityState) bool {
-			return w.scripting.OnEntityAdd(es, es.Metadata, timeReceived)
-		}, w.serverState.behaviorPack.AddEntity)
+		ent := w.currentWorld.GetEntity(pk.EntityRuntimeID)
+		if ent == nil {
+			ent = &entity.Entity{
+				RuntimeID:  pk.EntityRuntimeID,
+				UniqueID:   pk.EntityUniqueID,
+				EntityType: pk.EntityType,
+				Inventory:  make(map[byte]map[byte]protocol.ItemInstance),
+				Metadata:   make(map[uint32]any),
+				Properties: make(map[string]*entity.EntityProperty),
+			}
+		}
+		ent.Position = pk.Position
+		ent.Pitch = pk.Pitch
+		ent.Yaw = pk.Yaw
+		ent.HeadYaw = pk.HeadYaw
+		ent.Velocity = pk.Velocity
+
+		w.applyEntityData(ent, pk.EntityMetadata, pk.EntityProperties, timeReceived)
+
+		if !w.scripting.OnEntityAdd(ent, ent.Metadata, ent.Properties, timeReceived) {
+			logrus.Infof("Ignoring Entity: %s %d", ent.EntityType, ent.UniqueID)
+		} else {
+			w.currentWorld.StoreEntity(pk.EntityRuntimeID, ent)
+			for _, el := range pk.EntityLinks {
+				w.currentWorld.AddEntityLink(el)
+			}
+			w.serverState.behaviorPack.AddEntity(pk.EntityType, pk.Attributes, ent.Metadata, ent.Properties)
+		}
 
 	case *packet.RemoveActor:
-		w.currentWorld.ProcessRemoveActor(pk, w.session.Player.Position, int(w.serverState.radius))
+		entity := w.currentWorld.GetEntityUniqueID(pk.EntityUniqueID)
+		if entity != nil {
+			/*
+				dist := entity.Position.Vec2().Sub(playerPos.Vec2()).Len()
+
+				fmt.Fprintf(distf, "%.5f\t%s\n", dist, entity.EntityType)
+
+				_ = dist
+				println()
+			*/
+		}
 
 	case *packet.SetActorData:
-		if e := w.getEntity(pk.EntityRuntimeID); e != nil {
-			metadata := make(protocol.EntityMetadata)
-			maps.Copy(metadata, pk.EntityMetadata)
-			w.scripting.OnEntityDataUpdate(e, metadata, timeReceived)
-			maps.Copy(e.Metadata, metadata)
-
-			for _, prop := range pk.EntityProperties.IntegerProperties {
-				e.IntegerProperties[prop.Index] = prop.Value
-			}
-			for _, prop := range pk.EntityProperties.FloatProperties {
-				e.FloatProperties[prop.Index] = prop.Value
-			}
-
-			w.serverState.behaviorPack.AddEntity(behaviourpack.EntityIn{
-				Identifier: e.EntityType,
-				Attr:       nil,
-				Meta:       metadata,
-			})
+		if entity := w.getEntity(pk.EntityRuntimeID); entity != nil {
+			w.applyEntityData(entity, pk.EntityMetadata, pk.EntityProperties, timeReceived)
+			w.serverState.behaviorPack.AddEntity(entity.EntityType, nil, entity.Metadata, entity.Properties)
 		}
 
 	case *packet.SetActorMotion:
@@ -441,6 +461,89 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 	}
 
 	return _pk, nil
+}
+
+func (w *worldsHandler) syncActorProperty(pk *packet.SyncActorProperty) {
+	entityType, ok := pk.PropertyData["type"].(string)
+	if !ok {
+		return
+	}
+	properties, ok := pk.PropertyData["properties"].([]any)
+	if !ok {
+		return
+	}
+
+	var propertiesOut = make([]entity.EntityProperty, 0, len(properties))
+	for _, property := range properties {
+		property := property.(map[string]any)
+		propertyName, ok := property["name"].(string)
+		if !ok {
+			continue
+		}
+		propertyType, ok := property["type"].(int32)
+		if !ok {
+			continue
+		}
+
+		var prop entity.EntityProperty
+		prop.Name = propertyName
+		prop.Type = propertyType
+
+		switch propertyType {
+		case entity.PropertyTypeInt:
+			min, ok := property["min"].(int32)
+			if !ok {
+				continue
+			}
+			max, ok := property["max"].(int32)
+			if !ok {
+				continue
+			}
+			prop.Min = float32(min)
+			prop.Max = float32(max)
+		case entity.PropertyTypeFloat:
+			min, ok := property["min"].(int32)
+			if !ok {
+				continue
+			}
+			max, ok := property["max"].(int32)
+			if !ok {
+				continue
+			}
+			prop.Min = float32(min)
+			prop.Max = float32(max)
+		case entity.PropertyTypeBool:
+		case entity.PropertyTypeEnum:
+			prop.Enum, _ = property["enum"].([]any)
+		default:
+			fmt.Printf("Unknown property type %d", propertyType)
+			continue
+		}
+
+		propertiesOut = append(propertiesOut, prop)
+	}
+
+	w.serverState.entityProperties[entityType] = propertiesOut
+}
+
+func (w *worldsHandler) applyEntityData(ent *entity.Entity, EntityMetadata protocol.EntityMetadata, EntityProperties protocol.EntityProperties, timeReceived time.Time) {
+	maps.Copy(ent.Metadata, EntityMetadata)
+	w.scripting.OnEntityDataUpdate(ent, timeReceived)
+
+	for _, prop := range EntityProperties.IntegerProperties {
+		propType := w.serverState.entityProperties[ent.EntityType][prop.Index]
+		if propType.Type == entity.PropertyTypeBool {
+			propType.Value = prop.Value == 1
+		} else {
+			propType.Value = prop.Value
+		}
+		ent.Properties[propType.Name] = &propType
+	}
+	for _, prop := range EntityProperties.IntegerProperties {
+		propType := w.serverState.entityProperties[ent.EntityType][prop.Index]
+		propType.Value = prop.Value
+		ent.Properties[propType.Name] = &propType
+	}
 }
 
 func (w *worldsHandler) addPlayer(pk *packet.AddPlayer) {

@@ -11,10 +11,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bedrock-tool/bedrocktool/handlers/worlds/entity"
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
-	"github.com/bedrock-tool/bedrocktool/utils/behaviourpack"
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/df-mc/dragonfly/server/world/chunk"
@@ -36,8 +36,8 @@ import (
 type worldStateInterface interface {
 	StoreChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cube.Pos]DummyBlock) error
 	SetBlockNBT(pos cube.Pos, nbt map[string]any, merge bool)
-	StoreEntity(id EntityRuntimeID, es *EntityState)
-	GetEntity(id EntityRuntimeID) *EntityState
+	StoreEntity(id entity.RuntimeID, es *entity.Entity)
+	GetEntity(id entity.RuntimeID) *entity.Entity
 	AddEntityLink(el protocol.EntityLink)
 }
 
@@ -52,20 +52,19 @@ type World struct {
 
 	BlockRegistry world.BlockRegistry
 	BiomeRegistry *world.BiomeRegistry
-	BehaviorPack  *behaviourpack.Pack
 
 	dimension            world.Dimension
 	dimRange             cube.Range
 	dimensionDefinitions map[int]protocol.DimensionDefinition
 	StoredChunks         map[world.ChunkPos]bool
 
-	memState *worldStateDefer
+	memState *worldStateMem
 	provider *mcdb.DB
 	onceOpen sync.Once
 	opened   bool
 	// state to be used while paused
 	paused      bool
-	pausedState *worldStateDefer
+	pausedState *worldStateMem
 	// access to states
 	l sync.Mutex
 
@@ -120,14 +119,13 @@ func New(dimensionDefinitions map[int]protocol.DimensionDefinition, onChunkUpdat
 		StoredChunks:         make(map[world.ChunkPos]bool),
 		dimensionDefinitions: dimensionDefinitions,
 		finish:               make(chan struct{}),
-		memState: &worldStateDefer{
-			chunks: make(map[world.ChunkPos]*chunk.Chunk),
-			worldEntities: worldEntities{
-				entities:              make(map[EntityRuntimeID]*EntityState),
-				entityLinks:           make(map[EntityUniqueID]map[EntityUniqueID]struct{}),
-				blockNBTs:             make(map[world.ChunkPos]map[cube.Pos]DummyBlock),
-				uniqueIDsToRuntimeIDs: make(map[int64]uint64),
-			},
+		memState: &worldStateMem{
+			chunks:      make(map[world.ChunkPos]*chunk.Chunk),
+			entities:    make(map[entity.RuntimeID]*entity.Entity),
+			entityLinks: make(map[entity.UniqueID]map[entity.UniqueID]struct{}),
+			blockNBTs:   make(map[world.ChunkPos]map[cube.Pos]DummyBlock),
+
+			uniqueIDsToRuntimeIDs: make(map[int64]uint64),
 		},
 		players: worldPlayers{
 			players: make(map[uuid.UUID]*player),
@@ -142,7 +140,7 @@ func New(dimensionDefinitions map[int]protocol.DimensionDefinition, onChunkUpdat
 	return w, nil
 }
 
-func (w *World) currState() *worldStateDefer {
+func (w *World) currState() *worldStateMem {
 	if w.paused {
 		return w.pausedState
 	} else {
@@ -276,7 +274,7 @@ func (w *World) addResourcePacks() error {
 	return nil
 }
 
-func (w *World) FinalizePacks(serverName string) error {
+func (w *World) FinalizePacks(addBehaviorPack func(fs utils.WriterFS) (*resource.Header, error)) error {
 	err := <-w.resourcePacksDone
 	if err != nil {
 		return err
@@ -292,26 +290,15 @@ func (w *World) FinalizePacks(serverName string) error {
 	})
 
 	fs := utils.OSWriter{Base: w.Folder}
+	header, err := addBehaviorPack(fs)
+	if err != nil {
+		return err
+	}
 
-	if w.BehaviorPack.HasContent() {
-		name, err := filenamify.FilenamifyV2(serverName)
-		if err != nil {
-			return err
-		}
-		packFolder := path.Join("behavior_packs", name)
-
-		for _, p := range w.ResourcePacks {
-			w.BehaviorPack.CheckAddLink(p)
-		}
-
-		err = w.BehaviorPack.Save(fs, packFolder)
-		if err != nil {
-			return err
-		}
-
+	if header != nil {
 		err = addPacksJSON(fs, "world_behavior_packs.json", []resourcePackDependency{{
-			UUID:    w.BehaviorPack.Manifest.Header.UUID,
-			Version: w.BehaviorPack.Manifest.Header.Version,
+			UUID:    header.UUID,
+			Version: header.Version,
 		}})
 		if err != nil {
 			return err
@@ -433,10 +420,11 @@ func (w *World) SetBlockNBT(pos cube.Pos, nbt map[string]any, merge bool) {
 	w.currState().SetBlockNBT(pos, nbt, merge)
 }
 
-func (w *World) StoreEntity(id EntityRuntimeID, es *EntityState) {
+func (w *World) StoreEntity(id entity.RuntimeID, es *entity.Entity) {
 	w.l.Lock()
 	defer w.l.Unlock()
-	w.currState().StoreEntity(id, es)
+	state := w.currState()
+	state.StoreEntity(id, es)
 }
 
 func (w *World) StoreMap(m *packet.ClientBoundMapItemData) {
@@ -445,7 +433,12 @@ func (w *World) StoreMap(m *packet.ClientBoundMapItemData) {
 	w.currState().StoreMap(m)
 }
 
-func (w *World) GetEntity(id EntityRuntimeID) *EntityState {
+func (w *World) GetEntityUniqueID(id entity.UniqueID) *entity.Entity {
+	rid := w.currState().uniqueIDsToRuntimeIDs[id]
+	return w.GetEntity(rid)
+}
+
+func (w *World) GetEntity(id entity.RuntimeID) *entity.Entity {
 	w.l.Lock()
 	defer w.l.Unlock()
 	if w.paused {
@@ -470,14 +463,13 @@ func (w *World) AddEntityLink(el protocol.EntityLink) {
 func (w *World) PauseCapture() {
 	w.l.Lock()
 	w.paused = true
-	w.pausedState = &worldStateDefer{
-		chunks: make(map[world.ChunkPos]*chunk.Chunk),
-		worldEntities: worldEntities{
-			entities:              make(map[EntityRuntimeID]*EntityState),
-			entityLinks:           make(map[EntityUniqueID]map[EntityUniqueID]struct{}),
-			blockNBTs:             make(map[world.ChunkPos]map[cube.Pos]DummyBlock),
-			uniqueIDsToRuntimeIDs: make(map[int64]uint64),
-		},
+	w.pausedState = &worldStateMem{
+		chunks:      make(map[world.ChunkPos]*chunk.Chunk),
+		entities:    make(map[entity.RuntimeID]*entity.Entity),
+		entityLinks: make(map[entity.UniqueID]map[entity.UniqueID]struct{}),
+		blockNBTs:   make(map[world.ChunkPos]map[cube.Pos]DummyBlock),
+
+		uniqueIDsToRuntimeIDs: make(map[int64]uint64),
 	}
 	w.l.Unlock()
 }
@@ -583,19 +575,20 @@ func (w *World) Rename(name, folder string) error {
 	return nil
 }
 
-func (w *World) Finish(playerData map[string]any, excludedMobs []string, withPlayers bool, spawn cube.Pos, gd minecraft.GameData, bp *behaviourpack.Pack) error {
+func (w *World) Finish(playerData map[string]any, excludedMobs []string, withPlayers bool, spawn cube.Pos, gd minecraft.GameData, experimental bool) error {
 	w.l.Lock()
 	defer w.l.Unlock()
 	close(w.finish)
 
 	if withPlayers {
 		w.playersToEntities()
-
-		for _, p := range w.players.players {
-			bp.AddEntity(behaviourpack.EntityIn{
-				Identifier: "player:" + p.add.UUID.String(),
-			})
-		}
+		/*
+			for _, p := range w.players.players {
+				bp.AddEntity(behaviourpack.EntityIn{
+					Identifier: "player:" + p.add.UUID.String(),
+				})
+			}
+		*/
 	}
 
 	messages.Router.Handle(&messages.Message{
@@ -637,8 +630,7 @@ func (w *World) Finish(playerData map[string]any, excludedMobs []string, withPla
 		if !ignore {
 			cp := world.ChunkPos{int32(entityState.Position.X()) >> 4, int32(entityState.Position.Z()) >> 4}
 			links := maps.Keys(w.memState.entityLinks[entityState.UniqueID])
-			properties := w.BehaviorPack.GetEntityTypeProperties(entityState.EntityType)
-			chunkEntities[cp] = append(chunkEntities[cp], entityState.ToServerEntity(links, properties))
+			chunkEntities[cp] = append(chunkEntities[cp], entityState.ToServerEntity(links))
 		}
 	}
 
@@ -783,7 +775,7 @@ func (w *World) Finish(playerData map[string]any, excludedMobs []string, withPla
 		s.TimeCycle = true
 	}
 
-	if bp.HasContent() {
+	if experimental {
 		if ld.Experiments == nil {
 			ld.Experiments = map[string]any{}
 		}
