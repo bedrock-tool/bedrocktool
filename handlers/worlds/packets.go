@@ -54,7 +54,10 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 					for _, be := range pk.Blocks {
 						w.serverState.behaviorPack.AddBlock(be)
 					}
-					world.AddCustomBlocks(w.serverState.blocks, pk.Blocks)
+					err := world.AddCustomBlocks(w.serverState.blocks, pk.Blocks)
+					if err != nil {
+						return nil, err
+					}
 					w.serverState.customBlocks = pk.Blocks
 				}
 				w.serverState.blocks.Finalize()
