@@ -275,6 +275,7 @@ func vec3float32(x mgl32.Vec3) []float32 {
 }
 
 func (s *Entity) ToServerEntity(links []int64) serverEntity {
+	s.Velocity[1] = 0
 	e := serverEntity{
 		EntityType: serverEntityType{
 			Encoded: s.EntityType,
