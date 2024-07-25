@@ -103,7 +103,7 @@ func NewWorldsHandler(settings WorldSettings) *proxy.Handler {
 	})
 
 	if settings.ChunkRadius == 0 {
-		settings.ChunkRadius = 80
+		settings.ChunkRadius = 76
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

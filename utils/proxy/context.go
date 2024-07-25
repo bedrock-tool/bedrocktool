@@ -147,6 +147,10 @@ func (p *Context) Run(ctx context.Context, connect *utils.ConnectInfo) (err erro
 			return nil
 		},
 		PacketCallback: func(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
+			if pk, ok := pk.(*packet.PacketViolationWarning); ok {
+				logrus.Infof("%+#v\n", pk)
+			}
+
 			haveMoved := p.session.Player.handlePackets(pk)
 			if haveMoved {
 				for _, cb := range p.PlayerMoveCB {

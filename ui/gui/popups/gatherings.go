@@ -196,22 +196,27 @@ func (g *Gatherings) Layout(gtx C, th *material.Theme) D {
 						Button:       click,
 						CornerRadius: 8,
 					}
-					return b.Layout(gtx, func(gtx C) D {
-						return layout.UniformInset(8).Layout(gtx, func(gtx C) D {
-							return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-								layout.Rigid(func(gtx C) D {
-									return material.Label(th, th.TextSize, gatheringName).Layout(gtx)
-								}),
-								layout.Rigid(func(gtx C) D {
-									var text string
-									if hasStarted {
-										text = fmt.Sprintf("Ends in %s", time.Until(end).Truncate(time.Second))
-									} else {
-										text = fmt.Sprintf("Starts in %s", time.Until(start).Truncate(time.Second))
-									}
-									return material.Label(th, th.TextSize, text).Layout(gtx)
-								}),
-							)
+
+					return layout.Inset{
+						Bottom: 8,
+					}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+						return b.Layout(gtx, func(gtx C) D {
+							return layout.UniformInset(8).Layout(gtx, func(gtx C) D {
+								return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+									layout.Rigid(func(gtx C) D {
+										return material.Label(th, th.TextSize, gatheringName).Layout(gtx)
+									}),
+									layout.Rigid(func(gtx C) D {
+										var text string
+										if hasStarted {
+											text = fmt.Sprintf("Ends in %s", time.Until(end).Truncate(time.Second))
+										} else {
+											text = fmt.Sprintf("Starts in %s", time.Until(start).Truncate(time.Second))
+										}
+										return material.Label(th, th.TextSize, text).Layout(gtx)
+									}),
+								)
+							})
 						})
 					})
 				})

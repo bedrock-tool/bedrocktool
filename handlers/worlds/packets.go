@@ -37,11 +37,43 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 		switch pk := _pk.(type) {
 		case *packet.CompressedBiomeDefinitionList: // for client side generation, disabled by proxy
 			return nil, nil
+		case *packet.GameRulesChanged:
+			var haveGameRule = false
+			for i, gameRule := range pk.GameRules {
+				if gameRule.Name == "showCoordinates" {
+					haveGameRule = true
+					gameRule.Value = true
+					pk.GameRules[i] = gameRule
+					break
+				}
+			}
+			if !haveGameRule {
+				pk.GameRules = append(pk.GameRules, protocol.GameRule{
+					Name:  "showCoordinates",
+					Value: true,
+				})
+			}
 		case *packet.StartGame:
 			if !w.serverState.haveStartGame {
 				w.serverState.haveStartGame = true
 				w.currentWorld.SetTime(timeReceived, int(pk.Time))
 				w.serverState.useHashedRids = pk.UseBlockNetworkIDHashes
+
+				var haveGameRule = false
+				for i, gameRule := range pk.GameRules {
+					if gameRule.Name == "showCoordinates" {
+						haveGameRule = true
+						gameRule.Value = true
+						pk.GameRules[i] = gameRule
+						break
+					}
+				}
+				if !haveGameRule {
+					pk.GameRules = append(pk.GameRules, protocol.GameRule{
+						Name:  "showCoordinates",
+						Value: true,
+					})
+				}
 
 				w.serverState.blocks = world.DefaultBlockRegistry.Clone().(*world.BlockRegistryImpl)
 
@@ -128,7 +160,7 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 	switch pk := _pk.(type) {
 	case *packet.RequestChunkRadius:
 		pk.ChunkRadius = w.settings.ChunkRadius
-		pk.MaxChunkRadius = w.settings.ChunkRadius
+		//pk.MaxChunkRadius = w.settings.ChunkRadius
 
 	case *packet.ChunkRadiusUpdated:
 		w.serverState.radius = pk.ChunkRadius
