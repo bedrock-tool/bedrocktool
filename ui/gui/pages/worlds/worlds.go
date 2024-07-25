@@ -170,6 +170,8 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 			}
 		}),
 		layout.Stacked(func(gtx C) D {
+			p.l.Lock()
+			defer p.l.Unlock()
 			return material.List(th, &p.processingWorldsList).
 				Layout(gtx, len(p.processingWorlds), func(gtx C, index int) D {
 					entry := p.processingWorlds[index]

@@ -193,7 +193,39 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 			go func(url string) {
 				defer r.dlwg.Done()
 				r.log.Infof("Downloading Resourcepack: %s", url)
-				newPack, err := resource.ReadURL(&httpClient, url)
+
+				f, err := r.cache.Create(id, ver)
+				if err != nil {
+					r.log.Error(err)
+					return
+				}
+
+				req, err := http.NewRequest("GET", url, nil)
+				if err != nil {
+					r.log.Error(err)
+					return
+				}
+				req.Header.Set("User-Agent", "libhttpclient/1.0.0.0")
+				res, err := httpClient.Do(req)
+				if err != nil {
+					r.log.Error(err)
+					return
+				}
+				defer res.Body.Close()
+
+				size, err := io.Copy(f, res.Body)
+				if err != nil {
+					r.log.Error(err)
+					return
+				}
+
+				err = f.Move()
+				if err != nil {
+					r.log.Error(err)
+					return
+				}
+
+				newPack, err := resource.FromReaderAt(f, size)
 				if err != nil {
 					r.log.Error(err)
 					return
@@ -343,6 +375,8 @@ func (r *rpHandler) downloadResourcePack(pk *packet.ResourcePackDataInfo) error 
 	if err != nil {
 		return err
 	}
+	h := sha256.New()
+	w := io.MultiWriter(f, h)
 
 	chunksDone := 0
 	dataWritten := 0
@@ -380,7 +414,7 @@ func (r *rpHandler) downloadResourcePack(pk *packet.ResourcePackDataInfo) error 
 			return fmt.Errorf("resourcepack current offset %d != %d fragment offset", dataWritten, frag.DataOffset)
 		}
 
-		_, err := f.Write(frag.Data)
+		_, err := w.Write(frag.Data)
 		if err != nil {
 			return err
 		}
@@ -417,13 +451,6 @@ func (r *rpHandler) downloadResourcePack(pk *packet.ResourcePackDataInfo) error 
 	}
 
 	// check for hash to match
-	h := sha256.New()
-	f.Seek(0, 0)
-	_, err = io.Copy(h, f)
-	if err != nil {
-		return err
-	}
-	f.Seek(0, 0)
 	sum := h.Sum(nil)
 	if !bytes.Equal(pk.Hash, sum) {
 		return fmt.Errorf("resource pack download error, hash mismatch in download %s", packID)
