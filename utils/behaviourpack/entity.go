@@ -84,6 +84,14 @@ func (bp *Pack) AddEntity(EntityType string, attr []protocol.AttributeValue, met
 		}
 	}
 
+	if ShowNameTag, ok := meta[protocol.EntityDataKeyAlwaysShowNameTag]; ok {
+		if ShowNameTag != 0 {
+			entry.MinecraftEntity.Components["minecraft:nameable"] = map[string]any{
+				"always_show": true,
+			}
+		}
+	}
+
 	if _, ok := meta[protocol.EntityDataKeyFlags]; ok {
 		AlwaysShowName := meta.Flag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagAlwaysShowName)
 		if AlwaysShowName {

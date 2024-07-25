@@ -6,6 +6,8 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+
+	"github.com/sandertv/gophertunnel/minecraft/protocol"
 )
 
 func DumpStruct(f io.StringWriter, inputStruct any) {
@@ -78,14 +80,37 @@ func dumpValue(f io.StringWriter, level int, value reflect.Value, withType, isEn
 			return
 		}
 		f.WriteString("\n")
+
+		if isEntityMetadata {
+			meta := protocol.EntityMetadata(value.Interface().(map[uint32]any))
+			if _, ok := meta[protocol.EntityDataKeyFlags]; ok {
+				f.WriteString(tabs + "\tFlags: ")
+				var first = true
+				for i, name := range entityDataFlags {
+					if meta.Flag(protocol.EntityDataKeyFlags, uint8(i)) {
+						if !first {
+							f.WriteString("|")
+						}
+						f.WriteString(name[len("EntityDataFlag"):])
+						first = false
+					}
+				}
+				f.WriteString(",\n")
+			}
+		}
+
 		iter := value.MapRange()
 		for iter.Next() {
 			f.WriteString(tabs + "\t")
 			var kevV bool
 			if isEntityMetadata {
 				idx := int(iter.Key().Uint())
+				if idx == 0 {
+					continue
+				}
 				if idx < len(entityDataKeys) {
-					f.WriteString(entityDataKeys[idx][len("EntityDataKey"):])
+					vv := entityDataKeys[idx][len("EntityDataKey"):]
+					f.WriteString(vv)
 					kevV = true
 				}
 			}
@@ -317,4 +342,125 @@ var entityDataKeys = []string{
 	"EntityDataKeyPlayerLastDeathDimension",
 	"EntityDataKeyPlayerHasDied",
 	"EntityDataKeyCollisionBox",
+}
+
+var entityDataFlags = []string{
+	"EntityDataFlagOnFire",
+	"EntityDataFlagSneaking",
+	"EntityDataFlagRiding",
+	"EntityDataFlagSprinting",
+	"EntityDataFlagUsingItem",
+	"EntityDataFlagInvisible",
+	"EntityDataFlagTempted",
+	"EntityDataFlagInLove",
+	"EntityDataFlagSaddled",
+	"EntityDataFlagPowered",
+	"EntityDataFlagIgnited",
+	"EntityDataFlagBaby",
+	"EntityDataFlagConverting",
+	"EntityDataFlagCritical",
+	"EntityDataFlagShowName",
+	"EntityDataFlagAlwaysShowName",
+	"EntityDataFlagNoAI",
+	"EntityDataFlagSilent",
+	"EntityDataFlagWallClimbing",
+	"EntityDataFlagClimb",
+	"EntityDataFlagSwim",
+	"EntityDataFlagFly",
+	"EntityDataFlagWalk",
+	"EntityDataFlagResting",
+	"EntityDataFlagSitting",
+	"EntityDataFlagAngry",
+	"EntityDataFlagInterested",
+	"EntityDataFlagCharged",
+	"EntityDataFlagTamed",
+	"EntityDataFlagOrphaned",
+	"EntityDataFlagLeashed",
+	"EntityDataFlagSheared",
+	"EntityDataFlagGliding",
+	"EntityDataFlagElder",
+	"EntityDataFlagMoving",
+	"EntityDataFlagBreathing",
+	"EntityDataFlagChested",
+	"EntityDataFlagStackable",
+	"EntityDataFlagShowBottom",
+	"EntityDataFlagStanding",
+	"EntityDataFlagShaking",
+	"EntityDataFlagIdling",
+	"EntityDataFlagCasting",
+	"EntityDataFlagCharging",
+	"EntityDataFlagKeyboardControlled",
+	"EntityDataFlagPowerJump",
+	"EntityDataFlagDash",
+	"EntityDataFlagLingering",
+	"EntityDataFlagHasCollision",
+	"EntityDataFlagHasGravity",
+	"EntityDataFlagFireImmune",
+	"EntityDataFlagDancing",
+	"EntityDataFlagEnchanted",
+	"EntityDataFlagReturnTrident",
+	"EntityDataFlagContainerPrivate",
+	"EntityDataFlagTransforming",
+	"EntityDataFlagDamageNearbyMobs",
+	"EntityDataFlagSwimming",
+	"EntityDataFlagBribed",
+	"EntityDataFlagPregnant",
+	"EntityDataFlagLayingEgg",
+	"EntityDataFlagPassengerCanPick",
+	"EntityDataFlagTransitionSitting",
+	"EntityDataFlagEating",
+	"EntityDataFlagLayingDown",
+	"EntityDataFlagSneezing",
+	"EntityDataFlagTrusting",
+	"EntityDataFlagRolling",
+	"EntityDataFlagScared",
+	"EntityDataFlagInScaffolding",
+	"EntityDataFlagOverScaffolding",
+	"EntityDataFlagDescendThroughBlock",
+	"EntityDataFlagBlocking",
+	"EntityDataFlagTransitionBlocking",
+	"EntityDataFlagBlockedUsingShield",
+	"EntityDataFlagBlockedUsingDamagedShield",
+	"EntityDataFlagSleeping",
+	"EntityDataFlagWantsToWake",
+	"EntityDataFlagTradeInterest",
+	"EntityDataFlagDoorBreaker",
+	"EntityDataFlagBreakingObstruction",
+	"EntityDataFlagDoorOpener",
+	"EntityDataFlagCaptain",
+	"EntityDataFlagStunned",
+	"EntityDataFlagRoaring",
+	"EntityDataFlagDelayedAttack",
+	"EntityDataFlagAvoidingMobs",
+	"EntityDataFlagAvoidingBlock",
+	"EntityDataFlagFacingTargetToRangeAttack",
+	"EntityDataFlagHiddenWhenInvisible",
+	"EntityDataFlagInUI",
+	"EntityDataFlagStalking",
+	"EntityDataFlagEmoting",
+	"EntityDataFlagCelebrating",
+	"EntityDataFlagAdmiring",
+	"EntityDataFlagCelebratingSpecial",
+	"EntityDataFlagOutOfControl",
+	"EntityDataFlagRamAttack",
+	"EntityDataFlagPlayingDead",
+	"EntityDataFlagInAscendingBlock",
+	"EntityDataFlagOverDescendingBlock",
+	"EntityDataFlagCroaking",
+	"EntityDataFlagDigestMob",
+	"EntityDataFlagJumpGoal",
+	"EntityDataFlagEmerging",
+	"EntityDataFlagSniffing",
+	"EntityDataFlagDigging",
+	"EntityDataFlagSonicBoom",
+	"EntityDataFlagHasDashTimeout",
+	"EntityDataFlagPushTowardsClosestSpace",
+	"EntityDataFlagScenting",
+	"EntityDataFlagRising",
+	"EntityDataFlagFeelingHappy",
+	"EntityDataFlagSearching",
+	"EntityDataFlagCrawling",
+	"EntityDataFlagTimerFlag1",
+	"EntityDataFlagTimerFlag2",
+	"EntityDataFlagTimerFlag3",
 }
