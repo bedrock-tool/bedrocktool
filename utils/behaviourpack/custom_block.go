@@ -13,6 +13,7 @@ type description struct {
 	Properties             map[string]any   `json:"properties,omitempty"`
 	MenuCategory           menuCategory     `json:"menu_category,omitempty"`
 	Traits                 map[string]Trait `json:"traits,omitempty"`
+	States                 map[string]any   `json:"states,omitempty"`
 }
 
 type menuCategory struct {
@@ -241,6 +242,32 @@ func parseBlock(block protocol.BlockEntry) MinecraftBlock {
 	if components, ok := block.Properties["components"].(map[string]any); ok {
 		processComponents(components)
 		entry.Components = components
+	}
+
+	if properties, ok := block.Properties["properties"].([]any); ok {
+		entry.Description.States = make(map[string]any)
+		for _, property := range properties {
+			property := property.(map[string]any)
+			name, ok := property["name"].(string)
+			if !ok {
+				continue
+			}
+
+			var enum2 []any
+			enum, ok := property["enum"].([]any)
+			if ok {
+				enum2 = enum
+			} else {
+				enum, ok := property["enum"].([]uint8)
+				if ok {
+					for _, v := range enum {
+						enum2 = append(enum2, v != 0)
+					}
+				}
+			}
+
+			entry.Description.States[name] = enum2
+		}
 	}
 
 	if menu_category, ok := block.Properties["menu_category"].(map[string]any); ok {

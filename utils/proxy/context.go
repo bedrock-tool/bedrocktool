@@ -86,6 +86,9 @@ func (p *Context) connect(ctx context.Context, connect *utils.ConnectInfo) (err 
 	p.handlers.OnSessionEnd()
 
 	if err, ok := err.(*errTransfer); ok {
+		if connect.Replay != "" {
+			return nil
+		}
 		address := fmt.Sprintf("%s:%d", err.transfer.Address, err.transfer.Port)
 		logrus.Infof("transferring to %s", address)
 		return p.connect(ctx, &utils.ConnectInfo{

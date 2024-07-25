@@ -447,6 +447,8 @@ func (w *worldsHandler) saveWorldState(worldState *worldstate.World) error {
 			if err != nil {
 				return nil, err
 			}
+
+			return &w.serverState.behaviorPack.Manifest.Header, nil
 		}
 		return nil, nil
 	})
