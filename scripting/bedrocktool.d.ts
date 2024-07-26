@@ -68,7 +68,7 @@ declare type SpawnParticleCallback = (name: string, pos: [number, number, number
  * @param packet - The packet data.
  * @param time - The time the particle was spawned.
  */
-declare type PacketCallback = (name: string, packet: any, time: number) => void;
+declare type PacketCallback = (name: string, packet: any, toServer: boolean, time: number) => void;
 
 
 

@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds/entity"
@@ -24,6 +25,7 @@ var enums_js string
 
 type VM struct {
 	vm  *goja.Runtime
+	l   sync.Mutex
 	log *logrus.Entry
 	CB  struct {
 		OnEntityAdd        func(entity any, metadata entityDataObject, properties map[string]*entity.EntityProperty, timeReceived float64) (apply bool)
@@ -234,6 +236,8 @@ func (v *VM) OnPacket(pk packet.Packet, toServer bool, timeReceived time.Time) (
 		return false
 	}
 
+	v.l.Lock()
+	defer v.l.Unlock()
 	err := recovery.Call(func() error {
 		packetName := strings.Split(reflect.TypeOf(pk).String(), ".")[1]
 		drop = v.CB.OnPacket(packetName, pk, toServer, float64(timeReceived.UnixMilli()))

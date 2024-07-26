@@ -42,8 +42,10 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 			for i, gameRule := range pk.GameRules {
 				if gameRule.Name == "showCoordinates" {
 					haveGameRule = true
-					gameRule.Value = true
-					pk.GameRules[i] = gameRule
+					pk.GameRules[i] = protocol.GameRule{
+						Name:  "showCoordinates",
+						Value: true,
+					}
 					break
 				}
 			}
