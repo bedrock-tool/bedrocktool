@@ -140,6 +140,8 @@ func parseBlock(block protocol.BlockEntry) (MinecraftBlock, string) {
 					if friction, ok := v["value"].(float32); ok {
 						if friction == 0.4 {
 							delete(components, "minecraft:friction")
+						} else {
+							components[k] = friction
 						}
 					}
 					continue
