@@ -48,7 +48,8 @@ type MinecraftBlock struct {
 	Permutations []permutation  `json:"permutations,omitempty"`
 }
 
-func parseBlock(block protocol.BlockEntry) MinecraftBlock {
+func parseBlock(block protocol.BlockEntry) (MinecraftBlock, string) {
+	version := "1.16.0"
 	entry := MinecraftBlock{
 		Description: description{
 			Identifier:             block.Name,
@@ -58,6 +59,7 @@ func parseBlock(block protocol.BlockEntry) MinecraftBlock {
 	}
 
 	if traits, ok := block.Properties["traits"].([]any); ok {
+		version = "1.21.0"
 		entry.Description.Traits = make(map[string]Trait)
 
 		for _, traitIn := range traits {
@@ -134,6 +136,15 @@ func parseBlock(block protocol.BlockEntry) MinecraftBlock {
 
 		for k, v := range components {
 			if v, ok := v.(map[string]any); ok {
+				if k == "minecraft:friction" {
+					if friction, ok := v["value"].(float32); ok {
+						if friction == 0.4 {
+							delete(components, "minecraft:friction")
+						}
+					}
+					continue
+				}
+
 				// fix missing * instance
 				if k == "minecraft:material_instances" {
 					components[k] = processMaterialInstances(v)
@@ -219,15 +230,6 @@ func parseBlock(block protocol.BlockEntry) MinecraftBlock {
 				delete(components, k)
 				continue
 			}
-
-			if k == "minecraft:friction" {
-				if friction, ok := v.(float32); ok {
-					if friction == 0.4 {
-						delete(components, "minecraft:friction")
-					}
-				}
-				continue
-			}
 		}
 	}
 
@@ -290,5 +292,5 @@ func parseBlock(block protocol.BlockEntry) MinecraftBlock {
 		}
 	}
 
-	return entry
+	return entry, version
 }

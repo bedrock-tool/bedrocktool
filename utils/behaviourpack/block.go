@@ -14,8 +14,11 @@ func (bp *Pack) AddBlock(block protocol.BlockEntry) {
 	if ns == "minecraft" {
 		return
 	}
+
+	minecraftBlock, version := parseBlock(block)
+
 	bp.blocks[block.Name] = &blockBehaviour{
-		FormatVersion:  "1.21.0",
-		MinecraftBlock: parseBlock(block),
+		FormatVersion:  version,
+		MinecraftBlock: minecraftBlock,
 	}
 }
