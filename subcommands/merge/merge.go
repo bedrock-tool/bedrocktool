@@ -3,6 +3,8 @@ package merge
 import (
 	"context"
 	"flag"
+	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -14,10 +16,15 @@ import (
 )
 
 type MergeCMD struct {
-	f *flag.FlagSet
+	f          *flag.FlagSet
+	showBounds bool
+	outPath    string
+}
 
-	offsetsString string
-	offsets       []world.ChunkPos
+type worldInstance struct {
+	Name   string
+	db     *mcdb.DB
+	offset world.ChunkPos
 }
 
 func (*MergeCMD) Name() string     { return "merge" }
@@ -25,27 +32,13 @@ func (*MergeCMD) Synopsis() string { return "merge worlds" }
 
 func (c *MergeCMD) SetFlags(f *flag.FlagSet) {
 	c.f = f
-	f.StringVar(&c.offsetsString, "offsets", "", "offsets")
+	f.BoolVar(&c.showBounds, "bounds", false, "show bounds instead of merge")
+	f.StringVar(&c.outPath, "out", "", "output folder")
 }
 
 func (c *MergeCMD) Execute(ctx context.Context) error {
-	if len(c.offsetsString) > 0 {
-		offsetParts := strings.Split(c.offsetsString, ";")
-		for _, part := range offsetParts {
-			xyz := strings.Split(part, ",")
-			var offset world.ChunkPos
-			x, err := strconv.Atoi(xyz[0])
-			if err != nil {
-				return err
-			}
-			z, err := strconv.Atoi(xyz[1])
-			if err != nil {
-				return err
-			}
-			offset[0] = int32(x)
-			offset[1] = int32(z)
-			c.offsets = append(c.offsets, offset)
-		}
+	if c.outPath == "" && !c.showBounds {
+		return fmt.Errorf("-out must be specified")
 	}
 
 	blockReg := blockRegistry{
@@ -54,7 +47,7 @@ func (c *MergeCMD) Execute(ctx context.Context) error {
 	}
 	entityReg := &EntityRegistry{}
 
-	var worlds []*mcdb.DB
+	var worlds []worldInstance
 	for _, worldName := range c.f.Args() {
 		sp := strings.SplitN(worldName, ";", 3)
 		worldName = sp[0]
@@ -62,16 +55,15 @@ func (c *MergeCMD) Execute(ctx context.Context) error {
 		if len(sp) == 3 {
 			x, err := strconv.Atoi(sp[1])
 			if err != nil {
-				return err
+				return fmt.Errorf("%s %w", worldName, err)
 			}
 			z, err := strconv.Atoi(sp[2])
 			if err != nil {
-				return err
+				return fmt.Errorf("%s %w", worldName, err)
 			}
 			offset[0] = int32(x)
 			offset[1] = int32(z)
 		}
-		c.offsets = append(c.offsets, offset)
 		db, err := mcdb.Config{
 			Log:      logrus.StandardLogger(),
 			ReadOnly: true,
@@ -79,35 +71,71 @@ func (c *MergeCMD) Execute(ctx context.Context) error {
 			Entities: entityReg,
 		}.Open(worldName)
 		if err != nil {
-			return err
+			return fmt.Errorf("%s %w", worldName, err)
 		}
 		defer db.Close()
-		worlds = append(worlds, db)
+		worlds = append(worlds, worldInstance{Name: worldName, db: db, offset: offset})
 	}
 
-	os.RemoveAll("merge_out")
+	if c.showBounds {
+		for _, w := range worlds {
+			fmt.Printf("\n%s\n", w.Name)
+			minBound, maxBound, err := w.getWorldBounds()
+			if err != nil {
+				return err
+			}
+			fmt.Printf("Min: %d,%d Max: %d,%d\n", minBound[0], minBound[1], maxBound[0], maxBound[1])
+		}
+		return nil
+	}
+
+	if _, err := os.Stat(c.outPath + "/level.dat"); err == nil {
+		os.RemoveAll(c.outPath)
+	}
 	dbOut, err := mcdb.Config{
 		Log:      logrus.StandardLogger(),
 		Blocks:   blockReg,
 		Entities: entityReg,
-	}.Open("merge_out")
+	}.Open(c.outPath)
 	if err != nil {
 		return err
 	}
 	defer dbOut.Close()
 
-	for i, db := range worlds {
-		err = c.processWorld(db, dbOut, c.offsets[i])
+	for _, w := range worlds {
+		err = c.processWorld(w.db, dbOut, w.offset)
 		if err != nil {
 			return err
 		}
 	}
 
-	ldat := worlds[0].LevelDat()
+	ldat := worlds[0].db.LevelDat()
 	*dbOut.LevelDat() = *ldat
 
 	return nil
 }
+
+func (w worldInstance) getWorldBounds() (minChunk, maxChunk world.ChunkPos, err error) {
+	minChunk = world.ChunkPos{math.MaxInt32, math.MaxInt32}
+	maxChunk = world.ChunkPos{math.MinInt32, math.MinInt32}
+	it := w.db.NewColumnIterator(nil, false)
+	defer it.Release()
+	for it.Next() {
+		pos := it.Position()
+		minChunk[0] = min(minChunk[0], pos[0])
+		minChunk[1] = min(minChunk[1], pos[1])
+		maxChunk[0] = max(maxChunk[0], pos[0])
+		maxChunk[1] = max(maxChunk[1], pos[1])
+	}
+
+	if err := it.Error(); err != nil {
+		return minChunk, maxChunk, err
+	}
+
+	return
+}
+
+var ids = map[int64]*DummyEntity{}
 
 func (c *MergeCMD) processWorld(db *mcdb.DB, out *mcdb.DB, offset world.ChunkPos) error {
 	it := db.NewColumnIterator(nil, false)
@@ -118,6 +146,26 @@ func (c *MergeCMD) processWorld(db *mcdb.DB, out *mcdb.DB, offset world.ChunkPos
 		dim := it.Dimension()
 		pos[0] += offset[0]
 		pos[1] += offset[1]
+		for _, ent := range column.Entities {
+			ent := ent.(*DummyEntity)
+			t := ent.T.(*DummyEntityType)
+			pos := t.NBT["Pos"].([]any)
+			x := pos[0].(float32)
+			y := pos[1].(float32)
+			z := pos[2].(float32)
+			t.NBT["Pos"] = []any{
+				x + float32(offset[0]*16),
+				y,
+				z + float32(offset[1]*16),
+			}
+			//t.NBT["UniqueID"] = rand.Int64()
+			UniqueID := t.NBT["UniqueID"].(int64)
+			ent2, ok := ids[UniqueID]
+			if ok {
+				fmt.Printf("conflict 0x%016x %s %s\n", UniqueID, ent, ent2)
+			}
+			ids[UniqueID] = ent
+		}
 		err := out.StoreColumn(pos, dim, column)
 		if err != nil {
 			return err

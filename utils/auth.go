@@ -40,7 +40,7 @@ var Auth *authsrv = &authsrv{
 // reads token from storage if there is one
 func (a *authsrv) Startup() (err error) {
 	a.liveToken, err = a.readToken()
-	if errors.Is(err, os.ErrNotExist) {
+	if errors.Is(err, os.ErrNotExist) || errors.Is(err, errors.ErrUnsupported) {
 		return nil
 	}
 	if err != nil {
@@ -130,7 +130,7 @@ func readAuth[T any](name string) (*T, error) {
 		}
 	}
 
-	return nil, errors.New("unsupported auth file")
+	return nil, errors.ErrUnsupported
 }
 
 func writeAuth(name string, o any) error {
