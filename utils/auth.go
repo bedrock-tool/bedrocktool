@@ -184,14 +184,10 @@ func (a *authsrv) Playfab(ctx context.Context) (*playfab.Client, error) {
 		if err != nil {
 			return nil, err
 		}
-		a.playfab = playfab.NewClient(discovery)
+		a.playfab = playfab.NewClient(discovery, a)
 	}
 	if !a.playfab.LoggedIn() {
-		liveToken, err := a.Token()
-		if err != nil {
-			return nil, err
-		}
-		err = a.playfab.Login(ctx, liveToken)
+		err := a.playfab.Login(ctx)
 		if err != nil {
 			return nil, err
 		}
