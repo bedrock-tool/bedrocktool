@@ -12,7 +12,6 @@ import (
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/nbtconv"
-	"github.com/bedrock-tool/bedrocktool/utils/resourcepack"
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/item/inventory"
 	"github.com/df-mc/dragonfly/server/world"
@@ -600,49 +599,26 @@ func (w *worldsHandler) addPlayer(pk *packet.AddPlayer) {
 			copy(capeTexture.Pix, skin.CapeData)
 		}
 
-		var resourcePatch map[string]map[string]string
-		if len(skin.SkinResourcePatch) > 0 {
-			err := utils.ParseJson(skin.SkinResourcePatch, &resourcePatch)
-			if err != nil {
-				w.log.WithField("data", "SkinResourcePatch").Error(err)
-				return
-			}
-		}
-
-		var geometryName = ""
-		if resourcePatch != nil {
-			geometryName = resourcePatch["geometry"]["default"]
-		}
-
-		var geometry *resourcepack.GeometryFile
+		var geometry *utils.SkinGeometryFile
 		var isDefault bool
+		var identifier string
 		if len(skin.SkinGeometry) > 0 {
-			skinGeometry, _, err := utils.ParseSkinGeometry(skin.SkinGeometry)
+			var err error
+			geometry, identifier, err = utils.ParseSkinGeometry(skin)
 			if err != nil {
 				w.log.WithField("player", pk.Username).Warn(err)
 				return
 			}
-			if skinGeometry != nil {
-				geometry = &resourcepack.GeometryFile{
-					FormatVersion: string(skin.GeometryDataEngineVersion),
-					Geometry: []*resourcepack.Geometry{
-						{
-							Description: skinGeometry.Description,
-							Bones:       skinGeometry.Bones,
-						},
-					},
-				}
-			}
 		}
 		if geometry == nil {
-			geometry = &resourcepack.GeometryFile{
+			geometry = &utils.SkinGeometryFile{
 				FormatVersion: string(skin.GeometryDataEngineVersion),
-				Geometry: []*resourcepack.Geometry{
+				Geometry: []utils.SkinGeometry{
 					{
 						Description: utils.SkinGeometryDescription{
-							Identifier:    geometryName,
-							TextureWidth:  int(skin.SkinImageWidth),
-							TextureHeight: int(skin.SkinImageHeight),
+							Identifier:    identifier,
+							TextureWidth:  utils.Number(skin.SkinImageWidth),
+							TextureHeight: utils.Number(skin.SkinImageHeight),
 						},
 					},
 				},

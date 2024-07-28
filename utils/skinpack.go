@@ -126,9 +126,13 @@ func (s *SkinPack) Save(fpath string) error {
 				if err != nil {
 					logrus.Warnf("failed to write geometry %s %v", skinName, err)
 				}
+				var bones []any
+				for _, bone := range geometry.Bones {
+					bones = append(bones, bone)
+				}
 				geometryJson[geometryName] = SkinGeometry_Old{
 					SkinGeometryDescription: geometry.Description,
-					Bones:                   geometry.Bones,
+					Bones:                   bones,
 				}
 				entry.Geometry = geometryName
 			}

@@ -56,11 +56,6 @@ func buildManifest(headerUUID, moduleUUID uuid.UUID) resource.Manifest {
 	}
 }
 
-type GeometryFile struct {
-	FormatVersion string      `json:"format_version"`
-	Geometry      []*Geometry `json:"minecraft:geometry"`
-}
-
 type Geometry struct {
 	Description utils.SkinGeometryDescription `json:"description"`
 	Bones       []any                         `json:"bones"`
@@ -93,7 +88,7 @@ func New() *Pack {
 	return &p
 }
 
-func (p *Pack) AddEntity(dir, name string, texture *image.RGBA, geometry *GeometryFile, isDefault bool) {
+func (p *Pack) AddEntity(dir, name string, texture *image.RGBA, geometry *utils.SkinGeometryFile, isDefault bool) {
 	textureData := bytes.NewBuffer(nil)
 	png.Encode(textureData, texture)
 	textureName := path.Join("textures", dir, name)
@@ -122,8 +117,7 @@ func (p *Pack) AddEntity(dir, name string, texture *image.RGBA, geometry *Geomet
 	})
 }
 
-func (p *Pack) AddPlayer(id string, skinTexture *image.RGBA, capeTexture *image.RGBA, capeID string, geometry *GeometryFile, isDefault bool) {
-
+func (p *Pack) AddPlayer(id string, skinTexture *image.RGBA, capeTexture *image.RGBA, capeID string, geometry *utils.SkinGeometryFile, isDefault bool) {
 	var skinName = path.Join("textures", "player", id)
 	var capeName = "textures/entity/cape_invisible"
 

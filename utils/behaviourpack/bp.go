@@ -28,8 +28,8 @@ func New(name string) *Pack {
 				Name:               name,
 				Description:        "Adds Blocks, Items and Entities from the server to this world",
 				UUID:               utils.RandSeededUUID(name + "_datapack"),
-				Version:            [3]int{1, 0, 0},
-				MinimumGameVersion: [3]int{1, 19, 50},
+				Version:            resource.Version{1, 0, 0},
+				MinimumGameVersion: resource.Version{1, 19, 50},
 			},
 			Modules: []resource.Module{
 				{

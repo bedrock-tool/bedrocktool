@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"math"
+	"math/rand/v2"
 	"os"
 	"strconv"
 	"strings"
@@ -41,9 +42,9 @@ func (c *MergeCMD) Execute(ctx context.Context) error {
 		return fmt.Errorf("-out must be specified")
 	}
 
-	blockReg := blockRegistry{
+	blockReg := BlockRegistry{
 		BlockRegistry: world.DefaultBlockRegistry,
-		rids:          make(map[uint32]block),
+		Rids:          make(map[uint32]Block),
 	}
 	entityReg := &EntityRegistry{}
 
@@ -158,7 +159,7 @@ func (c *MergeCMD) processWorld(db *mcdb.DB, out *mcdb.DB, offset world.ChunkPos
 				y,
 				z + float32(offset[1]*16),
 			}
-			//t.NBT["UniqueID"] = rand.Int64()
+			t.NBT["UniqueID"] = rand.Int64()
 			UniqueID := t.NBT["UniqueID"].(int64)
 			ent2, ok := ids[UniqueID]
 			if ok {
