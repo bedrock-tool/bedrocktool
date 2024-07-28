@@ -13,7 +13,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/sandertv/gophertunnel/minecraft/auth"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
 )
 
@@ -21,6 +20,7 @@ const minecraftUserAgent = "libhttpclient/1.0.0.0"
 const minecraftDefaultSDK = "XPlatCppSdk-3.6.190304"
 
 type Client struct {
+	src       oauth2.TokenSource
 	http      *http.Client
 	discovery *discovery.Discovery
 
@@ -32,8 +32,9 @@ type Client struct {
 	masterToken *EntityToken
 }
 
-func NewClient(discovery *discovery.Discovery) *Client {
+func NewClient(discovery *discovery.Discovery, src oauth2.TokenSource) *Client {
 	return &Client{
+		src:       src,
 		http:      http.DefaultClient,
 		discovery: discovery,
 	}
@@ -43,8 +44,12 @@ func (c *Client) LoggedIn() bool {
 	return c.mcToken != nil && c.mcToken.ValidUntil.Before(time.Now())
 }
 
-func (c *Client) Login(ctx context.Context, liveToken *oauth2.Token) error {
-	err := c.loginWithXbox(ctx, liveToken)
+func (c *Client) Login(ctx context.Context) error {
+	liveToken, err := c.src.Token()
+	if err != nil {
+		return err
+	}
+	err = c.loginWithXbox(ctx, liveToken)
 	if err != nil {
 		return err
 	}
@@ -118,6 +123,13 @@ func (c *Client) startSession(ctx context.Context) error {
 		return err
 	}
 
+	if c.playerToken == nil || c.playerToken.TokenExpiration.Before(time.Now()) {
+		err = c.Login(ctx)
+		if err != nil {
+			return err
+		}
+	}
+
 	resp, err := doRequest[mcTokenResponse](ctx, c.http, fmt.Sprintf("%s/api/v1.0/session/start", authService.ServiceURI), mcTokenRequest{
 		Device: mcTokenDevice{
 			ApplicationType:    "MinecraftPE",
@@ -148,11 +160,16 @@ func (c *Client) startSession(ctx context.Context) error {
 }
 
 func (c *Client) MCToken() (*MCToken, error) {
+	if c.mcToken == nil || c.mcToken.ValidUntil.Before(time.Now()) {
+		err := c.startSession(context.TODO())
+		if err != nil {
+			return nil, err
+		}
+	}
 	return c.mcToken, nil
 }
 
 func doRequest[T any](ctx context.Context, client *http.Client, url string, payload any) (*T, error) {
-	logrus.Tracef("doRequest: %s", url)
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return nil, err
@@ -182,7 +199,6 @@ func doRequest[T any](ctx context.Context, client *http.Client, url string, payl
 }
 
 func doPlayfabRequest[T any](ctx context.Context, client *http.Client, titleID, endpoint string, payload any, token func(*http.Request)) (*Response[T], error) {
-	logrus.Tracef("doPlayfabRequest: %s", endpoint)
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return nil, err

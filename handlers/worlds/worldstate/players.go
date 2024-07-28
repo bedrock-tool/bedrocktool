@@ -3,7 +3,6 @@ package worldstate
 import (
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds/entity"
 	"github.com/go-gl/mathgl/mgl32"
-	"github.com/google/uuid"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 )
@@ -14,12 +13,8 @@ type player struct {
 	Pitch, Yaw, HeadYaw float32
 }
 
-type worldPlayers struct {
-	players map[uuid.UUID]*player
-}
-
 func (w *World) AddPlayer(pk *packet.AddPlayer) {
-	w.players.players[pk.UUID] = &player{
+	w.players[pk.UUID] = &player{
 		add:      pk,
 		Position: pk.Position,
 		Pitch:    pk.Pitch,
@@ -29,7 +24,7 @@ func (w *World) AddPlayer(pk *packet.AddPlayer) {
 }
 
 func (w *World) playersToEntities() {
-	for _, p := range w.players.players {
+	for _, p := range w.players {
 		metadata := protocol.NewEntityMetadata()
 		metadata.SetFlag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagAlwaysShowName)
 		metadata.SetFlag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagShowName)
