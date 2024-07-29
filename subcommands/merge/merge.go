@@ -91,7 +91,10 @@ func (c *MergeCMD) Execute(ctx context.Context) error {
 	}
 
 	if _, err := os.Stat(c.outPath + "/level.dat"); err == nil {
-		os.RemoveAll(c.outPath)
+		err = os.RemoveAll(c.outPath)
+		if err != nil {
+			return err
+		}
 	}
 	dbOut, err := mcdb.Config{
 		Log:      logrus.StandardLogger(),

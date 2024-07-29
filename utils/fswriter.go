@@ -2,10 +2,12 @@ package utils
 
 import (
 	"archive/zip"
+	"compress/flate"
 	"io"
 	"io/fs"
 	"os"
 	"path"
+	"sync"
 )
 
 type WriterFS interface {
@@ -70,6 +72,38 @@ func (o OSWriter) Create(filename string) (w io.WriteCloser, err error) {
 	return w, err
 }
 
+var deflatePool = sync.Pool{
+	New: func() any {
+		w, _ := flate.NewWriter(nil, flate.HuffmanOnly)
+		return w
+	},
+}
+
+type closePutback struct {
+	*flate.Writer
+}
+
+func (c *closePutback) Close() error {
+	if c.Writer == nil {
+		return nil
+	}
+	err := c.Writer.Close()
+	if err != nil {
+		return err
+	}
+	deflatePool.Put(c.Writer)
+	c.Writer = nil
+	return nil
+}
+
+func ZipCompressPool(zw *zip.Writer) {
+	zw.RegisterCompressor(zip.Deflate, func(out io.Writer) (io.WriteCloser, error) {
+		w := deflatePool.Get().(*flate.Writer)
+		w.Reset(out)
+		return &closePutback{w}, nil
+	})
+}
+
 type ZipWriter struct {
 	Writer *zip.Writer
 }
@@ -77,13 +111,6 @@ type ZipWriter struct {
 func (z ZipWriter) Create(filename string) (w io.WriteCloser, err error) {
 	zw, err := z.Writer.Create(filename)
 	return nullCloser{zw}, err
-}
-
-func ZipCompressPool(zw *zip.Writer) {
-	zw.RegisterCompressor(zip.Deflate, func(out io.Writer) (io.WriteCloser, error) {
-		w := deflate.GetWriter(out)
-		return closePutback{w}, nil
-	})
 }
 
 type nullCloser struct {

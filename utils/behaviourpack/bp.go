@@ -36,7 +36,7 @@ func New(name string) *Pack {
 					Type:        "data",
 					UUID:        utils.RandSeededUUID(name + "_data_module"),
 					Description: "Datapack",
-					Version:     [3]int{1, 0, 0},
+					Version:     resource.Version{1, 0, 0},
 				},
 			},
 			Dependencies: []resource.Dependency{},
@@ -48,7 +48,7 @@ func New(name string) *Pack {
 	}
 }
 
-func (bp *Pack) AddDependency(id string, ver [3]int) {
+func (bp *Pack) AddDependency(id string, ver resource.Version) {
 	bp.Manifest.Dependencies = append(bp.Manifest.Dependencies, resource.Dependency{
 		UUID:    id,
 		Version: ver,
