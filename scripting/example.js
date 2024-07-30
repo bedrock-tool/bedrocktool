@@ -23,7 +23,7 @@ events.register('SpawnParticle', (name, pos, time) => {
 });
 
 events.register('Packet', (name, packet, toServer, time) => {
-    if(name == "LevelSoundEvent") {
+    if(name === 'LevelSoundEvent') {
         console.log(`Packet ${name} ${JSON.stringify(packet)}`);
     }
 });

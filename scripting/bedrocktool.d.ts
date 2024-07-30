@@ -6,7 +6,7 @@ declare const console: {
 /**
  * Names of events that can be registered.
  */
-declare type EventNames = 'EntityAdd' | 'EntityDataUpdate' | 'ChunkAdd' | 'BlockUpdate' | 'SpawnParticle';
+declare type EventNames = 'EntityAdd' | 'EntityDataUpdate' | 'ChunkAdd' | 'BlockUpdate' | 'SpawnParticle' | 'Packet';
 
 
 /**
@@ -61,16 +61,16 @@ declare type BlockUpdateCallback = (name: string, properties: {[k: string]: any}
  */
 declare type SpawnParticleCallback = (name: string, pos: [number, number, number], time: number) => void;
 
+
 /**
  * Callback for the `Packet` event.
  * 
  * @param name - The name of the particle.
  * @param packet - The packet data.
+ * @param toServer - A boolean indicating whether the packet is being sent from the client to the server (`true`) or from the server to the client (`false`).
  * @param time - The time the particle was spawned.
  */
 declare type PacketCallback = (name: string, packet: any, toServer: boolean, time: number) => void;
-
-
 
 
 declare const events: {
@@ -83,6 +83,7 @@ declare const events: {
      *   - 'ChunkAdd': Triggered when a new chunk is added.
      *   - 'BlockUpdate': Triggered when a block is updated.
      *   - 'SpawnParticle': Triggered when a particle is spawned.
+     *   - 'Packet': Triggered when a packet is received.
      * 
      * @param callback - The callback function to invoke when the event occurs. The parameters of the callback function vary based on the event:
      *   - For 'EntityAdd':
@@ -107,6 +108,7 @@ declare const events: {
      *   - 'ChunkAdd': Triggered when a new chunk is added.
      *   - 'BlockUpdate': Triggered when a block is updated.
      *   - 'SpawnParticle': Triggered when a particle is spawned.
+	 *   - 'Packet': Triggered when a packet is received.
      * 
      * @param callback - The callback function to invoke when the event occurs. The parameters of the callback function vary based on the event:
      *   - For 'EntityDataUpdate':
@@ -131,6 +133,7 @@ declare const events: {
      *   - 'ChunkAdd': Triggered when a new chunk is added.
      *   - 'BlockUpdate': Triggered when a block is updated.
      *   - 'SpawnParticle': Triggered when a particle is spawned.
+	 *   - 'Packet': Triggered when a packet is received.
      * 
      * @param callback - The callback function to invoke when the event occurs. The parameters of the callback function vary based on the event:
      *   - For 'ChunkAdd':
@@ -153,6 +156,7 @@ declare const events: {
      *   - 'ChunkAdd': Triggered when a new chunk is added.
      *   - 'BlockUpdate': Triggered when a block is updated.
      *   - 'SpawnParticle': Triggered when a particle is spawned.
+	 *   - 'Packet': Triggered when a packet is received.
      * 
      * @param callback - The callback function to invoke when the event occurs. The parameters of the callback function vary based on the event:
      *   - For 'BlockUpdate':
@@ -176,6 +180,7 @@ declare const events: {
      *   - 'ChunkAdd': Triggered when a new chunk is added.
      *   - 'BlockUpdate': Triggered when a block is updated.
      *   - 'SpawnParticle': Triggered when a particle is spawned.
+     *   - 'Packet': Triggered when a packet is received.
      * 
      * @param callback - The callback function to invoke when the event occurs. The parameters of the callback function vary based on the event:
      *   - For 'SpawnParticle':
@@ -192,7 +197,7 @@ declare const events: {
      * 
      */
     register(name: 'SpawnParticle', callback: SpawnParticleCallback): void;
-	/**
+    /**
      * Registers a callback function to be executed when a specified event occurs.
      * 
      * @param name - The name of the event to register. Possible values are:
@@ -201,17 +206,20 @@ declare const events: {
      *   - 'ChunkAdd': Triggered when a new chunk is added.
      *   - 'BlockUpdate': Triggered when a block is updated.
      *   - 'SpawnParticle': Triggered when a particle is spawned.
-	 *   - 'Packet': Triggered when a packet is received.
+     *   - 'Packet': Triggered when a packet is received.
      * 
      * @param callback - The callback function to invoke when the event occurs. The parameters of the callback function vary based on the event:
      *   - For 'Packet':
      *     - `name` - The name of the packet.
-	 *     - `packet` the packet data
+     *     - `packet` - The packet data.
+	 *     - `toServer` - A boolean indicating whether the packet is being sent from the client to the server (`true`) or from the server to the client (`false`).
      *     - `time` - The time the packet was received.
      * 
      * @example
-     * events.register('Packet', (name, packet, time) => {
-     *     console.log(`Packet ${name}`);
+     * events.register('Packet', (name, packet, toServer, time) => {
+     *     if(name === 'LevelSoundEvent') {
+     *         console.log(`Packet ${name} ${JSON.stringify(packet)}`);
+     *     }
      * });
      * 
      */
