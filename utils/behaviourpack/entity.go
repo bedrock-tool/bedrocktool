@@ -92,6 +92,10 @@ func (bp *Pack) AddEntity(EntityType string, attr []protocol.AttributeValue, met
 		}
 	}
 
+	if _, ok := meta[protocol.EntityDataKeyNameRawText].(string); ok {
+		entry.MinecraftEntity.Components["minecraft:npc"] = map[string]any{}
+	}
+
 	if _, ok := meta[protocol.EntityDataKeyFlags]; ok {
 		AlwaysShowName := meta.Flag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagAlwaysShowName)
 		if AlwaysShowName {
