@@ -44,6 +44,7 @@ var mutedPackets = []uint32{
 	packet.IDPlaySound,
 	packet.IDPlayerAction,
 	packet.IDSetTitle,
+	packet.IDClientCacheMissResponse,
 }
 
 var dirS2C = color.GreenString("S") + "->" + color.CyanString("C")

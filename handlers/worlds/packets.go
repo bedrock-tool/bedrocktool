@@ -186,6 +186,12 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 		if err := w.processSubChunk(pk); err != nil {
 			w.log.WithField("packet", "SubChunk").Error(err)
 		}
+	case *packet.ClientCacheMissResponse:
+		w.blobLock.Lock()
+		if err := w.processBlobs(pk.Blobs, true); err != nil {
+			w.log.WithField("packet", "SubChunk").Error(err)
+		}
+		w.blobLock.Unlock()
 
 	case *packet.BlockActorData:
 		p := pk.Position
@@ -286,18 +292,18 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 			w.serverState.behaviorPack.AddEntity(pk.EntityType, pk.Attributes, ent.Metadata, ent.Properties)
 		}
 
-	case *packet.RemoveActor:
-		entity := w.currentWorld.GetEntityUniqueID(pk.EntityUniqueID)
-		if entity != nil {
-			/*
-				dist := entity.Position.Vec2().Sub(playerPos.Vec2()).Len()
+		/*
+			case *packet.RemoveActor:
+				entity := w.currentWorld.GetEntityUniqueID(pk.EntityUniqueID)
+				if entity != nil {
+						dist := entity.Position.Vec2().Sub(playerPos.Vec2()).Len()
 
-				fmt.Fprintf(distf, "%.5f\t%s\n", dist, entity.EntityType)
+						fmt.Fprintf(distf, "%.5f\t%s\n", dist, entity.EntityType)
 
-				_ = dist
-				println()
-			*/
-		}
+						_ = dist
+						println()
+				}
+		*/
 
 	case *packet.SetActorData:
 		if entity := w.getEntity(pk.EntityRuntimeID); entity != nil {

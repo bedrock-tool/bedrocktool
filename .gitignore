@@ -41,4 +41,7 @@ entityflags.py
 /libbedrocktool.so
 /tex.png
 /packcache/*
+/blobcache
+/*-test
+/actors*.txt
 changelog.txt

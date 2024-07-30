@@ -4,9 +4,9 @@ go 1.22
 
 require (
 	gioui.org v0.7.0
-	gioui.org/shader v1.0.8
 	gioui.org/x v0.7.0
 	github.com/OneOfOne/xxhash v1.2.8
+	github.com/cespare/xxhash/v2 v2.2.0
 	github.com/cloudfoundry/jibber_jabber v0.0.0-20151120183258-bcc4c8345a21
 	github.com/dblezek/tga v0.0.0-20150626111426-80720cbc1017
 	github.com/denisbrodbeck/machineid v1.0.1
@@ -16,6 +16,7 @@ require (
 	github.com/fatih/color v1.17.0
 	github.com/flytam/filenamify v1.2.0
 	github.com/go-gl/mathgl v1.1.0
+	github.com/go-jose/go-jose/v3 v3.0.3
 	github.com/google/uuid v1.6.0
 	github.com/gregwebs/go-recovery v0.3.2
 	github.com/klauspost/compress v1.17.9
@@ -42,6 +43,7 @@ require (
 require (
 	aead.dev/minisign v0.3.0 // indirect
 	gioui.org/cpu v0.0.0-20220412190645-f1e9e8c3b1f7 // indirect
+	gioui.org/shader v1.0.8 // indirect
 	git.wow.st/gmp/jni v0.0.0-20210610011705-34026c7e22d0 // indirect
 	github.com/brentp/intintmap v0.0.0-20190211203843-30dc0ade9af9 // indirect
 	github.com/changkun/lockfree v0.0.1 // indirect
@@ -49,7 +51,6 @@ require (
 	github.com/df-mc/worldupgrader v1.0.15 // indirect
 	github.com/dlclark/regexp2 v1.11.0 // indirect
 	github.com/ftrvxmtrx/tga v0.0.0-20150524081124-bd8e8d5be13a // indirect
-	github.com/go-jose/go-jose/v3 v3.0.3 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-sourcemap/sourcemap v2.1.4+incompatible // indirect
 	github.com/go-text/typesetting v0.1.1 // indirect

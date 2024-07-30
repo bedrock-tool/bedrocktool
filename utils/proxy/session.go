@@ -30,6 +30,7 @@ type Session struct {
 	Player    Player
 	rpHandler *rpHandler
 
+	loggedIn         bool
 	expectDisconnect bool
 	dimensionData    *packet.DimensionData
 	clientConnecting chan struct{}
@@ -331,6 +332,7 @@ func (s *Session) connectServer(ctx context.Context, connect *utils.ConnectInfo)
 	d := minecraft.Dialer{
 		ErrorLog:   log.Default(),
 		PacketFunc: s.packetFunc,
+		//EnableClientCache: true,
 		GetClientData: func() login.ClientData {
 			if s.withClient {
 				select {
@@ -445,6 +447,7 @@ func (s *Session) connectClient(ctx context.Context, connect *utils.ConnectInfo)
 		return err
 	}
 	accepted = true
+	logrus.Info("Client Connected")
 	return nil
 }
 
@@ -484,6 +487,14 @@ func (s *Session) proxyLoop(ctx context.Context, toServer bool) (err error) {
 
 		var transfer *packet.Transfer
 		switch _pk := pk.(type) {
+		case *packet.LevelChunk:
+			if _pk.CacheEnabled && !s.loggedIn {
+				s.Server.WritePacket(&packet.ClientCacheBlobStatus{
+					MissHashes: _pk.BlobHashes,
+				})
+			}
+		case *packet.SetLocalPlayerAsInitialised:
+			s.loggedIn = true
 		case *packet.Transfer:
 			transfer = _pk
 			if s.Client != nil {
