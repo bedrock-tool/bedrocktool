@@ -49,6 +49,10 @@ func blobKey(h uint64) []byte {
 	return k
 }
 
+func (b *Blobcache) Close() error {
+	return b.db.Close()
+}
+
 func (b *Blobcache) loadBlob(blobHash uint64) ([]byte, error) {
 	blob, err := b.db.Get(blobKey(blobHash), nil)
 	if err != nil {

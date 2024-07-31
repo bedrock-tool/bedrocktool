@@ -137,8 +137,11 @@ func (w *worldsHandler) onBlobs(blobs []proxy.BlobResp, fromCache bool) (err err
 		}
 	}
 
+	w.worldStateLock.Lock()
+	defer w.worldStateLock.Unlock()
 	for pos, biome := range biomes {
-		ch, ok, err := w.currentWorld.LoadChunk(world.ChunkPos{pos[0], pos[2]})
+		wpos := world.ChunkPos{pos[0], pos[2]}
+		ch, ok, err := w.currentWorld.LoadChunk(wpos)
 		if err != nil {
 			return err
 		}
@@ -148,6 +151,11 @@ func (w *worldsHandler) onBlobs(blobs []proxy.BlobResp, fromCache bool) (err err
 
 		buf := bytes.NewBuffer(biome)
 		err = chunk.DecodeNetworkBiomes(ch, buf, w.serverState.useOldBiomes)
+		if err != nil {
+			return err
+		}
+
+		err = w.currentWorld.StoreChunk(wpos, ch, nil)
 		if err != nil {
 			return err
 		}

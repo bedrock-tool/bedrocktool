@@ -239,8 +239,8 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 
 		// player
 	case *packet.AddPlayer:
-		w.currentWorld.AddPlayer(pk)
-		w.addPlayer(pk)
+		//w.currentWorld.AddPlayer(pk)
+		//w.addPlayer(pk)
 	case *packet.PlayerList:
 		if pk.ActionType == packet.PlayerListActionAdd { // remove
 			for _, player := range pk.Entries {

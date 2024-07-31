@@ -152,6 +152,7 @@ func (s *Session) Run(ctx context.Context, connect *utils.ConnectInfo) error {
 		return err
 	}
 	s.blobCache.OnBlobs = s.handlers.OnBlobs
+	defer s.blobCache.Close()
 
 	if connect.Replay != "" {
 		replay, err := CreateReplayConnector(ctx, connect.Replay, s.packetFunc, rpHandler)
