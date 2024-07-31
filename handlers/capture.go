@@ -14,6 +14,7 @@ import (
 
 	"github.com/bedrock-tool/bedrocktool/utils/proxy"
 	"github.com/klauspost/compress/s2"
+	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sirupsen/logrus"
 )
@@ -114,6 +115,10 @@ func (p *packetCapturer) OnServerConnect() (disconnect bool, err error) {
 }
 
 func (p *packetCapturer) PacketFunc(header packet.Header, payload []byte, src, dst net.Addr, timeReceived time.Time) {
+	if header.PacketID == packet.IDResourcePackChunkData || header.PacketID == packet.IDResourcePackChunkRequest || header.PacketID == packet.IDResourcePackDataInfo {
+		return
+	}
+
 	buf := bytes.NewBuffer(nil)
 	header.Write(buf)
 	buf.Write(payload)
@@ -132,6 +137,27 @@ func NewPacketCapturer() *proxy.Handler {
 		},
 		OnServerConnect: p.OnServerConnect,
 		PacketRaw:       p.PacketFunc,
+		OnBlobs: func(blobs []proxy.BlobResp, fromCache bool) error {
+			if !fromCache {
+				return nil
+			}
+			var pk packet.ClientCacheMissResponse
+			for _, blob := range blobs {
+				pk.Blobs = append(pk.Blobs, protocol.CacheBlob{
+					Hash:    blob.Hash,
+					Payload: blob.Payload,
+				})
+			}
+			buf := bytes.NewBuffer(nil)
+			head := packet.Header{
+				PacketID: packet.IDClientCacheMissResponse,
+			}
+			head.Write(buf)
+			io := protocol.NewWriter(buf, 0)
+			pk.Marshal(io)
+			p.dumpPacket(false, buf.Bytes(), time.Now())
+			return nil
+		},
 		OnSessionEnd: func() {
 			p.dumpLock.Lock()
 			defer p.dumpLock.Unlock()

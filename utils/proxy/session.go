@@ -29,8 +29,9 @@ type Session struct {
 	listener  *minecraft.Listener
 	Player    Player
 	rpHandler *rpHandler
+	blobCache *Blobcache
+	isReplay  bool
 
-	loggedIn         bool
 	expectDisconnect bool
 	dimensionData    *packet.DimensionData
 	clientConnecting chan struct{}
@@ -145,13 +146,21 @@ func (s *Session) Run(ctx context.Context, connect *utils.ConnectInfo) error {
 	rpHandler.filterDownloadResourcePacks = s.handlers.FilterResourcePack
 	rpHandler.OnFinishedAll = s.handlers.ResourcePacksFinished
 
+	var err error
+	s.blobCache, err = NewBlobCache(s)
+	if err != nil {
+		return err
+	}
+	s.blobCache.OnBlobs = s.handlers.OnBlobs
+
 	if connect.Replay != "" {
-		server, err := CreateReplayConnector(ctx, connect.Replay, s.packetFunc, rpHandler)
+		replay, err := CreateReplayConnector(ctx, connect.Replay, s.packetFunc, rpHandler)
 		if err != nil {
 			return err
 		}
-		s.Server = server
-		err = server.ReadUntilLogin()
+		s.Server = replay
+		s.isReplay = true
+		err = replay.ReadUntilLogin()
 		if err != nil {
 			return err
 		}
@@ -330,9 +339,9 @@ func (s *Session) connectServer(ctx context.Context, connect *utils.ConnectInfo)
 
 	logrus.Info(locale.Loc("connecting", locale.Strmap{"Address": address}))
 	d := minecraft.Dialer{
-		ErrorLog:   log.Default(),
-		PacketFunc: s.packetFunc,
-		//EnableClientCache: true,
+		ErrorLog:          log.Default(),
+		PacketFunc:        s.packetFunc,
+		EnableClientCache: true,
 		GetClientData: func() login.ClientData {
 			if s.withClient {
 				select {
@@ -395,7 +404,15 @@ func (s *Session) connectClient(ctx context.Context, connect *utils.ConnectInfo)
 					return
 				}
 				extraClientDebug(pk)
+
+				drop, err := s.blobPacketsFromClient(pk)
+				if err != nil {
+					logrus.Error(err)
+					return
+				}
+				_ = drop
 			}
+
 		},
 		OnClientData: func(c *minecraft.Conn) {
 			s.clientData = c.ClientData()
@@ -485,16 +502,22 @@ func (s *Session) proxyLoop(ctx context.Context, toServer bool) (err error) {
 			continue
 		}
 
+		if !toServer {
+			drop, err := s.blobPacketsFromServer(pk)
+			if err != nil {
+				return err
+			}
+			if drop {
+				continue
+			}
+		} else {
+			if pk.ID() == packet.IDClientCacheBlobStatus {
+				continue
+			}
+		}
+
 		var transfer *packet.Transfer
 		switch _pk := pk.(type) {
-		case *packet.LevelChunk:
-			if _pk.CacheEnabled && !s.loggedIn {
-				s.Server.WritePacket(&packet.ClientCacheBlobStatus{
-					MissHashes: _pk.BlobHashes,
-				})
-			}
-		case *packet.SetLocalPlayerAsInitialised:
-			s.loggedIn = true
 		case *packet.Transfer:
 			transfer = _pk
 			if s.Client != nil {
@@ -562,9 +585,38 @@ func (s *Session) packetFunc(header packet.Header, payload []byte, src, dst net.
 		if pk == nil {
 			return
 		}
+
+		if !toServer {
+			drop, err := s.blobPacketsFromServer(pk)
+			if err != nil {
+				logrus.Error(err)
+			}
+			_ = drop
+		}
 	}
 }
 
 func (s *Session) IsClient(addr net.Addr) bool {
 	return s.clientAddr.String() == addr.String()
+}
+
+func (s *Session) blobPacketsFromServer(pk packet.Packet) (bool, error) {
+	switch pk := pk.(type) {
+	case *packet.LevelChunk:
+		return false, s.blobCache.HandleLevelChunk(pk)
+	case *packet.SubChunk:
+		return false, s.blobCache.HandleSubChunk(pk)
+
+	case *packet.ClientCacheMissResponse:
+		return true, s.blobCache.HandleClientCacheMissResponse(pk)
+	}
+	return false, nil
+}
+
+func (s *Session) blobPacketsFromClient(pk packet.Packet) (bool, error) {
+	switch pk := pk.(type) {
+	case *packet.ClientCacheBlobStatus:
+		return true, s.blobCache.HandleClientCacheBlobStatus(pk)
+	}
+	return false, nil
 }

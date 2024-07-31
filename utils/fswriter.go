@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"os"
 	"path"
+	"strings"
 	"sync"
 )
 
@@ -60,7 +61,9 @@ type OSWriter struct {
 }
 
 func (o OSWriter) Create(filename string) (w io.WriteCloser, err error) {
-	fullpath := o.Base + "/" + filename
+	base := strings.ReplaceAll(o.Base, "\\", "/")
+	filename = strings.ReplaceAll(filename, "../", "")
+	fullpath := path.Join(base, path.Clean(filename))
 	err = os.MkdirAll(path.Dir(fullpath), 0777)
 	if err != nil {
 		return nil, err

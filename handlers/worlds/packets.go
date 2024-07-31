@@ -186,12 +186,6 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 		if err := w.processSubChunk(pk); err != nil {
 			w.log.WithField("packet", "SubChunk").Error(err)
 		}
-	case *packet.ClientCacheMissResponse:
-		w.blobLock.Lock()
-		if err := w.processBlobs(pk.Blobs, true); err != nil {
-			w.log.WithField("packet", "SubChunk").Error(err)
-		}
-		w.blobLock.Unlock()
 
 	case *packet.BlockActorData:
 		p := pk.Position

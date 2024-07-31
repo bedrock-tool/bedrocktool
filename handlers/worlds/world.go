@@ -30,7 +30,6 @@ import (
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"
 	_ "github.com/df-mc/dragonfly/server/world/biome"
-	"github.com/df-mc/goleveldb/leveldb"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
@@ -76,11 +75,6 @@ type serverState struct {
 	Name string
 }
 
-type waitBlob struct {
-	pos   world.ChunkPos
-	biome bool
-}
-
 type worldsHandler struct {
 	wg      sync.WaitGroup
 	ctx     context.Context
@@ -93,10 +87,6 @@ type worldsHandler struct {
 	// lock used for when the worldState gets swapped
 	currentWorld   *worldstate.World
 	worldStateLock sync.Mutex
-
-	blobcache    *leveldb.DB
-	waitingBlobs map[uint64]waitBlob
-	blobLock     sync.Mutex
 
 	serverState serverState
 	settings    WorldSettings
@@ -139,12 +129,6 @@ func NewWorldsHandler(settings WorldSettings) *proxy.Handler {
 				biomes:             world.DefaultBiomes.Clone(),
 				entityProperties:   make(map[string][]entity.EntityProperty),
 			}
-
-			w.blobcache, err = leveldb.OpenFile("blobcache", nil)
-			if err != nil {
-				return err
-			}
-			w.waitingBlobs = make(map[uint64]waitBlob)
 
 			w.mapUI = NewMapUI(w)
 			w.scripting = scripting.New()
@@ -273,9 +257,9 @@ func NewWorldsHandler(settings WorldSettings) *proxy.Handler {
 		},
 
 		PacketCallback: w.packetCB,
+		OnBlobs:        w.onBlobs,
 		OnSessionEnd: func() {
 			w.SaveAndReset(true, nil)
-			w.blobcache.Close()
 			w.wg.Wait()
 		},
 		OnProxyEnd: cancel,
