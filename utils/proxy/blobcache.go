@@ -24,7 +24,7 @@ type Blobcache struct {
 	mu      sync.Mutex
 	session *Session
 
-	waitingReceive map[uint64]waitBlob
+	waitingReceive map[uint64][]waitBlob
 
 	clientWait map[uint64]*sync.WaitGroup
 
@@ -39,7 +39,7 @@ func NewBlobCache(session *Session) (*Blobcache, error) {
 	return &Blobcache{
 		db:             db,
 		session:        session,
-		waitingReceive: make(map[uint64]waitBlob),
+		waitingReceive: make(map[uint64][]waitBlob),
 		clientWait:     make(map[uint64]*sync.WaitGroup),
 	}, nil
 }
@@ -80,13 +80,19 @@ func (b *Blobcache) HandleLevelChunk(pk *packet.LevelChunk) error {
 			return err
 		}
 		if blob == nil {
-			reply.MissHashes = append(reply.MissHashes, blobHash)
-			b.waitingReceive[blobHash] = waitBlob{
+			_, alreadyWaiting := b.waitingReceive[blobHash]
+			if !alreadyWaiting {
+				reply.MissHashes = append(reply.MissHashes, blobHash)
+			} else {
+				reply.HitHashes = append(reply.HitHashes, blobHash)
+			}
+
+			b.waitingReceive[blobHash] = append(b.waitingReceive[blobHash], waitBlob{
 				index:   i,
 				isBiome: i == len(pk.BlobHashes)-1,
 				pos:     subPos,
 				ent:     nil,
-			}
+			})
 			continue
 		}
 		reply.HitHashes = append(reply.HitHashes, blobHash)
@@ -98,13 +104,16 @@ func (b *Blobcache) HandleLevelChunk(pk *packet.LevelChunk) error {
 			Payload:  blob,
 		})
 	}
-	err := b.session.Server.WritePacket(&reply)
-	if err != nil {
-		return err
+
+	if len(reply.HitHashes)+len(reply.MissHashes) > 0 {
+		err := b.session.Server.WritePacket(&reply)
+		if err != nil {
+			return err
+		}
 	}
 
 	if b.OnBlobs != nil && len(blobs) > 0 {
-		err = b.OnBlobs(blobs, true)
+		err := b.OnBlobs(blobs, true)
 		if err != nil {
 			return err
 		}
@@ -141,11 +150,17 @@ func (b *Blobcache) HandleSubChunk(pk *packet.SubChunk) error {
 			return err
 		}
 		if blob == nil {
-			reply.MissHashes = append(reply.MissHashes, entry.BlobHash)
-			b.waitingReceive[entry.BlobHash] = waitBlob{
+			_, alreadyWaiting := b.waitingReceive[entry.BlobHash]
+			if !alreadyWaiting {
+				reply.MissHashes = append(reply.MissHashes, entry.BlobHash)
+			} else {
+				reply.HitHashes = append(reply.HitHashes, entry.BlobHash)
+			}
+
+			b.waitingReceive[entry.BlobHash] = append(b.waitingReceive[entry.BlobHash], waitBlob{
 				pos: world.SubChunkPos(pk.Position),
 				ent: &entry,
-			}
+			})
 			continue
 		}
 		reply.HitHashes = append(reply.HitHashes, entry.BlobHash)
@@ -157,13 +172,16 @@ func (b *Blobcache) HandleSubChunk(pk *packet.SubChunk) error {
 			Payload:  blob,
 		})
 	}
-	err := b.session.Server.WritePacket(&reply)
-	if err != nil {
-		return err
+
+	if len(reply.HitHashes)+len(reply.MissHashes) > 0 {
+		err := b.session.Server.WritePacket(&reply)
+		if err != nil {
+			return err
+		}
 	}
 
-	if b.OnBlobs != nil {
-		err = b.OnBlobs(blobs, true)
+	if b.OnBlobs != nil && len(blobs) > 0 {
+		err := b.OnBlobs(blobs, true)
 		if err != nil {
 			return err
 		}
@@ -178,7 +196,7 @@ func (b *Blobcache) HandleClientCacheMissResponse(pk *packet.ClientCacheMissResp
 
 	var blobs []BlobResp
 	for _, blob := range pk.Blobs {
-		wait, ok := b.waitingReceive[blob.Hash]
+		waiters, ok := b.waitingReceive[blob.Hash]
 		if !ok {
 			if !b.session.isReplay {
 				logrus.Warnf("Received Unexpected Blob Hash!?!?")
@@ -186,27 +204,31 @@ func (b *Blobcache) HandleClientCacheMissResponse(pk *packet.ClientCacheMissResp
 			continue
 		}
 		delete(b.waitingReceive, blob.Hash)
-		blobs = append(blobs, BlobResp{
-			Hash:     blob.Hash,
-			Index:    wait.index,
-			IsBiome:  wait.isBiome,
-			Position: wait.pos,
-			Entry:    wait.ent,
-			Payload:  blob.Payload,
-		})
+
 		err := b.db.Put(blobKey(blob.Hash), blob.Payload, nil)
 		if err != nil {
 			return err
 		}
-		w, ok := b.clientWait[blob.Hash]
-		if ok {
-			delete(b.clientWait, blob.Hash)
-			w.Done()
+
+		for _, wait := range waiters {
+			blobs = append(blobs, BlobResp{
+				Hash:     blob.Hash,
+				Index:    wait.index,
+				IsBiome:  wait.isBiome,
+				Position: wait.pos,
+				Entry:    wait.ent,
+				Payload:  blob.Payload,
+			})
+			w, ok := b.clientWait[blob.Hash]
+			if ok {
+				delete(b.clientWait, blob.Hash)
+				w.Done()
+			}
 		}
 	}
 
 	if b.OnBlobs != nil && len(blobs) > 0 {
-		err := b.OnBlobs(blobs, true)
+		err := b.OnBlobs(blobs, false)
 		if err != nil {
 			return err
 		}
