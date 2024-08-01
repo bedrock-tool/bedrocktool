@@ -125,8 +125,15 @@ func (w *worldsHandler) onBlobs(blobs []proxy.BlobResp, fromCache bool) (err err
 			ent := *blob.Entry
 			ent.RawPayload = blob.Payload
 			subchunks[blob.Position] = append(subchunks[blob.Position], ent)
-		} else {
+		} else if blob.IsBiome {
 			biomes[blob.Position] = blob.Payload
+		} else {
+			ent := protocol.SubChunkEntry{
+				Offset:     protocol.SubChunkOffset{0, int8(blob.Index), 0},
+				Result:     protocol.SubChunkResultSuccess,
+				RawPayload: blob.Payload,
+			}
+			subchunks[blob.Position] = append(subchunks[blob.Position], ent)
 		}
 	}
 
