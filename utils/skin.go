@@ -119,10 +119,13 @@ type Bone struct {
 }
 
 type Cube struct {
-	Inflate float64   `json:"inflate"`
-	Origin  []float64 `json:"origin"`
-	Size    []float64 `json:"size"`
-	UV      any       `json:"uv"`
+	Mirror   bool      `json:"mirror"`
+	Inflate  float64   `json:"inflate"`
+	Pivot    []float64 `json:"pivot"`
+	Rotation []float64 `json:"rotation"`
+	Origin   []float64 `json:"origin"`
+	Size     []float64 `json:"size"`
+	UV       any       `json:"uv"`
 }
 
 func (skin *Skin) Hash() uuid.UUID {
