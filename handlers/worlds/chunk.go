@@ -5,7 +5,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/bedrock-tool/bedrocktool/handlers/worlds/worldstate"
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils/proxy"
 	"github.com/df-mc/dragonfly/server/block/cube"
@@ -62,14 +61,16 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk, timeReceived ti
 		}
 	}
 
-	var chunkBlockNBT = make(map[cube.Pos]worldstate.DummyBlock)
+	var chunkBlockNBT = make(map[cube.Pos]world.UnknownBlock)
 	for _, blockNBT := range blockNBTs {
 		x := int(blockNBT["x"].(int32))
 		y := int(blockNBT["y"].(int32))
 		z := int(blockNBT["z"].(int32))
-		chunkBlockNBT[cube.Pos{x, y, z}] = worldstate.DummyBlock{
-			ID:  blockNBT["id"].(string),
-			NBT: blockNBT,
+		chunkBlockNBT[cube.Pos{x, y, z}] = world.UnknownBlock{
+			BlockState: world.BlockState{
+				Name:       blockNBT["id"].(string),
+				Properties: blockNBT,
+			},
 		}
 	}
 
@@ -185,7 +186,7 @@ func (w *worldsHandler) processSubChunkEntries(Position world.SubChunkPos, SubCh
 	defer w.worldStateLock.Unlock()
 
 	var chunks = make(map[world.ChunkPos]*chunk.Chunk)
-	var blockNBTs = make(map[world.ChunkPos]map[cube.Pos]worldstate.DummyBlock)
+	var blockNBTs = make(map[world.ChunkPos]map[cube.Pos]world.UnknownBlock)
 
 	for _, ent := range SubChunkEntries {
 		if ent.Result != protocol.SubChunkResultSuccess {
@@ -212,7 +213,7 @@ func (w *worldsHandler) processSubChunkEntries(Position world.SubChunkPos, SubCh
 			return errors.New("bug check: subchunk received before chunk")
 		}
 		chunks[pos] = ch
-		blockNBTs[pos] = make(map[cube.Pos]worldstate.DummyBlock)
+		blockNBTs[pos] = make(map[cube.Pos]world.UnknownBlock)
 	}
 
 	for _, ent := range SubChunkEntries {
@@ -259,9 +260,11 @@ func (w *worldsHandler) processSubChunkEntries(Position world.SubChunkPos, SubCh
 						int(blockNBT["x"].(int32)),
 						int(blockNBT["y"].(int32)),
 						int(blockNBT["z"].(int32)),
-					}] = worldstate.DummyBlock{
-						ID:  blockNBT["id"].(string),
-						NBT: blockNBT,
+					}] = world.UnknownBlock{
+						BlockState: world.BlockState{
+							Name:       blockNBT["id"].(string),
+							Properties: blockNBT,
+						},
 					}
 				}
 			}

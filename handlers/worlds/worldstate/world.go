@@ -30,7 +30,7 @@ import (
 )
 
 type worldStateInterface interface {
-	StoreChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cube.Pos]DummyBlock) error
+	StoreChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cube.Pos]world.UnknownBlock) error
 	SetBlockNBT(pos cube.Pos, nbt map[string]any, merge bool)
 	StoreEntity(id entity.RuntimeID, es *entity.Entity)
 	GetEntity(id entity.RuntimeID) *entity.Entity
@@ -122,7 +122,7 @@ func New(dimensionDefinitions map[int]protocol.DimensionDefinition, onChunkUpdat
 			chunks:      make(map[world.ChunkPos]*chunk.Chunk),
 			entities:    make(map[entity.RuntimeID]*entity.Entity),
 			entityLinks: make(map[entity.UniqueID]map[entity.UniqueID]struct{}),
-			blockNBTs:   make(map[world.ChunkPos]map[cube.Pos]DummyBlock),
+			blockNBTs:   make(map[world.ChunkPos]map[cube.Pos]world.UnknownBlock),
 
 			uniqueIDsToRuntimeIDs: make(map[int64]uint64),
 		},
@@ -220,13 +220,13 @@ func (w *World) SetTime(real time.Time, ingame int) {
 	w.time = ingame
 }
 
-func (w *World) StoreChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cube.Pos]DummyBlock) (err error) {
+func (w *World) StoreChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cube.Pos]world.UnknownBlock) (err error) {
 	w.stateLock.Lock()
 	defer w.stateLock.Unlock()
 	return w.storeChunkLocked(pos, ch, blockNBT)
 }
 
-func (w *World) storeChunkLocked(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cube.Pos]DummyBlock) (err error) {
+func (w *World) storeChunkLocked(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cube.Pos]world.UnknownBlock) (err error) {
 	var empty = true
 	for _, sub := range ch.Sub() {
 		if !sub.Empty() {
@@ -352,7 +352,7 @@ func (w *World) PauseCapture() {
 		chunks:      make(map[world.ChunkPos]*chunk.Chunk),
 		entities:    make(map[entity.RuntimeID]*entity.Entity),
 		entityLinks: make(map[entity.UniqueID]map[entity.UniqueID]struct{}),
-		blockNBTs:   make(map[world.ChunkPos]map[cube.Pos]DummyBlock),
+		blockNBTs:   make(map[world.ChunkPos]map[cube.Pos]world.UnknownBlock),
 
 		uniqueIDsToRuntimeIDs: make(map[int64]uint64),
 	}

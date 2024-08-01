@@ -40,7 +40,7 @@ type Session struct {
 	clientAddr       net.Addr
 	spawned          bool
 	disconnectReason string
-	commands         map[string]any
+	commands         map[string]ingameCommand
 
 	// from proxy
 	withClient    bool
@@ -55,7 +55,7 @@ func NewSession() *Session {
 		clientConnecting: make(chan struct{}),
 		haveClientData:   make(chan struct{}),
 		disconnectReason: "Connection Lost",
-		commands:         make(map[string]any),
+		commands:         make(map[string]ingameCommand),
 	}
 }
 
@@ -509,6 +509,10 @@ func (s *Session) proxyLoop(ctx context.Context, toServer bool) (err error) {
 				return err
 			}
 			if drop {
+				continue
+			}
+
+			if pk.ID() == packet.IDCompressedBiomeDefinitionList {
 				continue
 			}
 		} else {

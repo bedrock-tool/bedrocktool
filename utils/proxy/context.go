@@ -33,7 +33,6 @@ type Context struct {
 	withClient    bool
 
 	addedPacks []resource.Pack
-	commands   map[string]ingameCommand
 	handlers   Handlers
 
 	session *Session
@@ -42,7 +41,6 @@ type Context struct {
 // New creates a new proxy context
 func New(withClient bool) (*Context, error) {
 	p := &Context{
-		commands:      make(map[string]ingameCommand),
 		withClient:    withClient,
 		ListenAddress: "0.0.0.0:19132",
 	}
@@ -59,13 +57,13 @@ func (p *Context) commandHandlerPacketCB(pk packet.Packet, toServer bool, _ time
 	case *packet.CommandRequest:
 		cmd := strings.Split(_pk.CommandLine, " ")
 		name := cmd[0][1:]
-		if h, ok := p.commands[name]; ok {
+		if h, ok := p.session.commands[name]; ok {
 			pk = nil
 			h.Exec(cmd[1:])
 		}
 	case *packet.AvailableCommands:
-		cmds := make([]protocol.Command, 0, len(p.commands))
-		for _, ic := range p.commands {
+		cmds := make([]protocol.Command, 0, len(p.session.commands))
+		for _, ic := range p.session.commands {
 			cmds = append(cmds, ic.Cmd)
 		}
 		_pk.Commands = append(_pk.Commands, cmds...)

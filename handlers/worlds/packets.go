@@ -34,8 +34,6 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 
 	if preLogin {
 		switch pk := _pk.(type) {
-		case *packet.CompressedBiomeDefinitionList: // for client side generation, disabled by proxy
-			return nil, nil
 		case *packet.GameRulesChanged:
 			var haveGameRule = false
 			for i, gameRule := range pk.GameRules {
@@ -441,6 +439,9 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 			if ok {
 				existing.Content = pk
 			}
+		}
+		if pk.WindowID == protocol.WindowIDOffHand {
+			_pk = nil
 		}
 
 	case *packet.InventorySlot:

@@ -18,14 +18,14 @@ import (
 type worldStateMem struct {
 	maps        map[int64]*Map
 	chunks      map[world.ChunkPos]*chunk.Chunk
-	blockNBTs   map[world.ChunkPos]map[cube.Pos]DummyBlock
+	blockNBTs   map[world.ChunkPos]map[cube.Pos]world.UnknownBlock
 	entities    map[entity.RuntimeID]*entity.Entity
 	entityLinks map[entity.UniqueID]map[entity.UniqueID]struct{}
 
 	uniqueIDsToRuntimeIDs map[entity.UniqueID]entity.RuntimeID
 }
 
-func (w *worldStateMem) StoreChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cube.Pos]DummyBlock) {
+func (w *worldStateMem) StoreChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cube.Pos]world.UnknownBlock) {
 	w.chunks[pos] = ch
 	if blockNBT != nil {
 		w.blockNBTs[pos] = blockNBT
@@ -113,21 +113,23 @@ func (w *worldStateMem) SetBlockNBT(pos cube.Pos, m map[string]any, merge bool) 
 	cp, _ := cubePosInChunk(pos)
 	chunkNBTs, ok := w.blockNBTs[cp]
 	if !ok {
-		chunkNBTs = make(map[cube.Pos]DummyBlock)
+		chunkNBTs = make(map[cube.Pos]world.UnknownBlock)
 		w.blockNBTs[cp] = chunkNBTs
 	}
 	b, ok := chunkNBTs[pos]
 	if !ok {
-		b = DummyBlock{
-			ID:  m["id"].(string),
-			NBT: m,
+		b = world.UnknownBlock{
+			BlockState: world.BlockState{
+				Name:       m["id"].(string),
+				Properties: m,
+			},
 		}
 	}
 
 	if merge {
-		maps.Copy(b.NBT, m)
+		maps.Copy(b.Properties, m)
 	} else {
-		b.NBT = m
+		b.Properties = m
 	}
 	chunkNBTs[pos] = b
 }
