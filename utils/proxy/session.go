@@ -413,7 +413,6 @@ func (s *Session) connectClient(ctx context.Context, connect *utils.ConnectInfo)
 				}
 				_ = drop
 			}
-
 		},
 		OnClientData: func(c *minecraft.Conn) {
 			s.clientData = c.ClientData()

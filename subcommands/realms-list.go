@@ -8,6 +8,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
+	"github.com/bedrock-tool/bedrocktool/utils/xbox"
 )
 
 type RealmListCMD struct{}
@@ -17,7 +18,7 @@ func (*RealmListCMD) Synopsis() string           { return locale.Loc("list_realm
 func (c *RealmListCMD) SetFlags(f *flag.FlagSet) {}
 func (c *RealmListCMD) Execute(ctx context.Context) error {
 	if !utils.Auth.LoggedIn() {
-		err := utils.Auth.Login(ctx)
+		err := utils.Auth.Login(ctx, &xbox.DeviceTypeAndroid)
 		if err != nil {
 			return err
 		}

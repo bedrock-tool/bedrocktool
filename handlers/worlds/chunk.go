@@ -45,9 +45,6 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk, timeReceived ti
 		buf.Next(int(borderBlocks))
 
 		blockNBTs, err = chunk.DecodeBlockNBTs(buf)
-		if err != nil {
-			return err
-		}
 	} else {
 		ch, blockNBTs, err = chunk.NetworkDecode(
 			w.serverState.blocks,
@@ -56,9 +53,9 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk, timeReceived ti
 			w.serverState.useHashedRids,
 			w.currentWorld.Range(),
 		)
-		if err != nil {
-			return err
-		}
+	}
+	if err != nil {
+		return err
 	}
 
 	var chunkBlockNBT = make(map[cube.Pos]world.UnknownBlock)

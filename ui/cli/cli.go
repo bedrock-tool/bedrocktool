@@ -14,6 +14,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/bedrock-tool/bedrocktool/utils/updater"
+	"github.com/bedrock-tool/bedrocktool/utils/xbox"
 	"github.com/sirupsen/logrus"
 )
 
@@ -135,10 +136,11 @@ func (c *CLI) Start(ctx context.Context, cancel context.CancelCauseFunc) error {
 func (c *CLI) HandleMessage(msg *messages.Message) *messages.Message {
 	switch data := msg.Data.(type) {
 	case messages.RequestLogin:
+		deviceType := &xbox.DeviceTypeAndroid
 		if data.Wait {
-			utils.Auth.Login(c.ctx)
+			utils.Auth.Login(c.ctx, deviceType)
 		} else {
-			go utils.Auth.Login(c.ctx)
+			go utils.Auth.Login(c.ctx, deviceType)
 		}
 	}
 	return nil

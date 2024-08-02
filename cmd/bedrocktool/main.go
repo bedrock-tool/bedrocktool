@@ -18,6 +18,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/bedrock-tool/bedrocktool/utils/updater"
+	"github.com/bedrock-tool/bedrocktool/utils/xbox"
 	"github.com/gregwebs/go-recovery"
 	"github.com/rifflock/lfshook"
 
@@ -185,7 +186,7 @@ func (c *TransCMD) Execute(ctx context.Context) error {
 		if utils.Auth.LoggedIn() {
 			logrus.Info("Already Logged in")
 		} else {
-			utils.Auth.Login(ctx)
+			utils.Auth.Login(ctx, &xbox.DeviceTypeAndroid)
 		}
 	}
 	fmt.Println(BlackFg + Bold + Blue + " Trans " + Pink + " Rights " + White + " Are " + Pink + " Human " + Blue + " Rights " + Reset)

@@ -21,6 +21,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/bedrock-tool/bedrocktool/utils/updater"
+	"github.com/bedrock-tool/bedrocktool/utils/xbox"
 	"github.com/gregwebs/go-recovery"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
@@ -305,7 +306,7 @@ func (r *Router) HandleMessage(msg *messages.Message) *messages.Message {
 					close(r.login)
 					r.login = nil
 				}()
-				utils.Auth.Login(ctx)
+				utils.Auth.Login(ctx, &xbox.DeviceTypeAndroid)
 			}()
 		}
 		if data.Wait {

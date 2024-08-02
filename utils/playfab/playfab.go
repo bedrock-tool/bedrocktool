@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/utils/discovery"
+	"github.com/bedrock-tool/bedrocktool/utils/xbox"
 	"github.com/google/uuid"
-	"github.com/sandertv/gophertunnel/minecraft/auth"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"golang.org/x/oauth2"
 )
@@ -68,7 +68,7 @@ func (c *Client) Login(ctx context.Context) error {
 }
 
 func (c *Client) loginWithXbox(ctx context.Context, liveToken *oauth2.Token) error {
-	xboxToken, err := auth.RequestXBLToken(ctx, liveToken, "rp://playfabapi.com/")
+	xboxToken, err := xbox.RequestXBLToken(ctx, liveToken, "rp://playfabapi.com/", &xbox.DeviceTypeAndroid)
 	if err != nil {
 		return err
 	}
