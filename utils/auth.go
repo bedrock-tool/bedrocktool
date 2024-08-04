@@ -27,7 +27,7 @@ import (
 
 type authsrv struct {
 	log     *logrus.Entry
-	handler auth.MSAuthHandler
+	handler xbox.MSAuthHandler
 
 	liveToken  *oauth2.Token
 	deviceType *xbox.DeviceType
@@ -75,7 +75,7 @@ func (a *authsrv) LoggedIn() bool {
 }
 
 // performs microsoft login using the handler passed
-func (a *authsrv) SetHandler(handler auth.MSAuthHandler) (err error) {
+func (a *authsrv) SetHandler(handler xbox.MSAuthHandler) (err error) {
 	a.handler = handler
 	return nil
 }

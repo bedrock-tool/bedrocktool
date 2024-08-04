@@ -340,6 +340,7 @@ func (s *Session) connectServer(ctx context.Context, connect *utils.ConnectInfo)
 
 	logrus.Info(locale.Loc("connecting", locale.Strmap{"Address": address}))
 	d := minecraft.Dialer{
+		TokenSource:       utils.Auth,
 		ErrorLog:          log.Default(),
 		PacketFunc:        s.packetFunc,
 		EnableClientCache: true,
@@ -493,6 +494,22 @@ func (s *Session) proxyLoop(ctx context.Context, toServer bool) (err error) {
 
 		pkName := reflect.TypeOf(pk).String()
 
+		var forward = true
+
+		if !toServer {
+			forward, err = s.blobPacketsFromServer(pk)
+			if err != nil {
+				return err
+			}
+			if pk.ID() == packet.IDCompressedBiomeDefinitionList {
+				forward = false
+			}
+		} else {
+			if pk.ID() == packet.IDClientCacheBlobStatus {
+				forward = false
+			}
+		}
+
 		pk, err = s.handlers.PacketCallback(pk, toServer, timeReceived, false)
 		if err != nil {
 			return err
@@ -502,22 +519,8 @@ func (s *Session) proxyLoop(ctx context.Context, toServer bool) (err error) {
 			continue
 		}
 
-		if !toServer {
-			drop, err := s.blobPacketsFromServer(pk)
-			if err != nil {
-				return err
-			}
-			if drop {
-				continue
-			}
-
-			if pk.ID() == packet.IDCompressedBiomeDefinitionList {
-				continue
-			}
-		} else {
-			if pk.ID() == packet.IDClientCacheBlobStatus {
-				continue
-			}
+		if !forward {
+			continue
 		}
 
 		var transfer *packet.Transfer
@@ -591,11 +594,11 @@ func (s *Session) packetFunc(header packet.Header, payload []byte, src, dst net.
 		}
 
 		if !toServer {
-			drop, err := s.blobPacketsFromServer(pk)
+			forward, err := s.blobPacketsFromServer(pk)
 			if err != nil {
 				logrus.Error(err)
 			}
-			_ = drop
+			_ = forward
 		}
 	}
 }
@@ -604,23 +607,31 @@ func (s *Session) IsClient(addr net.Addr) bool {
 	return s.clientAddr.String() == addr.String()
 }
 
-func (s *Session) blobPacketsFromServer(pk packet.Packet) (bool, error) {
+func (s *Session) blobPacketsFromServer(pk packet.Packet) (forward bool, err error) {
 	switch pk := pk.(type) {
 	case *packet.LevelChunk:
-		return false, s.blobCache.HandleLevelChunk(pk)
+		forward = true
+		err = s.blobCache.HandleLevelChunk(pk)
 	case *packet.SubChunk:
-		return false, s.blobCache.HandleSubChunk(pk)
+		forward = true
+		err = s.blobCache.HandleSubChunk(pk)
 
 	case *packet.ClientCacheMissResponse:
-		return true, s.blobCache.HandleClientCacheMissResponse(pk)
+		forward = false
+		err = s.blobCache.HandleClientCacheMissResponse(pk)
+	default:
+		forward = true
 	}
-	return false, nil
+	return
 }
 
-func (s *Session) blobPacketsFromClient(pk packet.Packet) (bool, error) {
+func (s *Session) blobPacketsFromClient(pk packet.Packet) (forward bool, err error) {
 	switch pk := pk.(type) {
 	case *packet.ClientCacheBlobStatus:
-		return true, s.blobCache.HandleClientCacheBlobStatus(pk)
+		forward = false
+		err = s.blobCache.HandleClientCacheBlobStatus(pk)
+	default:
+		forward = true
 	}
-	return false, nil
+	return
 }

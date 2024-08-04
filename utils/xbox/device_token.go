@@ -51,6 +51,13 @@ var (
 		Version:    "0.0.0",
 		UserAgent:  "XAL",
 	}
+	DeviceTypePlaystation = DeviceType{
+		DeviceType: "Playstation",
+		ClientID:   "000000004827c78e",
+		TitleID:    "idk",
+		Version:    "10.0.0",
+		UserAgent:  "XAL",
+	}
 )
 
 // deviceToken is the token obtained by requesting a device token by posting to xblDeviceAuthURL. Its Token
@@ -68,7 +75,7 @@ func obtainDeviceToken(ctx context.Context, c *http.Client, key *ecdsa.PrivateKe
 		ProofOfPossession = "{" + uuid.NewString() + "}"
 	case "iOS":
 		ProofOfPossession = strings.ToUpper(uuid.NewString())
-	case "Win32":
+	case "Win32", "Playstation":
 		ProofOfPossession = uuid.NewString()
 	default:
 		return nil, errors.New("unknown device type")

@@ -6,14 +6,38 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/tls"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 
 	"golang.org/x/oauth2"
 )
+
+func generatePkce() (verifier, challenge string) {
+	var b = make([]byte, 32)
+	_, err := rand.Read(b)
+	if err != nil {
+		panic(err)
+	}
+	verifier = hex.EncodeToString(b)
+	h := sha256.Sum256([]byte(verifier))
+	challenge = base64.RawURLEncoding.EncodeToString(h[:])
+	return
+}
+
+func generateCsrf() string {
+	var b = make([]byte, 16)
+	_, err := rand.Read(b)
+	if err != nil {
+		panic(err)
+	}
+	return base64.RawURLEncoding.EncodeToString(b)
+}
 
 // XBLToken holds info on the authorization token used for authenticating with XBOX Live.
 type XBLToken struct {
@@ -60,10 +84,55 @@ func RequestXBLToken(ctx context.Context, liveToken *oauth2.Token, relyingParty 
 	if err != nil {
 		return nil, err
 	}
-	return obtainXBLToken(ctx, c, key, liveToken, deviceToken, relyingParty, deviceType)
+
+	verifier, challenge := generatePkce()
+	csrf := generateCsrf()
+	_ = verifier
+
+	sessionID, err := sisuAuthenticate(ctx, c, key, deviceToken, deviceType, challenge, csrf)
+	if err != nil {
+		return nil, err
+	}
+
+	return sisuAuthorize(ctx, c, key, liveToken, deviceToken, relyingParty, deviceType, sessionID)
 }
 
-func obtainXBLToken(ctx context.Context, c *http.Client, key *ecdsa.PrivateKey, liveToken *oauth2.Token, device *deviceToken, relyingParty string, deviceType *DeviceType) (*XBLToken, error) {
+func sisuAuthenticate(ctx context.Context, c *http.Client, key *ecdsa.PrivateKey, device *deviceToken, deviceType *DeviceType, pkceChallenge, csrf string) (string, error) {
+	data, _ := json.Marshal(map[string]any{
+		"AppId":       deviceType.ClientID,
+		"TitleId":     deviceType.TitleID,
+		"RedirectUri": "https://login.live.com/oauth20_desktop.srf",
+		"deviceToken": device.Token,
+		"Sandbox":     "RETAIL",
+		"TokenType":   "code",
+		"Offers":      []string{"service::user.auth.xboxlive.com::MBI_SSL"},
+		"Query": map[string]any{
+			"Display":             "",
+			"CodeChallenge":       pkceChallenge,
+			"CodeChallengeMethod": "S256",
+			"State":               csrf,
+		},
+	})
+	req, _ := http.NewRequestWithContext(ctx, "POST", "https://sisu.xboxlive.com/authenticate", bytes.NewReader(data))
+	req.Header.Set("x-xbl-contract-version", "1")
+	req.Header.Set("User-Agent", deviceType.UserAgent)
+	sign(req, data, key)
+
+	resp, err := c.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("POST %v: %w", "https://sisu.xboxlive.com/authenticate", err)
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("POST %v: %v", "https://sisu.xboxlive.com/authenticate", resp.Status)
+	}
+	sessionID := resp.Header.Get("X-SessionId")
+	return sessionID, nil
+}
+
+func sisuAuthorize(ctx context.Context, c *http.Client, key *ecdsa.PrivateKey, liveToken *oauth2.Token, device *deviceToken, relyingParty string, deviceType *DeviceType, sessionID string) (*XBLToken, error) {
 	data, _ := json.Marshal(map[string]any{
 		"AccessToken":       "t=" + liveToken.AccessToken,
 		"AppId":             deviceType.ClientID,
@@ -72,6 +141,7 @@ func obtainXBLToken(ctx context.Context, c *http.Client, key *ecdsa.PrivateKey, 
 		"UseModernGamertag": true,
 		"SiteName":          "user.auth.xboxlive.com",
 		"RelyingParty":      relyingParty,
+		"SessionId":         sessionID,
 		"ProofKey": map[string]any{
 			"crv": "P-256",
 			"alg": "ES256",
@@ -94,6 +164,8 @@ func obtainXBLToken(ctx context.Context, c *http.Client, key *ecdsa.PrivateKey, 
 		_ = resp.Body.Close()
 	}()
 	if resp.StatusCode != 200 {
+		b, _ := io.ReadAll(resp.Body)
+		_ = b
 		return nil, fmt.Errorf("POST %v: %v", "https://sisu.xboxlive.com/authorize", resp.Status)
 	}
 	info := new(XBLToken)
