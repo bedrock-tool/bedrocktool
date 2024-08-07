@@ -3,7 +3,6 @@ package worldstate
 import (
 	"image"
 	"image/draw"
-	"maps"
 
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds/entity"
 	"github.com/bedrock-tool/bedrocktool/utils"
@@ -17,19 +16,15 @@ import (
 
 type worldStateMem struct {
 	maps        map[int64]*Map
-	chunks      map[world.ChunkPos]*chunk.Chunk
-	blockNBTs   map[world.ChunkPos]map[cube.Pos]world.UnknownBlock
+	chunks      map[world.ChunkPos]*world.Column
 	entities    map[entity.RuntimeID]*entity.Entity
 	entityLinks map[entity.UniqueID]map[entity.UniqueID]struct{}
 
 	uniqueIDsToRuntimeIDs map[entity.UniqueID]entity.RuntimeID
 }
 
-func (w *worldStateMem) StoreChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cube.Pos]world.UnknownBlock) {
-	w.chunks[pos] = ch
-	if blockNBT != nil {
-		w.blockNBTs[pos] = blockNBT
-	}
+func (w *worldStateMem) StoreChunk(pos world.ChunkPos, col *world.Column) {
+	w.chunks[pos] = col
 }
 
 func (w *worldStateMem) StoreMap(m *packet.ClientBoundMapItemData) {
@@ -80,14 +75,13 @@ func (w *worldStateMem) cullChunks() {
 
 func (w *worldStateMem) ApplyTo(w2 worldStateInterface, around cube.Pos, radius int32, cf func(world.ChunkPos, *chunk.Chunk)) {
 	w.cullChunks()
-	for cp, c := range w.chunks {
-		dist := i32.Sqrt(i32.Pow(cp.X()-int32(around.X()/16), 2) + i32.Pow(cp.Z()-int32(around.Z()/16), 2))
-		blockNBT := w.blockNBTs[cp]
+	for pos, col := range w.chunks {
+		dist := i32.Sqrt(i32.Pow(pos.X()-int32(around.X()/16), 2) + i32.Pow(pos.Z()-int32(around.Z()/16), 2))
 		if dist <= radius || radius < 0 {
-			w2.StoreChunk(cp, c, blockNBT)
-			cf(cp, c)
+			w2.StoreChunk(pos, col)
+			cf(pos, col.Chunk)
 		} else {
-			cf(cp, nil)
+			cf(pos, nil)
 		}
 	}
 
@@ -107,31 +101,6 @@ func cubePosInChunk(pos cube.Pos) (p world.ChunkPos, sp int16) {
 	sp = int16(pos.Y() >> 4)
 	p[1] = int32(pos.Z() >> 4)
 	return
-}
-
-func (w *worldStateMem) SetBlockNBT(pos cube.Pos, m map[string]any, merge bool) {
-	cp, _ := cubePosInChunk(pos)
-	chunkNBTs, ok := w.blockNBTs[cp]
-	if !ok {
-		chunkNBTs = make(map[cube.Pos]world.UnknownBlock)
-		w.blockNBTs[cp] = chunkNBTs
-	}
-	b, ok := chunkNBTs[pos]
-	if !ok {
-		b = world.UnknownBlock{
-			BlockState: world.BlockState{
-				Name:       m["id"].(string),
-				Properties: m,
-			},
-		}
-	}
-
-	if merge {
-		maps.Copy(b.Properties, m)
-	} else {
-		b.Properties = m
-	}
-	chunkNBTs[pos] = b
 }
 
 func (w *worldStateMem) StoreEntity(id entity.RuntimeID, es *entity.Entity) {

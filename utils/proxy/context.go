@@ -34,6 +34,7 @@ type Context struct {
 
 	addedPacks []resource.Pack
 	handlers   Handlers
+	onHitBlobs func([]protocol.CacheBlob)
 
 	session *Session
 }
@@ -78,6 +79,7 @@ func (p *Context) connect(ctx context.Context, connect *utils.ConnectInfo) (err 
 	p.session.addedPacks = p.addedPacks
 	p.session.listenAddress = p.ListenAddress
 	p.session.handlers = p.handlers
+	p.session.OnHitBlobs = p.onHitBlobs
 
 	p.handlers.SessionStart(p.session, connect.Name())
 	err = p.session.Run(ctx, connect)
@@ -123,12 +125,11 @@ func (p *Context) Run(ctx context.Context, connect *utils.ConnectInfo) (err erro
 		}
 	}
 
-	if utils.Options.Debug || utils.Options.ExtraDebug {
-		p.ExtraDebug = utils.Options.ExtraDebug
-		p.AddHandler(NewDebugLogger(utils.Options.ExtraDebug))
-	}
+	p.onHitBlobs = func([]protocol.CacheBlob) {}
 	if utils.Options.Capture {
-		p.AddHandler(NewPacketCapturer())
+		var h *Handler
+		h, p.onHitBlobs = NewPacketCapturer()
+		p.AddHandler(h)
 	}
 	p.AddHandler(&Handler{
 		Name:           "Commands",

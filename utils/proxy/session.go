@@ -30,8 +30,11 @@ type Session struct {
 	Player    Player
 	rpHandler *rpHandler
 	blobCache *Blobcache
-	isReplay  bool
 
+	packetLogger       *packetLogger
+	packetLoggerClient *packetLogger
+
+	isReplay         bool
 	expectDisconnect bool
 	dimensionData    *packet.DimensionData
 	clientConnecting chan struct{}
@@ -48,6 +51,7 @@ type Session struct {
 	addedPacks    []resource.Pack
 	listenAddress string
 	handlers      Handlers
+	OnHitBlobs    func(hitBlobs []protocol.CacheBlob)
 }
 
 func NewSession() *Session {
@@ -151,8 +155,23 @@ func (s *Session) Run(ctx context.Context, connect *utils.ConnectInfo) error {
 	if err != nil {
 		return err
 	}
-	s.blobCache.OnBlobs = s.handlers.OnBlobs
+	s.blobCache.OnHitBlobs = s.OnHitBlobs
+	s.blobCache.processPacket = s.processBlobPacket
 	defer s.blobCache.Close()
+
+	if utils.Options.Debug || utils.Options.ExtraDebug {
+		s.packetLogger, err = NewPacketLogger(utils.Options.ExtraDebug, false)
+		if err != nil {
+			return err
+		}
+		defer s.packetLogger.Close()
+
+		s.packetLoggerClient, err = NewPacketLogger(utils.Options.ExtraDebug, true)
+		if err != nil {
+			return err
+		}
+		defer s.packetLogger.Close()
+	}
 
 	if connect.Replay != "" {
 		replay, err := CreateReplayConnector(ctx, connect.Replay, s.packetFunc, rpHandler)
@@ -390,29 +409,30 @@ func (s *Session) connectServer(ctx context.Context, connect *utils.ConnectInfo)
 }
 
 func (s *Session) connectClient(ctx context.Context, connect *utils.ConnectInfo) (err error) {
-	var extraClientDebug func(pk packet.Packet)
-	var extraClientDebugEnd func()
-	if s.extraDebug {
-		extraClientDebug, extraClientDebugEnd = newExtraDebug("packets-client.log")
-	}
-
 	s.listener, err = minecraft.ListenConfig{
 		AuthenticationDisabled: true,
 		StatusProvider:         minecraft.NewStatusProvider(fmt.Sprintf("%s Proxy", connect.Name()), "Bedrocktool"),
 		PacketFunc: func(header packet.Header, payload []byte, src, dst net.Addr, timeReceived time.Time) {
-			if extraClientDebug != nil {
-				pk, ok := DecodePacket(header, payload, s.Client.ShieldID())
-				if !ok {
-					return
+			pk, ok := DecodePacket(header, payload, s.Client.ShieldID())
+			if !ok {
+				return
+			}
+			drop, err := s.blobPacketsFromClient(pk)
+			if err != nil {
+				logrus.Error(err)
+				return
+			}
+			_ = drop
+			if s.packetLoggerClient != nil {
+				if src == s.listener.Addr() {
+					err = s.packetLoggerClient.PacketSend(pk, timeReceived)
+				} else {
+					err = s.packetLoggerClient.PacketReceive(pk, timeReceived)
 				}
-				extraClientDebug(pk)
-
-				drop, err := s.blobPacketsFromClient(pk)
-				if err != nil {
-					logrus.Error(err)
-					return
-				}
-				_ = drop
+			}
+			if err != nil {
+				logrus.Error(err)
+				return
 			}
 		},
 		OnClientData: func(c *minecraft.Conn) {
@@ -452,9 +472,6 @@ func (s *Session) connectClient(ctx context.Context, connect *utils.ConnectInfo)
 	var accepted = false
 	go func() {
 		<-ctx.Done()
-		if extraClientDebugEnd != nil {
-			extraClientDebugEnd()
-		}
 		if !accepted {
 			_ = s.listener.Close()
 		}
@@ -466,6 +483,14 @@ func (s *Session) connectClient(ctx context.Context, connect *utils.ConnectInfo)
 	}
 	accepted = true
 	logrus.Info("Client Connected")
+	return nil
+}
+
+func (s *Session) processBlobPacket(pk packet.Packet, timeReceived time.Time, preLogin bool) error {
+	_, err := s.handlers.PacketCallback(pk, false, timeReceived, preLogin)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -494,32 +519,35 @@ func (s *Session) proxyLoop(ctx context.Context, toServer bool) (err error) {
 
 		pkName := reflect.TypeOf(pk).String()
 
-		var forward = true
+		var forward = pk
+		var process = true
 
 		if !toServer {
-			forward, err = s.blobPacketsFromServer(pk)
+			forward, process, err = s.blobPacketsFromServer(pk, timeReceived, false)
 			if err != nil {
 				return err
 			}
 			if pk.ID() == packet.IDCompressedBiomeDefinitionList {
-				forward = false
+				forward = nil
 			}
 		} else {
 			if pk.ID() == packet.IDClientCacheBlobStatus {
-				forward = false
+				forward = nil
 			}
 		}
 
-		pk, err = s.handlers.PacketCallback(pk, toServer, timeReceived, false)
-		if err != nil {
-			return err
-		}
-		if pk == nil {
-			logrus.Tracef("Dropped Packet: %s", pkName)
-			continue
+		if process {
+			pk, err = s.handlers.PacketCallback(pk, toServer, timeReceived, false)
+			if err != nil {
+				return err
+			}
+			if pk == nil {
+				logrus.Tracef("Dropped Packet: %s", pkName)
+				continue
+			}
 		}
 
-		if !forward {
+		if forward == nil {
 			continue
 		}
 
@@ -572,12 +600,20 @@ func (s *Session) packetFunc(header packet.Header, payload []byte, src, dst net.
 
 	s.handlers.PacketRaw(header, payload, src, dst, timeReceived)
 
-	if !s.spawned {
-		pk, ok := DecodePacket(header, payload, s.Server.ShieldID())
-		if !ok {
-			return
-		}
+	pk, ok := DecodePacket(header, payload, s.Server.ShieldID())
+	if !ok {
+		return
+	}
 
+	if s.packetLogger != nil {
+		if s.IsClient(src) {
+			s.packetLogger.PacketSend(pk, timeReceived)
+		} else {
+			s.packetLogger.PacketReceive(pk, timeReceived)
+		}
+	}
+
+	if !s.spawned {
 		switch pk := pk.(type) {
 		case *packet.DimensionData:
 			s.dimensionData = pk
@@ -585,7 +621,7 @@ func (s *Session) packetFunc(header packet.Header, payload []byte, src, dst net.
 
 		var err error
 		toServer := s.IsClient(src)
-		pk, err = s.handlers.PacketCallback(pk, toServer, time.Now(), true)
+		pk, err = s.handlers.PacketCallback(pk, toServer, timeReceived, true)
 		if err != nil {
 			logrus.Error(err)
 		}
@@ -594,7 +630,7 @@ func (s *Session) packetFunc(header packet.Header, payload []byte, src, dst net.
 		}
 
 		if !toServer {
-			forward, err := s.blobPacketsFromServer(pk)
+			forward, _, err := s.blobPacketsFromServer(pk, timeReceived, true)
 			if err != nil {
 				logrus.Error(err)
 			}
@@ -607,20 +643,28 @@ func (s *Session) IsClient(addr net.Addr) bool {
 	return s.clientAddr.String() == addr.String()
 }
 
-func (s *Session) blobPacketsFromServer(pk packet.Packet) (forward bool, err error) {
+func (s *Session) blobPacketsFromServer(pk packet.Packet, timeReceived time.Time, preLogin bool) (forward packet.Packet, process bool, err error) {
+	forward = pk
+	process = true
 	switch pk := pk.(type) {
 	case *packet.LevelChunk:
-		forward = true
-		err = s.blobCache.HandleLevelChunk(pk)
+		if pk.CacheEnabled {
+			process = false
+			forward, err = s.blobCache.HandleLevelChunk(pk, timeReceived, preLogin)
+		}
+
 	case *packet.SubChunk:
-		forward = true
-		err = s.blobCache.HandleSubChunk(pk)
+		if pk.CacheEnabled {
+			process = false
+			forward, err = s.blobCache.HandleSubChunk(pk, timeReceived, preLogin)
+		}
 
 	case *packet.ClientCacheMissResponse:
-		forward = false
-		err = s.blobCache.HandleClientCacheMissResponse(pk)
-	default:
-		forward = true
+		forward = nil
+		process = false
+		if !preLogin {
+			err = s.blobCache.HandleClientCacheMissResponse(pk, timeReceived, preLogin)
+		}
 	}
 	return
 }

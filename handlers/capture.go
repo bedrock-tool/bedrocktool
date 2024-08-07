@@ -125,22 +125,27 @@ func (p *packetCapturer) PacketFunc(header packet.Header, payload []byte, src, d
 	p.dumpPacket(p.session.IsClient(src), buf.Bytes(), timeReceived)
 }
 
-func NewPacketCapturer() *proxy.Handler {
+func NewPacketCapturer() (*proxy.Handler, func([]protocol.CacheBlob)) {
 	p := &packetCapturer{
 		log: logrus.WithField("part", "PacketCapture"),
 	}
 	return &proxy.Handler{
-		Name: "Packet Capturer",
-		SessionStart: func(s *proxy.Session, serverName string) error {
-			p.session = s
-			return p.onServerName(serverName)
+			Name: "Packet Capturer",
+			SessionStart: func(s *proxy.Session, serverName string) error {
+				p.session = s
+				return p.onServerName(serverName)
+			},
+			OnServerConnect: p.OnServerConnect,
+			PacketRaw:       p.PacketFunc,
+			OnSessionEnd: func() {
+				p.dumpLock.Lock()
+				defer p.dumpLock.Unlock()
+				if p.file != nil {
+					p.file.Close()
+				}
+			},
 		},
-		OnServerConnect: p.OnServerConnect,
-		PacketRaw:       p.PacketFunc,
-		OnBlobs: func(blobs []proxy.BlobResp, fromCache bool) error {
-			if !fromCache {
-				return nil
-			}
+		func(blobs []protocol.CacheBlob) {
 			var pk packet.ClientCacheMissResponse
 			for _, blob := range blobs {
 				pk.Blobs = append(pk.Blobs, protocol.CacheBlob{
@@ -156,16 +161,7 @@ func NewPacketCapturer() *proxy.Handler {
 			io := protocol.NewWriter(buf, 0)
 			pk.Marshal(io)
 			p.dumpPacket(false, buf.Bytes(), time.Now())
-			return nil
-		},
-		OnSessionEnd: func() {
-			p.dumpLock.Lock()
-			defer p.dumpLock.Unlock()
-			if p.file != nil {
-				p.file.Close()
-			}
-		},
-	}
+		}
 }
 
 func init() {

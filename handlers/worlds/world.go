@@ -257,7 +257,6 @@ func NewWorldsHandler(settings WorldSettings) *proxy.Handler {
 		},
 
 		PacketCallback: w.packetCB,
-		OnBlobs:        w.onBlobs,
 		OnSessionEnd: func() {
 			w.SaveAndReset(true, nil)
 			w.wg.Wait()

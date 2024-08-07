@@ -194,9 +194,9 @@ func dumpValue(f io.StringWriter, level int, value reflect.Value, withType, isEn
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 			f.WriteString(strconv.FormatInt(value.Int(), 10))
 		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-			f.WriteString(strconv.FormatInt(int64(value.Uint()), 10))
+			f.WriteString(strconv.FormatUint(value.Uint(), 10))
 		case reflect.Uintptr:
-			f.WriteString("0x" + strconv.FormatInt(int64(value.Uint()), 16))
+			f.WriteString("0x" + strconv.FormatUint(value.Uint(), 16))
 		case reflect.Float32:
 			f.WriteString(strconv.FormatFloat(float64(value.Float()), 'g', 9, 32))
 		case reflect.Float64:

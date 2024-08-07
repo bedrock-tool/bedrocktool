@@ -24,8 +24,6 @@ type Handler struct {
 	PacketRaw      func(header packet.Header, payload []byte, src, dst net.Addr, timeReceived time.Time)
 	PacketCallback func(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error)
 
-	OnBlobs func(blobs []BlobResp, fromCache bool) error
-
 	OnServerConnect func() (cancel bool, err error)
 	OnConnect       func() (cancel bool)
 
@@ -115,19 +113,6 @@ func (h *Handlers) PacketCallback(pk packet.Packet, toServer bool, timeReceived 
 		}
 	}
 	return pk, nil
-}
-
-func (h *Handlers) OnBlobs(blobs []BlobResp, fromCache bool) error {
-	for _, handler := range *h {
-		if handler.OnBlobs == nil {
-			continue
-		}
-		err := handler.OnBlobs(blobs, fromCache)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (h *Handlers) OnServerConnect() (cancel bool, err error) {

@@ -30,8 +30,8 @@ import (
 )
 
 type worldStateInterface interface {
-	StoreChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cube.Pos]world.UnknownBlock) error
-	SetBlockNBT(pos cube.Pos, nbt map[string]any, merge bool)
+	StoreChunk(pos world.ChunkPos, col *world.Column) error
+	SetBlockNBT(pos cube.Pos, nbt map[string]any, merge bool) error
 	StoreEntity(id entity.RuntimeID, es *entity.Entity)
 	GetEntity(id entity.RuntimeID) *entity.Entity
 	AddEntityLink(el protocol.EntityLink)
@@ -119,10 +119,9 @@ func New(dimensionDefinitions map[int]protocol.DimensionDefinition, onChunkUpdat
 		dimensionDefinitions: dimensionDefinitions,
 		finish:               make(chan struct{}),
 		memState: &worldStateMem{
-			chunks:      make(map[world.ChunkPos]*chunk.Chunk),
+			chunks:      make(map[world.ChunkPos]*world.Column),
 			entities:    make(map[entity.RuntimeID]*entity.Entity),
 			entityLinks: make(map[entity.UniqueID]map[entity.UniqueID]struct{}),
-			blockNBTs:   make(map[world.ChunkPos]map[cube.Pos]world.UnknownBlock),
 
 			uniqueIDsToRuntimeIDs: make(map[int64]uint64),
 		},
@@ -171,10 +170,10 @@ func (w *World) storeMemToProvider() error {
 			}
 		}()
 	}
-	for pos, ch := range w.memState.chunks {
+	for pos, col := range w.memState.chunks {
 		// dont put empty chunks in the world db, keep them in memory
 		empty := true
-		for _, sc := range ch.Sub() {
+		for _, sc := range col.Chunk.Sub() {
 			if !sc.Empty() {
 				empty = false
 				break
@@ -184,9 +183,7 @@ func (w *World) storeMemToProvider() error {
 			continue
 		}
 
-		err := w.provider.StoreColumn(pos, w.dimension, &world.Column{
-			Chunk: ch,
-		})
+		err := w.provider.StoreColumn(pos, w.dimension, col)
 		if err != nil {
 			w.log.Error("StoreColumn", err)
 		}
@@ -220,15 +217,15 @@ func (w *World) SetTime(real time.Time, ingame int) {
 	w.time = ingame
 }
 
-func (w *World) StoreChunk(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cube.Pos]world.UnknownBlock) (err error) {
+func (w *World) StoreChunk(pos world.ChunkPos, col *world.Column) (err error) {
 	w.stateLock.Lock()
 	defer w.stateLock.Unlock()
-	return w.storeChunkLocked(pos, ch, blockNBT)
+	return w.storeChunkLocked(pos, col)
 }
 
-func (w *World) storeChunkLocked(pos world.ChunkPos, ch *chunk.Chunk, blockNBT map[cube.Pos]world.UnknownBlock) (err error) {
+func (w *World) storeChunkLocked(pos world.ChunkPos, col *world.Column) (err error) {
 	var empty = true
-	for _, sub := range ch.Sub() {
+	for _, sub := range col.Chunk.Sub() {
 		if !sub.Empty() {
 			empty = false
 			break
@@ -236,6 +233,7 @@ func (w *World) storeChunkLocked(pos world.ChunkPos, ch *chunk.Chunk, blockNBT m
 	}
 	if !empty {
 		w.StoredChunks[pos] = true
+		w.onChunkUpdate(pos, col.Chunk, w.paused)
 		// only start saving once a non empty chunk is received
 		w.onceOpen.Do(func() {
 			go func() {
@@ -253,29 +251,26 @@ func (w *World) storeChunkLocked(pos world.ChunkPos, ch *chunk.Chunk, blockNBT m
 				}
 			}()
 		})
-		w.onChunkUpdate(pos, ch, w.paused)
 	}
 
-	w.currState().StoreChunk(pos, ch, blockNBT)
+	w.currState().StoreChunk(pos, col)
 	return nil
 }
 
-func (w *World) LoadChunk(pos world.ChunkPos) (*chunk.Chunk, bool, error) {
+func (w *World) LoadChunk(pos world.ChunkPos) (*world.Column, bool, error) {
 	w.stateLock.Lock()
 	defer w.stateLock.Unlock()
 	return w.loadChunkLocked(pos)
 }
 
-func (w *World) loadChunkLocked(pos world.ChunkPos) (*chunk.Chunk, bool, error) {
+func (w *World) loadChunkLocked(pos world.ChunkPos) (*world.Column, bool, error) {
 	if w.paused {
-		ch, ok := w.pausedState.chunks[pos]
-		if ok {
-			return ch, true, nil
+		if col, ok := w.pausedState.chunks[pos]; ok {
+			return col, true, nil
 		}
 	}
-	ch, ok := w.memState.chunks[pos]
-	if ok {
-		return ch, true, nil
+	if col, ok := w.memState.chunks[pos]; ok {
+		return col, true, nil
 	}
 
 	if w.provider != nil {
@@ -286,8 +281,8 @@ func (w *World) loadChunkLocked(pos world.ChunkPos) (*chunk.Chunk, bool, error) 
 			}
 			return nil, false, err
 		}
-		w.memState.chunks[pos] = col.Chunk
-		return col.Chunk, true, nil
+		w.memState.chunks[pos] = col
+		return col, true, nil
 	}
 
 	return nil, false, nil
@@ -300,10 +295,31 @@ func (w *World) QueueBlockUpdate(pos protocol.BlockPos, ridTo uint32, layer uint
 	w.blockUpdates[cp] = append(w.blockUpdates[cp], blockUpdate{rid: ridTo, pos: pos, layer: layer})
 }
 
-func (w *World) SetBlockNBT(pos cube.Pos, nbt map[string]any, merge bool) {
-	w.entityLock.Lock()
-	defer w.entityLock.Unlock()
-	w.currState().SetBlockNBT(pos, nbt, merge)
+func (w *World) SetBlockNBT(pos cube.Pos, nbt map[string]any, merge bool) error {
+	w.stateLock.Lock()
+	defer w.stateLock.Unlock()
+	chunkPos, _ := cubePosInChunk(pos)
+	col, ok, err := w.loadChunkLocked(chunkPos)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return nil
+	}
+	if merge {
+		if prev, ok := col.BlockEntities[pos].(world.UnknownBlock); ok {
+			prev.Name = nbt["id"].(string)
+			maps.Copy(prev.Properties, nbt)
+			return nil
+		}
+	}
+	col.BlockEntities[pos] = world.UnknownBlock{
+		BlockState: world.BlockState{
+			Name:       nbt["id"].(string),
+			Properties: nbt,
+		},
+	}
+	return nil
 }
 
 func (w *World) StoreEntity(id entity.RuntimeID, es *entity.Entity) {
@@ -349,10 +365,9 @@ func (w *World) PauseCapture() {
 	w.entityLock.Lock()
 	w.paused = true
 	w.pausedState = &worldStateMem{
-		chunks:      make(map[world.ChunkPos]*chunk.Chunk),
+		chunks:      make(map[world.ChunkPos]*world.Column),
 		entities:    make(map[entity.RuntimeID]*entity.Entity),
 		entityLinks: make(map[entity.UniqueID]map[entity.UniqueID]struct{}),
-		blockNBTs:   make(map[world.ChunkPos]map[cube.Pos]world.UnknownBlock),
 
 		uniqueIDsToRuntimeIDs: make(map[int64]uint64),
 	}
@@ -414,7 +429,7 @@ func (w *World) applyBlockUpdates() {
 	defer w.blockUpdatesLock.Unlock()
 	for pos, updates := range w.blockUpdates {
 		delete(w.blockUpdates, pos)
-		chunk, ok, err := w.loadChunkLocked(world.ChunkPos(pos))
+		col, ok, err := w.loadChunkLocked(world.ChunkPos(pos))
 		if !ok {
 			w.log.Warnf("Chunk updates for a chunk we dont have pos = %v", pos)
 			continue
@@ -426,9 +441,13 @@ func (w *World) applyBlockUpdates() {
 
 		for _, update := range updates {
 			x, y, z := blockPosInChunk(update.pos)
-			chunk.SetBlock(x, y, z, update.layer, update.rid)
+			col.Chunk.SetBlock(x, y, z, update.layer, update.rid)
 		}
-		w.storeChunkLocked(pos, chunk, nil)
+		err = w.storeChunkLocked(pos, col)
+		if err != nil {
+			w.log.Warnf("Failed storing chunk %v %s", pos, err)
+			continue
+		}
 	}
 }
 
@@ -525,17 +544,6 @@ func (w *World) Finish(playerData map[string]any, excludedMobs []string, withPla
 		err := w.provider.StoreEntities(cp, w.dimension, v)
 		if err != nil {
 			w.log.Error(err)
-		}
-	}
-
-	for cp, v := range w.memState.blockNBTs {
-		vv := make(map[cube.Pos]world.Block, len(v))
-		for p, db := range v {
-			vv[p] = &db
-		}
-		err := w.provider.StoreBlockNBTs(cp, w.dimension, vv)
-		if err != nil {
-			return err
 		}
 	}
 

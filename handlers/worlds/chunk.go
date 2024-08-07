@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
-	"github.com/bedrock-tool/bedrocktool/utils/proxy"
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/df-mc/dragonfly/server/world/chunk"
@@ -34,36 +33,31 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk, timeReceived ti
 
 	//os.WriteFile("chunk.bin", pk.RawPayload, 0777)
 
-	var ch *chunk.Chunk
-	var blockNBTs []map[string]any
-
 	if pk.CacheEnabled {
-		ch = chunk.New(w.serverState.blocks, w.currentWorld.Range())
-
-		buf := bytes.NewBuffer(pk.RawPayload)
-		borderBlocks, _ := buf.ReadByte()
-		buf.Next(int(borderBlocks))
-
-		blockNBTs, err = chunk.DecodeBlockNBTs(buf)
-	} else {
-		ch, blockNBTs, err = chunk.NetworkDecode(
-			w.serverState.blocks,
-			pk.RawPayload, subChunkCount,
-			w.serverState.useOldBiomes,
-			w.serverState.useHashedRids,
-			w.currentWorld.Range(),
-		)
+		return errors.New("cache is supposed to be handled in proxy")
 	}
+
+	ch, blockNBTs, err := chunk.NetworkDecode(
+		w.serverState.blocks,
+		pk.RawPayload, subChunkCount,
+		w.serverState.useOldBiomes,
+		w.serverState.useHashedRids,
+		w.currentWorld.Range(),
+	)
 	if err != nil {
 		return err
 	}
 
-	var chunkBlockNBT = make(map[cube.Pos]world.UnknownBlock)
+	col := &world.Column{
+		Chunk:         ch,
+		BlockEntities: make(map[cube.Pos]world.Block),
+	}
+
 	for _, blockNBT := range blockNBTs {
 		x := int(blockNBT["x"].(int32))
 		y := int(blockNBT["y"].(int32))
 		z := int(blockNBT["z"].(int32))
-		chunkBlockNBT[cube.Pos{x, y, z}] = world.UnknownBlock{
+		col.BlockEntities[cube.Pos{x, y, z}] = world.UnknownBlock{
 			BlockState: world.BlockState{
 				Name:       blockNBT["id"].(string),
 				Properties: blockNBT,
@@ -78,7 +72,7 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk, timeReceived ti
 	}
 	w.currentWorld.IgnoredChunks[pos] = false
 
-	err = w.currentWorld.StoreChunk(pos, ch, chunkBlockNBT)
+	err = w.currentWorld.StoreChunk(pos, col)
 	if err != nil {
 		w.log.Error(err)
 	}
@@ -115,83 +109,19 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk, timeReceived ti
 	return nil
 }
 
-func (w *worldsHandler) onBlobs(blobs []proxy.BlobResp, fromCache bool) (err error) {
-	var subchunks = make(map[world.SubChunkPos][]protocol.SubChunkEntry)
-	var biomes = make(map[world.SubChunkPos][]byte)
-	for _, blob := range blobs {
-		if blob.Entry != nil {
-			ent := *blob.Entry
-			ent.RawPayload = blob.Payload
-			subchunks[blob.Position] = append(subchunks[blob.Position], ent)
-		} else if blob.IsBiome {
-			biomes[blob.Position] = blob.Payload
-		} else {
-			ent := protocol.SubChunkEntry{
-				Offset:     protocol.SubChunkOffset{0, int8(blob.Index), 0},
-				Result:     protocol.SubChunkResultSuccess,
-				RawPayload: blob.Payload,
-			}
-			subchunks[blob.Position] = append(subchunks[blob.Position], ent)
-		}
-	}
-
-	for pos, sc := range subchunks {
-		err = w.processSubChunkEntries(pos, sc, false)
-		if err != nil {
-			return err
-		}
-	}
-
-	w.worldStateLock.Lock()
-	defer w.worldStateLock.Unlock()
-	for pos, biome := range biomes {
-		wpos := world.ChunkPos{pos[0], pos[2]}
-		ch, ok, err := w.currentWorld.LoadChunk(wpos)
-		if err != nil {
-			return err
-		}
-		if !ok {
-			return nil
-		}
-
-		buf := bytes.NewBuffer(biome)
-		err = chunk.DecodeNetworkBiomes(ch, buf, w.serverState.useOldBiomes)
-		if err != nil {
-			return err
-		}
-
-		err = w.currentWorld.StoreChunk(wpos, ch, nil)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) error {
-	err := w.processSubChunkEntries(world.SubChunkPos(pk.Position), pk.SubChunkEntries, pk.CacheEnabled)
-	if err != nil {
-		return err
-	}
-	w.mapUI.SchedRedraw()
-	return nil
-}
-
-func (w *worldsHandler) processSubChunkEntries(Position world.SubChunkPos, SubChunkEntries []protocol.SubChunkEntry, CacheEnabled bool) error {
 	w.worldStateLock.Lock()
 	defer w.worldStateLock.Unlock()
 
-	var chunks = make(map[world.ChunkPos]*chunk.Chunk)
-	var blockNBTs = make(map[world.ChunkPos]map[cube.Pos]world.UnknownBlock)
+	var columns = make(map[world.ChunkPos]*world.Column)
 
-	for _, ent := range SubChunkEntries {
+	for _, ent := range pk.SubChunkEntries {
 		if ent.Result != protocol.SubChunkResultSuccess {
 			continue
 		}
 		var (
-			absX = Position[0] + int32(ent.Offset[0])
-			absZ = Position[2] + int32(ent.Offset[2])
+			absX = pk.Position[0] + int32(ent.Offset[0])
+			absZ = pk.Position[2] + int32(ent.Offset[2])
 			pos  = world.ChunkPos{absX, absZ}
 		)
 
@@ -199,52 +129,49 @@ func (w *worldsHandler) processSubChunkEntries(Position world.SubChunkPos, SubCh
 			continue
 		}
 
-		if _, ok := chunks[pos]; ok {
+		if _, ok := columns[pos]; ok {
 			continue
 		}
-		ch, ok, err := w.currentWorld.LoadChunk(pos)
+		col, ok, err := w.currentWorld.LoadChunk(pos)
 		if err != nil {
 			return err
 		}
 		if !ok {
 			return errors.New("bug check: subchunk received before chunk")
 		}
-		chunks[pos] = ch
-		blockNBTs[pos] = make(map[cube.Pos]world.UnknownBlock)
+		columns[pos] = col
 	}
 
-	for _, ent := range SubChunkEntries {
+	for _, ent := range pk.SubChunkEntries {
 		var (
-			absX = Position[0] + int32(ent.Offset[0])
-			absY = Position[1] + int32(ent.Offset[1])
-			absZ = Position[2] + int32(ent.Offset[2])
+			absX = pk.Position[0] + int32(ent.Offset[0])
+			absY = pk.Position[1] + int32(ent.Offset[1])
+			absZ = pk.Position[2] + int32(ent.Offset[2])
 			pos  = world.ChunkPos{absX, absZ}
 		)
+
+		col, ok := columns[pos]
+		if !ok {
+			continue
+		}
 
 		switch ent.Result {
 		case protocol.SubChunkResultSuccessAllAir:
 		case protocol.SubChunkResultSuccess:
 			buf := bytes.NewBuffer(ent.RawPayload)
-			if !CacheEnabled {
-				index := uint8(absY)
-				sub, err := chunk.DecodeSubChunk(
-					buf,
-					w.serverState.blocks,
-					w.currentWorld.Dimension().Range(),
-					&index,
-					chunk.NetworkEncoding,
-					w.serverState.useHashedRids,
-				)
-				if err != nil {
-					return err
-				}
-
-				ch, ok := chunks[pos]
-				if !ok {
-					continue
-				}
-				ch.Sub()[index] = sub
+			index := uint8(absY)
+			sub, err := chunk.DecodeSubChunk(
+				buf,
+				w.serverState.blocks,
+				w.currentWorld.Dimension().Range(),
+				&index,
+				chunk.NetworkEncoding,
+				w.serverState.useHashedRids,
+			)
+			if err != nil {
+				return err
 			}
+			col.Chunk.Sub()[index] = sub
 
 			if buf.Len() > 0 {
 				dec := nbt.NewDecoderWithEncoding(buf, nbt.NetworkLittleEndian)
@@ -253,7 +180,7 @@ func (w *worldsHandler) processSubChunkEntries(Position world.SubChunkPos, SubCh
 					if err := dec.Decode(&blockNBT); err != nil {
 						return err
 					}
-					blockNBTs[pos][cube.Pos{
+					col.BlockEntities[cube.Pos{
 						int(blockNBT["x"].(int32)),
 						int(blockNBT["y"].(int32)),
 						int(blockNBT["z"].(int32)),
@@ -268,9 +195,10 @@ func (w *worldsHandler) processSubChunkEntries(Position world.SubChunkPos, SubCh
 		}
 	}
 
-	for cp, c := range chunks {
-		w.currentWorld.StoreChunk(cp, c, blockNBTs[cp])
+	for pos, col := range columns {
+		w.currentWorld.StoreChunk(pos, col)
 	}
 
+	w.mapUI.SchedRedraw()
 	return nil
 }

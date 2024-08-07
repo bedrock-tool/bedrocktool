@@ -2,14 +2,12 @@ package proxy
 
 import (
 	"bufio"
-	"io"
 	"os"
 	"reflect"
 	"sync"
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/utils"
-	"github.com/bedrock-tool/bedrocktool/utils/crypt"
 	"github.com/fatih/color"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sirupsen/logrus"
@@ -51,73 +49,70 @@ var mutedPackets = []uint32{
 var dirS2C = color.GreenString("S") + "->" + color.CyanString("C")
 var dirC2S = color.CyanString("C") + "->" + color.GreenString("S")
 
-func newExtraDebug(name string) (func(pk packet.Packet), func()) {
-	var dmpLock sync.Mutex
-
-	// open plain text log
-	logPlain, err := os.Create(name)
-	if err != nil {
-		logrus.Error(err)
-	}
-	// open gpg log
-	logCryptEnc, flushFunc, err := crypt.Encer(name + ".gpg")
-	if err != nil {
-		logrus.Error(err)
-	}
-	packetsLogF := bufio.NewWriter(io.MultiWriter(logPlain, logCryptEnc))
-
-	return func(pk packet.Packet) {
-			dmpLock.Lock()
-			defer dmpLock.Unlock()
-			utils.DumpStruct(packetsLogF, pk)
-			packetsLogF.Write([]byte("\n\n\n"))
-			packetsLogF.Flush()
-		}, func() {
-			dmpLock.Lock()
-			if flushFunc != nil {
-				flushFunc()
-			}
-			if packetsLogF != nil {
-				packetsLogF.Flush()
-			}
-			if logPlain != nil {
-				logPlain.Close()
-			}
-			if logCryptEnc != nil {
-				logCryptEnc.Close()
-			}
-			dmpLock.Unlock()
-		}
+type packetLogger struct {
+	dumpLock        sync.Mutex
+	timeStart       time.Time
+	packetLogWriter *bufio.Writer
+	closePacketLog  func() error
+	clientSide      bool
 }
 
-func NewDebugLogger(extraVerbose bool) *Handler {
-	var extraDebug func(pk packet.Packet)
-	var extraDebugEnd func()
-	if extraVerbose {
-		extraDebug, extraDebugEnd = newExtraDebug("packets.log")
+func (p *packetLogger) PacketSend(pk packet.Packet, t time.Time) error {
+	p.dumpLock.Lock()
+	defer p.dumpLock.Unlock()
+	return p.logPacket(pk, t, false)
+}
+
+func (p *packetLogger) PacketReceive(pk packet.Packet, t time.Time) error {
+	p.dumpLock.Lock()
+	defer p.dumpLock.Unlock()
+	return p.logPacket(pk, t, false)
+}
+
+func (p *packetLogger) logPacket(pk packet.Packet, t time.Time, toServer bool) error {
+	if p.packetLogWriter != nil {
+		if p.timeStart.IsZero() {
+			p.timeStart = t
+		}
+		p.packetLogWriter.WriteString(t.Sub(p.timeStart).Truncate(time.Millisecond).String() + "\n")
+		utils.DumpStruct(p.packetLogWriter, pk)
+		p.packetLogWriter.Write([]byte("\n\n\n"))
 	}
 
-	return &Handler{
-		Name: "Debug",
-		PacketCallback: func(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
-			if extraDebug != nil {
-				extraDebug(pk)
-			}
-
-			if !slices.Contains(mutedPackets, pk.ID()) {
-				var dir string = dirS2C
-				if toServer {
-					dir = dirC2S
-				}
-				pkName := reflect.TypeOf(pk).String()[1:]
-				logrus.Debugf("%s 0x%02x, %s", dir, pk.ID(), pkName)
-			}
-			return pk, nil
-		},
-		OnProxyEnd: func() {
-			if extraDebugEnd != nil {
-				extraDebugEnd()
-			}
-		},
+	if !p.clientSide && !slices.Contains(mutedPackets, pk.ID()) {
+		var dir string = dirS2C
+		if toServer {
+			dir = dirC2S
+		}
+		pkName := reflect.TypeOf(pk).String()[8:]
+		logrus.Debugf("%s 0x%02x, %s", dir, pk.ID(), pkName)
 	}
+	return nil
+}
+
+func (p *packetLogger) Close() error {
+	if p.packetLogWriter != nil {
+		p.packetLogWriter.Flush()
+		return p.closePacketLog()
+	}
+	return nil
+}
+
+func NewPacketLogger(verbose, clientSide bool) (*packetLogger, error) {
+	p := &packetLogger{
+		clientSide: clientSide,
+	}
+	if verbose {
+		var logName = "packets.log"
+		if clientSide {
+			logName = "packets-client.log"
+		}
+		f, err := os.Create(logName)
+		if err != nil {
+			return nil, err
+		}
+		p.packetLogWriter = bufio.NewWriter(f)
+		p.closePacketLog = f.Close
+	}
+	return p, nil
 }
