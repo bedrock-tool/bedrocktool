@@ -3,6 +3,7 @@ package proxy
 import (
 	"encoding/binary"
 	"errors"
+	"slices"
 	"sync"
 	"time"
 
@@ -175,15 +176,14 @@ func (b *Blobcache) HandleSubChunk(pk *packet.SubChunk, timeReceived time.Time, 
 }
 
 func removeDuplicate[T comparable](sliceList []T) []T {
-	allKeys := make(map[T]bool)
-	list := []T{}
-	for _, item := range sliceList {
-		if _, value := allKeys[item]; !value {
-			allKeys[item] = true
-			list = append(list, item)
+	allKeys := make(map[T]struct{})
+	return slices.DeleteFunc(sliceList, func(t T) bool {
+		if _, ok := allKeys[t]; ok {
+			return true
 		}
-	}
-	return list
+		allKeys[t] = struct{}{}
+		return false
+	})
 }
 
 func (b *Blobcache) finishWait(reply *packet.ClientCacheBlobStatus, wait *serverWait, pk packet.Packet, hitBlobs []protocol.CacheBlob, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
@@ -268,14 +268,14 @@ func (b *Blobcache) HandleClientCacheMissResponse(pk *packet.ClientCacheMissResp
 				logrus.Warnf("Received Unexpected Blob Hash %d", blob.Hash)
 			}
 		}
+	}
 
-		for len(b.queued) > 0 && len(b.serverWait) < maxInflightBlobs {
-			reply := b.queued[0]
-			b.queued = b.queued[1:]
-			err := b.session.Server.WritePacket(reply)
-			if err != nil {
-				return err
-			}
+	for len(b.queued) > 0 && len(b.serverWait) < maxInflightBlobs {
+		reply := b.queued[0]
+		b.queued = b.queued[1:]
+		err := b.session.Server.WritePacket(reply)
+		if err != nil {
+			return err
 		}
 	}
 

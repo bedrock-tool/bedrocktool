@@ -62,7 +62,7 @@ type SkinGeometryDescription struct {
 
 type SkinGeometry struct {
 	Description SkinGeometryDescription `json:"description"`
-	Bones       []Bone                  `json:"bones"`
+	Bones       []any                   `json:"bones"`
 }
 
 type SkinGeometryFile struct {
@@ -71,9 +71,9 @@ type SkinGeometryFile struct {
 }
 
 type geometry180 struct {
-	Bones         []Bone `json:"bones"`
-	TextureWidth  int    `json:"texturewidth"`
-	TextureHeight int    `json:"textureheight"`
+	Bones         []any `json:"bones"`
+	TextureWidth  int   `json:"texturewidth"`
+	TextureHeight int   `json:"textureheight"`
 }
 
 type geom180 struct {
