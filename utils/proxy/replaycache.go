@@ -14,8 +14,8 @@ type replayCache struct {
 	packs map[string]resource.Pack
 }
 
-func (r *replayCache) Get(id, ver string) resource.Pack {
-	return r.packs[id+"_"+ver]
+func (r *replayCache) Get(id, ver string) (resource.Pack, error) {
+	return r.packs[id+"_"+ver], nil
 }
 
 func (r *replayCache) Has(id, ver string) bool {

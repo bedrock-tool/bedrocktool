@@ -77,6 +77,7 @@ func (p *packetLogger) logPacket(pk packet.Packet, t time.Time, toServer bool) e
 		p.packetLogWriter.WriteString(t.Sub(p.timeStart).Truncate(time.Millisecond).String() + "\n")
 		utils.DumpStruct(p.packetLogWriter, pk)
 		p.packetLogWriter.Write([]byte("\n\n\n"))
+		p.packetLogWriter.Flush()
 	}
 
 	if !p.clientSide && !slices.Contains(mutedPackets, pk.ID()) {

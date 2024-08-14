@@ -42,7 +42,7 @@ func (c *MergeCMD) Execute(ctx context.Context) error {
 		return fmt.Errorf("-out must be specified")
 	}
 
-	blockReg := BlockRegistry{
+	blockReg := &BlockRegistry{
 		BlockRegistry: world.DefaultBlockRegistry,
 		Rids:          make(map[uint32]Block),
 	}

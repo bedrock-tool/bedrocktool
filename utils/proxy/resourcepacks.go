@@ -167,21 +167,25 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 		}
 
 		if r.cache.Has(id, ver) {
-			newPack := r.cache.Get(id, ver)
+			newPack, err := r.cache.Get(id, ver)
+			if err != nil {
+				return fmt.Errorf("opening cached Resourcepack: %s (delete packcache as a fix)", err)
+			}
+
 			if len(key) > 0 {
 				newPack = newPack.WithContentKey(key)
 			}
 			newPack, err = utils.PackFromBase(newPack)
 			if err != nil {
-				r.log.Errorf("Opening Resourcepack: %s", err)
-			} else {
-				r.lockResourcePacks.Lock()
-				r.resourcePacks = append(r.resourcePacks, newPack)
-				err = r.OnFinishedPack(newPack)
-				r.lockResourcePacks.Unlock()
-				if err != nil {
-					return err
-				}
+				return err
+			}
+
+			r.lockResourcePacks.Lock()
+			r.resourcePacks = append(r.resourcePacks, newPack)
+			err = r.OnFinishedPack(newPack)
+			r.lockResourcePacks.Unlock()
+			if err != nil {
+				return err
 			}
 
 			return nil
@@ -655,71 +659,55 @@ func (r *rpHandler) processClientRequest(packs []string) error {
 		return nil
 	}
 
+	var contentKeys = make(map[string]string)
+	for _, pack := range r.remotePacksInfo.TexturePacks {
+		contentKeys[pack.UUID+"_"+pack.Version] = pack.ContentKey
+	}
+	for _, pack := range r.remotePacksInfo.BehaviourPacks {
+		contentKeys[pack.UUID+"_"+pack.Version] = pack.ContentKey
+	}
+
+loopPacks:
 	for _, packUUID := range packs {
 		uuid_ver := strings.Split(packUUID, "_")
 		id, ver := uuid_ver[0], uuid_ver[1]
 
-		found := false
 		if r.cache.Has(id, ver) {
 			r.log.Debugf("using %s from cache", packUUID)
 
-			pack := r.cache.Get(id, ver)
-			// add key
-			for _, pack2 := range r.remotePacksInfo.TexturePacks {
-				if pack2.UUID+"_"+pack2.Version == packUUID {
-					if pack2.ContentKey != "" {
-						pack = pack.WithContentKey(pack2.ContentKey)
-						break
-					}
-				}
+			pack, err := r.cache.Get(id, ver)
+			if err != nil {
+				return err
 			}
-			if pack.ContentKey() == "" {
-				for _, pack2 := range r.remotePacksInfo.BehaviourPacks {
-					if pack2.UUID+"_"+pack2.Version == packUUID {
-						if pack2.ContentKey != "" {
-							pack = pack.WithContentKey(pack2.ContentKey)
-							break
-						}
-					}
-				}
+			if contentKey, ok := contentKeys[packUUID]; ok {
+				pack = pack.WithContentKey(contentKey)
 			}
 			packsFromCache = append(packsFromCache, pack)
-			found = true
+			continue
 		}
 
-		if !found {
-			for _, pack := range r.addedPacks {
-				if pack.UUID()+"_"+pack.Version() == packUUID {
-					addedPacksRequested = append(addedPacksRequested, pack)
-					found = true
-					break
-				}
+		for _, pack := range r.addedPacks {
+			if pack.UUID()+"_"+pack.Version() == packUUID {
+				addedPacksRequested = append(addedPacksRequested, pack)
+				continue loopPacks
 			}
 		}
 
-		if !found {
-			for _, pack := range r.remotePacksInfo.TexturePacks {
-				if pack.UUID+"_"+pack.Version == packUUID {
-					found = true
-					r.packsRequestedFromServer = append(r.packsRequestedFromServer, packUUID)
-					break
-				}
+		for _, pack := range r.remotePacksInfo.TexturePacks {
+			if pack.UUID+"_"+pack.Version == packUUID {
+				r.packsRequestedFromServer = append(r.packsRequestedFromServer, packUUID)
+				continue loopPacks
 			}
 		}
 
-		if !found {
-			for _, pack := range r.remotePacksInfo.BehaviourPacks {
-				if pack.UUID+"_"+pack.Version == packUUID {
-					found = true
-					r.packsRequestedFromServer = append(r.packsRequestedFromServer, packUUID)
-					break
-				}
+		for _, pack := range r.remotePacksInfo.BehaviourPacks {
+			if pack.UUID+"_"+pack.Version == packUUID {
+				r.packsRequestedFromServer = append(r.packsRequestedFromServer, packUUID)
+				continue loopPacks
 			}
 		}
 
-		if !found {
-			return fmt.Errorf("could not find resource pack %v", packUUID)
-		}
+		return fmt.Errorf("could not find resource pack %v", packUUID)
 	}
 
 	if len(packsFromCache)+len(r.packsRequestedFromServer)+len(addedPacksRequested) < len(packs) {
@@ -840,14 +828,11 @@ func (r *rpHandler) GetResourcePacksInfo(texturePacksRequired bool) *packet.Reso
 
 	var pk packet.ResourcePacksInfo
 	if r.remotePacksInfo != nil {
-		pk.BehaviourPacks = append(pk.BehaviourPacks, r.remotePacksInfo.BehaviourPacks...)
-		for _, rp := range r.remotePacksInfo.TexturePacks {
-			rp.RTXEnabled = false
-			pk.TexturePacks = append(pk.TexturePacks, rp)
-		}
 		pk.TexturePackRequired = r.remotePacksInfo.TexturePackRequired
 		pk.HasAddons = r.remotePacksInfo.HasAddons
 		pk.HasScripts = r.remotePacksInfo.HasScripts
+		pk.BehaviourPacks = append(pk.BehaviourPacks, r.remotePacksInfo.BehaviourPacks...)
+		pk.TexturePacks = append(pk.TexturePacks, r.remotePacksInfo.TexturePacks...)
 		pk.ForcingServerPacks = r.remotePacksInfo.ForcingServerPacks
 		pk.PackURLs = r.remotePacksInfo.PackURLs
 	}
@@ -860,7 +845,7 @@ func (r *rpHandler) GetResourcePacksInfo(texturePacksRequired bool) *packet.Reso
 			Size:            uint64(p.Len()),
 			ContentKey:      p.ContentKey(),
 			SubPackName:     p.Name(),
-			ContentIdentity: "",
+			ContentIdentity: p.UUID(),
 			HasScripts:      false,
 			RTXEnabled:      false,
 		})

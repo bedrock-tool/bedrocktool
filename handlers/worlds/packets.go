@@ -1,6 +1,7 @@
 package worlds
 
 import (
+	"encoding/json"
 	"fmt"
 	"image"
 	"maps"
@@ -618,8 +619,8 @@ func (w *worldsHandler) addPlayer(pk *packet.AddPlayer) {
 					{
 						Description: utils.SkinGeometryDescription{
 							Identifier:    identifier,
-							TextureWidth:  utils.Number(skin.SkinImageWidth),
-							TextureHeight: utils.Number(skin.SkinImageHeight),
+							TextureWidth:  json.Number(skin.SkinImageWidth),
+							TextureHeight: json.Number(skin.SkinImageHeight),
 						},
 					},
 				},

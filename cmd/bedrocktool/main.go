@@ -24,6 +24,7 @@ import (
 
 	_ "github.com/bedrock-tool/bedrocktool/subcommands"
 	_ "github.com/bedrock-tool/bedrocktool/subcommands/merge"
+	_ "github.com/bedrock-tool/bedrocktool/subcommands/render"
 	_ "github.com/bedrock-tool/bedrocktool/subcommands/skins"
 	_ "github.com/bedrock-tool/bedrocktool/subcommands/world"
 

@@ -8,7 +8,7 @@ import (
 )
 
 type iPackCache interface {
-	Get(id, ver string) resource.Pack
+	Get(id, ver string) (resource.Pack, error)
 	Has(id, ver string) bool
 	Create(id, ver string) (*closeMoveWriter, error)
 }
@@ -21,11 +21,11 @@ func (packCache) cachedPath(id, ver string) string {
 	return filepath.Join("packcache", id+"_"+ver+".zip")
 }
 
-func (c *packCache) Get(id, ver string) resource.Pack {
+func (c *packCache) Get(id, ver string) (resource.Pack, error) {
 	if c.Ignore {
 		panic("not allowed")
 	}
-	return resource.MustReadPath(c.cachedPath(id, ver))
+	return resource.ReadPath(c.cachedPath(id, ver))
 }
 
 func (c *packCache) Has(id, ver string) bool {

@@ -7,7 +7,6 @@ import (
 	"image"
 	"image/png"
 	"os"
-	"strconv"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/google/uuid"
@@ -23,41 +22,13 @@ type SkinGeometry_Old struct {
 	Bones []any `json:"bones"`
 }
 
-type Number int
-
-func (n *Number) MarshalJSON() ([]byte, error) {
-	return strconv.AppendInt(nil, int64(*n), 10), nil
-}
-
-func (n *Number) UnmarshalJSON(b []byte) error {
-	var jn json.Number
-	err := json.Unmarshal(b, &jn)
-	if err != nil {
-		return err
-	}
-
-	i64, err := jn.Int64()
-	if err == nil {
-		*n = Number(i64)
-		return nil
-	}
-
-	f64, err := jn.Float64()
-	if err == nil {
-		*n = Number(f64)
-		return nil
-	}
-
-	return err
-}
-
 type SkinGeometryDescription struct {
-	Identifier          string    `json:"identifier,omitempty"`
-	TextureWidth        Number    `json:"texture_width"`
-	TextureHeight       Number    `json:"texture_height"`
-	VisibleBoundsWidth  float64   `json:"visible_bounds_width"`
-	VisibleBoundsHeight float64   `json:"visible_bounds_height"`
-	VisibleBoundsOffset []float64 `json:"visible_bounds_offset,omitempty"`
+	Identifier          string      `json:"identifier,omitempty"`
+	TextureWidth        json.Number `json:"texture_width"`
+	TextureHeight       json.Number `json:"texture_height"`
+	VisibleBoundsWidth  float64     `json:"visible_bounds_width"`
+	VisibleBoundsHeight float64     `json:"visible_bounds_height"`
+	VisibleBoundsOffset []float64   `json:"visible_bounds_offset,omitempty"`
 }
 
 type SkinGeometry struct {
@@ -173,8 +144,8 @@ func ParseSkinGeometry(skin *protocol.Skin) (*SkinGeometryFile, string, error) {
 				{
 					Description: SkinGeometryDescription{
 						Identifier:    identifier,
-						TextureWidth:  Number(geom.TextureWidth),
-						TextureHeight: Number(geom.TextureHeight),
+						TextureWidth:  json.Number(geom.TextureWidth),
+						TextureHeight: json.Number(geom.TextureHeight),
 					},
 					Bones: geom.Bones,
 				},
