@@ -61,6 +61,8 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        submodules: 'true'
 
     # Initializes the CodeQL tools for scanning.
     - name: Initialize CodeQL
@@ -84,7 +86,6 @@ jobs:
     - if: matrix.language == 'go'
       shell: bash
       run: |
-        git submodule update --init
         go build ./cmd/bedrocktool
 
     - name: Perform CodeQL Analysis
