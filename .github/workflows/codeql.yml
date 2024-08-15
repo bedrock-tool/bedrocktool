@@ -84,6 +84,7 @@ jobs:
     - if: matrix.language == 'go'
       shell: bash
       run: |
+        git submodule update --init
         go build ./cmd/bedrocktool
 
     - name: Perform CodeQL Analysis
