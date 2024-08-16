@@ -81,13 +81,6 @@ func (b *BlockRegistry) LightBlock(rid uint32) uint8 {
 	return b.BlockRegistry.LightBlock(rid)
 }
 
-func (b *BlockRegistry) IsWater(rid uint32) bool {
-	if _, ok := b.Rids[rid]; ok {
-		return false
-	}
-	return b.BlockRegistry.IsWater(rid)
-}
-
 func (b *BlockRegistry) NBTBlock(rid uint32) bool {
 	if _, ok := b.Rids[rid]; ok {
 		return false
