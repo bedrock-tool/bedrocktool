@@ -33,13 +33,6 @@ type permutation struct {
 	Condition  string         `json:"condition"`
 }
 
-func permutation_from_map(in map[string]any) permutation {
-	return permutation{
-		Components: in["components"].(map[string]any),
-		Condition:  in["condition"].(string),
-	}
-}
-
 type Trait map[string]any
 
 type MinecraftBlock struct {
@@ -48,8 +41,111 @@ type MinecraftBlock struct {
 	Permutations []permutation  `json:"permutations,omitempty"`
 }
 
+func processComponent(name string, value map[string]any, version *string) (string, any) {
+	switch name {
+	case "minecraft:block_light_filter":
+		return "minecraft:light_dampening", value["lightLevel"]
+
+	case "minecraft:material_instances":
+		return name, processMaterialInstances(value)
+
+	case "minecraft:geometry":
+		return name, value["identifier"].(string)
+
+	case "minecraft:light_emission":
+		return name, value["emission"]
+
+	case "minecraft:friction":
+		if friction, ok := value["value"].(float32); ok {
+			if friction == 0.4 {
+				return "", nil
+			}
+			return name, friction
+		}
+
+	case "minecraft:transformation":
+		// rotation
+		rx, _ := value["RX"].(int32)
+		ry, _ := value["RY"].(int32)
+		rz, _ := value["RZ"].(int32)
+
+		// scale
+		sx, _ := value["SX"].(float32)
+		sy, _ := value["SY"].(float32)
+		sz, _ := value["SZ"].(float32)
+
+		// translation
+		tx, _ := value["TX"].(float32)
+		ty, _ := value["TY"].(float32)
+		tz, _ := value["TZ"].(float32)
+
+		return name, map[string][]float32{
+			"translation": {tx, ty, tz},
+			"scale":       {sx, sy, sz},
+			"rotation":    {float32(rx) * 90, float32(ry) * 90, float32(rz) * 90},
+		}
+
+	case "minecraft:collision_box", "minecraft:selection_box":
+		if enabled, ok := value["enabled"].(uint8); ok && enabled == 0 {
+			return name, false
+		}
+		return name, map[string]any{
+			"origin": value["origin"],
+			"size":   value["size"],
+		}
+
+	case "minecraft:on_player_placing":
+		return "", nil
+
+	case "minecraft:custom_components", "minecraft:creative_category":
+		return "", nil
+	}
+
+	if v, ok := value["value"]; ok {
+		return name, v
+	}
+
+	return name, value
+}
+
+func processMaterialInstances(material_instances map[string]any) map[string]any {
+	if mappings, ok := material_instances["mappings"].(map[string]any); ok {
+		if len(mappings) == 0 {
+			delete(material_instances, "mappings")
+		}
+	}
+	if materials, ok := material_instances["materials"].(map[string]any); ok {
+		for _, material := range materials {
+			material := material.(map[string]any)
+			ambient_occlusion, ok := material["ambient_occlusion"].(uint8)
+			if ok {
+				material["ambient_occlusion"] = ambient_occlusion == 1
+			}
+			face_dimming, ok := material["face_dimming"].(uint8)
+			if ok {
+				material["face_dimming"] = face_dimming == 1
+			}
+		}
+
+		if _, ok := materials["*"]; !ok {
+			up, ok := materials["up"]
+			if ok {
+				materials["*"] = up
+			} else {
+				for _, side := range materials {
+					materials["*"] = side
+					break
+				}
+			}
+		}
+
+		return materials
+	}
+	return material_instances
+}
+
 func parseBlock(block protocol.BlockEntry) (MinecraftBlock, string) {
-	version := "1.16.0"
+	version := "1.21.0"
 	entry := MinecraftBlock{
 		Description: description{
 			Identifier:             block.Name,
@@ -59,7 +155,6 @@ func parseBlock(block protocol.BlockEntry) (MinecraftBlock, string) {
 	}
 
 	if traits, ok := block.Properties["traits"].([]any); ok {
-		version = "1.21.0"
 		entry.Description.Traits = make(map[string]Trait)
 
 		for _, traitIn := range traits {
@@ -95,157 +190,48 @@ func parseBlock(block protocol.BlockEntry) (MinecraftBlock, string) {
 		}
 	}
 
-	processMaterialInstances := func(material_instances map[string]any) map[string]any {
-		if mappings, ok := material_instances["mappings"].(map[string]any); ok {
-			if len(mappings) == 0 {
-				delete(material_instances, "mappings")
-			}
-		}
-		if materials, ok := material_instances["materials"].(map[string]any); ok {
-			for _, material := range materials {
-				material := material.(map[string]any)
-				ambient_occlusion, ok := material["ambient_occlusion"].(uint8)
-				if ok {
-					material["ambient_occlusion"] = ambient_occlusion == 1
-				}
-				face_dimming, ok := material["face_dimming"].(uint8)
-				if ok {
-					material["face_dimming"] = face_dimming == 1
-				}
-			}
-
-			if _, ok := materials["*"]; !ok {
-				up, ok := materials["up"]
-				if ok {
-					materials["*"] = up
-				} else {
-					for _, side := range materials {
-						materials["*"] = side
-						break
-					}
-				}
-			}
-
-			return materials
-		}
-		return material_instances
-	}
-
-	processComponents := func(components map[string]any) {
-		delete(components, "minecraft:creative_category")
-
-		for k, v := range components {
-			if v, ok := v.(map[string]any); ok {
-				if k == "minecraft:friction" {
-					if friction, ok := v["value"].(float32); ok {
-						if friction == 0.4 {
-							delete(components, "minecraft:friction")
-						} else {
-							components[k] = friction
-						}
-					}
-					continue
-				}
-
-				// fix missing * instance
-				if k == "minecraft:material_instances" {
-					components[k] = processMaterialInstances(v)
-					if m, ok := v["materials"].(map[string]any); ok {
-						components[k] = m
-					}
-					continue
-				}
-
-				if k == "minecraft:transformation" {
-					// rotation
-					rx, _ := v["RX"].(int32)
-					ry, _ := v["RY"].(int32)
-					rz, _ := v["RZ"].(int32)
-
-					// scale
-					sx, _ := v["SX"].(float32)
-					sy, _ := v["SY"].(float32)
-					sz, _ := v["SZ"].(float32)
-
-					// translation
-					tx, _ := v["TX"].(float32)
-					ty, _ := v["TY"].(float32)
-					tz, _ := v["TZ"].(float32)
-
-					components[k] = map[string][]float32{
-						"translation": {tx, ty, tz},
-						"scale":       {sx, sy, sz},
-						"rotation":    {float32(rx) * 90, float32(ry) * 90, float32(rz) * 90},
-					}
-					continue
-				}
-
-				if k == "minecraft:geometry" {
-					if identifier, ok := v["identifier"].(string); ok {
-						components[k] = identifier
-					}
-					continue
-				}
-
-				// fix {"value": 0.1} -> 0.1
-				if v, ok := v["value"]; ok {
-					components[k] = v
-					continue
-				}
-
-				// fix {"lightLevel": 15} -> 15
-				if v, ok := v["lightLevel"]; ok {
-					components[k] = v
-					continue
-				}
-
-				// fix {"identifier": "name"} -> "name"
-				if v, ok := v["identifier"]; ok {
-					components[k] = v
-					continue
-				}
-
-				// fix {"emission": "name"} -> "name"
-				if v, ok := v["emission"]; ok {
-					components[k] = v
-					continue
-				}
-
-				if v, ok := v["triggerType"]; ok {
-					components[k] = map[string]any{
-						"event": v.(string),
-					}
-					continue
-				}
-
-				if k == "minecraft:collision_box" {
-					if enabled, ok := v["enabled"].(uint8); ok {
-						if enabled == 0 {
-							components[k] = false
-							continue
-						}
-					}
-				}
-			}
-
-			if k == "minecraft:custom_components" {
-				delete(components, k)
-				continue
-			}
-		}
-	}
-
 	if permutations, ok := block.Properties["permutations"].([]any); ok {
+		if version < "1.19.70" {
+			version = "1.19.70"
+		}
+
 		for _, v := range permutations {
-			perm := permutation_from_map(v.(map[string]any))
-			processComponents(perm.Components)
+			v := v.(map[string]any)
+			perm := permutation{
+				Components: make(map[string]any),
+				Condition:  v["condition"].(string),
+			}
+
+			if strings.Contains(perm.Condition, "query.block_property") && version > "1.19.80" {
+				version = "1.19.80"
+			}
+
+			comps := v["components"].(map[string]any)
+			for k, v := range comps {
+				name, value := processComponent(k, v.(map[string]any), &version)
+				if name == "" {
+					continue
+				}
+				perm.Components[name] = value
+			}
+
 			entry.Permutations = append(entry.Permutations, perm)
 		}
 	}
 
 	if components, ok := block.Properties["components"].(map[string]any); ok {
-		processComponents(components)
-		entry.Components = components
+		comps := make(map[string]any)
+		for k, v := range components {
+			name, value := processComponent(k, v.(map[string]any), &version)
+			if name == "" {
+				continue
+			}
+			if name == "minecraft:selection_box" && version < "1.19.60" {
+				version = "1.19.60"
+			}
+			comps[name] = value
+		}
+		entry.Components = comps
 	}
 
 	if properties, ok := block.Properties["properties"].([]any); ok {
@@ -270,7 +256,9 @@ func parseBlock(block protocol.BlockEntry) (MinecraftBlock, string) {
 				}
 			}
 
-			entry.Description.States[name] = enum2
+			if len(enum2) > 0 {
+				entry.Description.States[name] = enum2
+			}
 		}
 	}
 
