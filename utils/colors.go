@@ -8,7 +8,7 @@ import (
 	"io/fs"
 	"math"
 	"os"
-	"path/filepath"
+	"path"
 	"strings"
 
 	"github.com/dblezek/tga"
@@ -21,8 +21,10 @@ func getTextureNames(entries []protocol.BlockEntry) map[string]string {
 	var res = map[string]string{}
 	for _, be := range entries {
 		if components, ok := be.Properties["components"].(map[string]any); ok {
-			mats, ok := components["minecraft:material_instances"].(map[string]any)
-			if ok {
+			if mats, ok := components["minecraft:material_instances"].(map[string]any); ok {
+				if mm, ok := mats["materials"].(map[string]any); ok {
+					mats = mm
+				}
 				instance, ok := mats["*"].(map[string]any)
 				if !ok {
 					instance, _ = mats["up"].(map[string]any)
@@ -64,20 +66,17 @@ func readBlocksJson(f fs.FS) (map[string]string, error) {
 		if !ok {
 			continue
 		}
-		textures, ok := vm["textures"]
+		texs, ok := vm["textures"]
 		if !ok {
-			continue
+			out[name] = name
 		}
-		if texture, ok := textures.(string); ok {
-			out[name] = texture
-			continue
-		}
-		if textures, ok := textures.(map[string]any); ok {
-			texture, ok := textures["up"].(string)
-			if !ok {
-				continue
-			}
-			out[name] = texture
+	reParse:
+		switch textures := texs.(type) {
+		case string:
+			out[name] = textures
+		case map[string]any:
+			texs = textures["up"]
+			goto reParse
 		}
 	}
 	return out, nil
@@ -107,6 +106,28 @@ func loadFlipbooks(f fs.FS) (map[string]string, error) {
 	return o, nil
 }
 
+func loadTexturesList(f fs.FS) (map[string]string, error) {
+	texturesContent, err := fs.ReadFile(f, "textures/textures_list.json")
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	var list []string
+	err = ParseJson(texturesContent, &list)
+	if err != nil {
+		return nil, err
+	}
+
+	o := make(map[string]string)
+	for _, name := range list {
+		o[path.Base(name)] = name
+	}
+
+	return o, nil
+}
+
 func loadTerrainTexture(f fs.FS) (map[string]string, error) {
 	terrainContent, err := fs.ReadFile(f, "textures/terrain_texture.json")
 	if err != nil {
@@ -125,14 +146,24 @@ func loadTerrainTexture(f fs.FS) (map[string]string, error) {
 		return nil, err
 	}
 
-	o := make(map[string]string)
-	for k, v := range m.Data {
-		if tex, ok := v.Textures.(string); ok {
-			o[k] = tex
+	out := make(map[string]string)
+	for textureName, v := range m.Data {
+		textures := v.Textures
+	reParse:
+		switch texture := textures.(type) {
+		case string:
+			out[textureName] = texture
+		case []any:
+			textures = texture[0]
+			goto reParse
+		case map[string]any:
+			out[textureName] = texture["path"].(string)
+		default:
+			continue
 		}
 	}
 
-	return o, nil
+	return out, nil
 }
 
 func calculateMeanAverageColour(img image.Image) (c color.RGBA) {
@@ -166,23 +197,26 @@ func calculateMeanAverageColour(img image.Image) (c color.RGBA) {
 	}
 }
 
+type mergedFS struct {
+	fss []fs.FS
+}
+
+func (m *mergedFS) Open(name string) (f fs.File, err error) {
+	for _, fsys := range m.fss {
+		f, err = fsys.Open(name)
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		break
+	}
+	return
+}
+
 func ResolveColors(entries []protocol.BlockEntry, packs []resource.Pack) map[string]color.RGBA {
 	log := logrus.WithField("func", "ResolveColors")
 	colors := make(map[string]color.RGBA)
 
-	processPack := func(pack resource.Pack, textureNames map[string]string) error {
-		blocksJson, err := readBlocksJson(pack)
-		if err != nil {
-			return err
-		}
-		if blocksJson == nil {
-			return nil
-		}
-
-		for block, name := range blocksJson {
-			textureNames[block] = name
-		}
-
+	processPack := func(pack resource.Pack, merged fs.FS, textureNames map[string]string) error {
 		flipbooks, err := loadFlipbooks(pack)
 		if err != nil {
 			return err
@@ -193,74 +227,95 @@ func ResolveColors(entries []protocol.BlockEntry, packs []resource.Pack) map[str
 			return err
 		}
 
-		if flipbooks == nil && terrainTextures == nil {
-			return nil
+		texturesList, err := loadTexturesList(pack)
+		if err != nil {
+			return err
 		}
 
 		for block, texture_name := range textureNames {
-			var texturePath string
-			if flipbook_texture, ok := flipbooks[texture_name]; ok {
+			if _, ok := colors[block]; ok {
+				continue
+			}
+
+			var texturePath = texture_name
+
+			if flipbook_texture, ok := flipbooks[texturePath]; ok {
 				texturePath = flipbook_texture
-			} else {
-				terrain_texture, ok := terrainTextures[texture_name]
-				if ok {
-					texturePath = terrain_texture
-				}
 			}
 
-			if texturePath == "" {
+			if terrain_texture, ok := terrainTextures[texturePath]; ok {
+				texturePath = terrain_texture
+			}
+
+			if tex, ok := texturesList[texturePath]; ok {
+				texturePath = tex
+			}
+
+			if texturePath == texture_name {
 				continue
 			}
 
-			matches, err := fs.Glob(pack, texturePath+".*")
-			if err != nil {
-				log.Warn(err)
-				continue
-			}
-			if len(matches) == 0 {
-				continue
-			}
-
-			texturePath = matches[0]
-
-			delete(textureNames, block)
-			r, err := pack.Open(texturePath)
-			if err != nil {
-				log.Error(err)
-				continue
-			}
 			var img image.Image
-			switch filepath.Ext(texturePath) {
-			case ".png":
-				img, err = png.Decode(r)
-			case ".tga":
-				img, err = tga.Decode(r)
-			default:
-				err = errors.New("invalid ext " + texturePath)
-			}
-			r.Close()
-			if err != nil {
-				return err
+			for _, format := range []string{".png", ".tga"} {
+				r, err := merged.Open(texturePath + format)
+				if errors.Is(err, fs.ErrNotExist) {
+					continue
+				}
+				if err != nil {
+					log.Error(err)
+					continue
+				}
+
+				switch format {
+				case ".png":
+					img, err = png.Decode(r)
+				case ".tga":
+					img, err = tga.Decode(r)
+				default:
+					panic("invalid extension")
+				}
+				r.Close()
+				if err != nil {
+					return err
+				}
+				break
 			}
 			if img == nil {
 				continue
 			}
 
 			colors[block] = calculateMeanAverageColour(img)
+			delete(textureNames, block)
 		}
+
 		return nil
 	}
 
 	textureNames := getTextureNames(entries)
+	var blockPacks []resource.Pack
+	var merged mergedFS
 	for _, pack := range packs {
-		err := processPack(pack, textureNames)
+		blocksJson, err := readBlocksJson(pack)
+		if err != nil {
+			logrus.Error(err)
+		}
+		if blocksJson == nil {
+			continue
+		}
+
+		for block, name := range blocksJson {
+			textureNames[block] = name
+		}
+
+		blockPacks = append(blockPacks, pack)
+		merged.fss = append(merged.fss, pack)
+	}
+
+	for _, pack := range blockPacks {
+		err := processPack(pack, &merged, textureNames)
 		if err != nil {
 			log.Warn(err)
 		}
-	}
-
-	if len(textureNames) > 0 {
-		println("")
 	}
 
 	return colors

@@ -7,8 +7,6 @@ import (
 	"sort"
 
 	"github.com/bedrock-tool/bedrocktool/utils"
-	"github.com/df-mc/dragonfly/server/world"
-	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 	"golang.org/x/exp/maps"
 )
@@ -25,25 +23,15 @@ func main() {
 
 	var packs []resource.Pack
 	for _, fi := range packNames {
-		p := folder + "/" + fi.Name()
-		pack, err := utils.PackFromBase(resource.MustReadPath(p))
+		name := fi.Name()
+		pack, err := utils.PackFromBase(resource.MustReadPath(folder + "/" + name))
 		if err != nil {
 			log.Fatal(err)
 		}
 		packs = append(packs, pack)
 	}
 
-	var entries []protocol.BlockEntry
-	for _, block := range world.DefaultBlockRegistry.Blocks() {
-		if block, ok := block.(world.UnknownBlock); ok {
-			entries = append(entries, protocol.BlockEntry{
-				Name:       block.Name,
-				Properties: block.Properties,
-			})
-		}
-	}
-
-	colors := utils.ResolveColors(entries, packs)
+	colors := utils.ResolveColors(nil, packs)
 	keys := maps.Keys(colors)
 	sort.Strings(keys)
 

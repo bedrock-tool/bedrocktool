@@ -3,7 +3,6 @@ package utils
 import (
 	"image"
 	"image/color"
-	"strings"
 
 	"github.com/bedrock-tool/bedrocktool/utils/updater"
 	"github.com/df-mc/dragonfly/server/block"
@@ -12,6 +11,7 @@ import (
 	"github.com/df-mc/dragonfly/server/world/chunk"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
+	"github.com/sirupsen/logrus"
 )
 
 func isBlockLightblocking(b world.Block) bool {
@@ -21,6 +21,7 @@ func isBlockLightblocking(b world.Block) bool {
 }
 
 var waterColor = block.Water{}.Color()
+var notFoundColor = color.RGBA{0xff, 0, 0xff, 0xff}
 
 func (cr *ChunkRenderer) blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) (blockColor color.RGBA) {
 	if y <= int16(c.Range().Min()) {
@@ -28,11 +29,10 @@ func (cr *ChunkRenderer) blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8)
 	}
 	rid := c.Block(x, y, z, 0)
 
-	blockColor = color.RGBA{0xff, 0, 0xff, 0xff}
 	br := c.BlockRegistry.(world.BlockRegistry)
 	b, found := br.BlockByRuntimeID(rid)
 	if !found {
-		return blockColor
+		return notFoundColor
 	}
 
 	if _, isWater := b.(block.Water); isWater {
@@ -52,65 +52,34 @@ func (cr *ChunkRenderer) blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8)
 		blockColor.G -= uint8(depth * 6)
 		blockColor.B -= uint8(depth * 6)
 		return blockColor
-	} else {
-		if b2, ok := b.(world.UnknownBlock); ok {
-			name, _ := b2.EncodeBlock()
-			blockColor, ok = cr.customBlockColors[name]
-			if !ok {
-				if name == "minecraft:monster_egg" {
-					name = "minecraft:" + b2.Properties["monster_egg_stone_type"].(string)
-				}
-				if name == "minecraft:suspicious_sand" {
-					name = "minecraft:sand"
-				}
-				if name == "minecraft:suspicious_gravel" {
-					name = "minecraft:gravel"
-				}
-				if name == "minecraft:pointed_dripstone" {
-					name = "minecraft:dripstone_block"
-				}
-				if name == "minecraft:dark_oak_hanging_sign" {
-					name = "minecraft:darkoak_hanging_sign"
-				}
-				if name == "minecraft:mangrove_hanging_sign" {
-					name = "minecraft:mangrove_wood"
-				}
-				if name == "minecraft:crimson_hanging_sign" {
-					name = "minecraft:crimson_fungus"
-				}
-				if name == "minecraft:warped_standing_sign" {
-					name = "minecraft:warped_fungus"
-				}
-				if name == "minecraft:warped_hanging_sign" {
-					name = "minecraft:warped_fungus"
-				}
-				if name == "minecraft:oak_hanging_sign" {
-					name = "minecraft:oak_stairs"
-				}
-				if strings.HasSuffix(name, "_hanging_sign") {
-					name = strings.Replace(name, "_hanging", "_standing", 1)
-				}
-				if strings.HasSuffix(name, "_candle_cake") {
-					name = "minecraft:cake"
-				}
-				blockColor = LookupColor(name)
-			}
-		} else {
-			blockColor = b.Color()
-		}
-
-		if blockColor.R == 0xff && blockColor.G == 0x0 && blockColor.B == 0xff {
-			if updater.Version == "" {
-				//logrus.Println(b.EncodeBlock())
-				b.Color()
-			}
-		}
-
-		if blockColor.A != 0xff {
-			blockColor = BlendColors(cr.blockColorAt(c, x, y-1, z), blockColor)
-		}
-		return blockColor
 	}
+
+	if b2, ok := b.(world.UnknownBlock); ok {
+		name, _ := b2.EncodeBlock()
+		customColor, ok := cr.customBlockColors[name]
+		if ok {
+			blockColor = customColor
+			goto haveColor
+		}
+
+		blockColor = LookupColor(name)
+		goto haveColor
+	} else {
+		blockColor = b.Color()
+	}
+
+haveColor:
+	if blockColor.R == 0xff && blockColor.G == 0x0 && blockColor.B == 0xff {
+		if updater.Version == "" {
+			logrus.Println(b.EncodeBlock())
+			b.Color()
+		}
+	}
+
+	if blockColor.A != 0xff {
+		blockColor = BlendColors(cr.blockColorAt(c, x, y-1, z), blockColor)
+	}
+	return blockColor
 }
 
 func (cr *ChunkRenderer) chunkGetColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) color.RGBA {
