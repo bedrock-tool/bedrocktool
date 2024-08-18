@@ -22,6 +22,8 @@ func UserInput(ctx context.Context, q string, validator func(string) bool) (stri
 		panic(err)
 	}
 	defer term.Restore(int(os.Stdin.Fd()), oldState)
+	LogOff = true
+	defer func() { LogOff = false }()
 
 	go func() {
 		fmt.Print(q)
@@ -41,9 +43,9 @@ func UserInput(ctx context.Context, q string, validator func(string) bool) (stri
 			case 0x3:
 				c <- ""
 				return
-			case 0xA:
+			case '\n':
 				fallthrough
-			case 0xD:
+			case '\r':
 				done = true
 			case 0x8:
 				fallthrough

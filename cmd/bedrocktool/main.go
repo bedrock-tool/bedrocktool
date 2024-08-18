@@ -36,12 +36,22 @@ var uis = map[string]ui.UI{}
 func selectUI() ui.UI {
 	if flag.CommandLine.NArg() == 0 {
 		utils.Options.IsInteractive = true
-		ui, ok := uis["gui"]
-		if ok {
+		if ui, ok := uis["gui"]; ok {
 			return ui
 		}
 	}
 	return uis["cli"]
+}
+
+type logFileWriter struct {
+	w io.Writer
+}
+
+func (l logFileWriter) Write(b []byte) (int, error) {
+	if utils.LogOff {
+		return len(b), nil
+	}
+	return l.w.Write(b)
 }
 
 func setupLogging(isDebug bool) {
@@ -49,18 +59,21 @@ func setupLogging(isDebug bool) {
 	if err != nil {
 		panic(err)
 	}
-	originalStdout := os.Stdout
+
 	rOut, wOut, err := os.Pipe()
 	if err != nil {
 		panic(err)
 	}
-	os.Stdout = wOut
+
+	originalStdout := os.Stdout
+	logWriter := logFileWriter{w: logFile}
 	go func() {
-		m := io.MultiWriter(originalStdout, logFile)
+		m := io.MultiWriter(originalStdout, logWriter)
 		io.Copy(m, rOut)
 	}()
 
-	redirectStderr(logFile)
+	os.Stdout = wOut
+	redirectStderr(wOut)
 
 	logrus.SetLevel(logrus.DebugLevel)
 	if isDebug {

@@ -37,6 +37,8 @@ var Options struct {
 	Env           string
 }
 
+var LogOff bool
+
 var nameRegexp = regexp.MustCompile(`\||(?:§.?)`)
 
 // CleanupName cleans name so it can be used as a filename

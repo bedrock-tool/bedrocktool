@@ -47,6 +47,20 @@ func (c *RenderCMD) Execute(ctx context.Context) error {
 	}
 	entityReg := &merge.EntityRegistry{}
 
+	if c.WorldPath == "" {
+		var ok bool
+		c.WorldPath, ok = utils.UserInput(ctx, "World Path: ", func(s string) bool {
+			st, err := os.Stat(s)
+			if err != nil {
+				return false
+			}
+			return st.IsDir()
+		})
+		if !ok {
+			return nil
+		}
+	}
+
 	c.WorldPath = path.Clean(strings.ReplaceAll(c.WorldPath, "\\", "/"))
 	c.Out = path.Clean(strings.ReplaceAll(c.Out, "\\", "/"))
 
