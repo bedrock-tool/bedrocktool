@@ -3,6 +3,7 @@ package render
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"image"
@@ -57,6 +58,7 @@ func (c *RenderCMD) Execute(ctx context.Context) error {
 	fmt.Printf("%s\n", c.WorldPath)
 
 	db, err := mcdb.Config{
+		Log:      logrus.StandardLogger(),
 		Blocks:   blockReg,
 		Entities: entityReg,
 		ReadOnly: true,
@@ -69,7 +71,7 @@ func (c *RenderCMD) Execute(ctx context.Context) error {
 	var resourcePacks []resource.Pack
 	resourcePacksFolder := path.Join(c.WorldPath, "resource_packs")
 	resourcePackEntries, err := os.ReadDir(resourcePacksFolder)
-	if err != nil {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 	for _, entry := range resourcePackEntries {
@@ -83,7 +85,7 @@ func (c *RenderCMD) Execute(ctx context.Context) error {
 	var behaviorPacks []resource.Pack
 	behaviorPacksFolder := path.Join(c.WorldPath, "behavior_packs")
 	behaviorPackEntries, err := os.ReadDir(behaviorPacksFolder)
-	if err != nil {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 	for _, entry := range behaviorPackEntries {
