@@ -122,7 +122,7 @@ func (c *MergeCMD) Execute(ctx context.Context) error {
 func (w worldInstance) getWorldBounds() (minChunk, maxChunk world.ChunkPos, err error) {
 	minChunk = world.ChunkPos{math.MaxInt32, math.MaxInt32}
 	maxChunk = world.ChunkPos{math.MinInt32, math.MinInt32}
-	it := w.db.NewColumnIterator(nil, false)
+	it := w.db.NewColumnIterator(nil)
 	defer it.Release()
 	for it.Next() {
 		pos := it.Position()
@@ -142,7 +142,7 @@ func (w worldInstance) getWorldBounds() (minChunk, maxChunk world.ChunkPos, err 
 var ids = map[int64]*DummyEntity{}
 
 func (c *MergeCMD) processWorld(db *mcdb.DB, out *mcdb.DB, offset world.ChunkPos) error {
-	it := db.NewColumnIterator(nil, false)
+	it := db.NewColumnIterator(nil)
 	defer it.Release()
 	for it.Next() {
 		column := it.Column()

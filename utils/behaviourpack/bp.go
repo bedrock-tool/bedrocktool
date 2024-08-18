@@ -13,7 +13,7 @@ import (
 type Pack struct {
 	formatVersion string
 	Manifest      *resource.Manifest
-	blocks        map[string]*blockBehaviour
+	blocks        map[string]*BlockBehaviour
 	items         map[string]*itemBehaviour
 	entities      map[string]*entityBehaviour
 	biomes        []biomeBehaviour
@@ -42,7 +42,7 @@ func New(name string) *Pack {
 			Dependencies: []resource.Dependency{},
 			Capabilities: []resource.Capability{},
 		},
-		blocks:   make(map[string]*blockBehaviour),
+		blocks:   make(map[string]*BlockBehaviour),
 		items:    make(map[string]*itemBehaviour),
 		entities: make(map[string]*entityBehaviour),
 	}

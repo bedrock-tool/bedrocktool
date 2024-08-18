@@ -3,6 +3,7 @@ package render
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"image"
@@ -28,7 +29,6 @@ import (
 type RenderCMD struct {
 	WorldPath string
 	Out       string
-	notTall   bool
 }
 
 func (*RenderCMD) Name() string     { return "render" }
@@ -37,7 +37,6 @@ func (*RenderCMD) Synopsis() string { return "render a world to png" }
 func (c *RenderCMD) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.WorldPath, "world", "", "world path")
 	f.StringVar(&c.Out, "out", "world.png", "out png path")
-	f.BoolVar(&c.notTall, "height255", false, "if the world is a 255 height world, will error if wrong")
 }
 
 func (c *RenderCMD) Execute(ctx context.Context) error {
@@ -71,6 +70,7 @@ func (c *RenderCMD) Execute(ctx context.Context) error {
 	fmt.Printf("%s\n", c.WorldPath)
 
 	db, err := mcdb.Config{
+		Log:      logrus.StandardLogger(),
 		Blocks:   blockReg,
 		Entities: entityReg,
 		ReadOnly: true,
@@ -83,7 +83,7 @@ func (c *RenderCMD) Execute(ctx context.Context) error {
 	var resourcePacks []resource.Pack
 	resourcePacksFolder := path.Join(c.WorldPath, "resource_packs")
 	resourcePackEntries, err := os.ReadDir(resourcePacksFolder)
-	if err != nil {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 	for _, entry := range resourcePackEntries {
@@ -97,7 +97,7 @@ func (c *RenderCMD) Execute(ctx context.Context) error {
 	var behaviorPacks []resource.Pack
 	behaviorPacksFolder := path.Join(c.WorldPath, "behavior_packs")
 	behaviorPackEntries, err := os.ReadDir(behaviorPacksFolder)
-	if err != nil {
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 	for _, entry := range behaviorPackEntries {
@@ -119,12 +119,13 @@ func (c *RenderCMD) Execute(ctx context.Context) error {
 			if err != nil {
 				return err
 			}
-			var block behaviourpack.MinecraftBlock
-			err = json.NewDecoder(f).Decode(&block)
+			var BlockBehaviour behaviourpack.BlockBehaviour
+			err = json.NewDecoder(f).Decode(&BlockBehaviour)
 			f.Close()
 			if err != nil {
 				return err
 			}
+			block := BlockBehaviour.MinecraftBlock
 
 			ent := protocol.BlockEntry{
 				Name: block.Description.Identifier,
@@ -139,28 +140,17 @@ func (c *RenderCMD) Execute(ctx context.Context) error {
 	var renderer utils.ChunkRenderer
 	renderer.ResolveColors(entries, resourcePacks)
 
-	var images = make(map[world.ChunkPos]*image.RGBA)
-
 	boundsMin := world.ChunkPos{math.MaxInt32, math.MaxInt32}
 	boundsMax := world.ChunkPos{math.MinInt32, math.MinInt32}
-
-	it := db.NewColumnIterator(nil, c.notTall)
-	defer it.Release()
+	it := db.NewColumnIterator(nil)
 	for it.Next() {
-		col := it.Column()
 		pos := it.Position()
-
-		if err := it.Error(); err != nil {
-			return err
-		}
-
 		boundsMin[0] = min(boundsMin[0], pos[0])
 		boundsMin[1] = min(boundsMin[1], pos[1])
 		boundsMax[0] = max(boundsMax[0], pos[0])
 		boundsMax[1] = max(boundsMax[1], pos[1])
-
-		images[pos] = renderer.Chunk2Img(col.Chunk)
 	}
+	it.Release()
 	if err := it.Error(); err != nil {
 		return err
 	}
@@ -168,12 +158,18 @@ func (c *RenderCMD) Execute(ctx context.Context) error {
 	chunksX := int(boundsMax[0] - boundsMin[0] + 1)
 	chunksY := int(boundsMax[1] - boundsMin[1] + 1)
 	r := image.Rect(0, 0, chunksX*16, chunksY*16)
-
 	fmt.Printf("%dx%d pixels\n", r.Dx(), r.Dy())
-
 	img := image.NewRGBA(r)
 
-	for pos, tile := range images {
+	it = db.NewColumnIterator(nil)
+	for it.Next() {
+		col := it.Column()
+		pos := it.Position()
+		if it.Error() != nil {
+			break
+		}
+
+		tile := renderer.Chunk2Img(col.Chunk)
 		px := image.Pt(
 			int((pos.X()-boundsMin.X())*16),
 			int((pos.Z()-boundsMin.Z())*16),
@@ -182,6 +178,10 @@ func (c *RenderCMD) Execute(ctx context.Context) error {
 			px.X, px.Y,
 			px.X+16, px.Y+16,
 		), tile, image.Point{}, draw.Src)
+	}
+	it.Release()
+	if err := it.Error(); err != nil {
+		return err
 	}
 
 	f, err := os.Create(c.Out)
