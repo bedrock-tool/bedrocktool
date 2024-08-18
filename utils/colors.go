@@ -175,6 +175,9 @@ func ResolveColors(entries []protocol.BlockEntry, packs []resource.Pack) map[str
 		if err != nil {
 			return err
 		}
+		if blocksJson == nil {
+			return nil
+		}
 
 		for block, name := range blocksJson {
 			textureNames[block] = name

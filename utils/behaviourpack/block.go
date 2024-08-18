@@ -4,7 +4,7 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 )
 
-type blockBehaviour struct {
+type BlockBehaviour struct {
 	FormatVersion  string         `json:"format_version"`
 	MinecraftBlock MinecraftBlock `json:"minecraft:block"`
 }
@@ -17,7 +17,7 @@ func (bp *Pack) AddBlock(block protocol.BlockEntry) {
 
 	minecraftBlock, version := parseBlock(block)
 
-	bp.blocks[block.Name] = &blockBehaviour{
+	bp.blocks[block.Name] = &BlockBehaviour{
 		FormatVersion:  version,
 		MinecraftBlock: minecraftBlock,
 	}
