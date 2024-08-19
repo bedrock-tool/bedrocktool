@@ -1,9 +1,9 @@
-events.register('EntityAdd', (entity, metadata, properties, time) => {
+events.register('EntityAdd', (entity, metadata, time) => {
     console.log(`EntityAdd ${entity.EntityType}`);
 });
 
 
-events.register('EntityDataUpdate', (entity, metadata, properties, time) => {
+events.register('EntityDataUpdate', (entity, metadata, time) => {
     console.log(`EntityDataUpdate ${entity.EntityType}`);
 });
 

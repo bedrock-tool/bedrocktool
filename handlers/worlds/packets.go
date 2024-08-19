@@ -275,7 +275,7 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 
 		w.applyEntityData(ent, pk.EntityMetadata, pk.EntityProperties, timeReceived)
 
-		if !w.scripting.OnEntityAdd(ent, ent.Metadata, ent.Properties, timeReceived) {
+		if !w.scripting.OnEntityAdd(ent, timeReceived) {
 			logrus.Infof("Ignoring Entity: %s %d", ent.EntityType, ent.UniqueID)
 		} else {
 			w.currentWorld.StoreEntity(pk.EntityRuntimeID, ent)
