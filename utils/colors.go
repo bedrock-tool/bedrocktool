@@ -237,21 +237,14 @@ func ResolveColors(entries []protocol.BlockEntry, packs []resource.Pack) map[str
 				continue
 			}
 
-			var texturePath = texture_name
-
-			if flipbook_texture, ok := flipbooks[texturePath]; ok {
-				texturePath = flipbook_texture
-			}
-
-			if terrain_texture, ok := terrainTextures[texturePath]; ok {
+			var texturePath string
+			if terrain_texture, ok := terrainTextures[texture_name]; ok {
 				texturePath = terrain_texture
-			}
-
-			if tex, ok := texturesList[texturePath]; ok {
+			} else if flipbook_texture, ok := flipbooks[texture_name]; ok {
+				texturePath = flipbook_texture
+			} else if tex, ok := texturesList[texture_name]; ok {
 				texturePath = tex
-			}
-
-			if texturePath == texture_name {
+			} else {
 				continue
 			}
 
@@ -304,7 +297,9 @@ func ResolveColors(entries []protocol.BlockEntry, packs []resource.Pack) map[str
 		}
 
 		for block, name := range blocksJson {
-			textureNames[block] = name
+			if _, ok := textureNames[block]; !ok {
+				textureNames[block] = name
+			}
 		}
 
 		blockPacks = append(blockPacks, pack)
