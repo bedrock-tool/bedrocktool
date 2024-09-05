@@ -22,7 +22,6 @@ import (
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/bedrock-tool/bedrocktool/utils/updater"
 	"github.com/bedrock-tool/bedrocktool/utils/xbox"
-	"github.com/gregwebs/go-recovery"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
 )
@@ -329,22 +328,13 @@ func (r *Router) HandleMessage(msg *messages.Message) *messages.Message {
 func (r *Router) Execute(cmd commands.Command, ctxKey, ctxVal any) {
 	r.Wg.Add(1)
 	go func() {
-		defer r.Wg.Done()
-		r.cmdCtx, r.cmdCtxCancel = context.WithCancel(context.WithValue(r.ctx, ctxKey, ctxVal))
-
-		recovery.ErrorHandler = func(err error) {
-			utils.PrintPanic(err)
-			r.RemovePopup("connect")
-			r.PushPopup(popups.NewErrorPopup(err, func() {
-				r.SwitchTo("settings")
-			}, true))
-		}
-
 		defer func() {
 			if err, ok := recover().(error); ok {
-				recovery.ErrorHandler(err)
+				utils.ErrorHandler(err)
 			}
 		}()
+		defer r.Wg.Done()
+		r.cmdCtx, r.cmdCtxCancel = context.WithCancel(context.WithValue(r.ctx, ctxKey, ctxVal))
 
 		err := cmd.Execute(r.cmdCtx)
 		r.RemovePopup("connect")

@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds/entity"
+	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/dop251/goja"
 	"github.com/go-gl/mathgl/mgl32"
-	"github.com/gregwebs/go-recovery"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 )
@@ -19,7 +19,7 @@ func (v *VM) OnEntityAdd(entity *entity.Entity, timeReceived time.Time) (apply b
 		return true
 	}
 	apply = true
-	err := recovery.Call(func() error {
+	err := utils.RecoverCall(func() error {
 		applyV := v.CB.OnEntityAdd(entity, newEntityDataObject(v.runtime, entity.Metadata), float64(timeReceived.UnixMilli()))
 		if !goja.IsUndefined(applyV) {
 			apply = applyV.ToBoolean()
@@ -36,8 +36,7 @@ func (v *VM) OnEntityDataUpdate(entity *entity.Entity, timeReceived time.Time) {
 	if v.CB.OnEntityDataUpdate == nil {
 		return
 	}
-	err := recovery.Call(func() error {
-
+	err := utils.RecoverCall(func() error {
 		v.CB.OnEntityDataUpdate(entity, newEntityDataObject(v.runtime, entity.Metadata), float64(timeReceived.UnixMilli()))
 		return nil
 	})
@@ -50,7 +49,7 @@ func (v *VM) OnChunkAdd(pos world.ChunkPos, timeReceived time.Time) (apply bool)
 	if v.CB.OnChunkAdd == nil {
 		return true
 	}
-	err := recovery.Call(func() error {
+	err := utils.RecoverCall(func() error {
 		applyV := v.CB.OnChunkAdd(pos, float64(timeReceived.UnixMilli()))
 		if !goja.IsUndefined(applyV) {
 			apply = applyV.ToBoolean()
@@ -70,7 +69,7 @@ func (v *VM) OnBlockUpdate(name string, properties map[string]any, pos protocol.
 	}
 
 	apply = true
-	err := recovery.Call(func() error {
+	err := utils.RecoverCall(func() error {
 		applyV := v.CB.OnBlockUpdate(name, properties, pos, float64(timeReceived.UnixMilli()))
 		if !goja.IsUndefined(applyV) {
 			apply = applyV.ToBoolean()
@@ -90,7 +89,7 @@ func (v *VM) OnSpawnParticle(name string, position mgl32.Vec3, timeReceived time
 		return
 	}
 
-	err := recovery.Call(func() error {
+	err := utils.RecoverCall(func() error {
 		v.CB.OnSpawnParticle(name, position, float64(timeReceived.UnixMilli()))
 		return nil
 	})
@@ -106,7 +105,7 @@ func (v *VM) OnPacket(pk packet.Packet, toServer bool, timeReceived time.Time) (
 
 	v.lock.Lock()
 	defer v.lock.Unlock()
-	err := recovery.Call(func() error {
+	err := utils.RecoverCall(func() error {
 		packetName := strings.Split(reflect.TypeOf(pk).String(), ".")[1]
 		drop = v.CB.OnPacket(packetName, pk, toServer, float64(timeReceived.UnixMilli()))
 		return nil

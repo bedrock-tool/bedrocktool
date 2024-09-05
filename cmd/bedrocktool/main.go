@@ -19,7 +19,6 @@ import (
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/bedrock-tool/bedrocktool/utils/updater"
 	"github.com/bedrock-tool/bedrocktool/utils/xbox"
-	"github.com/gregwebs/go-recovery"
 	"github.com/rifflock/lfshook"
 
 	_ "github.com/bedrock-tool/bedrocktool/subcommands"
@@ -96,8 +95,23 @@ func (t *logTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 func main() {
 	isDebug := updater.Version == ""
-
 	setupLogging(isDebug)
+	log := logrus.WithField("part", "main")
+	ctx, cancel := context.WithCancelCause(context.Background())
+
+	utils.ErrorHandler = func(err error) {
+		if isDebug {
+			panic(err)
+		}
+		utils.PrintPanic(err)
+		utils.UploadPanic()
+		cancel(err)
+		if utils.Options.IsInteractive {
+			input := bufio.NewScanner(os.Stdin)
+			input.Scan()
+		}
+		os.Exit(1)
+	}
 
 	if isDebug {
 		f, err := os.Create("cpu.pprof")
@@ -117,28 +131,8 @@ func main() {
 		}()
 
 		http.DefaultTransport = &logTransport{rt: http.DefaultTransport}
-	}
-
-	log := logrus.WithField("part", "main")
-
-	if !isDebug {
+	} else {
 		log.Infof(locale.Loc("bedrocktool_version", locale.Strmap{"Version": updater.Version}))
-	}
-
-	ctx, cancel := context.WithCancelCause(context.Background())
-
-	recovery.ErrorHandler = func(err error) {
-		if isDebug {
-			panic(err)
-		}
-		utils.PrintPanic(err)
-		utils.UploadPanic()
-		cancel(err)
-		if utils.Options.IsInteractive {
-			input := bufio.NewScanner(os.Stdin)
-			input.Scan()
-		}
-		os.Exit(1)
 	}
 
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)

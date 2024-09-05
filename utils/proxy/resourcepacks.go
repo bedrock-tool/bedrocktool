@@ -56,7 +56,6 @@ type rpHandler struct {
 	OnResourcePacksInfoCB func()
 	// optional callback that is called as soon as a resource pack is added to the proxies list
 	OnFinishedPack              func(resource.Pack) error
-	OnFinishedAll               func() bool
 	filterDownloadResourcePacks func(id string) bool
 
 	//
@@ -579,12 +578,6 @@ func (r *rpHandler) OnResourcePackStack(pk *packet.ResourcePackStack) error {
 	if r.clientDone != nil {
 		r.log.Debug("waiting for client to finish downloading")
 		<-r.clientDone
-	}
-
-	if r.OnFinishedAll != nil {
-		if r.OnFinishedAll() {
-			return nil
-		}
 	}
 
 	r.dlwg.Wait()

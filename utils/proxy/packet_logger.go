@@ -86,7 +86,7 @@ func (p *packetLogger) logPacket(pk packet.Packet, t time.Time, toServer bool) e
 			dir = dirC2S
 		}
 		pkName := reflect.TypeOf(pk).String()[8:]
-		logrus.Debugf("%s 0x%02x, %s", dir, pk.ID(), pkName)
+		logrus.Debugf("%s %s", dir, pkName)
 	}
 	return nil
 }

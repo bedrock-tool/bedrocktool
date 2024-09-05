@@ -19,8 +19,6 @@ type Handler struct {
 	FilterResourcePack func(id string) bool
 	OnFinishedPack     func(pack resource.Pack) error
 
-	ResourcePacksFinished func() bool
-
 	PacketRaw      func(header packet.Header, payload []byte, src, dst net.Addr, timeReceived time.Time)
 	PacketCallback func(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error)
 
@@ -76,18 +74,6 @@ func (h *Handlers) OnFinishedPack(pack resource.Pack) error {
 		}
 	}
 	return nil
-}
-
-func (h *Handlers) ResourcePacksFinished() bool {
-	for _, handler := range *h {
-		if handler.ResourcePacksFinished == nil {
-			continue
-		}
-		if handler.ResourcePacksFinished() {
-			return true
-		}
-	}
-	return false
 }
 
 func (h *Handlers) PacketRaw(header packet.Header, payload []byte, src, dst net.Addr, timeReceived time.Time) {

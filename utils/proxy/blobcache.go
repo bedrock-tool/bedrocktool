@@ -194,8 +194,8 @@ func (b *Blobcache) finishWait(reply *packet.ClientCacheBlobStatus, wait *server
 
 	// send reply if its not empty
 	if len(reply.HitHashes)+len(reply.MissHashes) > 0 {
-		reply.MissHashes = removeDuplicate(reply.MissHashes)
-		reply.HitHashes = removeDuplicate(reply.HitHashes)
+		//reply.MissHashes = removeDuplicate(reply.MissHashes)
+		//reply.HitHashes = removeDuplicate(reply.HitHashes)
 
 		if len(b.serverWait) > maxInflightBlobs {
 			b.queued = append(b.queued, reply)

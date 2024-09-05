@@ -14,7 +14,6 @@ import (
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
-	"github.com/gregwebs/go-recovery"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/login"
@@ -148,7 +147,6 @@ func (s *Session) Run(ctx context.Context, connect *utils.ConnectInfo) error {
 	rpHandler.OnResourcePacksInfoCB = onResourcePacksInfo
 	rpHandler.OnFinishedPack = s.handlers.OnFinishedPack
 	rpHandler.filterDownloadResourcePacks = s.handlers.FilterResourcePack
-	rpHandler.OnFinishedAll = s.handlers.ResourcePacksFinished
 
 	var err error
 	s.blobCache, err = NewBlobCache(s)
@@ -587,7 +585,7 @@ func (s *Session) proxyLoop(ctx context.Context, toServer bool) (err error) {
 func (s *Session) packetFunc(header packet.Header, payload []byte, src, dst net.Addr, timeReceived time.Time) {
 	defer func() {
 		if err, ok := recover().(error); ok {
-			recovery.ErrorHandler(err)
+			utils.ErrorHandler(err)
 		}
 	}()
 

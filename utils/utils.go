@@ -41,6 +41,10 @@ var LogOff bool
 
 var nameRegexp = regexp.MustCompile(`\||(?:§.?)`)
 
+var PackFromBase = func(pack resource.Pack) (resource.Pack, error) {
+	return pack, nil
+}
+
 // CleanupName cleans name so it can be used as a filename
 func CleanupName(name string) string {
 	name = strings.Split(name, "\n")[0]

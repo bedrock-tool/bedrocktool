@@ -18,7 +18,9 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages/settings"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages/skins"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages/worlds"
+	"github.com/bedrock-tool/bedrocktool/ui/gui/popups"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
+	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/updater"
 	"github.com/sirupsen/logrus"
 )
@@ -93,6 +95,14 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelCauseFunc) (err er
 	isDebug := updater.Version == ""
 	if !isDebug {
 		go updater.UpdateCheck(g)
+	}
+
+	utils.ErrorHandler = func(err error) {
+		utils.PrintPanic(err)
+		g.router.RemovePopup("connect")
+		g.router.PushPopup(popups.NewErrorPopup(err, func() {
+			g.router.SwitchTo("settings")
+		}, true))
 	}
 
 	go func() {
