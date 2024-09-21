@@ -141,8 +141,7 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 	}
 	// First create a new resource pack queue with the information in the packet so we can download them
 	// properly later.
-	totalPacks := len(pk.TexturePacks) + len(pk.BehaviourPacks)
-	packsToDownload := make([]string, 0, totalPacks)
+	packsToDownload := make([]string, 0, len(pk.TexturePacks))
 
 	var httpClient = http.Client{
 		Transport: &http.Transport{
@@ -285,13 +284,6 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 	}
 
 	for _, pack := range pk.TexturePacks {
-		err := packFunc(pack.UUID, pack.Version, pack.ContentKey, pack.Size)
-		if err != nil {
-			return err
-		}
-	}
-
-	for _, pack := range pk.BehaviourPacks {
 		err := packFunc(pack.UUID, pack.Version, pack.ContentKey, pack.Size)
 		if err != nil {
 			return err
@@ -656,9 +648,6 @@ func (r *rpHandler) processClientRequest(packs []string) error {
 	for _, pack := range r.remotePacksInfo.TexturePacks {
 		contentKeys[pack.UUID+"_"+pack.Version] = pack.ContentKey
 	}
-	for _, pack := range r.remotePacksInfo.BehaviourPacks {
-		contentKeys[pack.UUID+"_"+pack.Version] = pack.ContentKey
-	}
 
 loopPacks:
 	for _, packUUID := range packs {
@@ -687,13 +676,6 @@ loopPacks:
 		}
 
 		for _, pack := range r.remotePacksInfo.TexturePacks {
-			if pack.UUID+"_"+pack.Version == packUUID {
-				r.packsRequestedFromServer = append(r.packsRequestedFromServer, packUUID)
-				continue loopPacks
-			}
-		}
-
-		for _, pack := range r.remotePacksInfo.BehaviourPacks {
 			if pack.UUID+"_"+pack.Version == packUUID {
 				r.packsRequestedFromServer = append(r.packsRequestedFromServer, packUUID)
 				continue loopPacks
@@ -824,9 +806,7 @@ func (r *rpHandler) GetResourcePacksInfo(texturePacksRequired bool) *packet.Reso
 		pk.TexturePackRequired = r.remotePacksInfo.TexturePackRequired
 		pk.HasAddons = r.remotePacksInfo.HasAddons
 		pk.HasScripts = r.remotePacksInfo.HasScripts
-		pk.BehaviourPacks = append(pk.BehaviourPacks, r.remotePacksInfo.BehaviourPacks...)
 		pk.TexturePacks = append(pk.TexturePacks, r.remotePacksInfo.TexturePacks...)
-		pk.ForcingServerPacks = r.remotePacksInfo.ForcingServerPacks
 		pk.PackURLs = r.remotePacksInfo.PackURLs
 	}
 

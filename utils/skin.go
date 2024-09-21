@@ -19,11 +19,11 @@ type Skin struct {
 
 type SkinGeometry_Old struct {
 	SkinGeometryDescription
-	Bones []any `json:"bones"`
+	Bones json.RawMessage `json:"bones"`
 }
 
 type SkinGeometryDescription struct {
-	Identifier          string      `json:"identifier,omitempty"`
+	Identifier          string      `json:"identifier"`
 	TextureWidth        json.Number `json:"texture_width"`
 	TextureHeight       json.Number `json:"texture_height"`
 	VisibleBoundsWidth  float64     `json:"visible_bounds_width"`
@@ -33,7 +33,7 @@ type SkinGeometryDescription struct {
 
 type SkinGeometry struct {
 	Description SkinGeometryDescription `json:"description"`
-	Bones       []any                   `json:"bones"`
+	Bones       json.RawMessage         `json:"bones"`
 }
 
 type SkinGeometryFile struct {
@@ -42,9 +42,9 @@ type SkinGeometryFile struct {
 }
 
 type geometry180 struct {
-	Bones         []any `json:"bones"`
-	TextureWidth  int   `json:"texturewidth"`
-	TextureHeight int   `json:"textureheight"`
+	Bones         json.RawMessage `json:"bones"`
+	TextureWidth  int             `json:"texturewidth"`
+	TextureHeight int             `json:"textureheight"`
 }
 
 type geom180 struct {
@@ -78,25 +78,6 @@ func (n *geom180) UnmarshalJSON(b []byte) error {
 	}
 	n.m[n.id] = geom
 	return nil
-}
-
-type Bone struct {
-	Name     string         `json:"name"`
-	Parent   string         `json:"parent"`
-	Pivot    []float64      `json:"pivot"`
-	Rotation []float64      `json:"rotation"`
-	Locators map[string]any `json:"locators"`
-	Cubes    []Cube         `json:"cubes"`
-}
-
-type Cube struct {
-	Mirror   bool      `json:"mirror"`
-	Inflate  float64   `json:"inflate"`
-	Pivot    []float64 `json:"pivot"`
-	Rotation []float64 `json:"rotation"`
-	Origin   []float64 `json:"origin"`
-	Size     []float64 `json:"size"`
-	UV       any       `json:"uv"`
 }
 
 func (skin *Skin) Hash() uuid.UUID {
