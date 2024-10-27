@@ -432,26 +432,29 @@ func (w *worldsHandler) packetCB(_pk packet.Packet, toServer bool, timeReceived 
 		}
 
 	case *packet.InventoryContent:
-		if pk.WindowID == 0x0 { // inventory
+		switch pk.WindowID {
+		case 0:
 			w.serverState.playerInventory = pk.Content
-		} else {
+		case protocol.WindowIDOffHand:
+			_pk = nil
+		default:
 			// save content
 			existing, ok := w.serverState.openItemContainers[byte(pk.WindowID)]
 			if ok {
 				existing.Content = pk
 			}
 		}
-		if pk.WindowID == protocol.WindowIDOffHand {
-			_pk = nil
-		}
 
 	case *packet.InventorySlot:
-		if pk.WindowID == 0x0 {
+		switch pk.WindowID {
+		case 0:
 			if w.serverState.playerInventory == nil {
 				w.serverState.playerInventory = make([]protocol.ItemInstance, 36)
 			}
 			w.serverState.playerInventory[pk.Slot] = pk.NewItem
-		} else {
+		case protocol.WindowIDOffHand:
+			_pk = nil
+		default:
 			// save content
 			existing, ok := w.serverState.openItemContainers[byte(pk.WindowID)]
 			if ok {

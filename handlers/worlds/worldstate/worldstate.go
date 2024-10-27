@@ -14,7 +14,7 @@ import (
 	"github.com/thomaso-mirodin/intmath/i32"
 )
 
-type worldStateMem struct {
+type worldState struct {
 	maps        map[int64]*Map
 	chunks      map[world.ChunkPos]*world.Column
 	entities    map[entity.RuntimeID]*entity.Entity
@@ -23,11 +23,22 @@ type worldStateMem struct {
 	uniqueIDsToRuntimeIDs map[entity.UniqueID]entity.RuntimeID
 }
 
-func (w *worldStateMem) StoreChunk(pos world.ChunkPos, col *world.Column) {
+func newWorldState() *worldState {
+	return &worldState{
+		maps:        make(map[int64]*Map),
+		chunks:      make(map[world.ChunkPos]*world.Column),
+		entities:    make(map[entity.RuntimeID]*entity.Entity),
+		entityLinks: make(map[entity.UniqueID]map[entity.UniqueID]struct{}),
+
+		uniqueIDsToRuntimeIDs: make(map[entity.UniqueID]entity.RuntimeID),
+	}
+}
+
+func (w *worldState) StoreChunk(pos world.ChunkPos, col *world.Column) {
 	w.chunks[pos] = col
 }
 
-func (w *worldStateMem) StoreMap(m *packet.ClientBoundMapItemData) {
+func (w *worldState) StoreMap(m *packet.ClientBoundMapItemData) {
 	return // not finished yet
 	m1, ok := w.maps[m.MapID]
 	if !ok {
@@ -49,31 +60,25 @@ func (w *worldStateMem) StoreMap(m *packet.ClientBoundMapItemData) {
 	}, image.Rect(
 		int(m.XOffset), int(m.YOffset),
 		int(m.Width), int(m.Height),
-	), utils.RGBA2Img(
-		m.Pixels,
-		image.Rect(
-			0, 0,
-			int(m.Width), int(m.Height),
-		),
-	), image.Point{}, draw.Over)
+	), utils.RGBA2Img(m.Pixels, int(m.Width), int(m.Height)),
+		image.Point{},
+		draw.Over,
+	)
 }
 
-func (w *worldStateMem) cullChunks() {
+func (w *worldState) cullChunks() {
+chunks:
 	for key, ch := range w.chunks {
-		var empty = true
 		for _, sub := range ch.Sub() {
 			if !sub.Empty() {
-				empty = false
-				break
+				continue chunks
 			}
 		}
-		if empty {
-			delete(w.chunks, key)
-		}
+		delete(w.chunks, key)
 	}
 }
 
-func (w *worldStateMem) ApplyTo(w2 worldStateInterface, around cube.Pos, radius int32, cf func(world.ChunkPos, *chunk.Chunk)) {
+func (w *worldState) ApplyTo(w2 worldStateInterface, around cube.Pos, radius int32, cf func(world.ChunkPos, *chunk.Chunk)) {
 	w.cullChunks()
 	for pos, col := range w.chunks {
 		dist := i32.Sqrt(i32.Pow(pos.X()-int32(around.X()/16), 2) + i32.Pow(pos.Z()-int32(around.Z()/16), 2))
@@ -103,16 +108,16 @@ func cubePosInChunk(pos cube.Pos) (p world.ChunkPos, sp int16) {
 	return
 }
 
-func (w *worldStateMem) StoreEntity(id entity.RuntimeID, es *entity.Entity) {
+func (w *worldState) StoreEntity(id entity.RuntimeID, es *entity.Entity) {
 	w.entities[id] = es
 	w.uniqueIDsToRuntimeIDs[es.UniqueID] = es.RuntimeID
 }
 
-func (w *worldStateMem) GetEntity(id entity.RuntimeID) *entity.Entity {
+func (w *worldState) GetEntity(id entity.RuntimeID) *entity.Entity {
 	return w.entities[id]
 }
 
-func (w *worldStateMem) AddEntityLink(el protocol.EntityLink) {
+func (w *worldState) AddEntityLink(el protocol.EntityLink) {
 	switch el.Type {
 	case protocol.EntityLinkPassenger:
 		fallthrough

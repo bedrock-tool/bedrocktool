@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"net"
 	"reflect"
 	"strconv"
@@ -358,7 +358,7 @@ func (s *Session) connectServer(ctx context.Context, connect *utils.ConnectInfo)
 	logrus.Info(locale.Loc("connecting", locale.Strmap{"Address": address}))
 	d := minecraft.Dialer{
 		TokenSource:       utils.Auth,
-		ErrorLog:          log.Default(),
+		ErrorLog:          slog.Default(),
 		PacketFunc:        s.packetFunc,
 		EnableClientCache: true,
 		GetClientData: func() login.ClientData {
@@ -561,6 +561,14 @@ func (s *Session) proxyLoop(ctx context.Context, toServer bool) (err error) {
 				// transfer to self
 				_port, _ := strconv.Atoi(port)
 				pk = &packet.Transfer{Address: host, Port: uint16(_port)}
+			}
+		case *packet.InventoryContent:
+			if _pk.StorageItem.Stack.NetworkID == -1 {
+				_pk.StorageItem.Stack.NetworkID = 0
+			}
+		case *packet.InventorySlot:
+			if _pk.StorageItem.Stack.NetworkID == -1 {
+				_pk.StorageItem.Stack.NetworkID = 0
 			}
 		}
 

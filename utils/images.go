@@ -9,11 +9,11 @@ import (
 func Img2rgba(img *image.RGBA) []color.RGBA {
 	return unsafe.Slice((*color.RGBA)(unsafe.Pointer(unsafe.SliceData(img.Pix))), len(img.Pix)/4)
 }
-func RGBA2Img(colors []color.RGBA, rect image.Rectangle) *image.RGBA {
+func RGBA2Img(colors []color.RGBA, width, height int) *image.RGBA {
 	return &image.RGBA{
 		Pix:    unsafe.Slice((*uint8)(unsafe.Pointer(unsafe.SliceData(colors))), len(colors)*4),
-		Rect:   rect,
-		Stride: 4 * rect.Dx(),
+		Rect:   image.Rect(0, 0, width, height),
+		Stride: 4 * width,
 	}
 }
 
