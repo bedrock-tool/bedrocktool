@@ -56,12 +56,12 @@ func (l logFileWriter) Write(b []byte) (int, error) {
 func setupLogging(isDebug bool) {
 	logFile, err := os.Create("bedrocktool.log")
 	if err != nil {
-		panic(err)
+		logrus.Fatal(err)
 	}
 
 	rOut, wOut, err := os.Pipe()
 	if err != nil {
-		panic(err)
+		logrus.Fatal(err)
 	}
 
 	originalStdout := os.Stdout

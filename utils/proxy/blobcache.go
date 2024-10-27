@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/df-mc/goleveldb/leveldb"
+	"github.com/df-mc/goleveldb/leveldb/storage"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sirupsen/logrus"
@@ -45,7 +46,12 @@ type Blobcache struct {
 func NewBlobCache(session *Session) (*Blobcache, error) {
 	db, err := leveldb.OpenFile("blobcache", nil)
 	if err != nil {
-		return nil, err
+		if checkShouldReadOnly(err) {
+			db, err = leveldb.Open(storage.NewMemStorage(), nil)
+		}
+		if err != nil {
+			return nil, err
+		}
 	}
 	return &Blobcache{
 		db:                 db,
