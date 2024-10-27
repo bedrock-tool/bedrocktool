@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"log/slog"
 	"math"
 	"math/rand/v2"
 	"os"
@@ -13,7 +14,6 @@ import (
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/df-mc/dragonfly/server/world/mcdb"
-	"github.com/sirupsen/logrus"
 )
 
 type MergeCMD struct {
@@ -66,7 +66,7 @@ func (c *MergeCMD) Execute(ctx context.Context) error {
 			offset[1] = int32(z)
 		}
 		db, err := mcdb.Config{
-			Log:      logrus.StandardLogger(),
+			Log:      slog.Default(),
 			ReadOnly: true,
 			Blocks:   blockReg,
 			Entities: entityReg,
@@ -97,7 +97,7 @@ func (c *MergeCMD) Execute(ctx context.Context) error {
 		}
 	}
 	dbOut, err := mcdb.Config{
-		Log:      logrus.StandardLogger(),
+		Log:      slog.Default(),
 		Blocks:   blockReg,
 		Entities: entityReg,
 	}.Open(c.outPath)

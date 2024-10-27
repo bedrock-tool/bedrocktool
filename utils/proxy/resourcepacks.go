@@ -152,26 +152,90 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 		},
 	}
 
-	packFunc := func(id, ver, key string, size uint64) (err error) {
-		packID := id + "_" + ver
+	doDownload := func(pack protocol.TexturePackInfo) error {
+		defer r.dlwg.Done()
+		r.log.Infof("Downloading Resourcepack: %s", pack.DownloadURL)
+
+		f, err := r.cache.Create(pack.UUID, pack.Version)
+		if err != nil {
+			return err
+		}
+
+		req, err := http.NewRequest("GET", pack.DownloadURL, nil)
+		if err != nil {
+			return err
+		}
+		req.Header.Set("User-Agent", "libhttpclient/1.0.0.0")
+		res, err := httpClient.Do(req)
+		if err != nil {
+			return err
+		}
+		defer res.Body.Close()
+
+		size, err := io.Copy(f, res.Body)
+		if err != nil {
+			return err
+		}
+
+		err = f.Move()
+		if err != nil {
+			return err
+		}
+
+		newPack, err := resource.FromReaderAt(f, size)
+		if err != nil {
+			return err
+		}
+		if len(pack.ContentKey) > 0 {
+			newPack = newPack.WithContentKey(pack.ContentKey)
+		}
+		newPack, err = utils.PackFromBase(newPack)
+		if err != nil {
+			return err
+		}
+
+		r.lockResourcePacks.Lock()
+		r.resourcePacks = append(r.resourcePacks, newPack)
+		err = r.OnFinishedPack(newPack)
+		r.lockResourcePacks.Unlock()
+		if err != nil {
+			return err
+		}
+
+		if r.nextPackToClient != nil {
+			select {
+			case <-r.knowPacksRequestedFromServer:
+			case <-r.ctx.Done():
+				return r.ctx.Err()
+			}
+			if slices.Contains(r.packsRequestedFromServer, newPack.UUID()+"_"+newPack.Version()) {
+				r.nextPackToClient <- newPack
+			}
+		}
+		return nil
+	}
+
+	var urlDownloads []protocol.TexturePackInfo
+	for _, pack := range pk.TexturePacks {
+		packID := pack.UUID + "_" + pack.Version
 		if r.filterDownloadResourcePacks(packID) {
-			return nil
+			continue
 		}
 
-		_, alreadyDownloading := r.downloadingPacks[id]
+		_, alreadyDownloading := r.downloadingPacks[pack.UUID]
 		if alreadyDownloading {
-			r.log.Warnf("duplicate texture pack entry %v in resource pack info", id)
-			return nil
+			r.log.Warnf("duplicate texture pack entry %v in resource pack info", pack.UUID)
+			continue
 		}
 
-		if r.cache.Has(id, ver) {
-			newPack, err := r.cache.Get(id, ver)
+		if r.cache.Has(pack.UUID, pack.Version) {
+			newPack, err := r.cache.Get(pack.UUID, pack.Version)
 			if err != nil {
 				return fmt.Errorf("opening cached Resourcepack: %s (delete packcache as a fix)", err)
 			}
 
-			if len(key) > 0 {
-				newPack = newPack.WithContentKey(key)
+			if len(pack.ContentKey) > 0 {
+				newPack = newPack.WithContentKey(pack.ContentKey)
 			}
 			newPack, err = utils.PackFromBase(newPack)
 			if err != nil {
@@ -185,109 +249,38 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 			if err != nil {
 				return err
 			}
-
-			return nil
+			continue
 		}
 
-		idxURL := slices.IndexFunc(pk.PackURLs, func(pu protocol.PackURL) bool { return pu.UUIDVersion == packID })
-		if idxURL != -1 {
-			r.dlwg.Add(1)
-			go func(url string) {
-				defer r.dlwg.Done()
-				r.log.Infof("Downloading Resourcepack: %s", url)
-
-				f, err := r.cache.Create(id, ver)
-				if err != nil {
-					r.log.Error(err)
-					return
-				}
-
-				req, err := http.NewRequest("GET", url, nil)
-				if err != nil {
-					r.log.Error(err)
-					return
-				}
-				req.Header.Set("User-Agent", "libhttpclient/1.0.0.0")
-				res, err := httpClient.Do(req)
-				if err != nil {
-					r.log.Error(err)
-					return
-				}
-				defer res.Body.Close()
-
-				size, err := io.Copy(f, res.Body)
-				if err != nil {
-					r.log.Error(err)
-					return
-				}
-
-				err = f.Move()
-				if err != nil {
-					r.log.Error(err)
-					return
-				}
-
-				newPack, err := resource.FromReaderAt(f, size)
-				if err != nil {
-					r.log.Error(err)
-					return
-				}
-				if len(key) > 0 {
-					newPack = newPack.WithContentKey(key)
-				}
-				newPack, err = utils.PackFromBase(newPack)
-				if err != nil {
-					r.log.Errorf("Opening Resourcepack: %s", err)
-					return
-				}
-
-				r.lockResourcePacks.Lock()
-				r.resourcePacks = append(r.resourcePacks, newPack)
-				err = r.OnFinishedPack(newPack)
-				r.lockResourcePacks.Unlock()
-				if err != nil {
-					r.log.Error(err)
-					return
-				}
-
-				if r.nextPackToClient != nil {
-					select {
-					case <-r.knowPacksRequestedFromServer:
-					case <-r.ctx.Done():
-						return
-					}
-					if slices.Contains(r.packsRequestedFromServer, newPack.UUID()+"_"+newPack.Version()) {
-						r.nextPackToClient <- newPack
-					}
-				}
-			}(pk.PackURLs[idxURL].URL)
-
-			return nil
+		if pack.DownloadURL != "" {
+			urlDownloads = append(urlDownloads, pack)
+			continue
 		}
 
 		packsToDownload = append(packsToDownload, packID)
-
-		m, ok := r.downloadingPacks[id]
+		m, ok := r.downloadingPacks[pack.UUID]
 		if !ok {
 			m = make(map[uint64]downloadingPack)
-			r.downloadingPacks[id] = m
+			r.downloadingPacks[pack.UUID] = m
 		}
-		m[size] = downloadingPack{
-			size:       size,
+		m[pack.Size] = downloadingPack{
+			size:       pack.Size,
 			newFrag:    make(chan *packet.ResourcePackChunkData),
-			contentKey: key,
-			ID:         id,
-			Version:    ver,
+			contentKey: pack.ContentKey,
+			ID:         pack.UUID,
+			Version:    pack.Version,
 		}
-
-		return nil
 	}
 
-	for _, pack := range pk.TexturePacks {
-		err := packFunc(pack.UUID, pack.Version, pack.ContentKey, pack.Size)
-		if err != nil {
-			return err
-		}
+	if len(urlDownloads) > 0 {
+		r.dlwg.Add(len(urlDownloads))
+		go func() {
+			for _, dl := range urlDownloads {
+				if err := doDownload(dl); err != nil {
+					r.log.Errorf("download %s %s", dl.DownloadURL, err)
+				}
+			}
+		}()
 	}
 
 	r.remotePacksInfo = pk
@@ -807,7 +800,6 @@ func (r *rpHandler) GetResourcePacksInfo(texturePacksRequired bool) *packet.Reso
 		pk.HasAddons = r.remotePacksInfo.HasAddons
 		pk.HasScripts = r.remotePacksInfo.HasScripts
 		pk.TexturePacks = append(pk.TexturePacks, r.remotePacksInfo.TexturePacks...)
-		pk.PackURLs = r.remotePacksInfo.PackURLs
 	}
 
 	// add r.addedPacks to the info

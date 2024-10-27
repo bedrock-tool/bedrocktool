@@ -10,6 +10,7 @@ import (
 	"image/draw"
 	"image/png"
 	"io/fs"
+	"log/slog"
 	"math"
 	"os"
 	"path"
@@ -70,7 +71,7 @@ func (c *RenderCMD) Execute(ctx context.Context) error {
 	fmt.Printf("%s\n", c.WorldPath)
 
 	db, err := mcdb.Config{
-		Log:      logrus.StandardLogger(),
+		Log:      slog.Default(),
 		Blocks:   blockReg,
 		Entities: entityReg,
 		ReadOnly: true,

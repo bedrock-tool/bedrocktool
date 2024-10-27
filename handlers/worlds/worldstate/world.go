@@ -3,6 +3,7 @@ package worldstate
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path"
 	"strings"
@@ -54,17 +55,14 @@ type World struct {
 	dimensionDefinitions map[int]protocol.DimensionDefinition
 	StoredChunks         map[world.ChunkPos]bool
 
-	memState *worldStateMem
+	memState *worldState
 	provider *mcdb.DB
 	onceOpen sync.Once
 	opened   bool
 	// state to be used while paused
-	paused      bool
-	pausedState *worldStateMem
+	pausedState *worldState
 	// access to states
-	stateLock sync.Mutex
-
-	entityLock sync.Mutex
+	stateLock sync.RWMutex
 
 	ResourcePacks            []resource.Pack
 	resourcePacksDone        chan error
@@ -118,25 +116,19 @@ func New(dimensionDefinitions map[int]protocol.DimensionDefinition, onChunkUpdat
 		StoredChunks:         make(map[world.ChunkPos]bool),
 		dimensionDefinitions: dimensionDefinitions,
 		finish:               make(chan struct{}),
-		memState: &worldStateMem{
-			chunks:      make(map[world.ChunkPos]*world.Column),
-			entities:    make(map[entity.RuntimeID]*entity.Entity),
-			entityLinks: make(map[entity.UniqueID]map[entity.UniqueID]struct{}),
-
-			uniqueIDsToRuntimeIDs: make(map[int64]uint64),
-		},
-		players:       make(map[uuid.UUID]*player),
-		blockUpdates:  make(map[world.ChunkPos][]blockUpdate),
-		onChunkUpdate: onChunkUpdate,
-		IgnoredChunks: make(map[world.ChunkPos]bool),
-		log:           logrus.WithFields(logrus.Fields{"part": "world"}),
+		memState:             newWorldState(),
+		players:              make(map[uuid.UUID]*player),
+		blockUpdates:         make(map[world.ChunkPos][]blockUpdate),
+		onChunkUpdate:        onChunkUpdate,
+		IgnoredChunks:        make(map[world.ChunkPos]bool),
+		log:                  logrus.WithFields(logrus.Fields{"part": "world"}),
 	}
 
 	return w, nil
 }
 
-func (w *World) currState() *worldStateMem {
-	if w.paused {
+func (w *World) currState() *worldState {
+	if w.pausedState != nil {
 		return w.pausedState
 	} else {
 		return w.memState
@@ -152,7 +144,7 @@ func (w *World) storeMemToProvider() error {
 		utils.RemoveTree(w.Folder)
 		os.MkdirAll(w.Folder, 0o777)
 		w.provider, w.err = mcdb.Config{
-			Log:         w.log,
+			Log:         slog.Default(),
 			Compression: opt.DefaultCompression,
 			Blocks:      w.BlockRegistry,
 			Biomes:      w.BiomeRegistry,
@@ -218,8 +210,8 @@ func (w *World) SetTime(real time.Time, ingame int) {
 }
 
 func (w *World) StoreChunk(pos world.ChunkPos, col *world.Column) (err error) {
-	w.stateLock.Lock()
-	defer w.stateLock.Unlock()
+	w.stateLock.RLock()
+	defer w.stateLock.RUnlock()
 	return w.storeChunkLocked(pos, col)
 }
 
@@ -233,7 +225,7 @@ func (w *World) storeChunkLocked(pos world.ChunkPos, col *world.Column) (err err
 	}
 	if !empty {
 		w.StoredChunks[pos] = true
-		w.onChunkUpdate(pos, col.Chunk, w.paused)
+		w.onChunkUpdate(pos, col.Chunk, w.pausedState != nil)
 		// only start saving once a non empty chunk is received
 		w.onceOpen.Do(func() {
 			go func() {
@@ -258,13 +250,13 @@ func (w *World) storeChunkLocked(pos world.ChunkPos, col *world.Column) (err err
 }
 
 func (w *World) LoadChunk(pos world.ChunkPos) (*world.Column, bool, error) {
-	w.stateLock.Lock()
-	defer w.stateLock.Unlock()
+	w.stateLock.RLock()
+	defer w.stateLock.RUnlock()
 	return w.loadChunkLocked(pos)
 }
 
 func (w *World) loadChunkLocked(pos world.ChunkPos) (*world.Column, bool, error) {
-	if w.paused {
+	if w.pausedState != nil {
 		if col, ok := w.pausedState.chunks[pos]; ok {
 			return col, true, nil
 		}
@@ -323,14 +315,14 @@ func (w *World) SetBlockNBT(pos cube.Pos, nbt map[string]any, merge bool) error 
 }
 
 func (w *World) StoreEntity(id entity.RuntimeID, es *entity.Entity) {
-	w.entityLock.Lock()
-	defer w.entityLock.Unlock()
+	w.stateLock.Lock()
+	defer w.stateLock.Unlock()
 	w.currState().StoreEntity(id, es)
 }
 
 func (w *World) StoreMap(m *packet.ClientBoundMapItemData) {
-	w.entityLock.Lock()
-	defer w.entityLock.Unlock()
+	w.stateLock.Lock()
+	defer w.stateLock.Unlock()
 	w.currState().StoreMap(m)
 }
 
@@ -340,9 +332,9 @@ func (w *World) GetEntityUniqueID(id entity.UniqueID) *entity.Entity {
 }
 
 func (w *World) GetEntity(id entity.RuntimeID) *entity.Entity {
-	w.entityLock.Lock()
-	defer w.entityLock.Unlock()
-	if w.paused {
+	w.stateLock.RLock()
+	defer w.stateLock.RUnlock()
+	if w.pausedState != nil {
 		es := w.pausedState.GetEntity(id)
 		if es != nil {
 			return es
@@ -356,39 +348,31 @@ func (w *World) EntityCount() int {
 }
 
 func (w *World) AddEntityLink(el protocol.EntityLink) {
-	w.entityLock.Lock()
-	defer w.entityLock.Unlock()
+	w.stateLock.Lock()
+	defer w.stateLock.Unlock()
 	w.currState().AddEntityLink(el)
 }
 
 func (w *World) PauseCapture() {
-	w.entityLock.Lock()
-	w.paused = true
-	w.pausedState = &worldStateMem{
-		chunks:      make(map[world.ChunkPos]*world.Column),
-		entities:    make(map[entity.RuntimeID]*entity.Entity),
-		entityLinks: make(map[entity.UniqueID]map[entity.UniqueID]struct{}),
-
-		uniqueIDsToRuntimeIDs: make(map[int64]uint64),
-	}
+	w.stateLock.Lock()
+	w.pausedState = newWorldState()
 	w.stateLock.Unlock()
 }
 
 func (w *World) UnpauseCapture(around cube.Pos, radius int32) {
 	w.stateLock.Lock()
 	defer w.stateLock.Unlock()
-	if !w.paused {
+	if w.pausedState == nil {
 		panic("attempt to unpause when not paused")
 	}
 	w.pausedState.ApplyTo(w, around, radius, func(pos world.ChunkPos, ch *chunk.Chunk) {
 		w.onChunkUpdate(pos, ch, false)
 	})
 	w.pausedState = nil
-	w.paused = false
 }
 
 func (w *World) IsPaused() bool {
-	return w.paused
+	return w.pausedState != nil
 }
 
 func (w *World) Open(name string, folder string, deferred bool) {
@@ -402,9 +386,8 @@ func (w *World) Open(name string, folder string, deferred bool) {
 	}
 	w.opened = true
 
-	if w.paused && !deferred {
+	if w.pausedState != nil && !deferred {
 		w.pausedState.ApplyTo(w, cube.Pos{}, -1, w.ChunkFunc)
-		w.paused = false
 	}
 }
 
@@ -467,7 +450,7 @@ func (w *World) Rename(name, folder string) error {
 			return err
 		}
 		w.provider, w.err = mcdb.Config{
-			Log:         w.log,
+			Log:         slog.Default(),
 			Compression: opt.DefaultCompression,
 			Blocks:      w.BlockRegistry,
 			Biomes:      w.BiomeRegistry,
