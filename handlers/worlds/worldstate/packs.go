@@ -5,12 +5,10 @@ import (
 	"fmt"
 	"path"
 	"slices"
-	"strings"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
-	"github.com/flytam/filenamify"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 	"github.com/sandertv/gophertunnel/minecraft/text"
 	"github.com/sirupsen/logrus"
@@ -28,21 +26,11 @@ func addPacksJSON(fs utils.WriterFS, name string, deps []resourcePackDependency)
 	return nil
 }
 
-var removeSpace = strings.NewReplacer(" ", "")
-
-func formatPackName(packName string) string {
-	packName = text.Clean(packName)
-	packName, _ = filenamify.FilenamifyV2(packName)
-	packName = removeSpace.Replace(packName)
-	packName = packName[:min(10, len(packName))]
-	return packName
-}
-
 func (w *World) addResourcePacks() error {
 	packNames := make(map[string][]string)
 	for _, pack := range w.ResourcePacks {
-		packName := formatPackName(pack.Name())
-		packNames[packName] = append(packNames[packName], pack.UUID())
+		packName := utils.FormatPackName(pack.Name())
+		packNames[packName] = append(packNames[packName], pack.UUID().String())
 	}
 
 	for _, pack := range w.ResourcePacks {
@@ -62,9 +50,9 @@ func (w *World) addResourcePacks() error {
 			},
 		})
 
-		packName := formatPackName(pack.Name())
+		packName := utils.FormatPackName(pack.Name())
 		if packIds := packNames[packName]; len(packIds) > 1 {
-			packName = fmt.Sprintf("%s_%d", packName[:8], slices.Index(packIds, pack.UUID()))
+			packName = fmt.Sprintf("%s_%d", packName[:8], slices.Index(packIds, pack.UUID().String()))
 		}
 
 		err := utils.CopyFS(pack, utils.SubFS(utils.OSWriter{Base: w.Folder}, path.Join("resource_packs", packName)))
@@ -74,7 +62,7 @@ func (w *World) addResourcePacks() error {
 		}
 
 		w.resourcePackDependencies = append(w.resourcePackDependencies, resourcePackDependency{
-			UUID:    pack.Manifest().Header.UUID,
+			UUID:    pack.Manifest().Header.UUID.String(),
 			Version: pack.Manifest().Header.Version,
 		})
 	}
@@ -114,7 +102,7 @@ func (w *World) FinalizePacks(addBehaviorPack func(fs utils.WriterFS) (*resource
 
 	if header != nil {
 		err = addPacksJSON(fs, "world_behavior_packs.json", []resourcePackDependency{{
-			UUID:    header.UUID,
+			UUID:    header.UUID.String(),
 			Version: header.Version,
 		}})
 		if err != nil {

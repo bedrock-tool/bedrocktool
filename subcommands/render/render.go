@@ -22,6 +22,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/df-mc/dragonfly/server/world/mcdb"
+	"github.com/df-mc/goleveldb/leveldb/opt"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 	"github.com/sirupsen/logrus"
@@ -45,7 +46,6 @@ func (c *RenderCMD) Execute(ctx context.Context) error {
 		BlockRegistry: world.DefaultBlockRegistry,
 		Rids:          make(map[uint32]merge.Block),
 	}
-	entityReg := &merge.EntityRegistry{}
 
 	if c.WorldPath == "" {
 		var ok bool
@@ -71,10 +71,11 @@ func (c *RenderCMD) Execute(ctx context.Context) error {
 	fmt.Printf("%s\n", c.WorldPath)
 
 	db, err := mcdb.Config{
-		Log:      slog.Default(),
-		Blocks:   blockReg,
-		Entities: entityReg,
-		ReadOnly: true,
+		Log:    slog.Default(),
+		Blocks: blockReg,
+		LDBOptions: &opt.Options{
+			ReadOnly: true,
+		},
 	}.Open(c.WorldPath)
 	if err != nil {
 		return err

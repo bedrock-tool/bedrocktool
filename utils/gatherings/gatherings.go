@@ -138,15 +138,16 @@ func (g *GatheringsClient) mcTokenAuth(req *http.Request) {
 }
 
 type JsonResponseError struct {
-	Data map[string]any
+	Status string
+	Data   map[string]any
 }
 
 func (e JsonResponseError) Error() string {
 	message, ok := e.Data["message"].(string)
 	if ok {
-		return message
+		return e.Status + "\n" + message
 	}
-	return "error response"
+	return e.Status
 }
 
 func doRequest[T any](ctx context.Context, client *http.Client, method, url string, payload any, header func(*http.Request)) (*T, error) {
@@ -190,7 +191,8 @@ func doRequest[T any](ctx context.Context, client *http.Client, method, url stri
 			return nil, err
 		}
 		return nil, &JsonResponseError{
-			Data: resp,
+			Status: res.Status,
+			Data:   resp,
 		}
 	}
 

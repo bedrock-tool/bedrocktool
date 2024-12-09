@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/google/uuid"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 )
 
@@ -27,7 +28,7 @@ func New(name string) *Pack {
 			Header: resource.Header{
 				Name:               name,
 				Description:        "Adds Blocks, Items and Entities from the server to this world",
-				UUID:               utils.RandSeededUUID(name + "_datapack"),
+				UUID:               uuid.MustParse(utils.RandSeededUUID(name + "_datapack")),
 				Version:            resource.Version{1, 0, 0},
 				MinimumGameVersion: resource.Version{1, 19, 50},
 			},
@@ -75,7 +76,7 @@ func (bp *Pack) CheckAddLink(pack resource.Pack) {
 	}
 
 	h := pack.Manifest().Header
-	bp.AddDependency(h.UUID, h.Version)
+	bp.AddDependency(h.UUID.String(), h.Version)
 }
 
 func (bp *Pack) HasBlocks() bool {

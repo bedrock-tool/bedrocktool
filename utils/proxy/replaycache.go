@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 )
 
@@ -14,16 +15,16 @@ type replayCache struct {
 	packs map[string]resource.Pack
 }
 
-func (r *replayCache) Get(id, ver string) (resource.Pack, error) {
-	return r.packs[id+"_"+ver], nil
+func (r *replayCache) Get(id uuid.UUID, ver string) (resource.Pack, error) {
+	return r.packs[id.String()+"_"+ver], nil
 }
 
-func (r *replayCache) Has(id, ver string) bool {
-	_, ok := r.packs[id+"_"+ver]
+func (r *replayCache) Has(id uuid.UUID, ver string) bool {
+	_, ok := r.packs[id.String()+"_"+ver]
 	return ok
 }
 
-func (r *replayCache) Create(id, ver string) (*closeMoveWriter, error) { return nil, nil }
+func (r *replayCache) Create(id uuid.UUID, ver string) (*closeMoveWriter, error) { return nil, nil }
 
 func (r *replayCache) ReadFrom(reader io.ReaderAt, readerSize int64) error {
 	z, err := zip.NewReader(reader, readerSize)
@@ -47,7 +48,7 @@ func (r *replayCache) ReadFrom(reader io.ReaderAt, readerSize int64) error {
 			if err != nil {
 				return err
 			}
-			r.packs[pack.UUID()+"_"+pack.Version()] = pack
+			r.packs[pack.UUID().String()+"_"+pack.Version()] = pack
 		}
 	}
 	return nil

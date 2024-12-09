@@ -74,7 +74,7 @@ func (p *packetCapturer) OnServerConnect() (disconnect bool, err error) {
 
 	written := make(map[string]bool)
 	for _, pack := range packs {
-		filename := filepath.Join("packcache", pack.UUID()+"_"+pack.Version()+".zip")
+		filename := filepath.Join("packcache", pack.UUID().String()+"_"+pack.Version()+".zip")
 		if _, ok := written[filename]; ok {
 			continue
 		}

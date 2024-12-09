@@ -432,11 +432,7 @@ func (w *worldsHandler) saveWorldState(worldState *worldstate.World) error {
 
 	err = worldState.FinalizePacks(func(fs utils.WriterFS) (*resource.Header, error) {
 		if w.serverState.behaviorPack.HasContent() {
-			name, err := filenamify.FilenamifyV2(w.serverState.Name)
-			if err != nil {
-				return nil, err
-			}
-			packFolder := path.Join("behavior_packs", name)
+			packFolder := path.Join("behavior_packs", utils.FormatPackName(w.serverState.Name))
 
 			for _, p := range w.session.Server.ResourcePacks() {
 				w.serverState.behaviorPack.CheckAddLink(p)

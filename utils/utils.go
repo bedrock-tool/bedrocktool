@@ -25,8 +25,10 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/tailscale/hujson"
 
+	"github.com/flytam/filenamify"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
+	"github.com/sandertv/gophertunnel/minecraft/text"
 )
 
 var Options struct {
@@ -210,4 +212,14 @@ func StackToItem(reg world.BlockRegistry, it protocol.ItemStack) item.Stack {
 	}
 	s := item.NewStack(t, int(it.Count))
 	return nbtconv.Item(it.NBTData, &s)
+}
+
+var removeSpace = strings.NewReplacer(" ", "")
+
+func FormatPackName(packName string) string {
+	packName = text.Clean(packName)
+	packName, _ = filenamify.FilenamifyV2(packName)
+	packName = removeSpace.Replace(packName)
+	packName = packName[:min(10, len(packName))]
+	return packName
 }

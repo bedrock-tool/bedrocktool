@@ -14,6 +14,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/df-mc/dragonfly/server/world/mcdb"
+	"github.com/df-mc/goleveldb/leveldb/opt"
 )
 
 type MergeCMD struct {
@@ -46,7 +47,6 @@ func (c *MergeCMD) Execute(ctx context.Context) error {
 		BlockRegistry: world.DefaultBlockRegistry,
 		Rids:          make(map[uint32]Block),
 	}
-	entityReg := &EntityRegistry{}
 
 	var worlds []worldInstance
 	for _, worldName := range c.f.Args() {
@@ -66,10 +66,11 @@ func (c *MergeCMD) Execute(ctx context.Context) error {
 			offset[1] = int32(z)
 		}
 		db, err := mcdb.Config{
-			Log:      slog.Default(),
-			ReadOnly: true,
-			Blocks:   blockReg,
-			Entities: entityReg,
+			Log:    slog.Default(),
+			Blocks: blockReg,
+			LDBOptions: &opt.Options{
+				ReadOnly: true,
+			},
 		}.Open(worldName)
 		if err != nil {
 			return fmt.Errorf("%s %w", worldName, err)
@@ -97,9 +98,8 @@ func (c *MergeCMD) Execute(ctx context.Context) error {
 		}
 	}
 	dbOut, err := mcdb.Config{
-		Log:      slog.Default(),
-		Blocks:   blockReg,
-		Entities: entityReg,
+		Log:    slog.Default(),
+		Blocks: blockReg,
 	}.Open(c.outPath)
 	if err != nil {
 		return err
@@ -139,8 +139,6 @@ func (w worldInstance) getWorldBounds() (minChunk, maxChunk world.ChunkPos, err 
 	return
 }
 
-var ids = map[int64]*DummyEntity{}
-
 func (c *MergeCMD) processWorld(db *mcdb.DB, out *mcdb.DB, offset world.ChunkPos) error {
 	it := db.NewColumnIterator(nil)
 	defer it.Release()
@@ -151,24 +149,16 @@ func (c *MergeCMD) processWorld(db *mcdb.DB, out *mcdb.DB, offset world.ChunkPos
 		pos[0] += offset[0]
 		pos[1] += offset[1]
 		for _, ent := range column.Entities {
-			ent := ent.(*DummyEntity)
-			t := ent.T.(*DummyEntityType)
-			pos := t.NBT["Pos"].([]any)
+			pos := ent.Data["Pos"].([]any)
 			x := pos[0].(float32)
 			y := pos[1].(float32)
 			z := pos[2].(float32)
-			t.NBT["Pos"] = []any{
+			ent.Data["Pos"] = []any{
 				x + float32(offset[0]*16),
 				y,
 				z + float32(offset[1]*16),
 			}
-			t.NBT["UniqueID"] = rand.Int64()
-			UniqueID := t.NBT["UniqueID"].(int64)
-			ent2, ok := ids[UniqueID]
-			if ok {
-				fmt.Printf("conflict 0x%016x %s %s\n", UniqueID, ent, ent2)
-			}
-			ids[UniqueID] = ent
+			ent.Data["UniqueID"] = rand.Int64()
 		}
 		err := out.StoreColumn(pos, dim, column)
 		if err != nil {

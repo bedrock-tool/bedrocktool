@@ -315,7 +315,7 @@ func (p *Page) HandleMessage(msg *messages.Message) *messages.Message {
 		for _, dp := range m.Packs {
 			pack := &packEntry{
 				IsFinished: false,
-				UUID:       dp.UUID,
+				UUID:       dp.UUID.String(),
 				Name:       strings.ReplaceAll(dp.SubPackName, "\n", " "),
 				Version:    dp.Version,
 				Size:       dp.Size,
@@ -350,7 +350,7 @@ func (p *Page) HandleMessage(msg *messages.Message) *messages.Message {
 			}
 		}
 		for _, pe := range p.Packs {
-			if pe.UUID != m.Pack.UUID() {
+			if pe.UUID != m.Pack.UUID().String() {
 				continue
 			}
 			if icon != nil {

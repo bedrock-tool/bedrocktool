@@ -16,17 +16,22 @@ import (
 
 type worldState struct {
 	maps        map[int64]*Map
-	chunks      map[world.ChunkPos]*world.Column
+	chunks      map[world.ChunkPos]*Chunk
 	entities    map[entity.RuntimeID]*entity.Entity
 	entityLinks map[entity.UniqueID]map[entity.UniqueID]struct{}
 
 	uniqueIDsToRuntimeIDs map[entity.UniqueID]entity.RuntimeID
 }
 
+type Chunk struct {
+	*chunk.Chunk
+	BlockEntities map[cube.Pos]map[string]any
+}
+
 func newWorldState() *worldState {
 	return &worldState{
 		maps:        make(map[int64]*Map),
-		chunks:      make(map[world.ChunkPos]*world.Column),
+		chunks:      make(map[world.ChunkPos]*Chunk),
 		entities:    make(map[entity.RuntimeID]*entity.Entity),
 		entityLinks: make(map[entity.UniqueID]map[entity.UniqueID]struct{}),
 
@@ -34,8 +39,8 @@ func newWorldState() *worldState {
 	}
 }
 
-func (w *worldState) StoreChunk(pos world.ChunkPos, col *world.Column) {
-	w.chunks[pos] = col
+func (w *worldState) StoreChunk(pos world.ChunkPos, ch *Chunk) {
+	w.chunks[pos] = ch
 }
 
 func (w *worldState) StoreMap(m *packet.ClientBoundMapItemData) {
@@ -80,11 +85,11 @@ chunks:
 
 func (w *worldState) ApplyTo(w2 worldStateInterface, around cube.Pos, radius int32, cf func(world.ChunkPos, *chunk.Chunk)) {
 	w.cullChunks()
-	for pos, col := range w.chunks {
+	for pos, ch := range w.chunks {
 		dist := i32.Sqrt(i32.Pow(pos.X()-int32(around.X()/16), 2) + i32.Pow(pos.Z()-int32(around.Z()/16), 2))
 		if dist <= radius || radius < 0 {
-			w2.StoreChunk(pos, col)
-			cf(pos, col.Chunk)
+			w2.StoreChunk(pos, ch)
+			cf(pos, ch.Chunk)
 		} else {
 			cf(pos, nil)
 		}

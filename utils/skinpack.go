@@ -170,7 +170,7 @@ func (s *SkinPack) Save(fpath string) error {
 			Header: resource.Header{
 				Name:               s.Name,
 				Description:        s.Name,
-				UUID:               uuid.NewString(),
+				UUID:               uuid.New(),
 				Version:            [3]int{1, 0, 0},
 				MinimumGameVersion: [3]int{1, 17, 0},
 			},

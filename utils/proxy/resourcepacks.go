@@ -19,6 +19,8 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
+
+	"github.com/google/uuid"
 )
 
 // packChunkSize is the size of a single chunk of data from a resource pack: 512 kB or 0.5 MB
@@ -32,7 +34,7 @@ type downloadingPack struct {
 	newFrag       chan *packet.ResourcePackChunkData
 	contentKey    string
 
-	ID      string
+	ID      uuid.UUID
 	Version string
 }
 
@@ -76,7 +78,7 @@ type rpHandler struct {
 
 	// map[pack uuid]map[pack size]pack
 	// this way servers with multiple packs on the same uuid work
-	downloadingPacks map[string]map[uint64]downloadingPack
+	downloadingPacks map[uuid.UUID]map[uint64]downloadingPack
 	awaitingPack     *downloadingPack
 	packDownloads    chan *packet.ResourcePackDataInfo
 
@@ -102,10 +104,11 @@ type rpHandler struct {
 	// set to true if the client wants any resource packs
 	// if its false when the client sends the `done` message, that means the nextPack channel should be closed
 	clientHasRequested bool
+	allPacksDownloaded bool
 
 	// queue for packs the client can receive
 	nextPackToClient chan resource.Pack
-	uploads          map[string]*uploadingPack
+	uploads          map[uuid.UUID]*uploadingPack
 	uploadLock       sync.Mutex
 	clientDone       chan struct{}
 }
@@ -119,7 +122,7 @@ func newRpHandler(ctx context.Context, addedPacks []resource.Pack) *rpHandler {
 		cache:                  &packCache{},
 		receivedRemotePackInfo: make(chan struct{}),
 		receivedRemoteStack:    make(chan struct{}),
-		downloadingPacks:       make(map[string]map[uint64]downloadingPack),
+		downloadingPacks:       make(map[uuid.UUID]map[uint64]downloadingPack),
 	}
 	return r
 }
@@ -208,7 +211,7 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 			case <-r.ctx.Done():
 				return r.ctx.Err()
 			}
-			if slices.Contains(r.packsRequestedFromServer, newPack.UUID()+"_"+newPack.Version()) {
+			if slices.Contains(r.packsRequestedFromServer, newPack.UUID().String()+"_"+newPack.Version()) {
 				r.nextPackToClient <- newPack
 			}
 		}
@@ -217,7 +220,7 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 
 	var urlDownloads []protocol.TexturePackInfo
 	for _, pack := range pk.TexturePacks {
-		packID := pack.UUID + "_" + pack.Version
+		packID := pack.UUID.String() + "_" + pack.Version
 		if r.filterDownloadResourcePacks(packID) {
 			continue
 		}
@@ -320,7 +323,10 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 }
 
 func (r *rpHandler) downloadResourcePack(pk *packet.ResourcePackDataInfo) error {
-	packID := strings.Split(pk.UUID, "_")[0]
+	packID, err := uuid.Parse(strings.Split(pk.UUID, "_")[0])
+	if err != nil {
+		return err
+	}
 	packMap, ok := r.downloadingPacks[packID]
 	if !ok {
 		// We either already downloaded the pack or we got sent an invalid UUID, that did not match any pack
@@ -470,7 +476,7 @@ func (r *rpHandler) downloadResourcePack(pk *packet.ResourcePackDataInfo) error 
 
 	// if theres a client and the client needs resource packs send it to its queue
 	if r.nextPackToClient != nil {
-		if slices.Contains(r.packsRequestedFromServer, pack.ID+"_"+pack.Version) {
+		if slices.Contains(r.packsRequestedFromServer, pack.ID.String()+"_"+pack.Version) {
 			r.log.Debugf("sending pack %s from server to client", newPack.Name())
 			r.nextPackToClient <- newPack
 		}
@@ -550,7 +556,7 @@ func (r *rpHandler) OnResourcePackStack(pk *packet.ResourcePackStack) error {
 	var addPacks []protocol.StackResourcePack
 	for _, p := range r.addedPacks {
 		addPacks = append(addPacks, protocol.StackResourcePack{
-			UUID:        p.UUID(),
+			UUID:        p.UUID().String(),
 			Version:     p.Version(),
 			SubPackName: p.Name(),
 		})
@@ -574,15 +580,19 @@ func (r *rpHandler) OnResourcePackStack(pk *packet.ResourcePackStack) error {
 
 // from client
 func (r *rpHandler) OnResourcePackChunkRequest(pk *packet.ResourcePackChunkRequest) error {
+	packID, err := uuid.Parse(pk.UUID)
+	if err != nil {
+		return err
+	}
 	r.uploadLock.Lock()
-	upload, ok := r.uploads[pk.UUID]
+	upload, ok := r.uploads[packID]
 	r.uploadLock.Unlock()
 	if !ok {
-		return fmt.Errorf("client requested an unknown resourcepack chunk %s", pk.UUID)
+		return fmt.Errorf("client requested an unknown resourcepack chunk %s", packID)
 	}
 
-	if upload.Pack.UUID() != pk.UUID {
-		return fmt.Errorf("resource pack chunk request had unexpected UUID: expected %v, but got %v", upload.Pack.UUID(), pk.UUID)
+	if upload.Pack.UUID() != packID {
+		return fmt.Errorf("resource pack chunk request had unexpected UUID: expected %v, but got %v", upload.Pack.UUID(), packID)
 	}
 	if upload.currentOffset != uint64(pk.ChunkIndex)*packChunkSize {
 		return fmt.Errorf("resource pack chunk request had unexpected chunk index: expected %v, but got %v", upload.currentOffset/packChunkSize, pk.ChunkIndex)
@@ -616,7 +626,7 @@ func (r *rpHandler) OnResourcePackChunkRequest(pk *packet.ResourcePackChunkReque
 		r.Client.Expect(packet.IDResourcePackChunkRequest)
 	} else {
 		// this pack is done
-		delete(r.uploads, pk.UUID)
+		delete(r.uploads, packID)
 	}
 
 	// when theres nothing left to upload, the client is done
@@ -639,13 +649,17 @@ func (r *rpHandler) processClientRequest(packs []string) error {
 
 	var contentKeys = make(map[string]string)
 	for _, pack := range r.remotePacksInfo.TexturePacks {
-		contentKeys[pack.UUID+"_"+pack.Version] = pack.ContentKey
+		contentKeys[pack.UUID.String()+"_"+pack.Version] = pack.ContentKey
 	}
 
 loopPacks:
 	for _, packUUID := range packs {
 		uuid_ver := strings.Split(packUUID, "_")
-		id, ver := uuid_ver[0], uuid_ver[1]
+		id, err := uuid.Parse(uuid_ver[0])
+		if err != nil {
+			return err
+		}
+		ver := uuid_ver[1]
 
 		if r.cache.Has(id, ver) {
 			r.log.Debugf("using %s from cache", packUUID)
@@ -662,14 +676,14 @@ loopPacks:
 		}
 
 		for _, pack := range r.addedPacks {
-			if pack.UUID()+"_"+pack.Version() == packUUID {
+			if pack.UUID().String()+"_"+pack.Version() == packUUID {
 				addedPacksRequested = append(addedPacksRequested, pack)
 				continue loopPacks
 			}
 		}
 
 		for _, pack := range r.remotePacksInfo.TexturePacks {
-			if pack.UUID+"_"+pack.Version == packUUID {
+			if pack.UUID.String()+"_"+pack.Version == packUUID {
 				r.packsRequestedFromServer = append(r.packsRequestedFromServer, packUUID)
 				continue loopPacks
 			}
@@ -711,7 +725,7 @@ func (r *rpHandler) OnResourcePackClientResponse(pk *packet.ResourcePackClientRe
 			return fmt.Errorf("error looking up resource packs to download: %v", err)
 		}
 
-		r.uploads = make(map[string]*uploadingPack)
+		r.uploads = make(map[uuid.UUID]*uploadingPack)
 		go func() {
 			for {
 				select {
@@ -746,7 +760,7 @@ func (r *rpHandler) OnResourcePackClientResponse(pk *packet.ResourcePackClientRe
 					checksum := pack.Checksum()
 					r.Client.Expect(packet.IDResourcePackChunkRequest)
 					err := r.Client.WritePacket(&packet.ResourcePackDataInfo{
-						UUID:          pack.UUID(),
+						UUID:          pack.UUID().String(),
 						DataChunkSize: packChunkSize,
 						ChunkCount:    uint32(pack.DataChunkCount(packChunkSize)),
 						Size:          uint64(pack.Len()),
@@ -765,6 +779,10 @@ func (r *rpHandler) OnResourcePackClientResponse(pk *packet.ResourcePackClientRe
 		}()
 
 	case packet.PackResponseAllPacksDownloaded:
+		if r.allPacksDownloaded {
+			return nil
+		}
+		r.allPacksDownloaded = true
 		if !r.clientHasRequested {
 			close(r.knowPacksRequestedFromServer)
 		}
@@ -810,7 +828,7 @@ func (r *rpHandler) GetResourcePacksInfo(texturePacksRequired bool) *packet.Reso
 			Size:            uint64(p.Len()),
 			ContentKey:      p.ContentKey(),
 			SubPackName:     p.Name(),
-			ContentIdentity: p.UUID(),
+			ContentIdentity: p.UUID().String(),
 			HasScripts:      false,
 			RTXEnabled:      false,
 		})
@@ -842,7 +860,7 @@ func (r *rpHandler) hasPack(uuid string, version string, hasBehaviours bool) boo
 	}
 
 	for _, pack := range r.resourcePacks {
-		if pack.UUID() == uuid && pack.Version() == version && pack.HasBehaviours() == hasBehaviours {
+		if pack.UUID().String() == uuid && pack.Version() == version && pack.HasBehaviours() == hasBehaviours {
 			return true
 		}
 	}

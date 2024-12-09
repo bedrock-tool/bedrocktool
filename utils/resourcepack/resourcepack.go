@@ -41,7 +41,7 @@ func buildManifest(headerUUID, moduleUUID uuid.UUID) resource.Manifest {
 		Header: resource.Header{
 			Name:               "auto-generated resource pack",
 			Description:        "This resource pack contains auto-generated content from dragonfly",
-			UUID:               headerUUID.String(),
+			UUID:               headerUUID,
 			Version:            [3]int{0, 0, 1},
 			MinimumGameVersion: parseVersion(protocol.CurrentVersion),
 		},

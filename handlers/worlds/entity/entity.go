@@ -3,8 +3,7 @@ package entity
 import (
 	"math"
 
-	"github.com/df-mc/dragonfly/server/block/cube"
-	"github.com/df-mc/dragonfly/server/world"
+	"github.com/df-mc/dragonfly/server/world/chunk"
 	"github.com/go-gl/mathgl/mgl32"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
@@ -47,38 +46,6 @@ type EntityProperty struct {
 	Max   float32
 	Enum  []any
 	Value any
-}
-
-type serverEntityType struct {
-	Encoded string
-	NBT     map[string]any
-}
-
-func (t serverEntityType) EncodeEntity() string {
-	return t.Encoded
-}
-
-func (t serverEntityType) BBox(e world.Entity) cube.BBox {
-	return cube.Box(-0.5, 0, -0.5, 0.5, 1, 0.5)
-}
-
-func (t serverEntityType) DecodeNBT(m map[string]any) world.Entity {
-	return nil // not implemented, and never should
-}
-
-func (t serverEntityType) EncodeNBT(e world.Entity) map[string]any {
-	return t.NBT
-}
-
-type serverEntity struct {
-	world.Entity
-	EntityType serverEntityType
-}
-
-var _ world.SaveableEntityType = &serverEntityType{}
-
-func (e serverEntity) Type() world.EntityType {
-	return e.EntityType
 }
 
 var flagNames = map[uint8]string{
@@ -274,26 +241,24 @@ func vec3float32(x mgl32.Vec3) []float32 {
 	return []float32{float32(x[0]), float32(x[1]), float32(x[2])}
 }
 
-func (s *Entity) ToServerEntity(links []int64) serverEntity {
+func (s *Entity) ToChunkEntity(links []int64) chunk.Entity {
 	s.Velocity[1] = 0
-	e := serverEntity{
-		EntityType: serverEntityType{
-			Encoded: s.EntityType,
-			NBT: map[string]any{
-				"Pos":      vec3float32(s.Position),
-				"Rotation": []float32{s.HeadYaw, s.Pitch},
-				"Motion":   vec3float32(s.Velocity),
-				"UniqueID": int64(s.UniqueID),
-			},
+	e := chunk.Entity{
+		ID: int64(s.UniqueID),
+		Data: map[string]any{
+			"identifier": s.EntityType,
+			"Pos":        vec3float32(s.Position),
+			"Rotation":   []float32{s.HeadYaw, s.Pitch},
+			"Motion":     vec3float32(s.Velocity),
 		},
 	}
-	s.toNBT(e.EntityType.NBT)
+	s.toNBT(e.Data)
 	if len(s.Properties) > 0 {
 		nbtProperties := map[string]any{}
 		for name, prop := range s.Properties {
 			nbtProperties[name] = prop.Value
 		}
-		e.EntityType.NBT["properties"] = nbtProperties
+		e.Data["properties"] = nbtProperties
 	}
 
 	var linksTag []map[string]any
@@ -304,7 +269,7 @@ func (s *Entity) ToServerEntity(links []int64) serverEntity {
 		})
 	}
 	if len(linksTag) > 0 {
-		e.EntityType.NBT["LinksTag"] = linksTag
+		e.Data["LinksTag"] = linksTag
 	}
 
 	/*

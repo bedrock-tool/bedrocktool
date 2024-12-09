@@ -43,8 +43,12 @@ type MinecraftBlock struct {
 
 func processComponent(name string, value map[string]any, version *string) (string, any) {
 	switch name {
-	case "minecraft:block_light_filter":
-		return "minecraft:light_dampening", value["lightLevel"]
+	case "minecraft:block_light_filter", "minecraft:light_dampening":
+		lightLevel, ok := value["lightLevel"]
+		if !ok || lightLevel == float32(-1) {
+			return "", nil
+		}
+		return "minecraft:light_dampening", lightLevel
 
 	case "minecraft:material_instances":
 		return name, processMaterialInstances(value)
@@ -99,6 +103,11 @@ func processComponent(name string, value map[string]any, version *string) (strin
 
 	case "minecraft:custom_components", "minecraft:creative_category":
 		return "", nil
+
+	case "minecraft:destructible_by_mining":
+		if value["value"] == float32(-1) {
+			return "", nil
+		}
 	}
 
 	if v, ok := value["value"]; ok {
