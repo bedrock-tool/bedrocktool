@@ -51,6 +51,8 @@ type Session struct {
 	listenAddress string
 	handlers      Handlers
 	OnHitBlobs    func(hitBlobs []protocol.CacheBlob)
+
+	EnableClientCache bool
 }
 
 func NewSession() *Session {
@@ -360,7 +362,7 @@ func (s *Session) connectServer(ctx context.Context, connect *utils.ConnectInfo)
 		TokenSource:       utils.Auth,
 		ErrorLog:          slog.Default(),
 		PacketFunc:        s.packetFunc,
-		EnableClientCache: true,
+		EnableClientCache: s.EnableClientCache,
 		GetClientData: func() login.ClientData {
 			if s.withClient {
 				select {

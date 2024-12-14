@@ -14,18 +14,19 @@ import (
 )
 
 type WorldCMD struct {
-	ServerAddress   string
-	ListenAddress   string
-	EnableVoid      bool
-	SaveEntities    bool
-	SaveInventories bool
-	SaveImage       bool
-	BlockUpdates    bool
-	ExcludeMobs     string
-	StartPaused     bool
-	PreloadReplay   string
-	ChunkRadius     int
-	ScriptPath      string
+	ServerAddress     string
+	ListenAddress     string
+	EnableVoid        bool
+	SaveEntities      bool
+	SaveInventories   bool
+	SaveImage         bool
+	BlockUpdates      bool
+	ExcludeMobs       string
+	StartPaused       bool
+	PreloadReplay     string
+	ChunkRadius       int
+	ScriptPath        string
+	EnableClientCache bool
 }
 
 func (*WorldCMD) Name() string     { return "worlds" }
@@ -44,6 +45,7 @@ func (c *WorldCMD) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.PreloadReplay, "preload-replay", "", "preload from a replay")
 	f.IntVar(&c.ChunkRadius, "chunk-radius", 0, "the max chunk radius to force")
 	f.StringVar(&c.ScriptPath, "script", "", "path to script to use")
+	f.BoolVar(&c.EnableClientCache, "client-cache", true, "Enable Client Cache")
 }
 
 func (c *WorldCMD) Execute(ctx context.Context) error {
@@ -56,7 +58,7 @@ func (c *WorldCMD) Execute(ctx context.Context) error {
 		script = string(data)
 	}
 
-	proxy, err := proxy.New(true)
+	proxy, err := proxy.New(true, c.EnableClientCache)
 	if err != nil {
 		return err
 	}

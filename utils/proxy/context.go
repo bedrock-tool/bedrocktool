@@ -27,10 +27,11 @@ func (e *errTransfer) Error() string {
 }
 
 type Context struct {
-	ExtraDebug    bool
-	PlayerMoveCB  []func()
-	ListenAddress string
-	withClient    bool
+	ExtraDebug        bool
+	PlayerMoveCB      []func()
+	ListenAddress     string
+	withClient        bool
+	EnableClientCache bool
 
 	addedPacks []resource.Pack
 	handlers   Handlers
@@ -40,7 +41,7 @@ type Context struct {
 }
 
 // New creates a new proxy context
-func New(withClient bool) (*Context, error) {
+func New(withClient, EnableClientCache bool) (*Context, error) {
 	p := &Context{
 		withClient:    withClient,
 		ListenAddress: "0.0.0.0:19132",
@@ -80,6 +81,7 @@ func (p *Context) connect(ctx context.Context, connect *utils.ConnectInfo) (err 
 	p.session.listenAddress = p.ListenAddress
 	p.session.handlers = p.handlers
 	p.session.OnHitBlobs = p.onHitBlobs
+	p.session.EnableClientCache = p.EnableClientCache
 
 	p.handlers.SessionStart(p.session, connect.Name())
 	err = p.session.Run(ctx, connect)

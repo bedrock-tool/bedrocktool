@@ -11,8 +11,9 @@ import (
 )
 
 type DebugProxyCMD struct {
-	ServerAddress string
-	ListenAddress string
+	ServerAddress     string
+	ListenAddress     string
+	EnableClientCache bool
 }
 
 func (*DebugProxyCMD) Name() string     { return "debug-proxy" }
@@ -20,10 +21,11 @@ func (*DebugProxyCMD) Synopsis() string { return locale.Loc("debug_proxy_synopsi
 func (c *DebugProxyCMD) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.ServerAddress, "address", "", locale.Loc("remote_address", nil))
 	f.StringVar(&c.ListenAddress, "listen", "0.0.0.0:19132", "example :19132 or 127.0.0.1:19132")
+	f.BoolVar(&c.EnableClientCache, "client-cache", true, "Enable Client Cache")
 }
 
 func (c *DebugProxyCMD) Execute(ctx context.Context) error {
-	proxyContext, err := proxy.New(true)
+	proxyContext, err := proxy.New(true, c.EnableClientCache)
 	if err != nil {
 		return err
 	}

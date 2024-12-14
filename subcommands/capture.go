@@ -11,17 +11,19 @@ import (
 )
 
 type CaptureCMD struct {
-	ServerAddress string
+	ServerAddress     string
+	EnableClientCache bool
 }
 
 func (*CaptureCMD) Name() string     { return "capture" }
 func (*CaptureCMD) Synopsis() string { return locale.Loc("capture_synopsis", nil) }
 func (c *CaptureCMD) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.ServerAddress, "address", "", "remote server address")
+	f.BoolVar(&c.EnableClientCache, "client-cache", true, "Enable Client Cache")
 }
 
 func (c *CaptureCMD) Execute(ctx context.Context) error {
-	p, err := proxy.New(true)
+	p, err := proxy.New(true, c.EnableClientCache)
 	if err != nil {
 		return err
 	}

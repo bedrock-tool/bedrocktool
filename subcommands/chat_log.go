@@ -12,8 +12,9 @@ import (
 )
 
 type ChatLogCMD struct {
-	ServerAddress string
-	Verbose       bool
+	ServerAddress     string
+	Verbose           bool
+	EnableClientCache bool
 }
 
 func (*ChatLogCMD) Name() string     { return "chat-log" }
@@ -21,10 +22,11 @@ func (*ChatLogCMD) Synopsis() string { return locale.Loc("chat_log_synopsis", ni
 func (c *ChatLogCMD) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.ServerAddress, "address", "", "remote server address")
 	f.BoolVar(&c.Verbose, "v", false, "verbose")
+	f.BoolVar(&c.EnableClientCache, "client-cache", true, "Enable Client Cache")
 }
 
 func (c *ChatLogCMD) Execute(ctx context.Context) error {
-	proxyContext, err := proxy.New(true)
+	proxyContext, err := proxy.New(true, c.EnableClientCache)
 	if err != nil {
 		return err
 	}

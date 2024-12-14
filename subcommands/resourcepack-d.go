@@ -12,11 +12,12 @@ import (
 )
 
 type ResourcePackCMD struct {
-	ServerAddress string
-	SaveEncrypted bool
-	OnlyKeys      bool
-	writeFolders  bool
-	f             *flag.FlagSet
+	ServerAddress     string
+	SaveEncrypted     bool
+	OnlyKeys          bool
+	writeFolders      bool
+	EnableClientCache bool
+	f                 *flag.FlagSet
 }
 
 func (*ResourcePackCMD) Name() string     { return "packs" }
@@ -27,11 +28,12 @@ func (c *ResourcePackCMD) SetFlags(f *flag.FlagSet) {
 	f.BoolVar(&c.SaveEncrypted, "save-encrypted", false, locale.Loc("save_encrypted", nil))
 	f.BoolVar(&c.OnlyKeys, "only-keys", false, locale.Loc("only_keys", nil))
 	f.BoolVar(&c.writeFolders, "folders", false, "folders instead of zips")
+	f.BoolVar(&c.EnableClientCache, "client-cache", true, "Enable Client Cache")
 	c.f = f
 }
 
 func (c *ResourcePackCMD) Execute(ctx context.Context) error {
-	return resourcepackd.Execute_cmd(ctx, c.ServerAddress, c.OnlyKeys, c.SaveEncrypted, c.writeFolders, c.f)
+	return resourcepackd.Execute_cmd(ctx, c.ServerAddress, c.OnlyKeys, c.SaveEncrypted, c.writeFolders, c.EnableClientCache, c.f)
 }
 
 func init() {

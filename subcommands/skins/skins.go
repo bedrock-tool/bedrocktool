@@ -13,10 +13,11 @@ import (
 )
 
 type SkinCMD struct {
-	ServerAddress string
-	ListenAddress string
-	Filter        string
-	NoProxy       bool
+	ServerAddress     string
+	ListenAddress     string
+	Filter            string
+	NoProxy           bool
+	EnableClientCache bool
 }
 
 func (*SkinCMD) Name() string     { return "skins" }
@@ -27,10 +28,11 @@ func (c *SkinCMD) SetFlags(f *flag.FlagSet) {
 	f.StringVar(&c.ListenAddress, "listen", "0.0.0.0:19132", "example :19132 or 127.0.0.1:19132")
 	f.StringVar(&c.Filter, "filter", "", locale.Loc("name_prefix", nil))
 	f.BoolVar(&c.NoProxy, "no-proxy", false, "use headless version")
+	f.BoolVar(&c.EnableClientCache, "client-cache", true, "Enable Client Cache")
 }
 
 func (c *SkinCMD) Execute(ctx context.Context) error {
-	p, err := proxy.New(!c.NoProxy)
+	p, err := proxy.New(!c.NoProxy, c.EnableClientCache)
 	if err != nil {
 		return err
 	}
