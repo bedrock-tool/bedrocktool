@@ -152,7 +152,7 @@ func (r *Pcap2Reader) ReadPacket(skip bool) (pk packet.Packet, toServer bool, re
 		}
 		pk = pks[0]
 
-		if pk, ok := pk.(*packet.StartGame); ok {
+		if pk, ok := pk.(*packet.ItemRegistry); ok {
 			for _, item := range pk.Items {
 				if item.Name == "minecraft:shield" {
 					r.shieldID.Store(int32(item.RuntimeID))

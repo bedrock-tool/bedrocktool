@@ -132,7 +132,7 @@ func main() {
 
 		http.DefaultTransport = &logTransport{rt: http.DefaultTransport}
 	} else {
-		log.Infof(locale.Loc("bedrocktool_version", locale.Strmap{"Version": updater.Version}))
+		log.Info(locale.Loc("bedrocktool_version", locale.Strmap{"Version": updater.Version}))
 	}
 
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ContinueOnError)
@@ -140,10 +140,16 @@ func main() {
 	flag.BoolVar(&utils.Options.Debug, "debug", false, locale.Loc("debug_mode", nil))
 	flag.BoolVar(&utils.Options.ExtraDebug, "extra-debug", false, locale.Loc("extra_debug", nil))
 	flag.BoolVar(&utils.Options.Capture, "capture", false, "Capture pcap2 file")
+	var trace bool
+	flag.BoolVar(&trace, "trace", false, "trace log")
 
 	err := flag.CommandLine.Parse(os.Args[1:])
 	if err != nil {
 		logrus.Fatal(err)
+	}
+
+	if trace {
+		logrus.SetLevel(logrus.TraceLevel)
 	}
 
 	err = utils.Auth.Startup()

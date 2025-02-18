@@ -36,7 +36,7 @@ func (bp *Pack) AddItem(item protocol.ItemEntry) {
 	}
 }
 
-func (bp *Pack) ApplyComponentEntries(entries []protocol.ItemComponentEntry) {
+func (bp *Pack) ApplyComponentEntries(entries []protocol.ItemEntry) {
 	for _, ice := range entries {
 		item, ok := bp.items[ice.Name]
 		if !ok {

@@ -80,11 +80,12 @@ func (p *packetLogger) logPacket(pk packet.Packet, t time.Time, toServer bool) e
 		p.packetLogWriter.Flush()
 	}
 
+	var dir string = dirS2C
+	if toServer {
+		dir = dirC2S
+	}
+
 	if !p.clientSide && !slices.Contains(mutedPackets, pk.ID()) {
-		var dir string = dirS2C
-		if toServer {
-			dir = dirC2S
-		}
 		pkName := reflect.TypeOf(pk).String()[8:]
 		logrus.Debugf("%s %s", dir, pkName)
 	}

@@ -3,7 +3,6 @@ package proxy
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net"
 	"os"
 	"sync/atomic"
@@ -105,7 +104,6 @@ func (r *ReplayConnector) handleLoginSequence(pk packet.Packet) (bool, bool, err
 			Time:                         pk.Time,
 			ServerBlockStateChecksum:     pk.ServerBlockStateChecksum,
 			CustomBlocks:                 pk.Blocks,
-			Items:                        pk.Items,
 			PlayerMovementSettings:       pk.PlayerMovementSettings,
 			ServerAuthoritativeInventory: pk.ServerAuthoritativeInventory,
 			Experiments:                  pk.Experiments,
@@ -114,9 +112,11 @@ func (r *ReplayConnector) handleLoginSequence(pk packet.Packet) (bool, bool, err
 			DisablePlayerInteractions:    pk.DisablePlayerInteractions,
 			UseBlockNetworkIDHashes:      pk.UseBlockNetworkIDHashes,
 		})
+	case *packet.ItemRegistry:
+		r.gameData.Items = pk.Items
 	case *packet.SetLocalPlayerAsInitialised:
 		if pk.EntityRuntimeID != r.gameData.EntityRuntimeID {
-			return false, true, fmt.Errorf("entity runtime ID mismatch: entity runtime ID in StartGame and SetLocalPlayerAsInitialised packets should be equal")
+			//return false, true, fmt.Errorf("entity runtime ID mismatch: entity runtime ID in StartGame and SetLocalPlayerAsInitialised packets should be equal")
 		}
 		close(r.spawn)
 		return true, true, nil

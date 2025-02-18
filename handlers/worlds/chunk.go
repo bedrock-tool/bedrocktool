@@ -29,8 +29,8 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk, timeReceived ti
 		subChunkCount = int(pk.SubChunkCount)
 	}
 
-	w.worldStateLock.Lock()
-	defer w.worldStateLock.Unlock()
+	w.worldStateMu.Lock()
+	defer w.worldStateMu.Unlock()
 
 	//os.WriteFile("chunk.bin", pk.RawPayload, 0777)
 
@@ -43,7 +43,7 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk, timeReceived ti
 		pk.RawPayload, subChunkCount,
 		w.serverState.useOldBiomes,
 		w.serverState.useHashedRids,
-		w.currentWorld.Range(),
+		w.worldState.Range(),
 	)
 	if err != nil {
 		return err
@@ -63,29 +63,29 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk, timeReceived ti
 
 	pos := world.ChunkPos(pk.Position)
 	if !w.scripting.OnChunkAdd(pos, timeReceived) {
-		w.currentWorld.IgnoredChunks[pos] = true
+		w.worldState.IgnoredChunks[pos] = true
 		return
 	}
-	w.currentWorld.IgnoredChunks[pos] = false
+	w.worldState.IgnoredChunks[pos] = false
 
-	err = w.currentWorld.StoreChunk(pos, ch)
+	err = w.worldState.StoreChunk(pos, ch)
 	if err != nil {
 		w.log.Error(err)
 	}
 
-	max := w.currentWorld.Dimension().Range().Height() / 16
+	max := w.worldState.Dimension().Range().Height() / 16
 	switch pk.SubChunkCount {
 	case protocol.SubChunkRequestModeLimited:
 		max = int(pk.HighestSubChunk)
 		fallthrough
 	case protocol.SubChunkRequestModeLimitless:
 		var offsetTable []protocol.SubChunkOffset
-		r := w.currentWorld.Dimension().Range()
+		r := w.worldState.Dimension().Range()
 		for y := int8(r.Min() / 16); y < int8(r.Max()/16)+1; y++ {
 			offsetTable = append(offsetTable, protocol.SubChunkOffset{0, y, 0})
 		}
 
-		dimId, _ := world.DimensionID(w.currentWorld.Dimension())
+		dimId, _ := world.DimensionID(w.worldState.Dimension())
 		_ = w.session.Server.WritePacket(&packet.SubChunkRequest{
 			Dimension: int32(dimId),
 			Position: protocol.SubChunkPos{
@@ -97,17 +97,17 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk, timeReceived ti
 	}
 
 	w.session.SendPopup(locale.Locm("popup_chunk_count", locale.Strmap{
-		"Chunks":   len(w.currentWorld.StoredChunks),
-		"Entities": w.currentWorld.EntityCount(),
-		"Name":     w.currentWorld.Name,
-	}, len(w.currentWorld.StoredChunks)))
+		"Chunks":   len(w.worldState.StoredChunks),
+		"Entities": w.worldState.EntityCount(),
+		"Name":     w.worldState.Name,
+	}, len(w.worldState.StoredChunks)))
 
 	return nil
 }
 
 func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) error {
-	w.worldStateLock.Lock()
-	defer w.worldStateLock.Unlock()
+	w.worldStateMu.Lock()
+	defer w.worldStateMu.Unlock()
 
 	var chunks = make(map[world.ChunkPos]*worldstate.Chunk)
 	for _, ent := range pk.SubChunkEntries {
@@ -120,14 +120,14 @@ func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) error {
 			pos  = world.ChunkPos{absX, absZ}
 		)
 
-		if w.currentWorld.IgnoredChunks[pos] {
+		if w.worldState.IgnoredChunks[pos] {
 			continue
 		}
 
 		if _, ok := chunks[pos]; ok {
 			continue
 		}
-		ch, ok, err := w.currentWorld.LoadChunk(pos)
+		ch, ok, err := w.worldState.LoadChunk(pos)
 		if err != nil {
 			return err
 		}
@@ -158,7 +158,7 @@ func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) error {
 			sub, err := chunk.DecodeSubChunk(
 				buf,
 				w.serverState.blocks,
-				w.currentWorld.Dimension().Range(),
+				w.worldState.Dimension().Range(),
 				&index,
 				chunk.NetworkEncoding,
 				w.serverState.useHashedRids,
@@ -186,7 +186,7 @@ func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) error {
 	}
 
 	for pos, ch := range chunks {
-		w.currentWorld.StoreChunk(pos, ch)
+		w.worldState.StoreChunk(pos, ch)
 	}
 
 	w.mapUI.SchedRedraw()

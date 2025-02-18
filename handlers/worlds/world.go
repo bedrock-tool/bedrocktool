@@ -52,12 +52,12 @@ type WorldSettings struct {
 }
 
 type serverState struct {
-	useOldBiomes  bool
-	useHashedRids bool
-	haveStartGame bool
-	worldCounter  int
-	WorldName     string
-	radius        int32
+	useOldBiomes    bool
+	useHashedRids   bool
+	haveStartGame   bool
+	worldCounter    int
+	WorldName       string
+	realChunkRadius int32
 
 	biomes *world.BiomeRegistry
 	blocks *world.BlockRegistryImpl
@@ -85,8 +85,8 @@ type worldsHandler struct {
 	scripting *scripting.VM
 
 	// lock used for when the worldState gets swapped
-	currentWorld   *worldstate.World
-	worldStateLock sync.Mutex
+	worldStateMu sync.Mutex
+	worldState   *worldstate.World
 
 	serverState serverState
 	settings    WorldSettings
@@ -119,8 +119,8 @@ func NewWorldsHandler(settings WorldSettings) *proxy.Handler {
 
 		SessionStart: func(session *proxy.Session, serverName string) (err error) {
 			w.session = session
-			w.currentWorld = nil
 			w.serverState = serverState{
+				Name:               serverName,
 				useOldBiomes:       false,
 				worldCounter:       0,
 				openItemContainers: make(map[byte]*itemContainer),
@@ -128,6 +128,8 @@ func NewWorldsHandler(settings WorldSettings) *proxy.Handler {
 				playerSkins:        make(map[uuid.UUID]*protocol.Skin),
 				biomes:             world.DefaultBiomes.Clone(),
 				entityProperties:   make(map[string][]entity.EntityProperty),
+				behaviorPack:       behaviourpack.New(serverName),
+				resourcePack:       resourcepack.New(),
 			}
 
 			w.mapUI = NewMapUI(w)
@@ -141,7 +143,7 @@ func NewWorldsHandler(settings WorldSettings) *proxy.Handler {
 			})
 
 			w.session.AddCommand(func(cmdline []string) bool {
-				return w.setVoidGen(!w.currentWorld.VoidGen)
+				return w.setVoidGen(w.worldState.VoidGen)
 			}, protocol.Command{
 				Name:        "void",
 				Description: locale.Loc("void_desc", nil),
@@ -157,7 +159,9 @@ func NewWorldsHandler(settings WorldSettings) *proxy.Handler {
 			})
 
 			w.session.AddCommand(func(s []string) bool {
-				w.currentWorld.PauseCapture()
+				w.currentWorld(func(world *worldstate.World) {
+					world.PauseCapture()
+				})
 				w.session.SendMessage("Paused Capturing")
 				return true
 			}, protocol.Command{
@@ -172,7 +176,9 @@ func NewWorldsHandler(settings WorldSettings) *proxy.Handler {
 					int(math.Floor(float64(w.session.Player.Position[1]))),
 					int(math.Floor(float64(w.session.Player.Position[2]))),
 				}
-				w.currentWorld.UnpauseCapture(pos, w.serverState.radius)
+				w.currentWorld(func(world *worldstate.World) {
+					world.UnpauseCapture(pos, w.serverState.realChunkRadius)
+				})
 				return true
 			}, protocol.Command{
 				Name:        "start-capture",
@@ -187,19 +193,16 @@ func NewWorldsHandler(settings WorldSettings) *proxy.Handler {
 				Description: "immediately save and reset the world state",
 			})
 
-			w.serverState.behaviorPack = behaviourpack.New(serverName)
-			w.serverState.resourcePack = resourcepack.New()
-			w.serverState.Name = serverName
-
 			// initialize a worldstate
-			w.currentWorld, err = worldstate.New(w.serverState.dimensions, w.mapUI.SetChunk)
+			worldState, err := worldstate.New(w.serverState.dimensions, w.mapUI.SetChunk)
 			if err != nil {
 				return err
 			}
-			w.currentWorld.VoidGen = w.settings.VoidGen
+			worldState.VoidGen = w.settings.VoidGen
 			if settings.StartPaused {
-				w.currentWorld.PauseCapture()
+				worldState.PauseCapture()
 			}
+			w.worldState = worldState
 
 			if settings.Script != "" {
 				err := w.scripting.Load(settings.Script)
@@ -232,7 +235,7 @@ func NewWorldsHandler(settings WorldSettings) *proxy.Handler {
 				Target: "ui",
 				Data: messages.SetValue{
 					Name:  "worldName",
-					Value: w.currentWorld.Name,
+					Value: w.worldState.Name,
 				},
 			})
 
@@ -256,7 +259,7 @@ func NewWorldsHandler(settings WorldSettings) *proxy.Handler {
 			return false
 		},
 
-		PacketCallback: w.packetCB,
+		PacketCallback: w.packetHandler,
 		OnSessionEnd: func() {
 			w.SaveAndReset(true, nil)
 			w.wg.Wait()
@@ -286,7 +289,7 @@ func (w *worldsHandler) preloadReplay() error {
 		}
 
 		toServer := src.String() == conn.LocalAddr().String()
-		_, err := w.packetCB(pk, toServer, time.Now(), false)
+		_, err := w.packetHandler(pk, toServer, time.Now(), false)
 		if err != nil {
 			log.Error(err)
 		}
@@ -314,16 +317,24 @@ func (w *worldsHandler) preloadReplay() error {
 	return nil
 }
 
+func (w *worldsHandler) currentWorld(fn func(world *worldstate.World)) {
+	w.worldStateMu.Lock()
+	fn(w.worldState)
+	w.worldStateMu.Unlock()
+}
+
 func (w *worldsHandler) setVoidGen(val bool) bool {
-	w.currentWorld.VoidGen = val
+	w.currentWorld(func(world *worldstate.World) {
+		world.VoidGen = val
+	})
 	var s = locale.Loc("void_generator_false", nil)
-	if w.currentWorld.VoidGen {
+	if val {
 		s = locale.Loc("void_generator_true", nil)
 	}
 	w.session.SendMessage(s)
 
 	var voidGen = "false"
-	if w.currentWorld.VoidGen {
+	if val {
 		voidGen = "true"
 	}
 
@@ -345,14 +356,14 @@ func (w *worldsHandler) setWorldName(val string) bool {
 		w.log.Error(err)
 		return false
 	}
-	w.session.SendMessage(locale.Loc("worldname_set", locale.Strmap{"Name": w.currentWorld.Name}))
+	w.session.SendMessage(locale.Loc("worldname_set", locale.Strmap{"Name": w.worldState.Name}))
 
 	messages.Router.Handle(&messages.Message{
 		Source: "subcommand",
 		Target: "ui",
 		Data: messages.SetValue{
 			Name:  "worldName",
-			Value: w.currentWorld.Name,
+			Value: w.worldState.Name,
 		},
 	})
 
@@ -361,50 +372,48 @@ func (w *worldsHandler) setWorldName(val string) bool {
 
 func (w *worldsHandler) SaveAndReset(end bool, dim world.Dimension) {
 	// replacing the current world state if it needs to be reset
-	w.worldStateLock.Lock()
+	w.worldStateMu.Lock()
+	defer w.worldStateMu.Unlock()
 	if dim == nil {
-		dim = w.currentWorld.Dimension()
+		dim = w.worldState.Dimension()
 	}
 
 	// if empty just reset and dont save anything
-	if len(w.currentWorld.StoredChunks) == 0 {
-		if end {
-			w.currentWorld = nil
-		} else {
-			w.reset(dim)
+	worldState := w.worldState
+	w.worldState = nil
+
+	if len(worldState.StoredChunks) > 0 {
+		// save image of the map
+		if w.settings.SaveImage {
+			f, _ := os.Create(worldState.Folder + ".png")
+			png.Encode(f, w.mapUI.ToImage())
+			f.Close()
 		}
-		w.worldStateLock.Unlock()
-		return
+
+		// reset map, increase counter for
+		w.serverState.worldCounter += 1
+		w.mapUI.Reset()
+
+		w.wg.Add(1)
+		go func() {
+			defer w.wg.Done()
+			err := w.saveWorldState(worldState)
+			if err != nil {
+				w.log.Error(err)
+			}
+		}()
 	}
 
-	// save image of the map
-	if w.settings.SaveImage {
-		f, _ := os.Create(w.currentWorld.Folder + ".png")
-		png.Encode(f, w.mapUI.ToImage())
-		f.Close()
-	}
-
-	// reset map, increase counter for
-	w.serverState.worldCounter += 1
-	w.mapUI.Reset()
-
-	// swap states
-	worldState := w.currentWorld
-	if end {
-		w.currentWorld = nil
-	} else {
-		w.reset(dim)
-	}
-	w.worldStateLock.Unlock()
-
-	w.wg.Add(1)
-	go func() {
-		defer w.wg.Done()
-		err := w.saveWorldState(worldState)
+	if !end {
+		worldState, err := worldstate.New(w.serverState.dimensions, w.mapUI.SetChunk)
 		if err != nil {
 			w.log.Error(err)
 		}
-	}()
+		worldState.VoidGen = w.settings.VoidGen
+		worldState.SetDimension(dim)
+		w.worldState = worldState
+		w.openWorldState(false)
+	}
 }
 
 func (w *worldsHandler) saveWorldState(worldState *worldstate.World) error {
@@ -494,19 +503,6 @@ func (w *worldsHandler) saveWorldState(worldState *worldstate.World) error {
 	return nil
 }
 
-func (w *worldsHandler) reset(dim world.Dimension) (err error) {
-	// create new world state
-	w.currentWorld, err = worldstate.New(w.serverState.dimensions, w.mapUI.SetChunk)
-	if err != nil {
-		return err
-	}
-	w.currentWorld.VoidGen = w.settings.VoidGen
-	w.currentWorld.SetDimension(dim)
-
-	w.openWorldState(false)
-	return nil
-}
-
 func (w *worldsHandler) defaultWorldName() string {
 	worldName := "world"
 	if w.serverState.worldCounter > 0 {
@@ -521,15 +517,19 @@ func (w *worldsHandler) openWorldState(deferred bool) {
 	name := w.defaultWorldName()
 	serverName, _ := filenamify.FilenamifyV2(w.serverState.Name)
 	folder := fmt.Sprintf("worlds/%s/%s", serverName, name)
-	w.currentWorld.BiomeRegistry = w.serverState.biomes
-	w.currentWorld.BlockRegistry = w.serverState.blocks
-	w.currentWorld.ResourcePacks = w.session.Server.ResourcePacks()
-	w.currentWorld.UseHashedRids = w.serverState.useHashedRids
-	w.currentWorld.Open(name, folder, deferred)
+	w.worldState.BiomeRegistry = w.serverState.biomes
+	w.worldState.BlockRegistry = w.serverState.blocks
+	w.worldState.ResourcePacks = w.session.Server.ResourcePacks()
+	w.worldState.UseHashedRids = w.serverState.useHashedRids
+	w.worldState.Open(name, folder, deferred)
 }
 
 func (w *worldsHandler) renameWorldState(name string) error {
 	serverName, _ := filenamify.FilenamifyV2(w.serverState.Name)
 	folder := fmt.Sprintf("worlds/%s/%s", serverName, name)
-	return w.currentWorld.Rename(name, folder)
+	var err error
+	w.currentWorld(func(world *worldstate.World) {
+		err = world.Rename(name, folder)
+	})
+	return err
 }

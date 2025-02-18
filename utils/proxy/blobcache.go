@@ -30,6 +30,7 @@ type Blobcache struct {
 	db      *leveldb.DB
 	mu      sync.Mutex
 	session *Session
+	log     *logrus.Entry
 
 	queued []*packet.ClientCacheBlobStatus
 
@@ -56,6 +57,7 @@ func NewBlobCache(session *Session) (*Blobcache, error) {
 	return &Blobcache{
 		db:                 db,
 		session:            session,
+		log:                session.log.WithField("in", "blobcache"),
 		serverWait:         make(map[uint64][]*serverWait),
 		clientWait:         make(map[uint64]*clientWait),
 		levelChunksWaiting: make(map[protocol.ChunkPos][]uint64),
@@ -205,6 +207,7 @@ func (b *Blobcache) finishWait(reply *packet.ClientCacheBlobStatus, wait *server
 
 		if len(b.serverWait) > maxInflightBlobs {
 			b.queued = append(b.queued, reply)
+			b.log.Tracef("queing %v", reply.MissHashes)
 		} else {
 			err := b.session.Server.WritePacket(reply)
 			if err != nil {

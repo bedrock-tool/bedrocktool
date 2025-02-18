@@ -573,7 +573,7 @@ func (r *rpHandler) OnResourcePackStack(pk *packet.ResourcePackStack) error {
 
 	r.dlwg.Wait()
 	r.log.Debug("starting game")
-	r.Server.Expect(packet.IDStartGame)
+	r.Server.Expect(packet.IDItemRegistry, packet.IDStartGame)
 	_ = r.Server.WritePacket(&packet.ResourcePackClientResponse{Response: packet.PackResponseCompleted})
 	return nil
 }

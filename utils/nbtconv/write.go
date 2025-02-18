@@ -3,10 +3,11 @@ package nbtconv
 import (
 	"bytes"
 	"encoding/gob"
+	"sort"
+
 	"github.com/df-mc/dragonfly/server/item"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/df-mc/dragonfly/server/world/chunk"
-	"sort"
 )
 
 // WriteItem encodes an item stack into a map that can be encoded using NBT.
@@ -17,7 +18,6 @@ func WriteItem(s item.Stack, disk bool) map[string]any {
 			tag[k] = v
 		}
 	}
-	writeArmourTrim(tag, s)
 	writeAnvilCost(tag, s)
 	writeDamage(tag, s, disk)
 	writeDisplay(tag, s)
@@ -112,9 +112,8 @@ func writeEnchantments(m map[string]any, s item.Stack) {
 	}
 }
 
-// writeArmourTrim writes the armour trim of an item to a map for NBT encoding.
-func writeArmourTrim(m map[string]any, s item.Stack) {
-	if t, ok := s.ArmourTrim(); ok {
+func writeTrim(m map[string]any, t item.ArmourTrim) {
+	if !t.Zero() {
 		m["Trim"] = map[string]any{
 			"Material": t.Material.TrimMaterial(),
 			"Pattern":  t.Template.String(),

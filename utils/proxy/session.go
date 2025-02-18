@@ -23,6 +23,7 @@ import (
 )
 
 type Session struct {
+	log       *logrus.Entry
 	Server    minecraft.IConn
 	Client    minecraft.IConn
 	listener  *minecraft.Listener
@@ -57,6 +58,7 @@ type Session struct {
 
 func NewSession() *Session {
 	return &Session{
+		log:              logrus.StandardLogger().WithContext(context.Background()),
 		clientConnecting: make(chan struct{}),
 		haveClientData:   make(chan struct{}),
 		disconnectReason: "Connection Lost",
