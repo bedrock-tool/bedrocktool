@@ -71,7 +71,8 @@ func (cr *ChunkRenderer) blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8)
 haveColor:
 	if blockColor.R == 0xff && blockColor.G == 0x0 && blockColor.B == 0xff {
 		if updater.Version == "" {
-			logrus.Println(b.EncodeBlock())
+			name, props := b.EncodeBlock()
+			logrus.Infof("no color %s %v", name, props)
 			b.Color()
 		}
 	}

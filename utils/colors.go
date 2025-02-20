@@ -232,6 +232,10 @@ func ResolveColors(entries []protocol.BlockEntry, packs []resource.Pack) map[str
 			return err
 		}
 
+		if len(flipbooks)+len(terrainTextures)+len(texturesList) == 0 {
+			return nil
+		}
+
 		for block, texture_name := range textureNames {
 			if _, ok := colors[block]; ok {
 				continue
@@ -291,9 +295,6 @@ func ResolveColors(entries []protocol.BlockEntry, packs []resource.Pack) map[str
 		blocksJson, err := readBlocksJson(pack)
 		if err != nil {
 			logrus.Error(err)
-		}
-		if blocksJson == nil {
-			continue
 		}
 
 		for block, name := range blocksJson {

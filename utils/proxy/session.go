@@ -596,8 +596,15 @@ func (s *Session) proxyLoop(ctx context.Context, toServer bool) (err error) {
 
 func (s *Session) packetFunc(header packet.Header, payload []byte, src, dst net.Addr, timeReceived time.Time) {
 	defer func() {
-		if err, ok := recover().(error); ok {
-			utils.ErrorHandler(err)
+		if errRec := recover(); errRec != nil {
+			switch err := errRec.(type) {
+			case error:
+				utils.ErrorHandler(err)
+			case string:
+				utils.ErrorHandler(errors.New(err))
+			default:
+				panic(errRec)
+			}
 		}
 	}()
 

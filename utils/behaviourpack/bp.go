@@ -95,9 +95,9 @@ func (bp *Pack) HasContent() bool {
 	return bp.HasBlocks() || bp.HasItems()
 }
 
-func ns_name_split(identifier string) (ns, name string) {
-	ns_name := strings.Split(identifier, ":")
-	return ns_name[0], ns_name[len(ns_name)-1]
+func splitNamespace(identifier string) (ns, name string) {
+	split := strings.SplitN(identifier, ":", 2)
+	return split[0], split[len(split)-1]
 }
 
 func (bp *Pack) Save(fs utils.WriterFS, fpath string) error {
@@ -106,7 +106,7 @@ func (bp *Pack) Save(fs utils.WriterFS, fpath string) error {
 	}
 
 	_add_thing := func(base, identifier string, thing any) error {
-		ns, name := ns_name_split(identifier)
+		ns, name := splitNamespace(identifier)
 		dir := path.Join(base, ns)
 		w, err := fs.Create(path.Join(dir, name+".json"))
 		if err != nil {

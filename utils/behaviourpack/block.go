@@ -10,7 +10,7 @@ type BlockBehaviour struct {
 }
 
 func (bp *Pack) AddBlock(block protocol.BlockEntry) {
-	ns, _ := ns_name_split(block.Name)
+	ns, _ := splitNamespace(block.Name)
 	if ns == "minecraft" {
 		return
 	}

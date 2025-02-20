@@ -117,7 +117,7 @@ func (p *Pack) AddEntity(dir, name string, texture *image.RGBA, geometry *utils.
 	})
 }
 
-func (p *Pack) AddPlayer(id string, skinTexture *image.RGBA, capeTexture *image.RGBA, capeID string, geometry *utils.SkinGeometryFile, isDefault bool) {
+func (p *Pack) AddPlayer(id string, skinTexture *image.NRGBA, capeTexture *image.NRGBA, capeID string, geometry *utils.SkinGeometryFile, isDefault bool) {
 	var skinName = path.Join("textures", "player", id)
 	var capeName = "textures/entity/cape_invisible"
 

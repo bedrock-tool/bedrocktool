@@ -1,6 +1,11 @@
 package behaviourpack
 
-import "github.com/sandertv/gophertunnel/minecraft/protocol"
+import (
+	"fmt"
+
+	"github.com/bedrock-tool/bedrocktool/utils/updater"
+	"github.com/sandertv/gophertunnel/minecraft/protocol"
+)
 
 type itemDescription struct {
 	Category       string `json:"category"`
@@ -19,7 +24,7 @@ type itemBehaviour struct {
 }
 
 func (bp *Pack) AddItem(item protocol.ItemEntry) {
-	ns, _ := ns_name_split(item.Name)
+	ns, _ := splitNamespace(item.Name)
 	if ns == "minecraft" {
 		return
 	}
@@ -36,6 +41,43 @@ func (bp *Pack) AddItem(item protocol.ItemEntry) {
 	}
 }
 
+func processItemComponent(name string, component map[string]any, componentsOut map[string]any) (string, any) {
+	switch name {
+	case "item_properties":
+		if icon, ok := component["minecraft:icon"].(map[string]any); ok {
+			if textures, ok := icon["textures"].(map[string]any); ok {
+				componentsOut["minecraft:icon"] = map[string]any{
+					"texture": textures["default"],
+				}
+			}
+		}
+		return name, component
+
+	case "minecraft:icon":
+		if textures, ok := component["textures"].(map[string]any); ok {
+			return name, map[string]any{
+				"texture": textures["default"],
+			}
+		}
+		return "", nil
+
+	case "minecraft:interact_button":
+		return name, component["interact_text"]
+
+	case "item_tags":
+		return "", nil
+
+	case "minecraft:durability":
+		return name, component
+
+	default:
+		if updater.Version == "" {
+			fmt.Printf("unhandled component %s\n%v\n\n", name, component)
+		}
+		return name, component
+	}
+}
+
 func (bp *Pack) ApplyComponentEntries(entries []protocol.ItemEntry) {
 	for _, ice := range entries {
 		item, ok := bp.items[ice.Name]
@@ -44,46 +86,13 @@ func (bp *Pack) ApplyComponentEntries(entries []protocol.ItemEntry) {
 		}
 		if components, ok := ice.Data["components"].(map[string]any); ok {
 			var componentsOut = make(map[string]any)
-
-			if _, ok := components["minecraft:icon"]; !ok {
-				if item_properties, ok := components["item_properties"].(map[string]any); ok {
-					components["minecraft:icon"] = item_properties["minecraft:icon"]
+			for name, component := range components {
+				nameOut, value := processItemComponent(name, component.(map[string]any), componentsOut)
+				if name == "" {
+					continue
 				}
+				componentsOut[nameOut] = value
 			}
-
-			for key, component := range components {
-				switch key {
-				case "item_properties":
-					if item_properties, ok := component.(map[string]any); ok {
-						if icon, ok := item_properties["minecraft:icon"].(map[string]any); ok {
-							if textures, ok := icon["textures"].(map[string]any); ok {
-								componentsOut["minecraft:icon"] = map[string]any{
-									"texture": textures["default"],
-								}
-							}
-						}
-						componentsOut[key] = component
-					}
-
-				case "minecraft:icon":
-					if icon, ok := component.(map[string]any); ok {
-						if textures, ok := icon["textures"].(map[string]any); ok {
-							componentsOut[key] = map[string]any{
-								"texture": textures["default"],
-							}
-						}
-					}
-				case "minecraft:interact_button":
-					if interact_button, ok := component.(map[string]any); ok {
-						componentsOut[key] = interact_button["interact_text"]
-					}
-				case "item_tags":
-					// drop
-				default:
-					componentsOut[key] = component
-				}
-			}
-
 			item.MinecraftItem.Components = componentsOut
 		}
 	}

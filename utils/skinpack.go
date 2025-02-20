@@ -2,10 +2,15 @@ package utils
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"image"
+	"image/png"
 	"os"
 	"path"
+	"strconv"
 
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/google/uuid"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
@@ -37,7 +42,7 @@ func (s _skinWithIndex) Name(name string) string {
 }
 
 type SkinPack struct {
-	skins map[uuid.UUID]_skinWithIndex
+	skins []*Skin
 	Name  string
 }
 
@@ -50,60 +55,86 @@ type skinEntry struct {
 
 func NewSkinPack(name, fpath string) *SkinPack {
 	return &SkinPack{
-		skins: make(map[uuid.UUID]_skinWithIndex),
-		Name:  name,
+		Name: name,
 	}
 }
 
 func (s *SkinPack) AddSkin(skin *Skin) bool {
 	sh := skin.Hash()
-	if _, ok := s.skins[sh]; !ok {
-		s.skins[sh] = _skinWithIndex{len(s.skins) + 1, skin}
-		return true
+	for _, skin2 := range s.skins {
+		if skin2.Hash() == sh {
+			return false
+		}
 	}
-	return false
+	s.skins = append(s.skins, skin)
+	return true
 }
 
-func write112Geometry(fpath, geometryName string, geometry *SkinGeometry) error {
-	f, err := os.Create(path.Join(fpath, fmt.Sprintf("geometry-%s.json", geometryName)))
+func (s *SkinPack) Latest() *Skin {
+	if len(s.skins) == 0 {
+		return nil
+	}
+	return s.skins[len(s.skins)-1]
+}
+
+func write112Geometry(fs WriterFS, geometryName string, geometry *SkinGeometry) error {
+	f, err := fs.Create(fmt.Sprintf("geometry-%s.json", geometryName))
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 	e := json.NewEncoder(f)
 	e.SetIndent("", "\t")
-	if err := e.Encode(map[string]any{
+	return e.Encode(map[string]any{
 		"format_version":     "1.12.0",
 		"minecraft:geometry": []*SkinGeometry{geometry},
-	}); err != nil {
-		return err
+	})
+}
+
+func writePng(fs WriterFS, filename string, img image.Image) error {
+	f, err := fs.Create(filename)
+	if err != nil {
+		return errors.New(locale.Loc("failed_write", locale.Strmap{"Part": "Meta", "Path": filename, "Err": err}))
+	}
+	defer f.Close()
+	if err := png.Encode(f, img); err != nil {
+		return errors.New(locale.Loc("failed_write", locale.Strmap{"Part": "Texture", "Path": filename, "Err": err}))
 	}
 	return nil
 }
 
-func (s *SkinPack) Save(fpath string) error {
+func (sp *SkinPack) Save(fpath string) error {
 	os.MkdirAll(fpath, 0o755)
+	fs := OSWriter{Base: fpath}
 
 	var skinsJson struct {
 		Skins []skinEntry `json:"skins"`
 	}
 	geometryJson := map[string]SkinGeometry_Old{}
 
-	for _, s2 := range s.skins { // write skin texture
-		skinName := s2.Name(s.Name)
+	for i, skin := range sp.skins { // write skin texture
+		skinName := sp.Name
+		if i > 0 {
+			skinName += "-" + strconv.Itoa(i)
+		}
 
-		if err := s2.skin.writeSkinTexturePng(path.Join(fpath, skinName+".png")); err != nil {
+		skinImage := image.NewNRGBA(image.Rect(0, 0, int(skin.SkinImageWidth), int(skin.SkinImageHeight)))
+		os.WriteFile("skin.raw", skin.SkinData, 0777)
+		copy(skinImage.Pix, skin.SkinData)
+		if err := writePng(fs, skinName+".png", skinImage); err != nil {
 			return err
 		}
 
-		if err := s2.skin.writeMetadataJson(path.Join(fpath, skinName+"_metadata.json")); err != nil {
-			return err
-		}
-
-		if s2.skin.HaveCape() {
-			if err := s2.skin.WriteCapePng(path.Join(fpath, skinName+"_cape.png")); err != nil {
+		if skin.HaveCape() {
+			capeImage := image.NewNRGBA(image.Rect(0, 0, int(skin.CapeImageWidth), int(skin.CapeImageHeight)))
+			copy(capeImage.Pix, skin.CapeData)
+			if err := writePng(fs, skinName+"_cape.png", capeImage); err != nil {
 				return err
 			}
+		}
+
+		if err := skin.writeMetadataJson(fs, skinName+"_metadata.json"); err != nil {
+			return err
 		}
 
 		entry := skinEntry{
@@ -111,18 +142,19 @@ func (s *SkinPack) Save(fpath string) error {
 			Texture:          skinName + ".png",
 			Type:             "free",
 		}
-		if s2.skin.ArmSize == "wide" {
+		if skin.ArmSize == "wide" {
 			entry.Geometry = "minecraft.geometry.steve"
 		} else {
 			entry.Geometry = "minecraft.geometry.alex"
 		}
 
-		if s2.skin.HaveGeometry() {
-			geometry, geometryName, err := s2.skin.getGeometry()
+		if skin.HaveGeometry() {
+			geometry, geometryName, err := skin.getGeometry()
 			if err != nil {
 				logrus.Warnf("failed to decode geometry %s %v", skinName, err)
-			} else if geometry != nil {
-				err := write112Geometry(fpath, geometryName, geometry)
+			}
+			if geometry != nil {
+				err := write112Geometry(fs, geometryName, geometry)
 				if err != nil {
 					logrus.Warnf("failed to write geometry %s %v", skinName, err)
 				}
@@ -136,18 +168,17 @@ func (s *SkinPack) Save(fpath string) error {
 		skinsJson.Skins = append(skinsJson.Skins, entry)
 	}
 
-	if len(geometryJson) > 0 { // geometry.json
-		f, err := os.Create(path.Join(fpath, "geometry.json"))
+	if len(geometryJson) > 0 {
+		f, err := fs.Create("geometry.json")
 		if err != nil {
 			return err
 		}
+		defer f.Close()
 		e := json.NewEncoder(f)
-		e.SetIndent("", "\t")
+		e.SetIndent("", "  ")
 		if err := e.Encode(geometryJson); err != nil {
-			f.Close()
 			return err
 		}
-		f.Close()
 	}
 
 	{ // skins.json
@@ -155,21 +186,20 @@ func (s *SkinPack) Save(fpath string) error {
 		if err != nil {
 			return err
 		}
+		defer f.Close()
 		e := json.NewEncoder(f)
-		e.SetIndent("", "\t")
+		e.SetIndent("", "  ")
 		if err := e.Encode(skinsJson); err != nil {
-			f.Close()
 			return err
 		}
-		f.Close()
 	}
 
 	{ // manifest.json
 		manifest := resource.Manifest{
 			FormatVersion: 2,
 			Header: resource.Header{
-				Name:               s.Name,
-				Description:        s.Name,
+				Name:               sp.Name,
+				Description:        sp.Name,
 				UUID:               uuid.New(),
 				Version:            [3]int{1, 0, 0},
 				MinimumGameVersion: [3]int{1, 17, 0},
@@ -177,14 +207,13 @@ func (s *SkinPack) Save(fpath string) error {
 			Modules: []resource.Module{
 				{
 					UUID:        uuid.NewString(),
-					Description: s.Name + " Skinpack",
+					Description: sp.Name + " Skinpack",
 					Type:        "skin_pack",
 					Version:     [3]int{1, 0, 0},
 				},
 			},
 		}
 
-		fs := &OSWriter{Base: fpath}
 		if err := WriteManifest(&manifest, fs, ""); err != nil {
 			return err
 		}

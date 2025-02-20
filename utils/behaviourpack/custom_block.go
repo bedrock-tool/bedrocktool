@@ -1,8 +1,10 @@
 package behaviourpack
 
 import (
+	"fmt"
 	"strings"
 
+	"github.com/bedrock-tool/bedrocktool/utils/updater"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 )
 
@@ -19,13 +21,6 @@ type description struct {
 type menuCategory struct {
 	Category string `json:"category"`
 	Group    string `json:"group"`
-}
-
-func menu_category_from_map(in map[string]any) menuCategory {
-	return menuCategory{
-		Category: in["category"].(string),
-		Group:    in["group"].(string),
-	}
 }
 
 type permutation struct {
@@ -93,6 +88,9 @@ func processComponent(name string, value map[string]any, version *string) (strin
 		if enabled, ok := value["enabled"].(uint8); ok && enabled == 0 {
 			return name, false
 		}
+		if *version < "1.19.60" {
+			*version = "1.19.60"
+		}
 		return name, map[string]any{
 			"origin": value["origin"],
 			"size":   value["size"],
@@ -108,6 +106,11 @@ func processComponent(name string, value map[string]any, version *string) (strin
 		if value["value"] == float32(-1) {
 			return "", nil
 		}
+
+	default:
+		if updater.Version == "" {
+			fmt.Printf("unhandled component %s\n%v\n\n", name, value)
+		}
 	}
 
 	if v, ok := value["value"]; ok {
@@ -117,22 +120,22 @@ func processComponent(name string, value map[string]any, version *string) (strin
 	return name, value
 }
 
-func processMaterialInstances(material_instances map[string]any) map[string]any {
-	if mappings, ok := material_instances["mappings"].(map[string]any); ok {
+func processMaterialInstances(materialInstances map[string]any) map[string]any {
+	if mappings, ok := materialInstances["mappings"].(map[string]any); ok {
 		if len(mappings) == 0 {
-			delete(material_instances, "mappings")
+			delete(materialInstances, "mappings")
 		}
 	}
-	if materials, ok := material_instances["materials"].(map[string]any); ok {
+	if materials, ok := materialInstances["materials"].(map[string]any); ok {
 		for _, material := range materials {
 			material := material.(map[string]any)
-			ambient_occlusion, ok := material["ambient_occlusion"].(uint8)
+			ambientOcclusion, ok := material["ambient_occlusion"].(uint8)
 			if ok {
-				material["ambient_occlusion"] = ambient_occlusion == 1
+				material["ambient_occlusion"] = ambientOcclusion == 1
 			}
-			face_dimming, ok := material["face_dimming"].(uint8)
+			faceDimming, ok := material["face_dimming"].(uint8)
 			if ok {
-				material["face_dimming"] = face_dimming == 1
+				material["face_dimming"] = faceDimming == 1
 			}
 		}
 
@@ -150,7 +153,7 @@ func processMaterialInstances(material_instances map[string]any) map[string]any 
 
 		return materials
 	}
-	return material_instances
+	return materialInstances
 }
 
 func parseBlock(block protocol.BlockEntry) (MinecraftBlock, string) {
@@ -165,37 +168,41 @@ func parseBlock(block protocol.BlockEntry) (MinecraftBlock, string) {
 
 	if traits, ok := block.Properties["traits"].([]any); ok {
 		entry.Description.Traits = make(map[string]Trait)
-
 		for _, traitIn := range traits {
 			traitIn := traitIn.(map[string]any)
 			traitOut := Trait{}
-			name := traitIn["name"].(string)
-			if !strings.ContainsRune(name, ':') {
-				name = "minecraft:" + name
+			traitName := traitIn["name"].(string)
+			if !strings.ContainsRune(traitName, ':') {
+				traitName = "minecraft:" + traitName
 			}
 
+			// enabled states to list of states
+			enabledStates, ok := traitIn["enabled_states"].(map[string]any)
+			if ok {
+				var enabledStatesOut []string
+				for stateName, stateEnabled := range enabledStates {
+					stateEnabled := stateEnabled.(uint8)
+					if !strings.ContainsRune(stateName, ':') {
+						stateName = "minecraft:" + stateName
+					}
+					if stateEnabled == 1 {
+						enabledStatesOut = append(enabledStatesOut, stateName)
+					}
+				}
+				traitOut["enabled_states"] = enabledStatesOut
+			}
+
+			// copy other map values
 			for k, v := range traitIn {
 				if k == "name" {
 					continue
 				}
 				if k == "enabled_states" {
-					var enabled_states []string
-					v := v.(map[string]any)
-					for name2, v2 := range v {
-						v2 := v2.(uint8)
-						if !strings.ContainsRune(name2, ':') {
-							name2 = "minecraft:" + name2
-						}
-						if v2 == 1 {
-							enabled_states = append(enabled_states, name2)
-						}
-					}
-					traitOut[k] = enabled_states
 					continue
 				}
 				traitOut[k] = v
 			}
-			entry.Description.Traits[name] = traitOut
+			entry.Description.Traits[traitName] = traitOut
 		}
 	}
 
@@ -215,78 +222,76 @@ func parseBlock(block protocol.BlockEntry) (MinecraftBlock, string) {
 				version = "1.19.80"
 			}
 
-			comps := v["components"].(map[string]any)
-			for k, v := range comps {
-				name, value := processComponent(k, v.(map[string]any), &version)
+			components := v["components"].(map[string]any)
+			for componentName, component := range components {
+				component := component.(map[string]any)
+				name, value := processComponent(componentName, component, &version)
 				if name == "" {
 					continue
 				}
 				perm.Components[name] = value
 			}
-
 			entry.Permutations = append(entry.Permutations, perm)
 		}
 	}
 
 	if components, ok := block.Properties["components"].(map[string]any); ok {
-		comps := make(map[string]any)
-		for k, v := range components {
-			name, value := processComponent(k, v.(map[string]any), &version)
+		entry.Components = make(map[string]any)
+		for componentName, component := range components {
+			component := component.(map[string]any)
+			name, value := processComponent(componentName, component, &version)
 			if name == "" {
 				continue
 			}
-			if name == "minecraft:selection_box" && version < "1.19.60" {
-				version = "1.19.60"
-			}
-			comps[name] = value
+			entry.Components[name] = value
 		}
-		entry.Components = comps
 	}
 
 	if properties, ok := block.Properties["properties"].([]any); ok {
 		entry.Description.States = make(map[string]any)
 		for _, property := range properties {
 			property := property.(map[string]any)
-			name, ok := property["name"].(string)
-			if !ok {
-				continue
-			}
-
-			var enum2 []any
-			enum, ok := property["enum"].([]any)
-			if ok {
-				enum2 = enum
-			} else {
-				enum, ok := property["enum"].([]uint8)
-				if ok {
-					for _, v := range enum {
-						enum2 = append(enum2, v != 0)
-					}
+			propertyName := property["name"].(string)
+			var enumOut []any
+			switch enum := property["enum"].(type) {
+			case []any:
+				enumOut = enum
+			case []uint8:
+				for _, v := range enum {
+					enumOut = append(enumOut, v != 0)
 				}
+			case []int32:
+				for _, v := range enum {
+					enumOut = append(enumOut, v)
+				}
+			default:
+				panic("unknown enum encoding")
 			}
-
-			if len(enum2) > 0 {
-				entry.Description.States[name] = enum2
+			if len(enumOut) > 0 {
+				entry.Description.States[propertyName] = enumOut
 			}
 		}
 	}
 
 	if menu_category, ok := block.Properties["menu_category"].(map[string]any); ok {
-		entry.Description.MenuCategory = menu_category_from_map(menu_category)
+		entry.Description.MenuCategory = menuCategory{
+			Category: menu_category["category"].(string),
+			Group:    menu_category["group"].(string),
+		}
 	}
 
-	if props, ok := block.Properties["properties"].([]any); ok {
+	if properties, ok := block.Properties["properties"].([]any); ok {
 		entry.Description.Properties = make(map[string]any)
-		for _, v := range props {
-			v := v.(map[string]any)
-			name := v["name"].(string)
-			switch a := v["enum"].(type) {
+		for _, property := range properties {
+			property := property.(map[string]any)
+			propertyName := property["name"].(string)
+			switch value := property["enum"].(type) {
 			case []int32:
-				entry.Description.Properties[name] = a
+				entry.Description.Properties[propertyName] = value
 			case []bool:
-				entry.Description.Properties[name] = a
+				entry.Description.Properties[propertyName] = value
 			case []any:
-				entry.Description.Properties[name] = a
+				entry.Description.Properties[propertyName] = value
 			}
 		}
 	}

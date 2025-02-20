@@ -39,7 +39,7 @@ func (w *World) addResourcePacks() error {
 			log.Warn("Cant add is encrypted")
 			continue
 		}
-		logrus.Infof(locale.Loc("adding_pack", locale.Strmap{"Name": text.Clean(pack.Name())}))
+		logrus.Info(locale.Loc("adding_pack", locale.Strmap{"Name": text.Clean(pack.Name())}))
 
 		messages.Router.Handle(&messages.Message{
 			Source: "subcommand",

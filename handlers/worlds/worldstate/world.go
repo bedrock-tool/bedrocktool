@@ -651,7 +651,7 @@ func (w *World) Finish(playerData map[string]any, excludedMobs []string, withPla
 		case "tntexplosiondropdecay":
 			ld.TNTExplosionDropDecay = gr.Value.(bool)
 		default:
-			w.log.Warnf(locale.Loc("unknown_gamerule", locale.Strmap{"Name": gr.Name}))
+			w.log.Warn(locale.Loc("unknown_gamerule", locale.Strmap{"Name": gr.Name}))
 		}
 	}
 

@@ -24,7 +24,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func (w *worldsHandler) packetHandlerPreLogin(_pk packet.Packet, toServer bool, timeReceived time.Time) (packet.Packet, error) {
+func (w *worldsHandler) packetHandlerPreLogin(_pk packet.Packet, timeReceived time.Time) (packet.Packet, error) {
 	switch pk := _pk.(type) {
 	case *packet.GameRulesChanged:
 		var haveGameRule = false
@@ -525,15 +525,15 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 	return _pk, nil
 }
 
-func (w *worldsHandler) packetHandler(_pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
-	drop := w.scripting.OnPacket(_pk, toServer, timeReceived)
+func (w *worldsHandler) packetHandler(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
+	drop := w.scripting.OnPacket(pk, toServer, timeReceived)
 	if drop {
 		return nil, nil
 	}
 	if preLogin {
-		return w.packetHandlerPreLogin(_pk, toServer, timeReceived)
+		return w.packetHandlerPreLogin(pk, timeReceived)
 	}
-	return w.packetHandlerIngame(_pk, toServer, timeReceived)
+	return w.packetHandlerIngame(pk, toServer, timeReceived)
 }
 
 func (w *worldsHandler) syncActorProperty(pk *packet.SyncActorProperty) {
@@ -575,22 +575,21 @@ func (w *worldsHandler) syncActorProperty(pk *packet.SyncActorProperty) {
 			prop.Min = float32(min)
 			prop.Max = float32(max)
 		case entity.PropertyTypeFloat:
-			min, ok := property["min"].(int32)
+			min, ok := property["min"].(float32)
 			if !ok {
 				continue
 			}
-			max, ok := property["max"].(int32)
+			max, ok := property["max"].(float32)
 			if !ok {
 				continue
 			}
-			prop.Min = float32(min)
-			prop.Max = float32(max)
+			prop.Min = min
+			prop.Max = max
 		case entity.PropertyTypeBool:
 		case entity.PropertyTypeEnum:
 			prop.Enum, _ = property["enum"].([]any)
 		default:
 			fmt.Printf("Unknown property type %d", propertyType)
-			continue
 		}
 		propertiesOut = append(propertiesOut, prop)
 	}
@@ -600,9 +599,14 @@ func (w *worldsHandler) syncActorProperty(pk *packet.SyncActorProperty) {
 func (w *worldsHandler) applyEntityData(ent *entity.Entity, entityMetadata protocol.EntityMetadata, entityProperties protocol.EntityProperties, timeReceived time.Time) {
 	maps.Copy(ent.Metadata, entityMetadata)
 	w.scripting.OnEntityDataUpdate(ent, timeReceived)
+	properties := w.serverState.entityProperties[ent.EntityType]
 
 	for _, prop := range entityProperties.IntegerProperties {
-		propType := w.serverState.entityProperties[ent.EntityType][prop.Index]
+		if int(prop.Index) > len(properties)-1 {
+			w.log.Errorf("entity property index more than there are properties, BUG %v", prop)
+			continue
+		}
+		propType := properties[prop.Index]
 		if propType.Type == entity.PropertyTypeBool {
 			propType.Value = prop.Value == 1
 		} else {
@@ -611,7 +615,11 @@ func (w *worldsHandler) applyEntityData(ent *entity.Entity, entityMetadata proto
 		ent.Properties[propType.Name] = &propType
 	}
 	for _, prop := range entityProperties.IntegerProperties {
-		propType := w.serverState.entityProperties[ent.EntityType][prop.Index]
+		if int(prop.Index) > len(properties)-1 {
+			w.log.Errorf("entity property index more than there are properties, BUG %v", prop)
+			continue
+		}
+		propType := properties[prop.Index]
 		propType.Value = prop.Value
 		ent.Properties[propType.Name] = &propType
 	}
@@ -620,12 +628,12 @@ func (w *worldsHandler) applyEntityData(ent *entity.Entity, entityMetadata proto
 func (w *worldsHandler) addPlayer(pk *packet.AddPlayer) {
 	skin, ok := w.serverState.playerSkins[pk.UUID]
 	if ok {
-		skinTexture := image.NewRGBA(image.Rect(0, 0, int(skin.SkinImageWidth), int(skin.SkinImageHeight)))
+		skinTexture := image.NewNRGBA(image.Rect(0, 0, int(skin.SkinImageWidth), int(skin.SkinImageHeight)))
 		copy(skinTexture.Pix, skin.SkinData)
 
-		var capeTexture *image.RGBA
+		var capeTexture *image.NRGBA
 		if skin.CapeID != "" {
-			capeTexture = image.NewRGBA(image.Rect(0, 0, int(skin.CapeImageWidth), int(skin.CapeImageHeight)))
+			capeTexture = image.NewNRGBA(image.Rect(0, 0, int(skin.CapeImageWidth), int(skin.CapeImageHeight)))
 			copy(capeTexture.Pix, skin.CapeData)
 		}
 
@@ -634,7 +642,7 @@ func (w *worldsHandler) addPlayer(pk *packet.AddPlayer) {
 		var identifier string
 		if len(skin.SkinGeometry) > 0 {
 			var err error
-			geometry, identifier, err = utils.ParseSkinGeometry(skin)
+			geometry, identifier, err = utils.ParseServerSkinGeometry(skin)
 			if err != nil {
 				w.log.WithField("player", pk.Username).Warn(err)
 				return
@@ -647,8 +655,8 @@ func (w *worldsHandler) addPlayer(pk *packet.AddPlayer) {
 					{
 						Description: utils.SkinGeometryDescription{
 							Identifier:    identifier,
-							TextureWidth:  json.Number(skin.SkinImageWidth),
-							TextureHeight: json.Number(skin.SkinImageHeight),
+							TextureWidth:  json.Number(strconv.Itoa(int(skin.SkinImageWidth))),
+							TextureHeight: json.Number(strconv.Itoa(int(skin.SkinImageHeight))),
 						},
 					},
 				},

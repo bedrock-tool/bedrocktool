@@ -35,7 +35,7 @@ type EntityPropertyJson struct {
 }
 
 func (bp *Pack) AddEntity(EntityType string, attr []protocol.AttributeValue, meta protocol.EntityMetadata, props map[string]*entity.EntityProperty) {
-	ns, _ := ns_name_split(EntityType)
+	ns, _ := splitNamespace(EntityType)
 	if ns == "minecraft" {
 		return
 	}
