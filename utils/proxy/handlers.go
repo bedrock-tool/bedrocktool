@@ -29,8 +29,8 @@ type Handler struct {
 	OnProxyEnd   func()
 }
 
-func (h *Handlers) SessionStart(s *Session, serverName string) error {
-	for _, handler := range *h {
+func (h Handlers) SessionStart(s *Session, serverName string) error {
+	for _, handler := range h {
 		if handler.SessionStart == nil {
 			continue
 		}
@@ -42,8 +42,8 @@ func (h *Handlers) SessionStart(s *Session, serverName string) error {
 	return nil
 }
 
-func (h *Handlers) GameDataModifier(gameData *minecraft.GameData) {
-	for _, handler := range *h {
+func (h Handlers) GameDataModifier(gameData *minecraft.GameData) {
+	for _, handler := range h {
 		if handler.GameDataModifier == nil {
 			continue
 		}
@@ -51,8 +51,8 @@ func (h *Handlers) GameDataModifier(gameData *minecraft.GameData) {
 	}
 }
 
-func (h *Handlers) FilterResourcePack(id string) bool {
-	for _, handler := range *h {
+func (h Handlers) FilterResourcePack(id string) bool {
+	for _, handler := range h {
 		if handler.FilterResourcePack == nil {
 			continue
 		}
@@ -63,8 +63,8 @@ func (h *Handlers) FilterResourcePack(id string) bool {
 	return false
 }
 
-func (h *Handlers) OnFinishedPack(pack resource.Pack) error {
-	for _, handler := range *h {
+func (h Handlers) OnFinishedPack(pack resource.Pack) error {
+	for _, handler := range h {
 		if handler.OnFinishedPack == nil {
 			continue
 		}
@@ -76,17 +76,17 @@ func (h *Handlers) OnFinishedPack(pack resource.Pack) error {
 	return nil
 }
 
-func (h *Handlers) PacketRaw(header packet.Header, payload []byte, src, dst net.Addr, timeReceived time.Time) {
-	for _, handler := range *h {
+func (h Handlers) PacketRaw(header packet.Header, payload []byte, src, dst net.Addr, timeReceived time.Time) {
+	for _, handler := range h {
 		if handler.PacketRaw == nil {
 			continue
 		}
 		handler.PacketRaw(header, payload, src, dst, timeReceived)
 	}
 }
-func (h *Handlers) PacketCallback(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
+func (h Handlers) PacketCallback(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
 	var err error
-	for _, handler := range *h {
+	for _, handler := range h {
 		if handler.PacketCallback == nil {
 			continue
 		}
@@ -101,8 +101,8 @@ func (h *Handlers) PacketCallback(pk packet.Packet, toServer bool, timeReceived 
 	return pk, nil
 }
 
-func (h *Handlers) OnServerConnect() (cancel bool, err error) {
-	for _, handler := range *h {
+func (h Handlers) OnServerConnect() (cancel bool, err error) {
+	for _, handler := range h {
 		if handler.OnServerConnect == nil {
 			continue
 		}
@@ -117,8 +117,8 @@ func (h *Handlers) OnServerConnect() (cancel bool, err error) {
 	return false, nil
 }
 
-func (h *Handlers) OnConnect() (cancel bool) {
-	for _, handler := range *h {
+func (h Handlers) OnConnect() (cancel bool) {
+	for _, handler := range h {
 		if handler.OnConnect == nil {
 			continue
 		}
@@ -129,8 +129,8 @@ func (h *Handlers) OnConnect() (cancel bool) {
 	return false
 }
 
-func (h *Handlers) OnSessionEnd() {
-	for _, handler := range *h {
+func (h Handlers) OnSessionEnd() {
+	for _, handler := range h {
 		if handler.OnSessionEnd == nil {
 			continue
 		}
@@ -138,8 +138,8 @@ func (h *Handlers) OnSessionEnd() {
 	}
 }
 
-func (h *Handlers) OnProxyEnd() {
-	for _, handler := range *h {
+func (h Handlers) OnProxyEnd() {
+	for _, handler := range h {
 		if handler.OnProxyEnd == nil {
 			continue
 		}

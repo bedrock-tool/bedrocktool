@@ -119,7 +119,6 @@ func (sp *SkinPack) Save(fpath string) error {
 		}
 
 		skinImage := image.NewNRGBA(image.Rect(0, 0, int(skin.SkinImageWidth), int(skin.SkinImageHeight)))
-		os.WriteFile("skin.raw", skin.SkinData, 0777)
 		copy(skinImage.Pix, skin.SkinData)
 		if err := writePng(fs, skinName+".png", skinImage); err != nil {
 			return err

@@ -463,8 +463,8 @@ func (s *Session) connectClient(ctx context.Context, connect *utils.ConnectInfo)
 			State: messages.ConnectStateListening,
 		},
 	})
-	logrus.Infof(locale.Loc("listening_on", locale.Strmap{"Address": s.listener.Addr()}))
-	logrus.Infof(locale.Loc("help_connect", nil))
+	logrus.Info(locale.Loc("listening_on", locale.Strmap{"Address": s.listener.Addr()}))
+	logrus.Info(locale.Loc("help_connect", nil))
 
 	err = utils.Netisolation()
 	if err != nil {

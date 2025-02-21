@@ -27,7 +27,12 @@ func (c *packCache) Get(id uuid.UUID, ver string) (resource.Pack, error) {
 	if c.Ignore {
 		panic("not allowed")
 	}
-	return resource.ReadPath(c.cachedPath(id, ver))
+	f, err := openShared(c.cachedPath(id, ver))
+	if err != nil {
+		return nil, err
+	}
+	stat, _ := f.Stat()
+	return resource.FromReaderAt(f, stat.Size())
 }
 
 func (c *packCache) Has(id uuid.UUID, ver string) bool {
@@ -48,7 +53,7 @@ func (c *packCache) Create(id uuid.UUID, ver string) (*closeMoveWriter, error) {
 
 	_ = os.MkdirAll(filepath.Dir(finalPath), 0777)
 
-	f, err := createTemp(tmpPath)
+	f, err := createShared(tmpPath)
 	if err != nil {
 		return nil, err
 	}

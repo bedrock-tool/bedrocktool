@@ -4,10 +4,10 @@ package proxy
 
 import "os"
 
-func createTemp(name string) (*os.File, error) {
-	f, err := os.Create(name)
-	if err != nil {
-		return nil, err
-	}
-	return f, nil
+func createShared(name string) (*os.File, error) {
+	return os.Create(name)
+}
+
+func openShared(name string) (*os.File, error) {
+	return os.Open(name)
 }
