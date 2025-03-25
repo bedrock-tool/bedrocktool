@@ -19,9 +19,10 @@ type ReplayConnector struct {
 	reader *Pcap2Reader
 	f      *os.File
 
-	spawn  chan struct{}
-	close  chan struct{}
-	closed atomic.Bool
+	ctx       context.Context
+	cancelCtx context.CancelCauseFunc
+
+	spawn chan struct{}
 
 	expectedIDs     atomic.Value
 	deferredPackets []packet.Packet
@@ -35,12 +36,12 @@ type ReplayConnector struct {
 func CreateReplayConnector(ctx context.Context, filename string, packetFunc PacketFunc, resourcePackHandler *rpHandler) (r *ReplayConnector, err error) {
 	r = &ReplayConnector{
 		spawn:               make(chan struct{}),
-		close:               make(chan struct{}),
 		resourcePackHandler: resourcePackHandler,
 	}
 	if r.resourcePackHandler != nil {
 		r.resourcePackHandler.SetServer(r)
 	}
+	r.ctx, r.cancelCtx = context.WithCancelCause(ctx)
 
 	logrus.Infof("Reading replay %s", filename)
 	r.f, err = os.Open(filename)
@@ -145,8 +146,8 @@ func (r *ReplayConnector) ReadUntilLogin() error {
 	return nil
 }
 
-func (r *ReplayConnector) OnDisconnect() <-chan struct{} {
-	return r.close
+func (r *ReplayConnector) Context() context.Context {
+	return r.ctx
 }
 
 func (r *ReplayConnector) Expect(ids ...uint32) {
@@ -156,9 +157,7 @@ func (r *ReplayConnector) Expect(ids ...uint32) {
 func (r *ReplayConnector) SetLoggedIn() {}
 
 func (r *ReplayConnector) Close() error {
-	if r.closed.CompareAndSwap(false, true) {
-		close(r.close)
-	}
+	r.cancelCtx(net.ErrClosed)
 	return nil
 }
 
@@ -184,7 +183,8 @@ func (r *ReplayConnector) DoSpawn() error {
 
 func (r *ReplayConnector) DoSpawnContext(ctx context.Context) error {
 	select {
-	case <-r.close:
+	case <-r.ctx.Done():
+		ctx = r.ctx
 	case <-ctx.Done():
 	case <-r.spawn:
 		// Conn was spawned successfully.
@@ -223,7 +223,7 @@ func (r *ReplayConnector) Read(b []byte) (n int, err error) {
 }
 
 func (r *ReplayConnector) ReadPacketWithTime() (pk packet.Packet, receivedAt time.Time, err error) {
-	if r.closed.Load() {
+	if r.ctx.Err() != nil {
 		return nil, time.Time{}, net.ErrClosed
 	}
 

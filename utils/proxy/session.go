@@ -361,10 +361,11 @@ func (s *Session) connectServer(ctx context.Context, connect *utils.ConnectInfo)
 
 	logrus.Info(locale.Loc("connecting", locale.Strmap{"Address": address}))
 	d := minecraft.Dialer{
-		TokenSource:       utils.Auth,
-		ErrorLog:          slog.Default(),
-		PacketFunc:        s.packetFunc,
-		EnableClientCache: s.EnableClientCache,
+		TokenSource:                utils.Auth,
+		DisconnectOnUnknownPackets: false,
+		ErrorLog:                   slog.Default(),
+		PacketFunc:                 s.packetFunc,
+		EnableClientCache:          s.EnableClientCache,
 		GetClientData: func() login.ClientData {
 			if s.withClient {
 				select {
@@ -413,7 +414,9 @@ func (s *Session) connectServer(ctx context.Context, connect *utils.ConnectInfo)
 func (s *Session) connectClient(ctx context.Context, connect *utils.ConnectInfo) (err error) {
 	s.listener, err = minecraft.ListenConfig{
 		AuthenticationDisabled: true,
+		AllowUnknownPackets:    true,
 		StatusProvider:         minecraft.NewStatusProvider(fmt.Sprintf("%s Proxy", connect.Name()), "Bedrocktool"),
+		ErrorLog:               slog.Default(),
 		PacketFunc: func(header packet.Header, payload []byte, src, dst net.Addr, timeReceived time.Time) {
 			pk, ok := DecodePacket(header, payload, s.Client.ShieldID())
 			if !ok {

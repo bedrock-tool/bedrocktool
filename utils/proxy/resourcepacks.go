@@ -388,7 +388,7 @@ func (r *rpHandler) downloadResourcePack(pk *packet.ResourcePackDataInfo) error 
 		var frag *packet.ResourcePackChunkData
 		var ok bool
 		select {
-		case <-r.Server.OnDisconnect():
+		case <-r.Server.Context().Done():
 			return net.ErrClosed
 		case frag, ok = <-pack.newFrag:
 		}
@@ -841,7 +841,7 @@ func (r *rpHandler) ResourcePacks() []resource.Pack {
 	select {
 	case <-r.receivedRemoteStack:
 	case <-r.ctx.Done():
-	case <-r.Server.OnDisconnect():
+	case <-r.Server.Context().Done():
 	}
 	r.dlwg.Wait()
 	// wait for the whole receiving process to be done
