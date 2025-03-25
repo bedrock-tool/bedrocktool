@@ -87,7 +87,12 @@ func (bp *Pack) ApplyComponentEntries(entries []protocol.ItemEntry) {
 		if components, ok := ice.Data["components"].(map[string]any); ok {
 			var componentsOut = make(map[string]any)
 			for name, component := range components {
-				nameOut, value := processItemComponent(name, component.(map[string]any), componentsOut)
+				componentMap, ok := component.(map[string]any)
+				if !ok {
+					fmt.Printf("skipped component %s %v\n", name, component)
+					continue
+				}
+				nameOut, value := processItemComponent(name, componentMap, componentsOut)
 				if name == "" {
 					continue
 				}

@@ -157,6 +157,12 @@ func loadTerrainTexture(f fs.FS) (map[string]string, error) {
 			textures = texture[0]
 			goto reParse
 		case map[string]any:
+			variations, ok := texture["variations"].([]any)
+			if ok {
+				variation := variations[0].(map[string]any)
+				texture = variation
+				goto reParse
+			}
 			out[textureName] = texture["path"].(string)
 		default:
 			continue
