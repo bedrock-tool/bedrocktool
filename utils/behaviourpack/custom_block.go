@@ -46,7 +46,7 @@ func processComponent(name string, value map[string]any, version *string) (strin
 		return "minecraft:light_dampening", lightLevel
 
 	case "minecraft:material_instances":
-		return name, processMaterialInstances(value)
+		return name, processMaterialInstances(value, version)
 
 	case "minecraft:geometry":
 		return name, value["identifier"].(string)
@@ -120,7 +120,7 @@ func processComponent(name string, value map[string]any, version *string) (strin
 	return name, value
 }
 
-func processMaterialInstances(materialInstances map[string]any) map[string]any {
+func processMaterialInstances(materialInstances map[string]any, version *string) map[string]any {
 	if mappings, ok := materialInstances["mappings"].(map[string]any); ok {
 		if len(mappings) == 0 {
 			delete(materialInstances, "mappings")
@@ -136,6 +136,14 @@ func processMaterialInstances(materialInstances map[string]any) map[string]any {
 			faceDimming, ok := material["face_dimming"].(uint8)
 			if ok {
 				material["face_dimming"] = faceDimming == 1
+			}
+
+			isotropic, ok := material["isotropic"].(uint8)
+			if ok {
+				material["isotropic"] = isotropic == 1
+				if *version < "1.21.70" {
+					*version = "1.21.70"
+				}
 			}
 		}
 
