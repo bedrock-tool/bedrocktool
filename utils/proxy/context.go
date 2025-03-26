@@ -7,7 +7,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
@@ -27,6 +26,7 @@ func (e *errTransfer) Error() string {
 }
 
 type Context struct {
+	ctx               context.Context
 	ExtraDebug        bool
 	PlayerMoveCB      []func()
 	ListenAddress     string
@@ -34,15 +34,14 @@ type Context struct {
 	EnableClientCache bool
 
 	addedPacks []resource.Pack
-	handlers   Handlers
+	handlers   []func() *Handler
 	onHitBlobs func([]protocol.CacheBlob)
-
-	session *Session
 }
 
 // New creates a new proxy context
-func New(withClient, EnableClientCache bool) (*Context, error) {
+func New(ctx context.Context, withClient, EnableClientCache bool) (*Context, error) {
 	p := &Context{
+		ctx:           ctx,
 		withClient:    withClient,
 		ListenAddress: "0.0.0.0:19132",
 	}
@@ -50,63 +49,45 @@ func New(withClient, EnableClientCache bool) (*Context, error) {
 }
 
 // AddHandler adds a handler to the proxy
-func (p *Context) AddHandler(handler *Handler) {
+func (p *Context) AddHandler(handler func() *Handler) {
 	p.handlers = append(p.handlers, handler)
 }
 
-func (p *Context) commandHandlerPacketCB(pk packet.Packet, toServer bool, _ time.Time, _ bool) (packet.Packet, error) {
-	switch _pk := pk.(type) {
-	case *packet.CommandRequest:
-		cmd := strings.Split(_pk.CommandLine, " ")
-		name := cmd[0][1:]
-		if h, ok := p.session.commands[name]; ok {
-			pk = nil
-			h.Exec(cmd[1:])
-		}
-	case *packet.AvailableCommands:
-		cmds := make([]protocol.Command, 0, len(p.session.commands))
-		for _, ic := range p.session.commands {
-			cmds = append(cmds, ic.Cmd)
-		}
-		_pk.Commands = append(_pk.Commands, cmds...)
-	}
-	return pk, nil
+func (p *Context) Context() context.Context {
+	return p.ctx
 }
 
-func (p *Context) connect(ctx context.Context, connect *utils.ConnectInfo) (err error) {
-	p.session = NewSession()
-	p.session.withClient = p.withClient
-	p.session.extraDebug = p.ExtraDebug
-	p.session.addedPacks = p.addedPacks
-	p.session.listenAddress = p.ListenAddress
-	p.session.handlers = p.handlers
-	p.session.OnHitBlobs = p.onHitBlobs
-	p.session.EnableClientCache = p.EnableClientCache
+func (p *Context) connect(connectInfo *utils.ConnectInfo) (err error) {
+	session := NewSession(p.ctx)
+	session.withClient = p.withClient
+	session.extraDebug = p.ExtraDebug
+	session.addedPacks = p.addedPacks
+	session.listenAddress = p.ListenAddress
+	for _, hf := range p.handlers {
+		session.handlers = append(session.handlers, hf())
+	}
+	session.onHitBlobs = p.onHitBlobs
+	session.enableClientCache = p.EnableClientCache
 
-	p.handlers.SessionStart(p.session, connect.Name())
-	err = p.session.Run(ctx, connect)
-	p.handlers.OnSessionEnd()
+	session.handlers.SessionStart(session, connectInfo.Name())
+	err = session.Run(connectInfo)
+	session.handlers.OnSessionEnd(session)
 
 	if err, ok := err.(*errTransfer); ok {
-		if connect.Replay != "" {
+		if connectInfo.Replay != "" {
 			return nil
 		}
 		address := fmt.Sprintf("%s:%d", err.transfer.Address, err.transfer.Port)
 		logrus.Infof("transferring to %s", address)
-		return p.connect(ctx, &utils.ConnectInfo{
+		return p.connect(&utils.ConnectInfo{
 			ServerAddress: address,
 		})
 	}
 	return err
 }
 
-func (p *Context) Run(ctx context.Context, connect *utils.ConnectInfo) (err error) {
+func (p *Context) Run(connect *utils.ConnectInfo) (err error) {
 	defer func() {
-		for _, handler := range p.handlers {
-			if handler.OnProxyEnd != nil {
-				handler.OnProxyEnd()
-			}
-		}
 		messages.Router.Handle(&messages.Message{
 			Source: "proxy",
 			Target: "ui",
@@ -129,37 +110,36 @@ func (p *Context) Run(ctx context.Context, connect *utils.ConnectInfo) (err erro
 
 	p.onHitBlobs = func([]protocol.CacheBlob) {}
 	if utils.Options.Capture {
-		var h *Handler
-		h, p.onHitBlobs = NewPacketCapturer()
-		p.AddHandler(h)
+		hf, onHitBlobs := NewPacketCapturer()
+		p.onHitBlobs = onHitBlobs
+		p.AddHandler(hf)
 	}
-	p.AddHandler(&Handler{
-		Name:           "Commands",
-		PacketCallback: p.commandHandlerPacketCB,
-	})
-	p.AddHandler(&Handler{
-		Name: "Player",
-		OnFinishedPack: func(pack resource.Pack) error {
-			messages.Router.Handle(&messages.Message{
-				Source: "proxy",
-				Target: "ui",
-				Data:   messages.FinishedPack{Pack: pack},
-			})
-			return nil
-		},
-		PacketCallback: func(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
-			if pk, ok := pk.(*packet.PacketViolationWarning); ok {
-				logrus.Infof("%+#v\n", pk)
-			}
 
-			haveMoved := p.session.Player.handlePackets(pk)
-			if haveMoved {
-				for _, cb := range p.PlayerMoveCB {
-					cb()
+	p.AddHandler(func() *Handler {
+		return &Handler{
+			Name: "Player",
+			OnFinishedPack: func(_ *Session, pack resource.Pack) error {
+				messages.Router.Handle(&messages.Message{
+					Source: "proxy",
+					Target: "ui",
+					Data:   messages.FinishedPack{Pack: pack},
+				})
+				return nil
+			},
+			PacketCallback: func(s *Session, pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
+				if pk, ok := pk.(*packet.PacketViolationWarning); ok {
+					logrus.Infof("%+#v\n", pk)
 				}
-			}
-			return pk, nil
-		},
+
+				haveMoved := s.Player.handlePackets(pk)
+				if haveMoved {
+					for _, cb := range p.PlayerMoveCB {
+						cb()
+					}
+				}
+				return pk, nil
+			},
+		}
 	})
 
 	// load forced packs
@@ -189,5 +169,5 @@ func (p *Context) Run(ctx context.Context, connect *utils.ConnectInfo) (err erro
 		}
 	}
 
-	return p.connect(ctx, connect)
+	return p.connect(connect)
 }

@@ -45,7 +45,7 @@ type resourcePackDependency struct {
 
 type World struct {
 	// called when a chunk is added
-	ChunkFunc func(world.ChunkPos, *chunk.Chunk)
+	ChunkFunc func(pos world.ChunkPos, ch *chunk.Chunk)
 
 	BlockRegistry world.BlockRegistry
 	BiomeRegistry *world.BiomeRegistry
@@ -55,12 +55,12 @@ type World struct {
 	dimensionDefinitions map[int]protocol.DimensionDefinition
 	StoredChunks         map[world.ChunkPos]bool
 
-	memState *worldState
+	memState *memoryState
 	provider *mcdb.DB
 	onceOpen sync.Once
 	opened   bool
 	// state to be used while paused
-	pausedState *worldState
+	pausedState *memoryState
 	// access to states
 	stateLock sync.RWMutex
 
@@ -127,7 +127,7 @@ func New(dimensionDefinitions map[int]protocol.DimensionDefinition, onChunkUpdat
 	return w, nil
 }
 
-func (w *World) currState() *worldState {
+func (w *World) currState() *memoryState {
 	if w.pausedState != nil {
 		return w.pausedState
 	} else {

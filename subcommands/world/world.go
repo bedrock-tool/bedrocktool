@@ -58,13 +58,13 @@ func (c *WorldCMD) Execute(ctx context.Context) error {
 		script = string(data)
 	}
 
-	proxy, err := proxy.New(true, c.EnableClientCache)
+	proxy, err := proxy.New(ctx, true, c.EnableClientCache)
 	if err != nil {
 		return err
 	}
 	proxy.ListenAddress = c.ListenAddress
 
-	proxy.AddHandler(worlds.NewWorldsHandler(worlds.WorldSettings{
+	proxy.AddHandler(worlds.NewWorldsHandler(proxy.Context(), worlds.WorldSettings{
 		VoidGen:         c.EnableVoid,
 		SaveEntities:    c.SaveEntities,
 		SaveInventories: c.SaveInventories,
@@ -78,7 +78,7 @@ func (c *WorldCMD) Execute(ctx context.Context) error {
 	}))
 
 	server := ctx.Value(utils.ConnectInfoKey).(*utils.ConnectInfo)
-	err = proxy.Run(ctx, server)
+	err = proxy.Run(server)
 	if err != nil {
 		return err
 	}

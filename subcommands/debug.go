@@ -25,7 +25,7 @@ func (c *DebugProxyCMD) SetFlags(f *flag.FlagSet) {
 }
 
 func (c *DebugProxyCMD) Execute(ctx context.Context) error {
-	proxyContext, err := proxy.New(true, c.EnableClientCache)
+	proxyContext, err := proxy.New(ctx, true, c.EnableClientCache)
 	if err != nil {
 		return err
 	}
@@ -33,7 +33,7 @@ func (c *DebugProxyCMD) Execute(ctx context.Context) error {
 	utils.Options.Debug = true
 
 	server := ctx.Value(utils.ConnectInfoKey).(*utils.ConnectInfo)
-	return proxyContext.Run(ctx, server)
+	return proxyContext.Run(server)
 }
 
 func init() {

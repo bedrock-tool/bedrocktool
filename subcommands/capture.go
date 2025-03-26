@@ -25,7 +25,7 @@ func (c *CaptureCMD) SetFlags(f *flag.FlagSet) {
 }
 
 func (c *CaptureCMD) Execute(ctx context.Context) error {
-	p, err := proxy.New(true, c.EnableClientCache)
+	p, err := proxy.New(ctx, true, c.EnableClientCache)
 	if err != nil {
 		return err
 	}
@@ -33,7 +33,7 @@ func (c *CaptureCMD) Execute(ctx context.Context) error {
 	utils.Options.Capture = true
 
 	server := ctx.Value(utils.ConnectInfoKey).(*utils.ConnectInfo)
-	return p.Run(ctx, server)
+	return p.Run(server)
 }
 func init() {
 	commands.RegisterCommand(&CaptureCMD{})

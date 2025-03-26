@@ -39,7 +39,6 @@ func (p *packetCapturer) dumpPacket(toServer bool, payload []byte, timeReceived 
 }
 
 type packetCapturer struct {
-	session  *proxy.Session
 	file     *os.File
 	wPacket  io.Writer
 	tempBuf  *bytes.Buffer
@@ -56,14 +55,14 @@ func (p *packetCapturer) onServerName(hostname string) (err error) {
 	return nil
 }
 
-func (p *packetCapturer) OnServerConnect() (disconnect bool, err error) {
+func (p *packetCapturer) OnServerConnect(s *proxy.Session) (disconnect bool, err error) {
 	os.Mkdir("captures", 0o775)
 	p.file, err = os.Create(fmt.Sprintf("captures/%s-%s.pcap2", p.hostname, time.Now().Format("2006-01-02_15-04-05")))
 	if err != nil {
 		return false, err
 	}
 
-	packs := p.session.Server.ResourcePacks()
+	packs := s.Server.ResourcePacks()
 
 	p.file.WriteString("BTCP")
 	binary.Write(p.file, binary.LittleEndian, uint32(5))
@@ -114,7 +113,7 @@ func (p *packetCapturer) OnServerConnect() (disconnect bool, err error) {
 	return false, nil
 }
 
-func (p *packetCapturer) PacketFunc(header packet.Header, payload []byte, src, dst net.Addr, timeReceived time.Time) {
+func (p *packetCapturer) PacketFunc(s *proxy.Session, header packet.Header, payload []byte, src, dst net.Addr, timeReceived time.Time) {
 	if header.PacketID == packet.IDResourcePackChunkData || header.PacketID == packet.IDResourcePackChunkRequest || header.PacketID == packet.IDResourcePackDataInfo {
 		return
 	}
@@ -122,30 +121,31 @@ func (p *packetCapturer) PacketFunc(header packet.Header, payload []byte, src, d
 	buf := bytes.NewBuffer(nil)
 	header.Write(buf)
 	buf.Write(payload)
-	p.dumpPacket(p.session.IsClient(src), buf.Bytes(), timeReceived)
+	p.dumpPacket(s.IsClient(src), buf.Bytes(), timeReceived)
 }
 
-func NewPacketCapturer() (*proxy.Handler, func([]protocol.CacheBlob)) {
+func NewPacketCapturer() (func() *proxy.Handler, func([]protocol.CacheBlob)) {
 	p := &packetCapturer{
 		log: logrus.WithField("part", "PacketCapture"),
 	}
-	return &proxy.Handler{
-			Name: "Packet Capturer",
-			SessionStart: func(s *proxy.Session, serverName string) error {
-				p.session = s
-				return p.onServerName(serverName)
-			},
-			OnServerConnect: p.OnServerConnect,
-			PacketRaw:       p.PacketFunc,
-			OnSessionEnd: func() {
-				p.dumpLock.Lock()
-				defer p.dumpLock.Unlock()
-				if p.file != nil {
-					p.file.Close()
-				}
-			},
-		},
-		func(blobs []protocol.CacheBlob) {
+
+	return func() *proxy.Handler {
+			return &proxy.Handler{
+				Name: "Packet Capturer",
+				SessionStart: func(s *proxy.Session, serverName string) error {
+					return p.onServerName(serverName)
+				},
+				OnServerConnect: p.OnServerConnect,
+				PacketRaw:       p.PacketFunc,
+				OnSessionEnd: func(s *proxy.Session) {
+					p.dumpLock.Lock()
+					defer p.dumpLock.Unlock()
+					if p.file != nil {
+						p.file.Close()
+					}
+				},
+			}
+		}, func(blobs []protocol.CacheBlob) {
 			var pk packet.ClientCacheMissResponse
 			for _, blob := range blobs {
 				pk.Blobs = append(pk.Blobs, protocol.CacheBlob{

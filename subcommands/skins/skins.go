@@ -32,7 +32,7 @@ func (c *SkinCMD) SetFlags(f *flag.FlagSet) {
 }
 
 func (c *SkinCMD) Execute(ctx context.Context) error {
-	p, err := proxy.New(!c.NoProxy, c.EnableClientCache)
+	p, err := proxy.New(ctx, !c.NoProxy, c.EnableClientCache)
 	if err != nil {
 		return err
 	}
@@ -49,20 +49,22 @@ func (c *SkinCMD) Execute(ctx context.Context) error {
 		})
 	}))
 
-	p.AddHandler(&proxy.Handler{
-		Name: "Skin CMD",
-		OnConnect: func() bool {
-			messages.Router.Handle(&messages.Message{
-				Source: "skins",
-				Target: "ui",
-				Data:   messages.UIStateMain,
-			})
-			return false
-		},
+	p.AddHandler(func() *proxy.Handler {
+		return &proxy.Handler{
+			Name: "Skin CMD",
+			OnConnect: func(_ *proxy.Session) bool {
+				messages.Router.Handle(&messages.Message{
+					Source: "skins",
+					Target: "ui",
+					Data:   messages.UIStateMain,
+				})
+				return false
+			},
+		}
 	})
 
 	server := ctx.Value(utils.ConnectInfoKey).(*utils.ConnectInfo)
-	err = p.Run(ctx, server)
+	err = p.Run(server)
 	return err
 }
 

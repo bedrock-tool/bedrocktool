@@ -15,7 +15,7 @@ type chatLogger struct {
 	fio     *os.File
 }
 
-func (c *chatLogger) PacketCB(pk packet.Packet, toServer bool, t time.Time, _ bool) (packet.Packet, error) {
+func (c *chatLogger) PacketCB(session *proxy.Session, pk packet.Packet, toServer bool, t time.Time, _ bool) (packet.Packet, error) {
 	if text, ok := pk.(*packet.Text); ok {
 		logLine := text.Message
 		if c.Verbose {
@@ -31,22 +31,25 @@ func (c *chatLogger) PacketCB(pk packet.Packet, toServer bool, t time.Time, _ bo
 	return pk, nil
 }
 
-func NewChatLogger() *proxy.Handler {
-	c := &chatLogger{}
-	return &proxy.Handler{
-		Name:           "Packet Capturer",
-		PacketCallback: c.PacketCB,
-		SessionStart: func(s *proxy.Session, serverName string) error {
-			filename := fmt.Sprintf("%s_%s_chat.log", serverName, time.Now().Format("2006-01-02_15-04-05_Z07"))
-			f, err := os.Create(filename)
-			if err != nil {
-				return err
-			}
-			c.fio = f
-			return nil
-		},
-		OnSessionEnd: func() {
-			c.fio.Close()
-		},
+func NewChatLogger() func() *proxy.Handler {
+	return func() *proxy.Handler {
+		c := &chatLogger{}
+		return &proxy.Handler{
+			Name:           "Packet Capturer",
+			PacketCallback: c.PacketCB,
+			SessionStart: func(s *proxy.Session, serverName string) error {
+				filename := fmt.Sprintf("%s_%s_chat.log", serverName, time.Now().Format("2006-01-02_15-04-05_Z07"))
+				f, err := os.Create(filename)
+				if err != nil {
+					return err
+				}
+				c.fio = f
+				return nil
+			},
+			OnSessionEnd: func(_ *proxy.Session) {
+				c.fio.Close()
+			},
+		}
 	}
+
 }

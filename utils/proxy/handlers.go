@@ -15,18 +15,17 @@ type Handler struct {
 	Name string
 
 	SessionStart       func(s *Session, serverName string) error
-	GameDataModifier   func(gameData *minecraft.GameData)
-	FilterResourcePack func(id string) bool
-	OnFinishedPack     func(pack resource.Pack) error
+	GameDataModifier   func(s *Session, gameData *minecraft.GameData)
+	FilterResourcePack func(s *Session, id string) bool
+	OnFinishedPack     func(s *Session, pack resource.Pack) error
 
-	PacketRaw      func(header packet.Header, payload []byte, src, dst net.Addr, timeReceived time.Time)
-	PacketCallback func(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error)
+	PacketRaw      func(s *Session, header packet.Header, payload []byte, src, dst net.Addr, timeReceived time.Time)
+	PacketCallback func(s *Session, pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error)
 
-	OnServerConnect func() (cancel bool, err error)
-	OnConnect       func() (cancel bool)
+	OnServerConnect func(s *Session) (cancel bool, err error)
+	OnConnect       func(s *Session) (cancel bool)
 
-	OnSessionEnd func()
-	OnProxyEnd   func()
+	OnSessionEnd func(s *Session)
 }
 
 func (h Handlers) SessionStart(s *Session, serverName string) error {
@@ -42,33 +41,33 @@ func (h Handlers) SessionStart(s *Session, serverName string) error {
 	return nil
 }
 
-func (h Handlers) GameDataModifier(gameData *minecraft.GameData) {
+func (h Handlers) GameDataModifier(s *Session, gameData *minecraft.GameData) {
 	for _, handler := range h {
 		if handler.GameDataModifier == nil {
 			continue
 		}
-		handler.GameDataModifier(gameData)
+		handler.GameDataModifier(s, gameData)
 	}
 }
 
-func (h Handlers) FilterResourcePack(id string) bool {
+func (h Handlers) FilterResourcePack(s *Session, id string) bool {
 	for _, handler := range h {
 		if handler.FilterResourcePack == nil {
 			continue
 		}
-		if handler.FilterResourcePack(id) {
+		if handler.FilterResourcePack(s, id) {
 			return true
 		}
 	}
 	return false
 }
 
-func (h Handlers) OnFinishedPack(pack resource.Pack) error {
+func (h Handlers) OnFinishedPack(s *Session, pack resource.Pack) error {
 	for _, handler := range h {
 		if handler.OnFinishedPack == nil {
 			continue
 		}
-		err := handler.OnFinishedPack(pack)
+		err := handler.OnFinishedPack(s, pack)
 		if err != nil {
 			return err
 		}
@@ -76,21 +75,21 @@ func (h Handlers) OnFinishedPack(pack resource.Pack) error {
 	return nil
 }
 
-func (h Handlers) PacketRaw(header packet.Header, payload []byte, src, dst net.Addr, timeReceived time.Time) {
+func (h Handlers) PacketRaw(s *Session, header packet.Header, payload []byte, src, dst net.Addr, timeReceived time.Time) {
 	for _, handler := range h {
 		if handler.PacketRaw == nil {
 			continue
 		}
-		handler.PacketRaw(header, payload, src, dst, timeReceived)
+		handler.PacketRaw(s, header, payload, src, dst, timeReceived)
 	}
 }
-func (h Handlers) PacketCallback(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
+func (h Handlers) PacketCallback(s *Session, pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
 	var err error
 	for _, handler := range h {
 		if handler.PacketCallback == nil {
 			continue
 		}
-		pk, err = handler.PacketCallback(pk, toServer, timeReceived, preLogin)
+		pk, err = handler.PacketCallback(s, pk, toServer, timeReceived, preLogin)
 		if err != nil {
 			return nil, err
 		}
@@ -101,12 +100,12 @@ func (h Handlers) PacketCallback(pk packet.Packet, toServer bool, timeReceived t
 	return pk, nil
 }
 
-func (h Handlers) OnServerConnect() (cancel bool, err error) {
+func (h Handlers) OnServerConnect(s *Session) (cancel bool, err error) {
 	for _, handler := range h {
 		if handler.OnServerConnect == nil {
 			continue
 		}
-		cancel, err = handler.OnServerConnect()
+		cancel, err = handler.OnServerConnect(s)
 		if err != nil {
 			return false, err
 		}
@@ -117,32 +116,23 @@ func (h Handlers) OnServerConnect() (cancel bool, err error) {
 	return false, nil
 }
 
-func (h Handlers) OnConnect() (cancel bool) {
+func (h Handlers) OnConnect(s *Session) (cancel bool) {
 	for _, handler := range h {
 		if handler.OnConnect == nil {
 			continue
 		}
-		if handler.OnConnect() {
+		if handler.OnConnect(s) {
 			return true
 		}
 	}
 	return false
 }
 
-func (h Handlers) OnSessionEnd() {
+func (h Handlers) OnSessionEnd(s *Session) {
 	for _, handler := range h {
 		if handler.OnSessionEnd == nil {
 			continue
 		}
-		handler.OnSessionEnd()
-	}
-}
-
-func (h Handlers) OnProxyEnd() {
-	for _, handler := range h {
-		if handler.OnProxyEnd == nil {
-			continue
-		}
-		handler.OnProxyEnd()
+		handler.OnSessionEnd(s)
 	}
 }

@@ -41,7 +41,7 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk, timeReceived ti
 	levelChunk, blockNBTs, err := chunk.NetworkDecode(
 		w.serverState.blocks,
 		pk.RawPayload, subChunkCount,
-		w.serverState.useOldBiomes,
+		false,
 		w.serverState.useHashedRids,
 		w.worldState.Range(),
 	)

@@ -6,7 +6,6 @@ import (
 	"image"
 	"maps"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds/entity"
@@ -14,6 +13,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/nbtconv"
+	"github.com/bedrock-tool/bedrocktool/utils/proxy"
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/item/inventory"
 	"github.com/df-mc/dragonfly/server/world"
@@ -78,30 +78,8 @@ func (w *worldsHandler) packetHandlerPreLogin(_pk packet.Packet, timeReceived ti
 				w.serverState.customBlocks = pk.Blocks
 			}
 			w.serverState.blocks.Finalize()
+			w.serverState.worldName = pk.WorldName
 
-			w.serverState.WorldName = pk.WorldName
-
-			if len(pk.BaseGameVersion) > 0 && pk.BaseGameVersion != "*" { // check game version
-				gv := strings.Split(pk.BaseGameVersion, ".")
-				var err error
-				if len(gv) > 1 {
-					var ver int
-					ver, err = strconv.Atoi(gv[1])
-					w.serverState.useOldBiomes = ver < 18
-				}
-				if err != nil || len(gv) <= 1 {
-					w.log.Info(locale.Loc("guessing_version", nil))
-				}
-
-				if w.serverState.useOldBiomes {
-					w.log.Info(locale.Loc("using_under_118", nil))
-					w.serverState.dimensions[0] = protocol.DimensionDefinition{
-						Name:      "minecraft:overworld",
-						Range:     [2]int32{0, 256},
-						Generator: 1,
-					}
-				}
-			}
 			dim, _ := world.DimensionByID(int(pk.Dimension))
 			w.worldStateMu.Lock()
 			if pk.WorldName != "" {
@@ -525,7 +503,7 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 	return _pk, nil
 }
 
-func (w *worldsHandler) packetHandler(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
+func (w *worldsHandler) packetHandler(_ *proxy.Session, pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
 	drop := w.scripting.OnPacket(pk, toServer, timeReceived)
 	if drop {
 		return nil, nil

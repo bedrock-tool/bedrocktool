@@ -26,14 +26,14 @@ func (c *ChatLogCMD) SetFlags(f *flag.FlagSet) {
 }
 
 func (c *ChatLogCMD) Execute(ctx context.Context) error {
-	proxyContext, err := proxy.New(true, c.EnableClientCache)
+	proxyContext, err := proxy.New(ctx, true, c.EnableClientCache)
 	if err != nil {
 		return err
 	}
 	proxyContext.AddHandler(handlers.NewChatLogger())
 
 	server := ctx.Value(utils.ConnectInfoKey).(*utils.ConnectInfo)
-	return proxyContext.Run(ctx, server)
+	return proxyContext.Run(server)
 }
 
 func init() {

@@ -18,7 +18,7 @@ type ingameCommand struct {
 	Cmd  protocol.Command
 }
 
-var NewPacketCapturer func() (*Handler, func([]protocol.CacheBlob))
+var NewPacketCapturer func() (func() *Handler, func([]protocol.CacheBlob))
 
 var errCancelConnect = fmt.Errorf("cancelled connecting")
 

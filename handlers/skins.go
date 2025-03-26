@@ -21,8 +21,8 @@ import (
 )
 
 type SkinSaver struct {
-	session *proxy.Session
 	log     *logrus.Entry
+	session *proxy.Session
 
 	PlayerNameFilter  string
 	OnlyIfHasGeometry bool
@@ -32,30 +32,32 @@ type SkinSaver struct {
 	playersByName map[string]uuid.UUID
 }
 
-func NewSkinSaver(skinCB func(SkinAdd)) *proxy.Handler {
-	s := &SkinSaver{
-		log: logrus.WithField("part", "SkinSaver"),
+func NewSkinSaver(skinCB func(SkinAdd)) func() *proxy.Handler {
+	return func() *proxy.Handler {
+		s := &SkinSaver{
+			log: logrus.WithField("part", "SkinSaver"),
 
-		playersById:   make(map[uuid.UUID]*skinPlayer),
-		playersByName: make(map[string]uuid.UUID),
-	}
-	return &proxy.Handler{
-		Name: "Skin Saver",
-		SessionStart: func(session *proxy.Session, hostname string) error {
-			s.session = session
-			outPathBase := fmt.Sprintf("skins/%s", hostname)
-			os.MkdirAll(outPathBase, 0o755)
-			s.baseDir = outPathBase
-			return nil
-		},
-		PacketCallback: func(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
-			for _, s := range s.ProcessPacket(pk) {
-				if skinCB != nil {
-					skinCB(s)
+			playersById:   make(map[uuid.UUID]*skinPlayer),
+			playersByName: make(map[string]uuid.UUID),
+		}
+		return &proxy.Handler{
+			Name: "Skin Saver",
+			SessionStart: func(session *proxy.Session, hostname string) error {
+				s.session = session
+				outPathBase := fmt.Sprintf("skins/%s", hostname)
+				os.MkdirAll(outPathBase, 0o755)
+				s.baseDir = outPathBase
+				return nil
+			},
+			PacketCallback: func(session *proxy.Session, pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
+				for _, s := range s.ProcessPacket(pk) {
+					if skinCB != nil {
+						skinCB(s)
+					}
 				}
-			}
-			return pk, nil
-		},
+				return pk, nil
+			},
+		}
 	}
 }
 

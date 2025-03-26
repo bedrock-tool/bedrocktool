@@ -14,7 +14,7 @@ import (
 	"github.com/thomaso-mirodin/intmath/i32"
 )
 
-type worldState struct {
+type memoryState struct {
 	maps        map[int64]*Map
 	chunks      map[world.ChunkPos]*Chunk
 	entities    map[entity.RuntimeID]*entity.Entity
@@ -28,8 +28,8 @@ type Chunk struct {
 	BlockEntities map[cube.Pos]map[string]any
 }
 
-func newWorldState() *worldState {
-	return &worldState{
+func newWorldState() *memoryState {
+	return &memoryState{
 		maps:        make(map[int64]*Map),
 		chunks:      make(map[world.ChunkPos]*Chunk),
 		entities:    make(map[entity.RuntimeID]*entity.Entity),
@@ -39,11 +39,11 @@ func newWorldState() *worldState {
 	}
 }
 
-func (w *worldState) StoreChunk(pos world.ChunkPos, ch *Chunk) {
+func (w *memoryState) StoreChunk(pos world.ChunkPos, ch *Chunk) {
 	w.chunks[pos] = ch
 }
 
-func (w *worldState) StoreMap(m *packet.ClientBoundMapItemData) {
+func (w *memoryState) StoreMap(m *packet.ClientBoundMapItemData) {
 	return // not finished yet
 	m1, ok := w.maps[m.MapID]
 	if !ok {
@@ -71,7 +71,7 @@ func (w *worldState) StoreMap(m *packet.ClientBoundMapItemData) {
 	)
 }
 
-func (w *worldState) cullChunks() {
+func (w *memoryState) cullChunks() {
 chunks:
 	for key, ch := range w.chunks {
 		for _, sub := range ch.Sub() {
@@ -83,7 +83,7 @@ chunks:
 	}
 }
 
-func (w *worldState) ApplyTo(w2 worldStateInterface, around cube.Pos, radius int32, cf func(world.ChunkPos, *chunk.Chunk)) {
+func (w *memoryState) ApplyTo(w2 worldStateInterface, around cube.Pos, radius int32, cf func(world.ChunkPos, *chunk.Chunk)) {
 	w.cullChunks()
 	for pos, ch := range w.chunks {
 		dist := i32.Sqrt(i32.Pow(pos.X()-int32(around.X()/16), 2) + i32.Pow(pos.Z()-int32(around.Z()/16), 2))
@@ -113,16 +113,16 @@ func cubePosInChunk(pos cube.Pos) (p world.ChunkPos, sp int16) {
 	return
 }
 
-func (w *worldState) StoreEntity(id entity.RuntimeID, es *entity.Entity) {
+func (w *memoryState) StoreEntity(id entity.RuntimeID, es *entity.Entity) {
 	w.entities[id] = es
 	w.uniqueIDsToRuntimeIDs[es.UniqueID] = es.RuntimeID
 }
 
-func (w *worldState) GetEntity(id entity.RuntimeID) *entity.Entity {
+func (w *memoryState) GetEntity(id entity.RuntimeID) *entity.Entity {
 	return w.entities[id]
 }
 
-func (w *worldState) AddEntityLink(el protocol.EntityLink) {
+func (w *memoryState) AddEntityLink(el protocol.EntityLink) {
 	switch el.Type {
 	case protocol.EntityLinkPassenger:
 		fallthrough
