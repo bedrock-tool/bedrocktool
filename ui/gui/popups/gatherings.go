@@ -173,11 +173,10 @@ func (g *Gatherings) Layout(gtx C, th *material.Theme) D {
 
 					var start = time.Now().Add(-1 * time.Hour)
 					var end = gathering.EndTimeUtc
-					var gatheringName = gathering.Title
+					var gatheringName = gathering.Title + " (" + gathering.GatheringID + ")"
 					for _, segment := range gathering.Segments {
 						if segment.UI.CaptionText == "gathering.caption.endsIn" {
 							start = segment.StartTimeUtc
-							gatheringName = segment.UI.HeaderText
 						}
 					}
 					hasStarted := time.Since(start) > 0
@@ -189,7 +188,7 @@ func (g *Gatherings) Layout(gtx C, th *material.Theme) D {
 						click = &widget.Clickable{}
 					}
 
-					gtx.Constraints.Max.Y = 75
+					//gtx.Constraints.Max.Y = 75
 					gtx.Constraints.Min.X = gtx.Constraints.Max.X
 					b := material.ButtonLayoutStyle{
 						Background:   component.WithAlpha(th.Fg, 10),

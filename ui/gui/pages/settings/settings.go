@@ -146,8 +146,8 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 			layout.Rigid(func(gtx C) D {
 				return layout.Inset{
 					Top:   10,
-					Left:  unit.Dp(gtx.Constraints.Max.X / gtx.Dp(10)),
-					Right: unit.Dp(gtx.Constraints.Max.X / gtx.Dp(10)),
+					Left:  unit.Dp(gtx.Constraints.Max.X / 10),
+					Right: unit.Dp(gtx.Constraints.Max.X / 10),
 				}.Layout(gtx, func(gtx C) D {
 					return component.Grid(th, &p.cmdMenu.state).Layout(gtx, 1, len(p.cmdMenu.clickables),
 						func(axis layout.Axis, index, constraint int) int {

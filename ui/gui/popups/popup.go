@@ -28,7 +28,8 @@ func LayoutPopupBackground(gtx C, th *material.Theme, tag string, widget layout.
 	paint.ColorOp{Color: color.NRGBA{A: 170}}.Add(gtx.Ops)
 	paint.PaintOp{}.Add(gtx.Ops)
 
-	width := gtx.Constraints.Max.X - 300
+	width := gtx.Constraints.Max.X
+	width -= gtx.Dp(unit.Dp(min(float32(width)/1000, 0.5) * 300))
 	return layout.Center.Layout(gtx, func(gtx C) D {
 		defer clip.Rect{Max: gtx.Constraints.Max}.Push(gtx.Ops).Pop()
 		component.Rect{
@@ -37,9 +38,9 @@ func LayoutPopupBackground(gtx C, th *material.Theme, tag string, widget layout.
 			Radii: gtx.Dp(15),
 		}.Layout(gtx)
 
-		gtx.Constraints.Min.X = gtx.Dp(unit.Dp(width))
+		gtx.Constraints.Min.X = width
 		gtx.Constraints.Max.X = gtx.Constraints.Min.X
-		gtx.Constraints.Min.Y = gtx.Dp(unit.Dp(250))
+		gtx.Constraints.Min.Y = 250
 		gtx.Constraints.Max.Y = gtx.Constraints.Min.Y
 		return layout.UniformInset(8).Layout(gtx, widget)
 	})

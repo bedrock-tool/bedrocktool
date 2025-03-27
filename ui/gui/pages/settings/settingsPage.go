@@ -175,7 +175,7 @@ func (s *settingsPage) Layout(gtx C, th *material.Theme) D {
 			return s.grid.Layout(gtx, rows, cols, func(axis layout.Axis, index, constraint int) int {
 				switch axis {
 				case layout.Horizontal:
-					return gtx.Dp(130)
+					return 130
 				case layout.Vertical:
 					return gtx.Dp(40)
 				}

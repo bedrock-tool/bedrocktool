@@ -139,6 +139,7 @@ func (g *GUI) loop(window *app.Window) error {
 			g.router.Wg.Wait()
 			return e.Err
 		case app.FrameEvent:
+			//e.Metric = unit.Metric{PxPerDp: 2}
 			gtx := app.NewContext(&ops, e)
 			g.router.Layout(gtx, g.th)
 			e.Frame(gtx.Ops)
