@@ -152,7 +152,7 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 		w.SaveAndReset(false, dim)
 
 	case *packet.LevelChunk:
-		err := w.processLevelChunk(pk, timeReceived)
+		err := w.handleLevelChunk(pk, timeReceived)
 		if err != nil {
 			w.log.Errorf("processLevelChunk %s", err)
 		}

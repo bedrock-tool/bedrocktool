@@ -15,10 +15,14 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 )
 
-func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk, timeReceived time.Time) (err error) {
+func (w *worldsHandler) handleLevelChunk(pk *packet.LevelChunk, timeReceived time.Time) (err error) {
 	if len(pk.RawPayload) == 0 {
 		w.log.Info(locale.Loc("empty_chunk", nil))
 		return
+	}
+
+	if pk.CacheEnabled {
+		return errors.New("cache is supposed to be handled in proxy")
 	}
 
 	var subChunkCount int
@@ -33,10 +37,6 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk, timeReceived ti
 	defer w.worldStateMu.Unlock()
 
 	//os.WriteFile("chunk.bin", pk.RawPayload, 0777)
-
-	if pk.CacheEnabled {
-		return errors.New("cache is supposed to be handled in proxy")
-	}
 
 	levelChunk, blockNBTs, err := chunk.NetworkDecode(
 		w.serverState.blocks,
@@ -68,11 +68,7 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk, timeReceived ti
 	}
 	w.worldState.IgnoredChunks[pos] = false
 
-	err = w.worldState.StoreChunk(pos, ch)
-	if err != nil {
-		w.log.Error(err)
-	}
-
+	// request subchunks
 	max := w.worldState.Dimension().Range().Height() / 16
 	switch pk.SubChunkCount {
 	case protocol.SubChunkRequestModeLimited:
@@ -94,6 +90,11 @@ func (w *worldsHandler) processLevelChunk(pk *packet.LevelChunk, timeReceived ti
 			Offsets: offsetTable[:min(max+1, len(offsetTable))],
 		})
 	default:
+	}
+
+	err = w.worldState.StoreChunk(pos, ch)
+	if err != nil {
+		w.log.Error(err)
 	}
 
 	w.session.SendPopup(locale.Locm("popup_chunk_count", locale.Strmap{

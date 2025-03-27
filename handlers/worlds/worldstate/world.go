@@ -1,6 +1,7 @@
 package worldstate
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -44,6 +45,10 @@ type resourcePackDependency struct {
 }
 
 type World struct {
+	// closed when this world is done
+	ctx       context.Context
+	cancelCtx context.CancelCauseFunc
+
 	// called when a chunk is added
 	ChunkFunc func(pos world.ChunkPos, ch *chunk.Chunk)
 
@@ -53,24 +58,20 @@ type World struct {
 	dimension            world.Dimension
 	dimRange             cube.Range
 	dimensionDefinitions map[int]protocol.DimensionDefinition
-	StoredChunks         map[world.ChunkPos]bool
+	StoredChunks         map[world.ChunkPos]struct{}
 
-	memState *memoryState
-	provider *mcdb.DB
-	onceOpen sync.Once
-	opened   bool
+	stateLock sync.Mutex
+	memState  *memoryState
+	provider  *mcdb.DB
+	onceOpen  sync.Once
+	opened    bool
 	// state to be used while paused
 	pausedState *memoryState
 	// access to states
-	stateLock sync.RWMutex
 
 	ResourcePacks            []resource.Pack
 	resourcePacksDone        chan error
 	resourcePackDependencies []resourcePackDependency
-
-	// closed when this world is done
-	finish chan struct{}
-	err    error
 
 	players map[uuid.UUID]*player
 
@@ -111,11 +112,14 @@ type Map struct {
 	MapLocked         bool             `nbt:"mapLocked"`
 }
 
-func New(dimensionDefinitions map[int]protocol.DimensionDefinition, onChunkUpdate func(pos world.ChunkPos, chunk *chunk.Chunk, isPaused bool)) (*World, error) {
+func New(ctx context.Context, dimensionDefinitions map[int]protocol.DimensionDefinition, onChunkUpdate func(pos world.ChunkPos, chunk *chunk.Chunk, isPaused bool)) (*World, error) {
+	ctxw, cancel := context.WithCancelCause(ctx)
 	w := &World{
-		StoredChunks:         make(map[world.ChunkPos]bool),
+		ctx:       ctxw,
+		cancelCtx: cancel,
+
+		StoredChunks:         make(map[world.ChunkPos]struct{}),
 		dimensionDefinitions: dimensionDefinitions,
-		finish:               make(chan struct{}),
 		memState:             newWorldState(),
 		players:              make(map[uuid.UUID]*player),
 		blockUpdates:         make(map[world.ChunkPos][]blockUpdate),
@@ -143,16 +147,17 @@ func (w *World) storeMemToProvider() error {
 		w.log.Debugf("Opening provider in %s", w.Folder)
 		utils.RemoveTree(w.Folder)
 		os.MkdirAll(w.Folder, 0o777)
-		w.provider, w.err = mcdb.Config{
+		provider, err := mcdb.Config{
 			Log: slog.Default(),
 			LDBOptions: &opt.Options{
 				Compression: opt.DefaultCompression,
 			},
 			Blocks: w.BlockRegistry,
 		}.Open(w.Folder)
-		if w.err != nil {
-			return w.err
+		if err != nil {
+			return err
 		}
+		w.provider = provider
 
 		w.resourcePacksDone = make(chan error)
 		go func() {
@@ -223,8 +228,8 @@ func (w *World) SetTime(real time.Time, ingame int) {
 }
 
 func (w *World) StoreChunk(pos world.ChunkPos, ch *Chunk) (err error) {
-	w.stateLock.RLock()
-	defer w.stateLock.RUnlock()
+	w.stateLock.Lock()
+	defer w.stateLock.Unlock()
 	return w.storeChunkLocked(pos, ch)
 }
 
@@ -237,7 +242,7 @@ func (w *World) storeChunkLocked(pos world.ChunkPos, ch *Chunk) (err error) {
 		}
 	}
 	if !empty {
-		w.StoredChunks[pos] = true
+		w.StoredChunks[pos] = struct{}{}
 		w.onChunkUpdate(pos, ch.Chunk, w.pausedState != nil)
 		// only start saving once a non empty chunk is received
 		w.onceOpen.Do(func() {
@@ -245,7 +250,7 @@ func (w *World) storeChunkLocked(pos world.ChunkPos, ch *Chunk) (err error) {
 				t := time.NewTicker(10 * time.Second)
 				for {
 					select {
-					case <-w.finish:
+					case <-w.ctx.Done():
 						return
 					case <-t.C:
 						w.stateLock.Lock()
@@ -263,8 +268,8 @@ func (w *World) storeChunkLocked(pos world.ChunkPos, ch *Chunk) (err error) {
 }
 
 func (w *World) LoadChunk(pos world.ChunkPos) (*Chunk, bool, error) {
-	w.stateLock.RLock()
-	defer w.stateLock.RUnlock()
+	w.stateLock.Lock()
+	defer w.stateLock.Unlock()
 	return w.loadChunkLocked(pos)
 }
 
@@ -349,8 +354,8 @@ func (w *World) GetEntityUniqueID(id entity.UniqueID) *entity.Entity {
 }
 
 func (w *World) GetEntity(id entity.RuntimeID) *entity.Entity {
-	w.stateLock.RLock()
-	defer w.stateLock.RUnlock()
+	w.stateLock.Lock()
+	defer w.stateLock.Unlock()
 	if w.pausedState != nil {
 		es := w.pausedState.GetEntity(id)
 		if es != nil {
@@ -466,26 +471,29 @@ func (w *World) Rename(name, folder string) error {
 		if err != nil {
 			return err
 		}
-		w.provider, w.err = mcdb.Config{
+		provider, err := mcdb.Config{
 			Log: slog.Default(),
 			LDBOptions: &opt.Options{
 				Compression: opt.DefaultCompression,
 			},
 			Blocks: w.BlockRegistry,
-		}.Open(w.Folder)
-		if w.err != nil {
-			return w.err
+		}.Open(folder)
+		if err != nil {
+			return err
 		}
+		w.provider = provider
 	}
 	w.Folder = folder
 	w.Name = name
 	return nil
 }
 
+var errFinished = errors.New("finished")
+
 func (w *World) Finish(playerData map[string]any, excludedMobs []string, withPlayers bool, spawn cube.Pos, gd minecraft.GameData, experimental bool) error {
 	w.stateLock.Lock()
 	defer w.stateLock.Unlock()
-	close(w.finish)
+	w.cancelCtx(errFinished)
 
 	if withPlayers {
 		w.playersToEntities()

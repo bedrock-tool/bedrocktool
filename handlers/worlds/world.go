@@ -207,7 +207,7 @@ func (w *worldsHandler) onSessionStart(session *proxy.Session, serverName string
 	})
 
 	// initialize a worldstate
-	worldState, err := worldstate.New(w.serverState.dimensions, w.mapUI.SetChunk)
+	worldState, err := worldstate.New(w.ctx, w.serverState.dimensions, w.mapUI.SetChunk)
 	if err != nil {
 		return err
 	}
@@ -403,7 +403,7 @@ func (w *worldsHandler) SaveAndReset(end bool, dim world.Dimension) {
 	}
 
 	if !end {
-		worldState, err := worldstate.New(w.serverState.dimensions, w.mapUI.SetChunk)
+		worldState, err := worldstate.New(w.ctx, w.serverState.dimensions, w.mapUI.SetChunk)
 		if err != nil {
 			w.log.Error(err)
 		}

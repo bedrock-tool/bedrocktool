@@ -261,6 +261,11 @@ var EntityFlags = []string{
 	"TimerFlag1",
 	"TimerFlag2",
 	"TimerFlag3",
+	"BodyRotationBlocked",
+	"RenderWhenInvisible",
+	"BodyRotationAxisAligned",
+	"Collidable",
+	"WASDAirControlled",
 }
 
 type entityDataFlags struct {
