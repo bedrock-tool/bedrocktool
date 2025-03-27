@@ -348,7 +348,7 @@ func (s *Session) connect(connectInfo *utils.ConnectInfo) error {
 		}
 	}()
 	wg.Wait()
-	return s.ctx.Err()
+	return context.Cause(s.ctx)
 }
 
 func (s *Session) connectServer(connectInfo *utils.ConnectInfo) (err error) {

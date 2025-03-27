@@ -136,9 +136,12 @@ func ParseServer(ctx context.Context, server string) (*ConnectInfo, error) {
 		if err != nil {
 			return nil, err
 		}
+		input := strings.ToLower(p["Title"])
 		var gathering *gatherings.Gathering
 		for _, gg := range gatheringsList {
-			if gg.Title == p["Title"] {
+			title := strings.ToLower(gg.Title)
+			id := strings.ToLower(gg.GatheringID)
+			if strings.HasPrefix(title, input) || strings.HasPrefix(id, input) {
 				gathering = gg
 				break
 			}
