@@ -255,7 +255,7 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 			continue
 		}
 
-		if pack.DownloadURL != "" {
+		if pack.DownloadURL != "" && !strings.Contains(pack.DownloadURL, "zeqa.net") {
 			urlDownloads = append(urlDownloads, pack)
 			continue
 		}
