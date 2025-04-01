@@ -372,18 +372,17 @@ func (r *rpHandler) downloadResourcePack(pk *packet.ResourcePackDataInfo) error 
 	h := sha256.New()
 	w := io.MultiWriter(f, h)
 
-	chunksDone := 0
+	chunksRequested := 0
 	dataWritten := 0
-	for i := uint32(0); i < min(4, chunkCount); i++ {
-		err = r.Server.WritePacket(&packet.ResourcePackChunkRequest{
-			UUID:       pk.UUID,
-			ChunkIndex: i,
-		})
-		if err != nil {
-			return err
-		}
-		chunksDone++
+	// request first
+	err = r.Server.WritePacket(&packet.ResourcePackChunkRequest{
+		UUID:       pk.UUID,
+		ChunkIndex: 0,
+	})
+	if err != nil {
+		return err
 	}
+	chunksRequested++
 	for {
 		var frag *packet.ResourcePackChunkData
 		var ok bool
@@ -418,15 +417,15 @@ func (r *rpHandler) downloadResourcePack(pk *packet.ResourcePackDataInfo) error 
 			break
 		}
 
-		if chunksDone < int(chunkCount) {
+		if chunksRequested < int(chunkCount) {
 			err = r.Server.WritePacket(&packet.ResourcePackChunkRequest{
 				UUID:       pk.UUID,
-				ChunkIndex: uint32(chunksDone),
+				ChunkIndex: uint32(chunksRequested),
 			})
 			if err != nil {
 				return err
 			}
-			chunksDone++
+			chunksRequested++
 		}
 	}
 
