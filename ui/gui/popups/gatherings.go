@@ -14,7 +14,7 @@ import (
 	"gioui.org/x/component"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
-	"github.com/bedrock-tool/bedrocktool/utils/gatherings"
+	"github.com/bedrock-tool/bedrocktool/utils/discovery"
 )
 
 type Gatherings struct {
@@ -24,16 +24,16 @@ type Gatherings struct {
 	gatherings   []*gatheringButton
 	loaded       bool
 	loading      bool
-	setGathering func(*gatherings.Gathering)
+	setGathering func(*discovery.Gathering)
 	t            *time.Ticker
 }
 
 type gatheringButton struct {
-	*gatherings.Gathering
+	*discovery.Gathering
 	widget.Clickable
 }
 
-func NewGatherings(setGathering func(*gatherings.Gathering)) Popup {
+func NewGatherings(setGathering func(*discovery.Gathering)) Popup {
 	return &Gatherings{
 		setGathering: setGathering,
 		list: widget.List{

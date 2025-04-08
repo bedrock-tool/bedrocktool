@@ -46,6 +46,10 @@ var mutedPackets = []uint32{
 	packet.IDClientCacheBlobStatus,
 	packet.IDSetScore,
 	packet.IDMobEquipment,
+	packet.IDSpawnParticleEffect,
+	packet.IDAnimateEntity,
+	packet.IDMobArmourEquipment,
+	packet.IDMobEffect,
 }
 
 var dirS2C = color.GreenString("S") + "->" + color.CyanString("C")

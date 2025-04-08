@@ -1,22 +1,14 @@
-package gatherings
+package discovery
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"time"
 
-	"github.com/bedrock-tool/bedrocktool/utils/discovery"
-	"github.com/bedrock-tool/bedrocktool/utils/playfab"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
-	"github.com/sirupsen/logrus"
 )
-
-const minecraftUserAgent = "libhttpclient/1.0.0.0"
 
 type Segment struct {
 	SegmentType  string    `json:"segmentType"`
@@ -42,7 +34,7 @@ type Segment struct {
 }
 
 type Gathering struct {
-	client *GatheringsClient
+	client *GatheringsService
 
 	GatheringID   string         `json:"gatheringId"`
 	StartTimeUtc  time.Time      `json:"startTimeUtc"`
@@ -66,13 +58,8 @@ func (g *Gathering) Address(ctx context.Context) (string, error) {
 		} `json:"result"`
 	}
 
-	gatheringsService, err := g.client.discovery.GatheringsService()
-	if err != nil {
-		return "", err
-	}
-
-	resp1, err := doRequest[map[string]any](ctx, g.client.http, "GET",
-		fmt.Sprintf("%s/api/v1.0/access?lang=en-US&clientVersion=%s&clientPlatform=Windows10&clientSubPlatform=Windows10", gatheringsService.ServiceURI, protocol.CurrentVersion),
+	resp1, err := doRequest[map[string]any](ctx, http.DefaultClient, "GET",
+		fmt.Sprintf("%s/api/v1.0/access?lang=en-US&clientVersion=%s&clientPlatform=Windows10&clientSubPlatform=Windows10", g.client.ServiceURI, protocol.CurrentVersion),
 		nil, g.client.mcTokenAuth,
 	)
 	if err != nil {
@@ -80,8 +67,8 @@ func (g *Gathering) Address(ctx context.Context) (string, error) {
 	}
 	_ = resp1
 
-	resp, err := doRequest[venueResponse](ctx, g.client.http, "GET",
-		fmt.Sprintf("%s/api/v1.0/venue/%s", gatheringsService.ServiceURI, g.GatheringID),
+	resp, err := doRequest[venueResponse](ctx, http.DefaultClient, "GET",
+		fmt.Sprintf("%s/api/v1.0/venue/%s", g.client.ServiceURI, g.GatheringID),
 		nil, g.client.mcTokenAuth,
 	)
 	if err != nil {
@@ -95,32 +82,24 @@ func (g *Gathering) Address(ctx context.Context) (string, error) {
 	return fmt.Sprintf("%s:%d", resp.Result.Venue.ServerIpAddress, resp.Result.Venue.ServerPort), nil
 }
 
-type GatheringsClient struct {
-	http      *http.Client
-	token     *playfab.MCToken
-	discovery *discovery.Discovery
+type GatheringsService struct {
+	Service
+	token *MCToken
 }
 
-func NewGatheringsClient(token *playfab.MCToken, discovery *discovery.Discovery) *GatheringsClient {
-	client := &http.Client{}
-	return &GatheringsClient{
-		http:      client,
-		token:     token,
-		discovery: discovery,
-	}
+func (g *GatheringsService) SetToken(token *MCToken) {
+	g.token = token
 }
 
-func (g *GatheringsClient) Gatherings(ctx context.Context) ([]*Gathering, error) {
+func (g *GatheringsService) Gatherings(ctx context.Context) ([]*Gathering, error) {
 	type gatheringsResponse struct {
 		Result []Gathering `json:"result"`
 	}
 
-	gatheringService, err := g.discovery.GatheringsService()
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := doRequest[gatheringsResponse](ctx, g.http, "GET", fmt.Sprintf("%s/api/v1.0/config/public?lang=en-GB&clientVersion=%s&clientPlatform=Windows10&clientSubPlatform=Windows10", gatheringService.ServiceURI, protocol.CurrentVersion), nil, g.mcTokenAuth)
+	resp, err := doRequest[gatheringsResponse](ctx, http.DefaultClient, "GET",
+		fmt.Sprintf("%s/api/v1.0/config/public?lang=en-GB&clientVersion=%s&clientPlatform=Windows10&clientSubPlatform=Windows10", g.ServiceURI, protocol.CurrentVersion),
+		nil, g.mcTokenAuth,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -133,7 +112,7 @@ func (g *GatheringsClient) Gatherings(ctx context.Context) ([]*Gathering, error)
 	return gatherings, nil
 }
 
-func (g *GatheringsClient) mcTokenAuth(req *http.Request) {
+func (g *GatheringsService) mcTokenAuth(req *http.Request) {
 	req.Header.Set("Authorization", g.token.AuthorizationHeader)
 }
 
@@ -148,58 +127,4 @@ func (e JsonResponseError) Error() string {
 		return e.Status + "\n" + message
 	}
 	return e.Status
-}
-
-func doRequest[T any](ctx context.Context, client *http.Client, method, url string, payload any, header func(*http.Request)) (*T, error) {
-	logrus.Tracef("doRequest: %s", url)
-	var err error
-	var body []byte
-	if payload != nil {
-		body, err = json.Marshal(payload)
-		if err != nil {
-			return nil, err
-		}
-	}
-	req, err := http.NewRequestWithContext(ctx, method, url, bytes.NewReader(body))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Accept", "*/*")
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", minecraftUserAgent)
-	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
-	req.Header.Set("Cache-Control", "no-cache")
-	if header != nil {
-		header(req)
-	}
-
-	res, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
-
-	bodyResp, err := io.ReadAll(res.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	if res.StatusCode >= 400 {
-		var resp map[string]any
-		err = json.Unmarshal(bodyResp, &resp)
-		if err != nil {
-			return nil, err
-		}
-		return nil, &JsonResponseError{
-			Status: res.Status,
-			Data:   resp,
-		}
-	}
-
-	var resp T
-	err = json.Unmarshal(bodyResp, &resp)
-	if err != nil {
-		return nil, err
-	}
-	return &resp, nil
 }

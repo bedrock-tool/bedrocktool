@@ -14,7 +14,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui/gui/popups"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
-	"github.com/bedrock-tool/bedrocktool/utils/gatherings"
+	"github.com/bedrock-tool/bedrocktool/utils/discovery"
 	"github.com/sandertv/gophertunnel/minecraft/realms"
 )
 
@@ -58,7 +58,7 @@ func (a *addressInput) setRealm(realm *realms.Realm) {
 	a.editor.SetText(fmt.Sprintf("realm:%s", realm.Name))
 }
 
-func (a *addressInput) setGathering(gathering *gatherings.Gathering) {
+func (a *addressInput) setGathering(gathering *discovery.Gathering) {
 	a.connectInfo = &utils.ConnectInfo{
 		Gathering: gathering,
 	}

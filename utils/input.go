@@ -10,7 +10,7 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/bedrock-tool/bedrocktool/utils/gatherings"
+	"github.com/bedrock-tool/bedrocktool/utils/discovery"
 	"github.com/sandertv/gophertunnel/minecraft/realms"
 	"golang.org/x/term"
 )
@@ -137,7 +137,7 @@ func ParseServer(ctx context.Context, server string) (*ConnectInfo, error) {
 			return nil, err
 		}
 		input := strings.ToLower(p["Title"])
-		var gathering *gatherings.Gathering
+		var gathering *discovery.Gathering
 		for _, gg := range gatheringsList {
 			title := strings.ToLower(gg.Title)
 			id := strings.ToLower(gg.GatheringID)

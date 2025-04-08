@@ -1,3 +1,5 @@
+//go:build false
+
 package playfab
 
 import "time"
@@ -112,45 +114,4 @@ type loginResponse struct {
 
 type entityTokenRequest struct {
 	Entity *Entity `json:"Entity"`
-}
-
-type mcTokenDevice struct {
-	ApplicationType    string   `json:"applicationType"`
-	Capabilities       []string `json:"capabilities"`
-	GameVersion        string   `json:"gameVersion"`
-	ID                 string   `json:"id"`
-	Memory             string   `json:"memory"`
-	Platform           string   `json:"platform"`
-	PlayFabTitleID     string   `json:"playFabTitleId"`
-	StorePlatform      string   `json:"storePlatform"`
-	TreatmentOverrides any      `json:"treatmentOverrides"`
-	Type               string   `json:"type"`
-}
-
-type mcTokenUser struct {
-	Language     string `json:"language"`
-	LanguageCode string `json:"languageCode"`
-	RegionCode   string `json:"regionCode"`
-	Token        string `json:"token"`
-	TokenType    string `json:"tokenType"`
-}
-type mcTokenRequest struct {
-	Device mcTokenDevice `json:"device"`
-	User   mcTokenUser   `json:"user"`
-}
-
-type MCToken struct {
-	AuthorizationHeader string    `json:"authorizationHeader"`
-	ValidUntil          time.Time `json:"validUntil"`
-	Treatments          []string  `json:"treatments"`
-	Configurations      struct {
-		Minecraft struct {
-			ID         string         `json:"id"`
-			Parameters map[string]any `json:"parameters"`
-		} `json:"minecraft"`
-	} `json:"configurations"`
-}
-
-type mcTokenResponse struct {
-	Result MCToken `json:"result"`
 }

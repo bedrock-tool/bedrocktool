@@ -9,6 +9,8 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 )
 
+const minecraftUserAgent = "libhttpclient/1.0.0.0"
+
 var discoveryUrls = map[string]string{
 	"prod":  "https://client.discovery.minecraft-services.net/api/v1.0/discovery/MinecraftPE/builds/%s",
 	"stage": "https://client.stage-b4c666a2.discovery.minecraft-services.net/api/v1.0/discovery/MinecraftPE/builds/%s",
@@ -29,11 +31,6 @@ type ServiceWithEdu struct {
 	EduPlayFabTitleID string `json:"eduPlayFabTitleId"`
 }
 
-type AuthService struct {
-	ServiceWithEdu
-	Issuer string `json:"issuer"`
-}
-
 type SignalingService struct {
 	Service
 	StunURI string `json:"stunUri"`
@@ -42,20 +39,20 @@ type SignalingService struct {
 
 type Discovery struct {
 	ServiceEnvironments struct {
-		Persona        map[string]ServiceWithTitle `json:"persona"`
-		Store          map[string]ServiceWithEdu   `json:"store"`
-		Auth           map[string]AuthService      `json:"auth"`
-		Signaling      map[string]SignalingService `json:"signaling"`
-		Filetocloud    map[string]Service          `json:"filetocloud"`
-		Safety         map[string]Service          `json:"safety"`
-		Mpsas          map[string]Service          `json:"mpsas"`
-		Gatherings     map[string]Service          `json:"gatherings"`
-		Messaging      map[string]Service          `json:"messaging"`
-		Entitlements   map[string]ServiceWithTitle `json:"entitlements"`
-		Frontend       map[string]Service          `json:"frontend"`
-		Multiplayer    map[string]Service          `json:"multiplayer"`
-		Cdn            map[string]Service          `json:"cdn"`
-		Realmsfrontend map[string]ServiceWithTitle `json:"realmsfrontend"`
+		Persona        map[string]ServiceWithTitle   `json:"persona"`
+		Store          map[string]ServiceWithEdu     `json:"store"`
+		Auth           map[string]AuthService        `json:"auth"`
+		Signaling      map[string]SignalingService   `json:"signaling"`
+		Filetocloud    map[string]Service            `json:"filetocloud"`
+		Safety         map[string]Service            `json:"safety"`
+		Mpsas          map[string]Service            `json:"mpsas"`
+		Gatherings     map[string]*GatheringsService `json:"gatherings"`
+		Messaging      map[string]Service            `json:"messaging"`
+		Entitlements   map[string]ServiceWithTitle   `json:"entitlements"`
+		Frontend       map[string]Service            `json:"frontend"`
+		Multiplayer    map[string]Service            `json:"multiplayer"`
+		Cdn            map[string]Service            `json:"cdn"`
+		Realmsfrontend map[string]ServiceWithTitle   `json:"realmsfrontend"`
 	} `json:"serviceEnvironments"`
 	SupportedEnvironments map[string][]string `json:"supportedEnvironments"`
 
@@ -111,11 +108,11 @@ func (d *Discovery) MpsasService() (Service, error) {
 	return Service{}, errors.New("mpsas service not found for the environment")
 }
 
-func (d *Discovery) GatheringsService() (Service, error) {
+func (d *Discovery) GatheringsService() (*GatheringsService, error) {
 	if service, ok := d.ServiceEnvironments.Gatherings[d.env]; ok {
 		return service, nil
 	}
-	return Service{}, errors.New("gatherings service not found for the environment")
+	return nil, errors.New("gatherings service not found for the environment")
 }
 
 func (d *Discovery) MessagingService() (Service, error) {

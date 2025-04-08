@@ -6,12 +6,12 @@ import (
 	"net"
 	"path"
 
-	"github.com/bedrock-tool/bedrocktool/utils/gatherings"
+	"github.com/bedrock-tool/bedrocktool/utils/discovery"
 	"github.com/sandertv/gophertunnel/minecraft/realms"
 )
 
 type ConnectInfo struct {
-	Gathering     *gatherings.Gathering
+	Gathering     *discovery.Gathering
 	Realm         *realms.Realm
 	Replay        string
 	ServerAddress string

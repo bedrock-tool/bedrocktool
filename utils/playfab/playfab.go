@@ -1,3 +1,5 @@
+//go:build false
+
 package playfab
 
 import (
@@ -11,8 +13,6 @@ import (
 
 	"github.com/bedrock-tool/bedrocktool/utils/discovery"
 	"github.com/bedrock-tool/bedrocktool/utils/xbox"
-	"github.com/google/uuid"
-	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"golang.org/x/oauth2"
 )
 
@@ -27,7 +27,6 @@ type Client struct {
 	accountID     string
 	sessionTicket string
 
-	mcToken     *MCToken
 	playerToken *EntityToken
 	masterToken *EntityToken
 }
@@ -41,7 +40,7 @@ func NewClient(discovery *discovery.Discovery, src oauth2.TokenSource) *Client {
 }
 
 func (c *Client) LoggedIn() bool {
-	return c.mcToken != nil && c.mcToken.ValidUntil.Before(time.Now())
+	return c.playerToken != nil && c.playerToken.TokenExpiration.Before(time.Now())
 }
 
 func (c *Client) Login(ctx context.Context) error {
@@ -55,11 +54,6 @@ func (c *Client) Login(ctx context.Context) error {
 	}
 
 	err = c.loginMaster(ctx)
-	if err != nil {
-		return err
-	}
-
-	err = c.startSession(ctx)
 	if err != nil {
 		return err
 	}
@@ -115,87 +109,6 @@ func (c *Client) loginMaster(ctx context.Context) error {
 
 	c.masterToken = resp.Data
 	return nil
-}
-
-func (c *Client) startSession(ctx context.Context) error {
-	authService, err := c.discovery.AuthService()
-	if err != nil {
-		return err
-	}
-
-	if c.playerToken == nil || c.playerToken.TokenExpiration.Before(time.Now()) {
-		err = c.Login(ctx)
-		if err != nil {
-			return err
-		}
-	}
-
-	resp, err := doRequest[mcTokenResponse](ctx, c.http, fmt.Sprintf("%s/api/v1.0/session/start", authService.ServiceURI), mcTokenRequest{
-		Device: mcTokenDevice{
-			ApplicationType:    "MinecraftPE",
-			Capabilities:       []string{"RayTracing"},
-			GameVersion:        protocol.CurrentVersion,
-			ID:                 uuid.New().String(),
-			Memory:             fmt.Sprint(16 * (1024 * 1024 * 1024)), // 16 GB
-			Platform:           "Windows10",
-			PlayFabTitleID:     strings.ToUpper(authService.PlayfabTitleID),
-			StorePlatform:      "uwp.store",
-			TreatmentOverrides: nil,
-			Type:               "Windows10",
-		},
-		User: mcTokenUser{
-			Language:     "en",
-			LanguageCode: "en-US",
-			RegionCode:   "US",
-			Token:        c.sessionTicket,
-			TokenType:    "PlayFab",
-		},
-	})
-	if err != nil {
-		return err
-	}
-
-	c.mcToken = &resp.Result
-	return nil
-}
-
-func (c *Client) MCToken() (*MCToken, error) {
-	if c.mcToken == nil || c.mcToken.ValidUntil.Before(time.Now()) {
-		err := c.startSession(context.TODO())
-		if err != nil {
-			return nil, err
-		}
-	}
-	return c.mcToken, nil
-}
-
-func doRequest[T any](ctx context.Context, client *http.Client, url string, payload any) (*T, error) {
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return nil, err
-	}
-	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(body))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Accept", "*/*")
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", minecraftUserAgent)
-	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
-	req.Header.Set("Cache-Control", "no-cache")
-
-	res, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer res.Body.Close()
-
-	var resp T
-	err = json.NewDecoder(res.Body).Decode(&resp)
-	if err != nil {
-		return nil, err
-	}
-	return &resp, nil
 }
 
 func doPlayfabRequest[T any](ctx context.Context, client *http.Client, titleID, endpoint string, payload any, token func(*http.Request)) (*Response[T], error) {

@@ -56,7 +56,11 @@ type XBLToken struct {
 // SetAuthHeader returns a string that may be used for the 'Authorization' header used for Minecraft
 // related endpoints that need an XBOX Live authenticated caller.
 func (t XBLToken) SetAuthHeader(r *http.Request) {
-	r.Header.Set("Authorization", fmt.Sprintf("XBL3.0 x=%v;%v", t.AuthorizationToken.DisplayClaims.UserInfo[0].UserHash, t.AuthorizationToken.Token))
+	r.Header.Set("Authorization", t.XBL())
+}
+
+func (t XBLToken) XBL() string {
+	return fmt.Sprintf("XBL3.0 x=%v;%v", t.AuthorizationToken.DisplayClaims.UserInfo[0].UserHash, t.AuthorizationToken.Token)
 }
 
 // RequestXBLToken requests an XBOX Live auth token using the passed Live token pair.

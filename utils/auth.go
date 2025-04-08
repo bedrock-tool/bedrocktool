@@ -15,8 +15,6 @@ import (
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/utils/discovery"
-	"github.com/bedrock-tool/bedrocktool/utils/gatherings"
-	"github.com/bedrock-tool/bedrocktool/utils/playfab"
 	"github.com/bedrock-tool/bedrocktool/utils/xbox"
 	"github.com/go-jose/go-jose/v3/jwt"
 	"github.com/sandertv/gophertunnel/minecraft/auth"
@@ -29,13 +27,11 @@ type authsrv struct {
 	log     *logrus.Entry
 	handler xbox.MSAuthHandler
 
-	liveToken  *oauth2.Token
-	deviceType *xbox.DeviceType
+	token *tokenInfo
 
 	discovery  *discovery.Discovery
 	realms     *realms.Client
-	playfab    *playfab.Client
-	gatherings *gatherings.GatheringsClient
+	gatherings *discovery.GatheringsService
 }
 
 var Auth *authsrv = &authsrv{
@@ -44,6 +40,7 @@ var Auth *authsrv = &authsrv{
 
 // reads token from storage if there is one
 func (a *authsrv) Startup() (err error) {
+	a.token = nil
 	tokenInfo, err := a.readToken()
 	if errors.Is(err, os.ErrNotExist) || errors.Is(err, errors.ErrUnsupported) {
 		return nil
@@ -51,27 +48,14 @@ func (a *authsrv) Startup() (err error) {
 	if err != nil {
 		return err
 	}
-	a.liveToken = tokenInfo.Token
-	switch tokenInfo.DeviceType {
-	case "Android":
-		a.deviceType = &xbox.DeviceTypeAndroid
-	case "iOS":
-		a.deviceType = &xbox.DeviceTypeIOS
-	case "Win32":
-		a.deviceType = &xbox.DeviceTypeWindows
-	case "Nintendo":
-		a.deviceType = &xbox.DeviceTypeNintendo
-	case "":
-		a.deviceType = &xbox.DeviceTypeAndroid
-	default:
-		a.liveToken = nil
-	}
+	a.token = tokenInfo
+
 	return nil
 }
 
 // if the user is currently logged in or not
 func (a *authsrv) LoggedIn() bool {
-	return a.liveToken != nil
+	return a.token != nil
 }
 
 // performs microsoft login using the handler passed
@@ -82,47 +66,43 @@ func (a *authsrv) SetHandler(handler xbox.MSAuthHandler) (err error) {
 
 func (a *authsrv) Login(ctx context.Context, deviceType *xbox.DeviceType) (err error) {
 	if deviceType == nil {
-		deviceType = a.deviceType
+		deviceType = a.token.DeviceType2()
 	}
 	if deviceType == nil {
 		deviceType = &xbox.DeviceTypeAndroid
 	}
-	a.liveToken, err = xbox.RequestLiveTokenWriter(ctx, deviceType, a.handler)
+	liveToken, err := xbox.RequestLiveTokenWriter(ctx, deviceType, a.handler)
 	if err != nil {
 		return err
 	}
-	a.deviceType = deviceType
-	err = a.writeToken(tokenInfo{
-		Token:      a.liveToken,
+	a.token = &tokenInfo{
+		Token:      liveToken,
 		DeviceType: deviceType.DeviceType,
-	})
-	if err != nil {
+	}
+	if err = a.writeToken(); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (a *authsrv) Logout() {
-	a.liveToken = nil
+	a.token = nil
 	os.Remove("token.json")
 	os.Remove("chain.bin")
 }
 
 func (a *authsrv) refreshLiveToken() error {
-	if a.liveToken.Valid() {
+	if a.token.LiveToken().Valid() {
 		return nil
 	}
 
 	a.log.Info("Refreshing Microsoft Token")
-	liveToken, err := xbox.RefreshToken(a.liveToken, a.deviceType)
+	liveToken, err := xbox.RefreshToken(a.token.LiveToken(), a.token.DeviceType2())
 	if err != nil {
 		return err
 	}
-	a.liveToken = liveToken
-	return a.writeToken(tokenInfo{
-		Token:      a.liveToken,
-		DeviceType: a.deviceType.DeviceType,
-	})
+	a.token.Token = liveToken
+	return a.writeToken()
 }
 
 var Ver1token func(f io.ReadSeeker, o any) error
@@ -178,11 +158,33 @@ func writeAuth(name string, o any) error {
 type tokenInfo struct {
 	*oauth2.Token
 	DeviceType string
+	MCToken    *discovery.MCToken
+}
+
+func (t *tokenInfo) LiveToken() *oauth2.Token {
+	return t.Token
+}
+
+func (t *tokenInfo) DeviceType2() *xbox.DeviceType {
+	switch t.DeviceType {
+	case "Android":
+		return &xbox.DeviceTypeAndroid
+	case "iOS":
+		return &xbox.DeviceTypeIOS
+	case "Win32":
+		return &xbox.DeviceTypeWindows
+	case "Nintendo":
+		return &xbox.DeviceTypeNintendo
+	case "":
+		return &xbox.DeviceTypeAndroid
+	default:
+		return nil
+	}
 }
 
 // writes the livetoken to storage
-func (a *authsrv) writeToken(token tokenInfo) error {
-	return writeAuth("token.json", token)
+func (a *authsrv) writeToken() error {
+	return writeAuth("token.json", *a.token)
 }
 
 // reads the live token from storage, returns os.ErrNotExist if no token is stored
@@ -194,16 +196,16 @@ var ErrNotLoggedIn = errors.New("not logged in")
 
 // Token implements oauth2.TokenSource, returns ErrNotLoggedIn if there is no token, refreshes it if it expired
 func (a *authsrv) Token() (t *oauth2.Token, err error) {
-	if a.liveToken == nil {
+	if a.token == nil {
 		return nil, ErrNotLoggedIn
 	}
-	if !a.liveToken.Valid() {
+	if !a.token.LiveToken().Valid() {
 		err = a.refreshLiveToken()
 		if err != nil {
 			return nil, err
 		}
 	}
-	return a.liveToken, nil
+	return a.token.LiveToken(), nil
 }
 
 func (a *authsrv) Discovery() (d *discovery.Discovery, err error) {
@@ -216,38 +218,63 @@ func (a *authsrv) Discovery() (d *discovery.Discovery, err error) {
 	return a.discovery, nil
 }
 
-func (a *authsrv) Playfab(ctx context.Context) (*playfab.Client, error) {
-	if a.playfab == nil {
-		discovery, err := a.Discovery()
-		if err != nil {
-			return nil, err
-		}
-		a.playfab = playfab.NewClient(discovery, a)
+func (a *authsrv) PlayfabXblToken(ctx context.Context) (*xbox.XBLToken, error) {
+	liveToken, err := a.Token()
+	if err != nil {
+		return nil, err
 	}
-	if !a.playfab.LoggedIn() {
-		err := a.playfab.Login(ctx)
-		if err != nil {
-			return nil, err
-		}
+	xboxToken, err := xbox.RequestXBLToken(ctx, liveToken, "rp://playfabapi.com/", &xbox.DeviceTypeAndroid)
+	if err != nil {
+		return nil, err
 	}
-	return a.playfab, nil
+	return xboxToken, nil
 }
 
-func (a *authsrv) Gatherings(ctx context.Context) (*gatherings.GatheringsClient, error) {
-	if a.gatherings == nil {
-		playfabClient, err := a.Playfab(ctx)
-		if err != nil {
-			return nil, err
-		}
-		mcToken, err := playfabClient.MCToken()
-		if err != nil {
-			return nil, err
-		}
+func (a *authsrv) MCToken(ctx context.Context) (*discovery.MCToken, error) {
+	if a.token.MCToken == nil || a.token.MCToken.ValidUntil.Before(time.Now()) {
 		discovery, err := a.Discovery()
 		if err != nil {
 			return nil, err
 		}
-		a.gatherings = gatherings.NewGatheringsClient(mcToken, discovery)
+		authService, err := discovery.AuthService()
+		if err != nil {
+			return nil, err
+		}
+		pfXblToken, err := a.PlayfabXblToken(ctx)
+		if err != nil {
+			return nil, err
+		}
+		res, err := authService.StartSession(ctx, pfXblToken.XBL(), authService.PlayfabTitleID)
+		if err != nil {
+			return nil, err
+		}
+		a.token.MCToken = res
+		err = a.writeToken()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return a.token.MCToken, nil
+}
+
+func (a *authsrv) Gatherings(ctx context.Context) (*discovery.GatheringsService, error) {
+	if a.gatherings == nil {
+		discovery, err := a.Discovery()
+		if err != nil {
+			return nil, err
+		}
+		mcToken, err := a.MCToken(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		gatheringService, err := discovery.GatheringsService()
+		if err != nil {
+			return nil, err
+		}
+		gatheringService.SetToken(mcToken)
+
+		a.gatherings = gatheringService
 	}
 	return a.gatherings, nil
 }
@@ -334,7 +361,7 @@ func (a *authsrv) Chain(ctx context.Context) (ChainKey *ecdsa.PrivateKey, ChainD
 	if err != nil {
 		return nil, "", err
 	}
-	if ch != nil && ch.DeviceType != a.deviceType.DeviceType {
+	if ch != nil && ch.DeviceType != a.token.DeviceType {
 		ch = nil
 	}
 	if ch == nil || ch.Expired() {
@@ -345,7 +372,7 @@ func (a *authsrv) Chain(ctx context.Context) (ChainKey *ecdsa.PrivateKey, ChainD
 		ch = &chain{
 			ChainKey:   ChainKey,
 			ChainData:  ChainData,
-			DeviceType: a.deviceType.DeviceType,
+			DeviceType: a.token.DeviceType,
 		}
 		err = a.writeChain(ch)
 		if err != nil {
@@ -365,7 +392,7 @@ func (a *authsrv) authChain(ctx context.Context) (key *ecdsa.PrivateKey, chain s
 	if err != nil {
 		return nil, "", fmt.Errorf("request Live Connect token: %w", err)
 	}
-	xsts, err := xbox.RequestXBLToken(ctx, liveToken, "https://multiplayer.minecraft.net/", a.deviceType)
+	xsts, err := xbox.RequestXBLToken(ctx, liveToken, "https://multiplayer.minecraft.net/", a.token.DeviceType2())
 	if err != nil {
 		return nil, "", fmt.Errorf("request XBOX Live token: %w", err)
 	}
