@@ -87,6 +87,11 @@ func (p *Context) connect(connectInfo *utils.ConnectInfo) (err error) {
 }
 
 func (p *Context) Run(connect *utils.ConnectInfo) (err error) {
+	err = utils.Netisolation()
+	if err != nil {
+		logrus.Warnf("Failed to Enable Loopback for Minecraft: %s", err)
+	}
+
 	defer func() {
 		messages.Router.Handle(&messages.Message{
 			Source: "proxy",

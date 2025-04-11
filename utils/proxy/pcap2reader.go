@@ -140,12 +140,12 @@ func (r *Pcap2Reader) ReadPacket(skip bool) (pk packet.Packet, toServer bool, re
 		if toServer {
 			src, dst = replayLocalAddr, replayRemoteAddr
 		}
-		pkData, err := minecraft.ParseData(payload, func(header packet.Header, packetData []byte) {
-			r.PacketFunc(header, packetData, src, dst, receivedTime)
-		})
+		pkData, err := minecraft.ParseData(payload)
 		if err != nil {
 			return nil, toServer, receivedTime, err
 		}
+		r.PacketFunc(*pkData.Header, pkData.Payload.Bytes(), src, dst, receivedTime)
+
 		pks, err := pkData.Decode(r.pool, r.protocol, nil, false, false, r.shieldID.Load())
 		if err != nil {
 			return nil, toServer, receivedTime, err

@@ -84,8 +84,8 @@ func Netisolation() error {
 				attributes:      0,
 			})
 
-			ret, _, err := NetworkIsolationSetAppContainerConfig.Call(uintptr(len(config)), uintptr(unsafe.Pointer(unsafe.SliceData(config))))
-			if ret != 0 {
+			_, _, err := NetworkIsolationSetAppContainerConfig.Call(uintptr(len(config)), uintptr(unsafe.Pointer(unsafe.SliceData(config))))
+			if err != windows.NOERROR {
 				return fmt.Errorf("failed to set app container configs: %w", err)
 			}
 			logrus.Infof("NetIsolation Loopback allowed for \"%s\"", displayName)

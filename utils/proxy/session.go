@@ -395,7 +395,7 @@ func (s *Session) connectServer(connectInfo *utils.ConnectInfo) (err error) {
 			c.ResourcePackHandler = s.rpHandler
 		},
 	}
-	for retry := 0; retry < 3; retry++ {
+	for range 3 {
 		d.ChainKey, d.ChainData, err = utils.Auth.Chain(s.ctx)
 		if err != nil {
 			continue
@@ -426,34 +426,36 @@ func (s *Session) connectServer(connectInfo *utils.ConnectInfo) (err error) {
 }
 
 func (s *Session) connectClient(connectInfo *utils.ConnectInfo) (err error) {
+	clientPacketFunc := func(header packet.Header, payload []byte, src, dst net.Addr, timeReceived time.Time) {
+		pk, ok := DecodePacket(header, payload, s.Client.ShieldID())
+		if !ok {
+			return
+		}
+		drop, err := s.blobPacketsFromClient(pk)
+		if err != nil {
+			logrus.Error(err)
+			return
+		}
+		_ = drop
+		if s.packetLoggerClient != nil {
+			if src == s.listener.Addr() {
+				err = s.packetLoggerClient.PacketSend(pk, timeReceived)
+			} else {
+				err = s.packetLoggerClient.PacketReceive(pk, timeReceived)
+			}
+		}
+		if err != nil {
+			logrus.Error(err)
+			return
+		}
+	}
+
 	s.listener, err = minecraft.ListenConfig{
 		AuthenticationDisabled: true,
 		AllowUnknownPackets:    true,
 		StatusProvider:         minecraft.NewStatusProvider(fmt.Sprintf("%s Proxy", connectInfo.Name()), "Bedrocktool"),
 		ErrorLog:               slog.Default(),
-		PacketFunc: func(header packet.Header, payload []byte, src, dst net.Addr, timeReceived time.Time) {
-			pk, ok := DecodePacket(header, payload, s.Client.ShieldID())
-			if !ok {
-				return
-			}
-			drop, err := s.blobPacketsFromClient(pk)
-			if err != nil {
-				logrus.Error(err)
-				return
-			}
-			_ = drop
-			if s.packetLoggerClient != nil {
-				if src == s.listener.Addr() {
-					err = s.packetLoggerClient.PacketSend(pk, timeReceived)
-				} else {
-					err = s.packetLoggerClient.PacketReceive(pk, timeReceived)
-				}
-			}
-			if err != nil {
-				logrus.Error(err)
-				return
-			}
-		},
+		PacketFunc:             clientPacketFunc,
 		OnClientData: func(c *minecraft.Conn) {
 			s.clientData = c.ClientData()
 			close(s.haveClientData)
@@ -482,11 +484,6 @@ func (s *Session) connectClient(connectInfo *utils.ConnectInfo) (err error) {
 	})
 	logrus.Info(locale.Loc("listening_on", locale.Strmap{"Address": s.listener.Addr()}))
 	logrus.Info(locale.Loc("help_connect", nil))
-
-	err = utils.Netisolation()
-	if err != nil {
-		logrus.Warnf("Failed to Enable Loopback for Minecraft: %s", err)
-	}
 
 	var accepted = false
 	go func() {
@@ -545,6 +542,11 @@ func (s *Session) proxyLoop(ctx context.Context, toServer bool) (err error) {
 			if pk.ID() == packet.IDClientCacheBlobStatus {
 				forward = nil
 			}
+		}
+
+		pk, err = s.commandHandlerPacketCB(pk, toServer, timeReceived, false)
+		if err != nil {
+			return err
 		}
 
 		if process {
