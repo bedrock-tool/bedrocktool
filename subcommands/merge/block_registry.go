@@ -3,6 +3,7 @@ package merge
 import (
 	_ "unsafe"
 
+	_ "github.com/df-mc/dragonfly/server/block"
 	"github.com/df-mc/dragonfly/server/world"
 )
 
