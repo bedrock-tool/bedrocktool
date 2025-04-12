@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"os"
 	"reflect"
@@ -39,16 +38,16 @@ func formatPath(a string) string {
 }
 
 func main() {
-	flag.Parse()
-	worldPath := flag.Arg(0)
-	if worldPath == "" {
+	fmt.Printf("%s\n", strings.Join(os.Args, " SPACE "))
+	if len(os.Args) < 2 {
 		fmt.Printf("Usage: %s <path to input world folder> [actors.json file] [output world folder]\n", os.Args[0])
 		return
 	}
+	worldPath := os.Args[1]
 	worldPath = formatPath(worldPath)
 
-	outputFolder := flag.Arg(1)
-	if outputFolder != "" {
+	if len(os.Args) == 3 {
+		outputFolder := os.Args[2]
 		outputFolder = formatPath(outputFolder)
 		doPutIntoWorld(worldPath, outputFolder)
 	} else {

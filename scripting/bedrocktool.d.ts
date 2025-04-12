@@ -226,6 +226,24 @@ declare const events: {
     register(name: 'Packet', callback: PacketCallback): void;
 };
 
+declare global {
+	interface FileWriter {
+	  write(data: string): void | Error;
+	  close(): void | Error;
+	}
+  
+	interface FileReader {
+	  read(): string | Error;
+	  close(): void | Error;
+	}
+  
+	interface FileSystem {
+	  create(name: string): FileWriter | Error;
+	}
+}
+
+declare const fs: FileSystem;
+
 
 /**
  * Represents an entity in the world.

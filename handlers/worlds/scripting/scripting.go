@@ -1,6 +1,8 @@
 package scripting
 
 import (
+	"fmt"
+	"os"
 	"sync"
 
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds/entity"
@@ -60,6 +62,36 @@ func New() *VM {
 		return err
 	})
 	v.runtime.GlobalObject().Set("events", events)
+
+	fs := v.runtime.NewObject()
+	fs.Set("create", func(call goja.FunctionCall) goja.Value {
+		name := call.Argument(0).String()
+		file, err := os.Create(name)
+		if err != nil {
+			return v.runtime.ToValue(fmt.Errorf("failed to create file '%s': %w", name, err))
+		}
+
+		obj := v.runtime.NewObject()
+		obj.Set("write", func(call goja.FunctionCall) goja.Value {
+			data := call.Argument(0).String()
+			_, err := file.WriteString(data)
+			if err != nil {
+				return v.runtime.ToValue(fmt.Errorf("failed to write to file '%s': %w", name, err))
+			}
+			return goja.Undefined()
+		})
+		obj.Set("close", func(call goja.FunctionCall) goja.Value {
+			err := file.Close()
+			if err != nil {
+				return v.runtime.ToValue(fmt.Errorf("failed to close file '%s': %w", name, err))
+			}
+			return goja.Undefined()
+		})
+
+		return obj
+	})
+
+	v.runtime.GlobalObject().Set("fs", fs)
 
 	return v
 }
