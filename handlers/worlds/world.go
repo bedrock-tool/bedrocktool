@@ -71,6 +71,8 @@ type serverState struct {
 	dimensions         map[int]protocol.DimensionDefinition
 	playerSkins        map[uuid.UUID]*protocol.Skin
 	entityProperties   map[string][]entity.EntityProperty
+
+	playerProperties map[string]*entity.EntityProperty
 }
 
 type worldsHandler struct {
@@ -143,6 +145,7 @@ func (w *worldsHandler) onSessionStart(session *proxy.Session, serverName string
 		entityProperties:   make(map[string][]entity.EntityProperty),
 		behaviorPack:       behaviourpack.New(serverName),
 		resourcePack:       resourcepack.New(),
+		playerProperties:   make(map[string]*entity.EntityProperty),
 	}
 
 	w.mapUI = NewMapUI(w)

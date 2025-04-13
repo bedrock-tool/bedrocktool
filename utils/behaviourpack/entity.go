@@ -1,6 +1,9 @@
 package behaviourpack
 
 import (
+	_ "embed"
+	"encoding/json"
+
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds/entity"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 )
@@ -34,7 +37,37 @@ type EntityPropertyJson struct {
 	ClientSync bool   `json:"client_sync"`
 }
 
-func (bp *Pack) AddEntity(EntityType string, attr []protocol.AttributeValue, meta protocol.EntityMetadata, props map[string]*entity.EntityProperty) {
+func makeEntityProperties(props []entity.EntityProperty) map[string]EntityPropertyJson {
+	if len(props) == 0 {
+		return nil
+	}
+	properties := make(map[string]EntityPropertyJson)
+	for _, v := range props {
+		var prop EntityPropertyJson
+		prop.ClientSync = true
+		switch v.Type {
+		case entity.PropertyTypeInt:
+			prop.Type = "int"
+			prop.Range = []any{int(v.Min), int(v.Max)}
+			prop.Default = int(v.Min)
+		case entity.PropertyTypeFloat:
+			prop.Type = "float"
+			prop.Range = []any{v.Min, v.Max}
+			prop.Default = v.Min
+		case entity.PropertyTypeBool:
+			prop.Type = "bool"
+			prop.Default = false
+		case entity.PropertyTypeEnum:
+			prop.Type = "enum"
+			prop.Values = v.Enum
+			prop.Default = v.Enum[0]
+		}
+		properties[v.Name] = prop
+	}
+	return properties
+}
+
+func (bp *Pack) AddEntity(EntityType string, attr []protocol.AttributeValue, meta protocol.EntityMetadata, props []entity.EntityProperty) {
 	ns, _ := splitNamespace(EntityType)
 	if ns == "minecraft" {
 		return
@@ -117,32 +150,19 @@ func (bp *Pack) AddEntity(EntityType string, attr []protocol.AttributeValue, met
 	entry.MinecraftEntity.Components["minecraft:is_stackable"] = map[string]any{}
 	entry.MinecraftEntity.Components["minecraft:push_through"] = 1
 
-	if len(props) > 0 {
-		properties := make(map[string]EntityPropertyJson)
-		for _, v := range props {
-			var prop EntityPropertyJson
-			prop.ClientSync = true
-			switch v.Type {
-			case entity.PropertyTypeInt:
-				prop.Type = "int"
-				prop.Range = []any{int(v.Min), int(v.Max)}
-				prop.Default = int(v.Min)
-			case entity.PropertyTypeFloat:
-				prop.Type = "float"
-				prop.Range = []any{v.Min, v.Max}
-				prop.Default = v.Min
-			case entity.PropertyTypeBool:
-				prop.Type = "bool"
-				prop.Default = false
-			case entity.PropertyTypeEnum:
-				prop.Type = "enum"
-				prop.Values = v.Enum
-				prop.Default = v.Enum[0]
-			}
-			properties[v.Name] = prop
-		}
-		entry.MinecraftEntity.Description.Properties = properties
-	}
-
+	entry.MinecraftEntity.Description.Properties = makeEntityProperties(props)
 	bp.entities[EntityType] = entry
+}
+
+//go:embed player.json
+var playerJson []byte
+
+func (bp *Pack) SetPlayerProperties(props []entity.EntityProperty) {
+	var basePlayer entityBehaviour
+	err := json.Unmarshal(playerJson, &basePlayer)
+	if err != nil {
+		panic(err)
+	}
+	basePlayer.MinecraftEntity.Description.Properties = makeEntityProperties(props)
+	bp.entities["minecraft:player"] = &basePlayer
 }

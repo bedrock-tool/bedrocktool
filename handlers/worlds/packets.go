@@ -233,7 +233,8 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 			for _, el := range pk.EntityLinks {
 				world.AddEntityLink(el)
 			}
-			w.serverState.behaviorPack.AddEntity(pk.EntityType, pk.Attributes, ent.Metadata, ent.Properties)
+			properties := w.serverState.entityProperties[ent.EntityType]
+			w.serverState.behaviorPack.AddEntity(pk.EntityType, pk.Attributes, ent.Metadata, properties)
 		})
 
 		/*
@@ -251,9 +252,13 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 
 	case *packet.SetActorData:
 		w.currentWorld(func(world *worldstate.World) {
+			if pk.EntityRuntimeID == w.session.Player.RuntimeID {
+				w.applyPlayerData(pk.EntityMetadata, pk.EntityProperties, timeReceived)
+			}
 			if entity := world.GetEntity(pk.EntityRuntimeID); entity != nil {
 				w.applyEntityData(entity, pk.EntityMetadata, pk.EntityProperties, timeReceived)
-				w.serverState.behaviorPack.AddEntity(entity.EntityType, nil, entity.Metadata, entity.Properties)
+				properties := w.serverState.entityProperties[entity.EntityType]
+				w.serverState.behaviorPack.AddEntity(entity.EntityType, nil, entity.Metadata, properties)
 			}
 		})
 
@@ -572,16 +577,27 @@ func (w *worldsHandler) syncActorProperty(pk *packet.SyncActorProperty) {
 		propertiesOut = append(propertiesOut, prop)
 	}
 	w.serverState.entityProperties[entityType] = propertiesOut
+	if entityType == "minecraft:player" {
+		w.serverState.behaviorPack.SetPlayerProperties(propertiesOut)
+	}
+}
+
+func (w *worldsHandler) applyPlayerData(entityMetadata protocol.EntityMetadata, entityProperties protocol.EntityProperties, timeReceived time.Time) {
+	properties := w.serverState.entityProperties["minecraft:player"]
+	applyProperties(w.log, properties, entityProperties, w.serverState.playerProperties)
 }
 
 func (w *worldsHandler) applyEntityData(ent *entity.Entity, entityMetadata protocol.EntityMetadata, entityProperties protocol.EntityProperties, timeReceived time.Time) {
 	maps.Copy(ent.Metadata, entityMetadata)
 	w.scripting.OnEntityDataUpdate(ent, timeReceived)
 	properties := w.serverState.entityProperties[ent.EntityType]
+	applyProperties(w.log, properties, entityProperties, ent.Properties)
+}
 
+func applyProperties(log *logrus.Entry, properties []entity.EntityProperty, entityProperties protocol.EntityProperties, out map[string]*entity.EntityProperty) {
 	for _, prop := range entityProperties.IntegerProperties {
 		if int(prop.Index) > len(properties)-1 {
-			w.log.Errorf("entity property index more than there are properties, BUG %v", prop)
+			log.Errorf("entity property index more than there are properties, BUG %v", prop)
 			continue
 		}
 		propType := properties[prop.Index]
@@ -590,16 +606,16 @@ func (w *worldsHandler) applyEntityData(ent *entity.Entity, entityMetadata proto
 		} else {
 			propType.Value = prop.Value
 		}
-		ent.Properties[propType.Name] = &propType
+		out[propType.Name] = &propType
 	}
 	for _, prop := range entityProperties.IntegerProperties {
 		if int(prop.Index) > len(properties)-1 {
-			w.log.Errorf("entity property index more than there are properties, BUG %v", prop)
+			log.Errorf("entity property index more than there are properties, BUG %v", prop)
 			continue
 		}
 		propType := properties[prop.Index]
 		propType.Value = prop.Value
-		ent.Properties[propType.Name] = &propType
+		out[propType.Name] = &propType
 	}
 }
 
