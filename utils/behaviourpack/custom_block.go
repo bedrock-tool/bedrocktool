@@ -6,6 +6,7 @@ import (
 
 	"github.com/bedrock-tool/bedrocktool/utils/updater"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
+	"github.com/sirupsen/logrus"
 )
 
 type description struct {
@@ -246,7 +247,11 @@ func parseBlock(block protocol.BlockEntry) (MinecraftBlock, string) {
 	if components, ok := block.Properties["components"].(map[string]any); ok {
 		entry.Components = make(map[string]any)
 		for componentName, component := range components {
-			component := component.(map[string]any)
+			component, ok := component.(map[string]any)
+			if !ok {
+				logrus.Warnf("invalid block component %s %s", block.Name, componentName)
+				continue
+			}
 			name, value := processComponent(componentName, component, &version)
 			if name == "" {
 				continue
