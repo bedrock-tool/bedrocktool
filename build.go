@@ -343,9 +343,12 @@ func guiBuildCmd(buildTag string, build Build, ldflags, tags []string) (string, 
 	}
 	gioVersion := strings.Join(tagSplit, ".")
 
+	if build.OS != "linux" {
+		buildCmd = append(buildCmd, "-target", build.OS)
+	}
+
 	buildCmd = append(buildCmd,
 		"-arch", build.Arch,
-		"-target", build.OS,
 		"-version", gioVersion,
 		"-icon", "icon.png",
 		"-tags", strings.Join(tags, ","),
