@@ -41,13 +41,9 @@ func (w *World) addResourcePacks() error {
 		}
 		logrus.Info(locale.Loc("adding_pack", locale.Strmap{"Name": text.Clean(pack.Name())}))
 
-		messages.Router.Handle(&messages.Message{
-			Source: "subcommand",
-			Target: "ui",
-			Data: messages.ProcessingWorldUpdate{
-				Name:  w.Name,
-				State: "Adding Resourcepack " + text.Clean(pack.Name()),
-			},
+		messages.SendEvent(&messages.EventProcessingWorldUpdate{
+			WorldName: w.Name,
+			State:     "Adding Resourcepack " + text.Clean(pack.Name()),
 		})
 
 		packName := utils.FormatPackName(pack.Name())
@@ -67,13 +63,9 @@ func (w *World) addResourcePacks() error {
 		})
 	}
 
-	messages.Router.Handle(&messages.Message{
-		Source: "subcommand",
-		Target: "ui",
-		Data: messages.ProcessingWorldUpdate{
-			Name:  w.Name,
-			State: "",
-		},
+	messages.SendEvent(&messages.EventProcessingWorldUpdate{
+		WorldName: w.Name,
+		State:     "",
 	})
 
 	return nil
@@ -85,13 +77,9 @@ func (w *World) FinalizePacks(addBehaviorPack func(fs utils.WriterFS) (*resource
 		return err
 	}
 
-	messages.Router.Handle(&messages.Message{
-		Source: "subcommand",
-		Target: "ui",
-		Data: messages.ProcessingWorldUpdate{
-			Name:  w.Name,
-			State: "Adding Behaviorpack",
-		},
+	messages.SendEvent(&messages.EventProcessingWorldUpdate{
+		WorldName: w.Name,
+		State:     "Adding Behaviorpack",
 	})
 
 	fs := utils.OSWriter{Base: w.Folder}

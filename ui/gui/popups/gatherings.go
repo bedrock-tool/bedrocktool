@@ -5,27 +5,28 @@ import (
 	"errors"
 	"fmt"
 	"image"
-	"sync"
 	"time"
 
 	"gioui.org/layout"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
-	"github.com/bedrock-tool/bedrocktool/ui/messages"
+	"github.com/bedrock-tool/bedrocktool/ui/gui/guim"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/discovery"
 )
 
 type Gatherings struct {
-	close        widget.Clickable
-	l            sync.Mutex
-	list         widget.List
-	gatherings   []*gatheringButton
-	loaded       bool
-	loading      bool
+	g guim.Guim
+
 	setGathering func(*discovery.Gathering)
-	t            *time.Ticker
+
+	ticker     *time.Ticker
+	close      widget.Clickable
+	list       widget.List
+	gatherings []*gatheringButton
+	loaded     bool
+	loading    bool
 }
 
 type gatheringButton struct {
@@ -33,8 +34,10 @@ type gatheringButton struct {
 	widget.Clickable
 }
 
-func NewGatherings(setGathering func(*discovery.Gathering)) Popup {
+func NewGatherings(g guim.Guim, setGathering func(*discovery.Gathering)) Popup {
 	return &Gatherings{
+		g: g,
+
 		setGathering: setGathering,
 		list: widget.List{
 			List: layout.List{
@@ -44,24 +47,22 @@ func NewGatherings(setGathering func(*discovery.Gathering)) Popup {
 	}
 }
 
-func (g *Gatherings) HandleMessage(msg *messages.Message) *messages.Message {
-	switch data := msg.Data.(type) {
-	case messages.Close:
-		if data.ID != g.ID() {
-			return nil
-		}
-		if g.t != nil {
-			g.t.Stop()
-		}
-	}
-	return nil
-}
-
 func (*Gatherings) ID() string {
 	return "Gatherings"
 }
 
+func (g *Gatherings) Close() error {
+	if g.ticker != nil {
+		g.ticker.Stop()
+	}
+	return nil
+}
+
 var _ Popup = &Gatherings{}
+
+func (g *Gatherings) HandleEvent(event any) error {
+	return nil
+}
 
 func (g *Gatherings) Load() error {
 	if !utils.Auth.LoggedIn() {
@@ -88,15 +89,11 @@ func (g *Gatherings) Load() error {
 
 	g.loading = false
 	g.loaded = true
+	g.ticker = time.NewTicker(1 * time.Second)
 
-	g.t = time.NewTicker(1 * time.Second)
 	go func() {
-		for range g.t.C {
-			messages.Router.Handle(&messages.Message{
-				Source: "Gatherings",
-				Target: "ui",
-				Data:   messages.Invalidate{},
-			})
+		for range g.ticker.C {
+			g.g.Invalidate()
 		}
 	}()
 
@@ -112,38 +109,19 @@ func (g *Gatherings) Layout(gtx C, th *material.Theme) D {
 	}
 
 	if g.close.Clicked(gtx) {
-		messages.Router.Handle(&messages.Message{
-			Source: g.ID(),
-			Target: "ui",
-			Data:   messages.Close{Type: "popup", ID: g.ID()},
-		})
+		g.g.ClosePopup(g.ID())
 	}
 
 	if !g.loaded && !g.loading {
 		g.loading = true
 		go func() {
 			if !utils.Auth.LoggedIn() {
-				messages.Router.Handle(&messages.Message{
-					Source: g.ID(),
-					Target: "ui",
-					Data:   messages.RequestLogin{Wait: true},
-				})
+				<-utils.RequestLogin()
 			}
 			err := g.Load()
 			if err != nil {
-				messages.Router.Handle(&messages.Message{
-					Source: g.ID(),
-					Target: "ui",
-					Data:   messages.Error(err),
-				})
-				messages.Router.Handle(&messages.Message{
-					Source: g.ID(),
-					Target: "ui",
-					Data: messages.Close{
-						Type: "popup",
-						ID:   g.ID(),
-					},
-				})
+				g.g.Error(err)
+				g.g.ClosePopup(g.ID())
 			}
 		}()
 	}
@@ -160,8 +138,6 @@ func (g *Gatherings) Layout(gtx C, th *material.Theme) D {
 					})
 				}
 
-				g.l.Lock()
-				defer g.l.Unlock()
 				if len(g.gatherings) == 0 {
 					return layout.Center.Layout(gtx, material.H5(th, "there are no gatherings active").Layout)
 				}

@@ -34,9 +34,9 @@ type mapInput struct {
 type Map2 struct {
 	mapInput mapInput
 
-	images   map[image.Point]*image.RGBA
-	imageOps map[image.Point]paint.ImageOp
-	l        sync.Mutex
+	tileImages map[image.Point]*image.RGBA
+	imageOps   map[image.Point]paint.ImageOp
+	l          sync.Mutex
 }
 
 func (m *mapInput) HandlePointerEvent(e pointer.Event) {
@@ -151,32 +151,31 @@ func chunkPosToTilePos(cp protocol.ChunkPos) (tile image.Point, offset image.Poi
 	return
 }
 
-func (m *Map2) Update(u *messages.UpdateMap) {
-	m.l.Lock()
-	defer m.l.Unlock()
-	if u.ChunkCount == -1 {
-		m.images = make(map[image.Point]*image.RGBA)
-		m.imageOps = make(map[image.Point]paint.ImageOp)
-		return
-	}
-
+func (m *Map2) AddTiles(tiles []messages.MapTile) {
 	var updatedTiles []image.Point
-	for _, cp := range u.UpdatedChunks {
-		tilePos, posInTile := chunkPosToTilePos(cp)
-		img, ok := m.images[tilePos]
+	for _, mapTile := range tiles {
+		tilePos, posInTile := chunkPosToTilePos(mapTile.Pos)
+		tileImg, ok := m.tileImages[tilePos]
 		if !ok {
-			img = image.NewRGBA(image.Rect(0, 0, tileSize, tileSize))
-			m.images[tilePos] = img
+			tileImg = image.NewRGBA(image.Rect(0, 0, tileSize, tileSize))
+			m.tileImages[tilePos] = tileImg
 		}
-		draw.Draw(img, image.Rectangle{
+		draw.Draw(tileImg, image.Rectangle{
 			Min: posInTile, Max: posInTile.Add(image.Pt(16, 16)),
-		}, u.Chunks[cp], image.Point{}, draw.Src)
+		}, &mapTile.Img, image.Point{}, draw.Src)
 		updatedTiles = append(updatedTiles, tilePos)
 	}
 
 	for _, p := range updatedTiles {
-		op := paint.NewImageOp(m.images[p])
+		op := paint.NewImageOp(m.tileImages[p])
 		op.Filter = paint.FilterNearest
 		m.imageOps[p] = op
 	}
+}
+
+func (m *Map2) Reset() {
+	m.l.Lock()
+	defer m.l.Unlock()
+	m.tileImages = make(map[image.Point]*image.RGBA)
+	m.imageOps = make(map[image.Point]paint.ImageOp)
 }

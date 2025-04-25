@@ -1,107 +1,56 @@
 package main
 
 import (
-	"context"
-	"encoding/json"
-	"flag"
+	"os"
 	"unsafe"
 
-	"github.com/bedrock-tool/bedrocktool/ui/messages"
-	"github.com/bedrock-tool/bedrocktool/utils/commands"
+	"github.com/bedrock-tool/bedrocktool/ui/rui"
+	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/sirupsen/logrus"
 )
 
 /*
-#include <stdlib.h>
-typedef char* (*msg_cb)(const char* message);
-extern char* bridge_msg_cb(const char* message, msg_cb cb);
+#include <stdint.h>
+typedef void (*bedrocktoolHandler)(uint8_t* data, size_t length);
+void call_bedrocktool_handler(bedrocktoolHandler h, uint8_t* data, size_t length) ;
 */
 import "C"
 
-var flagMap = make(map[string]*flag.FlagSet)
+var ui = &rui.Rui{}
 
 func main() {
-	logrus.SetLevel(logrus.DebugLevel)
-
-	for k, cmd := range commands.Registered {
-		f := flag.NewFlagSet("", flag.ContinueOnError)
-		cmd.SetFlags(f)
-		flagMap[k] = f
-	}
-
-	messages.Router.AddHandler("ui", glue.HandleMessage)
+	select {}
 }
 
-type uiglue struct {
-	msgCB C.msg_cb
-}
-
-var glue uiglue = uiglue{}
-
-//export SetMessageCallback
-func SetMessageCallback(cb C.msg_cb) {
-	glue.msgCB = cb
-}
-
-//export SendMessage
-func SendMessage(msgChars *C.char, msgLen C.int) *C.char {
-	msg, err := messages.Decode(C.GoBytes(unsafe.Pointer(msgChars), msgLen))
-	if err != nil {
-		logrus.Error(err)
-		return nil
-	}
-	reply := messages.Router.Handle(msg)
-	if reply == nil {
-		return nil
-	}
-	return (*C.char)(C.CBytes(messages.Encode(reply)))
-}
-
-//export StartSubcommand
-func StartSubcommand(sub_c *C.char) C.int {
-	cmd, ok := commands.Registered[C.GoString(sub_c)]
+//export BedrocktoolInit
+func BedrocktoolInit() int {
+	env, ok := os.LookupEnv("BEDROCK_ENV")
 	if !ok {
-		return C.int(1)
+		env = "prod"
 	}
-	go cmd.Execute(context.Background())
-	return C.int(0)
-}
-
-//export SetSettings
-func SetSettings(settings_c *C.char, settings_len C.int) C.int {
-	settingsBytes := C.GoBytes(unsafe.Pointer(settings_c), settings_len)
-	var settings struct {
-		Name     string
-		Settings map[string]string
-	}
-	err := json.Unmarshal(settingsBytes, &settings)
+	err := utils.Auth.Startup(env)
 	if err != nil {
 		logrus.Error(err)
-		return C.int(1)
+		return -1
 	}
 
-	f, ok := flagMap[settings.Name]
-	if !ok {
-		return C.int(2)
+	if err := ui.Init(); err != nil {
+		logrus.Error(err)
+		return -1
 	}
 
-	for k, v := range settings.Settings {
-		err := f.Set(k, v)
-		if err != nil {
-			return C.int(3)
-		}
-	}
-
-	return C.int(0)
+	return 0
 }
 
-func (u *uiglue) HandleMessage(msg *messages.Message) *messages.Message {
-	replyMsgData := C.bridge_msg_cb((*C.char)(C.CBytes(messages.Encode(msg))), glue.msgCB)
-	replyMsg, err := messages.Decode([]byte(C.GoString(replyMsgData)))
-	if err != nil {
-		logrus.Error(err)
-		return nil
-	}
-	C.free(unsafe.Pointer(replyMsgData))
-	return replyMsg
+//export BedrocktoolSetHandler
+func BedrocktoolSetHandler(handler C.bedrocktoolHandler) {
+	ui.HandlerLoop(func(b []byte) {
+		C.call_bedrocktool_handler(handler, (*C.uint8_t)(&b[0]), C.size_t(len(b)))
+	})
+}
+
+//export BedrocktoolSendPacket
+func BedrocktoolSendPacket(dataP *byte, length C.size_t) {
+	data := unsafe.Slice(dataP, int(length))
+	ui.ReceiveUIPacket(data)
 }

@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds/entity"
+	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/dop251/goja"
 	"github.com/dop251/goja_nodejs/console"
@@ -66,7 +67,7 @@ func New() *VM {
 	fs := v.runtime.NewObject()
 	fs.Set("create", func(call goja.FunctionCall) goja.Value {
 		name := call.Argument(0).String()
-		file, err := os.Create(name)
+		file, err := os.Create(utils.PathData(name))
 		if err != nil {
 			return v.runtime.ToValue(fmt.Errorf("failed to create file '%s': %w", name, err))
 		}

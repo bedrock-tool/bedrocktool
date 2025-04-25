@@ -1,4 +1,4 @@
-package proxy
+package pcap2
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/bedrock-tool/bedrocktool/utils/proxy/resourcepacks"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/login"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
@@ -30,10 +31,12 @@ type ReplayConnector struct {
 	clientData login.ClientData
 	gameData   minecraft.GameData
 
-	resourcePackHandler *rpHandler
+	resourcePackHandler *resourcepacks.ResourcePackHandler
 }
 
-func CreateReplayConnector(ctx context.Context, filename string, packetFunc PacketFunc, resourcePackHandler *rpHandler) (r *ReplayConnector, err error) {
+type PacketFunc func(header packet.Header, payload []byte, src, dst net.Addr, timeReceived time.Time)
+
+func CreateReplayConnector(ctx context.Context, filename string, packetFunc PacketFunc, resourcePackHandler *resourcepacks.ResourcePackHandler) (r *ReplayConnector, err error) {
 	r = &ReplayConnector{
 		spawn:               make(chan struct{}),
 		resourcePackHandler: resourcePackHandler,
@@ -54,7 +57,7 @@ func CreateReplayConnector(ctx context.Context, filename string, packetFunc Pack
 	}
 	r.reader.PacketFunc = packetFunc
 	if r.resourcePackHandler != nil {
-		r.resourcePackHandler.cache = r.reader.ResourcePacks
+		r.resourcePackHandler.SetCache(r.reader.ResourcePacks)
 	}
 
 	return r, nil

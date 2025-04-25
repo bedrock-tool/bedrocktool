@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"image/png"
 	"strings"
 	"sync"
 
@@ -18,11 +17,11 @@ import (
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
 	"gioui.org/x/styledtext"
+	"github.com/bedrock-tool/bedrocktool/ui/gui/guim"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/mctext"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
-	"github.com/sirupsen/logrus"
 )
 
 type (
@@ -33,6 +32,8 @@ type (
 const ID = "packs"
 
 type Page struct {
+	g guim.Guim
+
 	Packs     []*packEntry
 	packsList widget.List
 	l         sync.Mutex
@@ -41,8 +42,7 @@ type Page struct {
 	State messages.UIState
 	back  widget.Clickable
 
-	frame      int
-	invalidate func()
+	frame int
 }
 
 type packEntry struct {
@@ -64,14 +64,15 @@ type packEntry struct {
 	Err     error
 }
 
-func New(invalidate func()) pages.Page {
+func New(g guim.Guim) pages.Page {
 	return &Page{
+		g: g,
+
 		packsList: widget.List{
 			List: layout.List{
 				Axis: layout.Vertical,
 			},
 		},
-		invalidate: invalidate,
 	}
 }
 
@@ -153,7 +154,7 @@ func (p *Page) drawPackEntry(gtx C, th *material.Theme, pack *packEntry, onlyKey
 							}),
 							layout.Flexed(1, func(gtx C) D {
 								return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-									layout.Rigid(mctext.Label(th, th.TextSize, pack.Name+" §rv"+pack.Version, p.invalidate, p.frame)),
+									layout.Rigid(mctext.Label(th, th.TextSize, pack.Name+" §rv"+pack.Version, p.g.Invalidate, p.frame)),
 									layout.Rigid(func(gtx C) D {
 										if onlyKeys {
 											t := material.Body1(th, pack.Key)
@@ -234,11 +235,7 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 	}
 
 	if p.back.Clicked(gtx) {
-		messages.Router.Handle(&messages.Message{
-			Source: p.ID(),
-			Target: "ui",
-			Data:   messages.ExitSubcommand{},
-		})
+		p.g.ExitSubcommand()
 	}
 
 	var title = "Downloading Packs"
@@ -291,28 +288,23 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 	})
 }
 
-func (p *Page) HandleMessage(msg *messages.Message) *messages.Message {
-	switch m := msg.Data.(type) {
-	case messages.HaveFinishScreen:
-		return &messages.Message{
-			Source: "packs",
-			Data:   true,
+func (*Page) HaveFinishScreen() bool {
+	return true
+}
+
+func (p *Page) HandleEvent(event any) error {
+	switch event := event.(type) {
+	case *messages.EventSetUIState:
+		p.State = event.State
+
+	case *messages.EventConnectStateUpdate:
+		if event.State == messages.ConnectStateReceivingResources {
+			p.g.ClosePopup("connect")
 		}
 
-	case messages.UIState:
-		p.State = m
-
-	case messages.ConnectStateUpdate:
-		if m.State == messages.ConnectStateReceivingResources {
-			messages.Router.Handle(&messages.Message{
-				Source: "packs-ui",
-				Target: "ui",
-				Data:   messages.Close{Type: "popup", ID: "connect"},
-			})
-		}
-	case messages.InitialPacksInfo:
+	case *messages.EventInitialPacksInfo:
 		p.l.Lock()
-		for _, dp := range m.Packs {
+		for _, dp := range event.Packs {
 			pack := &packEntry{
 				IsFinished: false,
 				UUID:       dp.UUID.String(),
@@ -321,7 +313,10 @@ func (p *Page) HandleMessage(msg *messages.Message) *messages.Message {
 				Size:       dp.Size,
 				Key:        dp.ContentKey,
 			}
-			if m.OnlyKeys {
+			if pack.Name == "" {
+				pack.Name = pack.UUID
+			}
+			if event.KeysOnly {
 				pack.IsFinished = true
 				p.onlyKeys = true
 			}
@@ -329,51 +324,43 @@ func (p *Page) HandleMessage(msg *messages.Message) *messages.Message {
 		}
 		p.l.Unlock()
 
-	case messages.PackDownloadProgress:
+	case *messages.EventProcessingPack:
 		p.l.Lock()
 		for _, pe := range p.Packs {
-			if pe.UUID == m.UUID {
-				pe.Loaded += m.LoadedAdd
+			if pe.UUID == event.ID {
+				pe.Processing = true
 				break
 			}
 		}
 		p.l.Unlock()
 
-	case messages.FinishedPack:
-		var icon image.Image
-		f, err := m.Pack.Open("pack_icon.png")
-		if err == nil {
-			defer f.Close()
-			icon, err = png.Decode(f)
-			if err != nil {
-				logrus.Warnf("Failed to Parse pack_icon.png %s", m.Pack.Name())
-			}
-		}
-		for _, pe := range p.Packs {
-			if pe.UUID != m.Pack.UUID().String() {
-				continue
-			}
-			if icon != nil {
-				pe.Icon = paint.NewImageOp(icon)
-				pe.Icon.Filter = paint.FilterNearest
-				pe.HasIcon = true
-			}
-			pe.Name = strings.ReplaceAll(m.Pack.Name(), "\n", " ")
-			pe.Version = m.Pack.Version()
-			pe.Loaded = pe.Size
-			break
-		}
-
-	case messages.ProcessingPack:
+	case *messages.EventPackDownloadProgress:
 		p.l.Lock()
 		for _, pe := range p.Packs {
-			if pe.UUID == m.ID {
-				pe.Processing = m.Processing
-				pe.Err = m.Err
-				if m.Path != "" {
-					pe.Path = m.Path
-					pe.IsFinished = true
+			if pe.UUID == event.ID {
+				pe.Loaded += uint64(event.BytesAdded)
+				break
+			}
+		}
+		p.l.Unlock()
+
+	case *messages.EventFinishedPack:
+		p.l.Lock()
+		for _, pe := range p.Packs {
+			if pe.UUID == event.ID {
+				pe.Processing = false
+				pe.Name = event.Name
+				pe.Version = event.Version
+				pe.Path = event.Filepath
+				pe.IsFinished = true
+				if event.Icon != nil {
+					pe.HasIcon = true
+					pe.Icon = paint.NewImageOp(event.Icon)
+					pe.Icon.Filter = paint.FilterNearest
 				}
+				pe.Err = event.Error
+				pe.Loaded = pe.Size
+				break
 			}
 		}
 		p.l.Unlock()

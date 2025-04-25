@@ -1,4 +1,4 @@
-package proxy
+package resourcepacks
 
 import (
 	"archive/zip"
@@ -11,22 +11,26 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 )
 
-type replayCache struct {
+type ReplayCache struct {
 	packs map[string]resource.Pack
 }
 
-func (r *replayCache) Get(id uuid.UUID, ver string) (resource.Pack, error) {
+func NewReplayCache() *ReplayCache {
+	return &ReplayCache{}
+}
+
+func (r *ReplayCache) Get(id uuid.UUID, ver string) (resource.Pack, error) {
 	return r.packs[id.String()+"_"+ver], nil
 }
 
-func (r *replayCache) Has(id uuid.UUID, ver string) bool {
+func (r *ReplayCache) Has(id uuid.UUID, ver string) bool {
 	_, ok := r.packs[id.String()+"_"+ver]
 	return ok
 }
 
-func (r *replayCache) Create(id uuid.UUID, ver string) (*closeMoveWriter, error) { return nil, nil }
+func (r *ReplayCache) Create(id uuid.UUID, ver string) (*closeMoveWriter, error) { return nil, nil }
 
-func (r *replayCache) ReadFrom(reader io.ReaderAt, readerSize int64) error {
+func (r *ReplayCache) ReadFrom(reader io.ReaderAt, readerSize int64) error {
 	z, err := zip.NewReader(reader, readerSize)
 	if err != nil {
 		return err

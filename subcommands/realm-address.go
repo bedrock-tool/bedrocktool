@@ -2,30 +2,34 @@ package subcommands
 
 import (
 	"context"
-	"flag"
 
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/sirupsen/logrus"
 )
 
-type RealmAddressCMD struct {
-	realm string
+type RealmAddressSettings struct {
+	Realm string `opt:"Realm Name" flag:"realm"`
 }
 
-func (*RealmAddressCMD) Name() string     { return "realm-address" }
-func (*RealmAddressCMD) Synopsis() string { return "gets realms address" }
-func (c *RealmAddressCMD) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&c.realm, "realm", "", "realm name <name:id> or just name")
+type RealmAddressCMD struct{}
+
+func (RealmAddressCMD) Name() string {
+	return "realm-address"
 }
 
-func (c *RealmAddressCMD) Execute(ctx context.Context) error {
-	server, err := utils.ParseServer(ctx, "realm:"+c.realm)
-	if err != nil {
-		return err
-	}
+func (RealmAddressCMD) Description() string {
+	return "gets realms address"
+}
 
-	address, err := server.Address(ctx)
+func (RealmAddressCMD) Settings() any {
+	return new(RealmAddressSettings)
+}
+
+func (c *RealmAddressCMD) Run(ctx context.Context, settings any) error {
+	realmSettings := settings.(*RealmAddressSettings)
+	connectInfo := utils.ConnectInfo{Value: "realm:" + realmSettings.Realm}
+	address, err := connectInfo.Address(ctx)
 	if err != nil {
 		return err
 	}

@@ -2,7 +2,6 @@ package resourcepack
 
 import (
 	"archive/zip"
-	"bufio"
 	"bytes"
 	"encoding/json"
 	"image"
@@ -254,9 +253,9 @@ func (p *Pack) AddPlayer(id string, skinTexture *image.NRGBA, capeTexture *image
 	p.Files[path.Join("entity", "player", id+".json")], _ = json.Marshal(clientEntity)
 }
 
-func (p *Pack) WriteTo(w io.Writer) {
-	b := bufio.NewWriter(w)
-	zw := zip.NewWriter(b)
+func (p *Pack) WriteTo(w io.Writer) (int64, error) {
+	cw := utils.NewCountingWriter(w)
+	zw := zip.NewWriter(cw)
 
 	f, err := zw.Create("manifest.json")
 	if err != nil {
@@ -275,7 +274,7 @@ func (p *Pack) WriteTo(w io.Writer) {
 	if err != nil {
 		panic(err)
 	}
-	b.Flush()
+	return cw.BytesWritten(), nil
 }
 
 func (p *Pack) WriteToDir(fs utils.WriterFS, dir string) {

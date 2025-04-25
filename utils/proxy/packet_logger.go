@@ -115,7 +115,7 @@ func NewPacketLogger(verbose, clientSide bool) (*packetLogger, error) {
 		if clientSide {
 			logName = "packets-client.log"
 		}
-		f, err := os.Create(logName)
+		f, err := os.Create(utils.PathData(logName))
 		if err != nil {
 			return nil, err
 		}

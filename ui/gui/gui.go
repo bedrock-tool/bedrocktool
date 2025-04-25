@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"image/color"
+	"net/url"
+	"os"
+	"time"
 
 	"gioui.org/app"
 	"gioui.org/font/gofont"
@@ -12,7 +15,9 @@ import (
 	"gioui.org/text"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"gioui.org/x/explorer"
 	"gioui.org/x/pref/theme"
+	"github.com/bedrock-tool/bedrocktool/ui/gui/guim"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages/packs"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages/settings"
@@ -21,20 +26,32 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui/gui/popups"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/bedrock-tool/bedrocktool/utils/updater"
 	"github.com/sirupsen/logrus"
+
+	"github.com/gioui-plugins/gio-plugins/hyperlink"
+	"github.com/gioui-plugins/gio-plugins/hyperlink/giohyperlink"
+	"github.com/gioui-plugins/gio-plugins/plugin/gioplugins"
 )
 
 type GUI struct {
-	router *pages.Router
 	ctx    context.Context
 	cancel context.CancelCauseFunc
-	logger logger
-	th     *material.Theme
+
+	router    *pages.Router
+	logger    logger
+	theme     *material.Theme
+	window    app.Window
+	explorer  *explorer.Explorer
+	hyperlink *hyperlink.Hyperlink
 }
 
-func (g *GUI) Init() bool {
-	messages.Router.AddHandler("ui", g.HandleMessage)
+var _ guim.Guim = &GUI{}
+
+func (g *GUI) Init() error {
+	messages.SetEventHandler(g.eventHandler)
+	utils.Auth.SetHandler(&messages.AuthHandler{})
 
 	g.logger.list = widget.List{
 		List: layout.List{
@@ -42,7 +59,25 @@ func (g *GUI) Init() bool {
 		},
 	}
 
-	return true
+	g.explorer = explorer.NewExplorer(&g.window)
+	g.hyperlink = hyperlink.NewHyperlink(hyperlink.Config{})
+
+	th := material.NewTheme()
+	th.Shaper = text.NewShaper(text.WithCollection(gofont.Collection()))
+	dark, err := theme.IsDarkMode()
+	if err != nil {
+		logrus.Warn(err)
+	}
+	if dark {
+		_th := th.WithPalette(paletteDark)
+		th = &_th
+	} else {
+		_th := th.WithPalette(paletteLight)
+		th = &_th
+	}
+	g.theme = th
+
+	return nil
 }
 
 var paletteLight = material.Palette{
@@ -60,37 +95,24 @@ var paletteDark = material.Palette{
 }
 
 func (g *GUI) Start(ctx context.Context, cancel context.CancelCauseFunc) (err error) {
+	g.ctx = ctx
+	g.cancel = cancel
+
 	g.router = pages.NewRouter(g, ctx)
 	g.router.Register(settings.New, settings.ID)
 	g.router.Register(worlds.New, worlds.ID)
 	g.router.Register(skins.New, skins.ID)
 	g.router.Register(packs.New, packs.ID)
-	g.logger.router = g.router
-	g.router.LogWidget = g.logger.Layout
-
-	g.ctx = ctx
-	g.cancel = cancel
-
-	th := material.NewTheme()
-	th.Shaper = text.NewShaper(text.WithCollection(gofont.Collection()))
-	dark, err := theme.IsDarkMode()
-	if err != nil {
-		logrus.Warn(err)
-	}
-	if dark {
-		_th := th.WithPalette(paletteDark)
-		th = &_th
-	} else {
-		_th := th.WithPalette(paletteLight)
-		th = &_th
-	}
-	g.th = th
-
-	var window app.Window
-	window.Option(app.Title("Bedrocktool " + updater.Version))
-	g.router.Invalidate = window.Invalidate
-	logrus.AddHook(&g.logger)
 	g.router.SwitchTo(settings.ID)
+
+	g.logger.g = g
+	g.router.LogWidget = g.logger.Layout
+	logrus.AddHook(&g.logger)
+
+	settings.AddressInput.SetGuim(g)
+	g.window.Option(app.Title("Bedrocktool " + updater.Version))
+	g.window.Option(app.Size(800, 700))
+	g.window.Option(app.MinSize(600, 700))
 
 	isDebug := updater.Version == ""
 	if !isDebug {
@@ -100,70 +122,117 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelCauseFunc) (err er
 	utils.ErrorHandler = func(err error) {
 		utils.PrintPanic(err)
 		g.router.RemovePopup("connect")
-		g.router.PushPopup(popups.NewErrorPopup(err, func() {
+		g.router.PushPopup(popups.NewErrorPopup(g, err, true, func() {
 			g.router.SwitchTo("settings")
-		}, true))
+		}))
 	}
 
 	go func() {
-		app.Main()
+		err := g.loop()
+		if err != nil && !errors.Is(err, context.Canceled) {
+			cancel(err)
+		}
+		os.Exit(0)
 	}()
 
-	return g.loop(&window)
+	app.Main()
+	return nil
 }
 
-func (g *GUI) loop(window *app.Window) error {
+func (g *GUI) loop() error {
 	var closing = false
 	var ops op.Ops
 
 	go func() {
 		<-g.ctx.Done()
-		window.Invalidate()
+		g.window.Invalidate()
 	}()
 
 	for {
-		e := window.Event()
-		//fmt.Printf("window.Event %+#v\n", e)
+		event := gioplugins.Hijack(&g.window)
+		g.explorer.ListenEvents(event)
 
 		if g.ctx.Err() != nil && !closing {
-			logrus.Info("Closing")
+			logrus.Infof("Closing %s", context.Cause(g.ctx))
 			g.cancel(errors.New("Closing"))
-			g.router.Wg.Wait()
+			g.router.Wait()
 			closing = true
 		}
-		switch e := e.(type) {
+		switch event := event.(type) {
 		case app.DestroyEvent:
 			g.router.ShuttingDown = true
 			logrus.Info("Closing")
 			g.cancel(errors.New("Closing"))
-			g.router.Wg.Wait()
-			return e.Err
+			g.router.Wait()
+			return event.Err
+
 		case app.FrameEvent:
-			//e.Metric = unit.Metric{PxPerDp: 2}
-			gtx := app.NewContext(&ops, e)
-			g.router.Layout(gtx, g.th)
-			e.Frame(gtx.Ops)
+			//event.Metric = unit.Metric{PxPerDp: 2.625, PxPerSp: 2.625}
+			gtx := app.NewContext(&ops, event)
+			g.router.Tick(gtx.Now)
+			g.router.Layout(gtx, g.theme)
+			event.Frame(gtx.Ops)
+
+		case app.ViewEvent:
+			g.hyperlink.Configure(giohyperlink.NewConfigFromViewEvent(&g.window, event))
 		}
 	}
 }
 
-func (g *GUI) HandleMessage(msg *messages.Message) *messages.Message {
-	switch data := msg.Data.(type) {
-	case messages.Features:
-		if data.Request {
-			return &messages.Message{
-				Source: "ui",
-				Target: msg.Source,
-				Data: messages.Features{
-					Request: false,
-					Features: []string{
-						"images",
-					},
-				},
-			}
-		}
-		return nil
-	}
+func (g *GUI) eventHandler(event any) error {
+	err := g.router.HandleEvent(event)
+	g.Invalidate()
+	return err
+}
 
-	return g.router.HandleMessage(msg)
+func (g *GUI) ClosePopup(id string) {
+	g.router.RemovePopup(id)
+}
+
+func (g *GUI) StartSubcommand(subCommand string, settings any) {
+	cmd, ok := commands.Registered[subCommand]
+	if !ok {
+		logrus.Errorf("unknown subcommand %s", subCommand)
+		return
+	}
+	g.router.SwitchTo(cmd.Name())
+	g.router.Execute(cmd, settings)
+}
+
+func (g *GUI) ExitSubcommand() {
+	g.router.ExitSubcommand()
+}
+
+func (g *GUI) Invalidate() {
+	g.window.Invalidate()
+}
+
+func (g *GUI) ShowPopup(pop any) {
+	g.router.PushPopup(pop.(popups.Popup))
+}
+
+func (g *GUI) Error(err error) error {
+	g.router.PushPopup(popups.NewErrorPopup(g, err, false, nil))
+	return nil
+}
+
+func (g *GUI) Explorer() *explorer.Explorer {
+	return g.explorer
+}
+
+func (g *GUI) OpenUrl(uri string) {
+	_uri, _ := url.Parse(uri)
+	err := g.hyperlink.Open(_uri)
+	if err != nil {
+		logrus.Errorf("OpenUrl: %s", err)
+	}
+}
+
+func (g *GUI) Toast(gtx layout.Context, t string) {
+	gtx.Execute(op.InvalidateCmd{At: time.Now().Add(5 * time.Second)})
+	g.router.Toast(t)
+}
+
+func (g *GUI) CloseLogs() {
+	g.router.CloseLogs()
 }

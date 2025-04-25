@@ -7,10 +7,21 @@ import (
 	"net"
 	"time"
 
+	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sirupsen/logrus"
 )
+
+type ProxySettings struct {
+	ConnectInfo *utils.ConnectInfo `opt:"Address" flag:"address" desc:"locale.remote_address"`
+
+	Debug         bool   `opt:"Debug" flag:"debug" desc:"locale.debug_mode"`
+	ExtraDebug    bool   `opt:"Extra Debug" flag:"extra-debug" desc:"extra debug info (packet.log)"`
+	Capture       bool   `opt:"Packet Capture" flag:"capture" desc:"Capture pcap2 file"`
+	ClientCache   bool   `opt:"Client Cache" flag:"client-cache" default:"true" desc:"Enable Client Cache"`
+	ListenAddress string `opt:"Listen Address" flag:"listen" default:"0.0.0.0:19132" desc:"example :19132 or 127.0.0.1:19132"`
+}
 
 type PacketFunc func(header packet.Header, payload []byte, src, dst net.Addr, timeReceived time.Time)
 type ingameCommand struct {
@@ -18,7 +29,7 @@ type ingameCommand struct {
 	Cmd  protocol.Command
 }
 
-var NewPacketCapturer func() (func() *Handler, func([]protocol.CacheBlob))
+var NewPacketCapturer func() *Handler
 
 var errCancelConnect = fmt.Errorf("cancelled connecting")
 

@@ -12,8 +12,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync/atomic"
 	"time"
 
+	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils/discovery"
 	"github.com/bedrock-tool/bedrocktool/utils/xbox"
 	"github.com/go-jose/go-jose/v3/jwt"
@@ -26,6 +28,7 @@ import (
 type authsrv struct {
 	log     *logrus.Entry
 	handler xbox.MSAuthHandler
+	env     string
 
 	token *tokenInfo
 
@@ -39,8 +42,9 @@ var Auth *authsrv = &authsrv{
 }
 
 // reads token from storage if there is one
-func (a *authsrv) Startup() (err error) {
+func (a *authsrv) Startup(env string) (err error) {
 	a.token = nil
+	a.env = env
 	tokenInfo, err := a.readToken()
 	if errors.Is(err, os.ErrNotExist) || errors.Is(err, errors.ErrUnsupported) {
 		return nil
@@ -111,7 +115,7 @@ var Tokene = func(w io.Writer, o any) error {
 }
 
 func readAuth[T any](name string) (*T, error) {
-	f, err := os.Open(name)
+	f, err := os.Open(PathData(name))
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +151,7 @@ func readAuth[T any](name string) (*T, error) {
 }
 
 func writeAuth(name string, o any) error {
-	f, err := os.Create(name)
+	f, err := os.Create(PathData(name))
 	if err != nil {
 		return err
 	}
@@ -210,7 +214,7 @@ func (a *authsrv) Token() (t *oauth2.Token, err error) {
 
 func (a *authsrv) Discovery() (d *discovery.Discovery, err error) {
 	if a.discovery == nil {
-		a.discovery, err = discovery.GetDiscovery(Options.Env)
+		a.discovery, err = discovery.GetDiscovery(a.env)
 		if err != nil {
 			return nil, err
 		}
@@ -407,4 +411,29 @@ func (a *authsrv) authChain(ctx context.Context) (key *ecdsa.PrivateKey, chain s
 		return nil, "", fmt.Errorf("request Minecraft auth chain: %w", err)
 	}
 	return key, chain, nil
+}
+
+var authCtxCancel atomic.Pointer[context.CancelFunc]
+
+func CancelLogin() {
+	cancel := authCtxCancel.Swap(nil)
+	(*cancel)()
+}
+
+func RequestLogin() chan error {
+	errC := make(chan error, 1)
+	go func() {
+		ctx, cancel := context.WithCancel(context.Background())
+		authCtxCancel.Store(&cancel)
+		deviceType := &xbox.DeviceTypeAndroid
+		err := Auth.Login(ctx, deviceType)
+		messages.SendEvent(&messages.EventAuthFinished{
+			Error: err,
+		})
+		if err != nil {
+			errC <- err
+		}
+		close(errC)
+	}()
+	return errC
 }

@@ -1,9 +1,7 @@
-// Package subcommands ...
 package subcommands
 
 import (
 	"context"
-	"flag"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
@@ -13,11 +11,17 @@ import (
 
 type UpdateCMD struct{}
 
-func (*UpdateCMD) Name() string               { return "update" }
-func (*UpdateCMD) Synopsis() string           { return locale.Loc("update_synopsis", nil) }
-func (c *UpdateCMD) SetFlags(f *flag.FlagSet) {}
+func (UpdateCMD) Name() string {
+	return "update"
+}
+func (UpdateCMD) Description() string {
+	return locale.Loc("update_synopsis", nil)
+}
+func (UpdateCMD) Settings() any {
+	return nil
+}
 
-func (c *UpdateCMD) Execute(ctx context.Context) error {
+func (c *UpdateCMD) Run(ctx context.Context, settings any) error {
 	update, err := updater.UpdateAvailable()
 	if err != nil {
 		return err
@@ -27,13 +31,13 @@ func (c *UpdateCMD) Execute(ctx context.Context) error {
 		logrus.Info(locale.Loc("no_update", nil))
 		return nil
 	}
-	logrus.Infof(locale.Loc("updating", locale.Strmap{"Version": update.Version}))
+	logrus.Info(locale.Loc("updating", locale.Strmap{"Version": update.Version}))
 
 	if err := updater.DoUpdate(); err != nil {
 		return err
 	}
 
-	logrus.Infof(locale.Loc("updated", nil))
+	logrus.Info(locale.Loc("updated", nil))
 	return nil
 }
 

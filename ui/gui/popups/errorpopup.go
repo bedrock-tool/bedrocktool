@@ -4,23 +4,22 @@ import (
 	"gioui.org/layout"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"github.com/bedrock-tool/bedrocktool/ui/messages"
-	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/ui/gui/guim"
 )
 
 type errorPopup struct {
-	err                error
-	close              widget.Clickable
-	submitPanic        widget.Clickable
-	haveSubmittedPanic bool
-	onClose            func()
-	isPanic            bool
+	g       guim.Guim
+	onClose func()
+	err     error
+	close   widget.Clickable
+	isPanic bool
 }
 
-func NewErrorPopup(err error, onClose func(), isPanic bool) *errorPopup {
+func NewErrorPopup(g guim.Guim, err error, isPanic bool, onClose func()) *errorPopup {
 	return &errorPopup{
-		err:     err,
+		g:       g,
 		onClose: onClose,
+		err:     err,
 		isPanic: isPanic,
 	}
 }
@@ -29,22 +28,17 @@ func (errorPopup) ID() string {
 	return "error"
 }
 
+func (errorPopup) Close() error {
+	return nil
+}
+
 func (e *errorPopup) Layout(gtx C, th *material.Theme) D {
 	if e.close.Clicked(gtx) {
+		e.g.ClosePopup(e.ID())
 		if e.onClose != nil {
 			e.onClose()
 		}
-		messages.Router.Handle(&messages.Message{
-			Source: e.ID(),
-			Target: "ui",
-			Data:   messages.Close{Type: "popup", ID: e.ID()},
-		})
 		return D{}
-	}
-
-	if e.submitPanic.Clicked(gtx) {
-		e.haveSubmittedPanic = true
-		go utils.UploadPanic()
 	}
 
 	title := "Error"
@@ -73,12 +67,6 @@ func (e *errorPopup) Layout(gtx C, th *material.Theme) D {
 						Spacing: layout.SpaceSides,
 					}.Layout(gtx,
 						layout.Rigid(material.Button(th, &e.close, "Close").Layout),
-						layout.Rigid(func(gtx C) D {
-							if e.isPanic && !e.haveSubmittedPanic {
-								return material.Button(th, &e.submitPanic, "Upload panic info").Layout(gtx)
-							}
-							return D{}
-						}),
 					)
 				}),
 			)
@@ -86,6 +74,6 @@ func (e *errorPopup) Layout(gtx C, th *material.Theme) D {
 	})
 }
 
-func (e *errorPopup) HandleMessage(msg *messages.Message) *messages.Message {
+func (e *errorPopup) HandleEvent(event any) error {
 	return nil
 }

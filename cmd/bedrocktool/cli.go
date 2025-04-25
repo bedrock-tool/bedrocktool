@@ -1,3 +1,5 @@
+//go:build !android
+
 package main
 
 import "github.com/bedrock-tool/bedrocktool/ui/cli"

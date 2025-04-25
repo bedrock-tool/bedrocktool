@@ -2,16 +2,15 @@ package commands
 
 import (
 	"context"
-	"flag"
 )
 
 var Registered = map[string]Command{}
 
 type Command interface {
 	Name() string
-	Synopsis() string
-	SetFlags(f *flag.FlagSet)
-	Execute(ctx context.Context) error
+	Description() string
+	Settings() any
+	Run(ctx context.Context, settings any) error
 }
 
 func RegisterCommand(sub Command) {

@@ -25,19 +25,10 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/tailscale/hujson"
 
-	"github.com/flytam/filenamify"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 	"github.com/sandertv/gophertunnel/minecraft/text"
 )
-
-var Options struct {
-	Debug         bool
-	IsInteractive bool
-	ExtraDebug    bool
-	Capture       bool
-	Env           string
-}
 
 var LogOff bool
 
@@ -218,8 +209,36 @@ var removeSpace = strings.NewReplacer(" ", "")
 
 func FormatPackName(packName string) string {
 	packName = text.Clean(packName)
-	packName, _ = filenamify.FilenamifyV2(packName)
+	packName = MakeValidFilename(packName)
 	packName = removeSpace.Replace(packName)
 	packName = packName[:min(10, len(packName))]
 	return packName
+}
+
+type CountingWriter struct {
+	writer       io.Writer
+	bytesWritten int64
+}
+
+func NewCountingWriter(w io.Writer) *CountingWriter {
+	return &CountingWriter{
+		writer:       w,
+		bytesWritten: 0,
+	}
+}
+
+func (w *CountingWriter) Write(b []byte) (int, error) {
+	n, err := w.writer.Write(b)
+	w.bytesWritten += int64(n)
+	return n, err
+}
+
+func (w *CountingWriter) BytesWritten() int64 {
+	return w.bytesWritten
+}
+
+var filenameReservedRegex = regexp.MustCompile(`[<>:"/\\|?*\x00-\x1F]`)
+
+func MakeValidFilename(name string) string {
+	return filenameReservedRegex.ReplaceAllString(name, "_")
 }

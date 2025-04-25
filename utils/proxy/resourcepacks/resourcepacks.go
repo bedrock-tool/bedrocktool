@@ -1,4 +1,4 @@
-package proxy
+package resourcepacks
 
 import (
 	"bytes"
@@ -43,7 +43,7 @@ type uploadingPack struct {
 	currentOffset uint64
 }
 
-type rpHandler struct {
+type ResourcePackHandler struct {
 	ctx context.Context
 	log *logrus.Entry
 
@@ -58,14 +58,14 @@ type rpHandler struct {
 	OnResourcePacksInfoCB func()
 	// optional callback that is called as soon as a resource pack is added to the proxies list
 	OnFinishedPack              func(resource.Pack) error
-	filterDownloadResourcePacks func(id string) bool
+	FilterDownloadResourcePacks func(id string) bool
 
 	//
 	// common
 	//
 
 	// gives access to stored resource packs in an abstract way so it can be replaced for replay
-	cache      iPackCache
+	cache      PackCache
 	addedPacks []resource.Pack
 
 	// all active resource packs for access by the proxy
@@ -113,8 +113,8 @@ type rpHandler struct {
 	clientDone       chan struct{}
 }
 
-func newRpHandler(ctx context.Context, addedPacks []resource.Pack) *rpHandler {
-	r := &rpHandler{
+func NewResourcePackHandler(ctx context.Context, addedPacks []resource.Pack) *ResourcePackHandler {
+	r := &ResourcePackHandler{
 		ctx:        ctx,
 		log:        logrus.WithField("part", "ResourcePacks"),
 		addedPacks: addedPacks,
@@ -127,18 +127,22 @@ func newRpHandler(ctx context.Context, addedPacks []resource.Pack) *rpHandler {
 	return r
 }
 
-func (r *rpHandler) SetServer(c minecraft.IConn) {
+func (r *ResourcePackHandler) SetCache(c PackCache) {
+	r.cache = c
+}
+
+func (r *ResourcePackHandler) SetServer(c minecraft.IConn) {
 	r.Server = c
 }
 
-func (r *rpHandler) SetClient(c minecraft.IConn) {
+func (r *ResourcePackHandler) SetClient(c minecraft.IConn) {
 	r.Client = c
 	r.knowPacksRequestedFromServer = make(chan struct{})
 	r.clientDone = make(chan struct{})
 }
 
 // from server
-func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
+func (r *ResourcePackHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 	if r.OnResourcePacksInfoCB != nil {
 		r.OnResourcePacksInfoCB()
 	}
@@ -221,7 +225,7 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 	var urlDownloads []protocol.TexturePackInfo
 	for _, pack := range pk.TexturePacks {
 		packID := pack.UUID.String() + "_" + pack.Version
-		if r.filterDownloadResourcePacks(packID) {
+		if r.FilterDownloadResourcePacks(packID) {
 			continue
 		}
 
@@ -322,7 +326,7 @@ func (r *rpHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 	})
 }
 
-func (r *rpHandler) downloadResourcePack(pk *packet.ResourcePackDataInfo) error {
+func (r *ResourcePackHandler) downloadResourcePack(pk *packet.ResourcePackDataInfo) error {
 	packID, err := uuid.Parse(strings.Split(pk.UUID, "_")[0])
 	if err != nil {
 		return err
@@ -498,8 +502,8 @@ func (r *rpHandler) downloadResourcePack(pk *packet.ResourcePackDataInfo) error 
 }
 
 // from server
-func (r *rpHandler) OnResourcePackDataInfo(pk *packet.ResourcePackDataInfo) error {
-	if _, ok := r.cache.(*replayCache); ok {
+func (r *ResourcePackHandler) OnResourcePackDataInfo(pk *packet.ResourcePackDataInfo) error {
+	if _, ok := r.cache.(*ReplayCache); ok {
 		return nil
 	}
 
@@ -508,8 +512,8 @@ func (r *rpHandler) OnResourcePackDataInfo(pk *packet.ResourcePackDataInfo) erro
 }
 
 // from server
-func (r *rpHandler) OnResourcePackChunkData(pk *packet.ResourcePackChunkData) error {
-	if _, ok := r.cache.(*replayCache); ok {
+func (r *ResourcePackHandler) OnResourcePackChunkData(pk *packet.ResourcePackChunkData) error {
+	if _, ok := r.cache.(*ReplayCache); ok {
 		return nil
 	}
 
@@ -529,7 +533,7 @@ func (r *rpHandler) OnResourcePackChunkData(pk *packet.ResourcePackChunkData) er
 }
 
 // from server
-func (r *rpHandler) OnResourcePackStack(pk *packet.ResourcePackStack) error {
+func (r *ResourcePackHandler) OnResourcePackStack(pk *packet.ResourcePackStack) error {
 	// We currently don't apply resource packs in any way, so instead we just check if all resource packs in
 	// the stacks are also downloaded.
 	for _, pack := range pk.TexturePacks {
@@ -578,7 +582,7 @@ func (r *rpHandler) OnResourcePackStack(pk *packet.ResourcePackStack) error {
 }
 
 // from client
-func (r *rpHandler) OnResourcePackChunkRequest(pk *packet.ResourcePackChunkRequest) error {
+func (r *ResourcePackHandler) OnResourcePackChunkRequest(pk *packet.ResourcePackChunkRequest) error {
 	packID, err := uuid.Parse(pk.UUID)
 	if err != nil {
 		return err
@@ -636,7 +640,7 @@ func (r *rpHandler) OnResourcePackChunkRequest(pk *packet.ResourcePackChunkReque
 	return nil
 }
 
-func (r *rpHandler) processClientRequest(packs []string) error {
+func (r *ResourcePackHandler) processClientRequest(packs []string) error {
 	<-r.receivedRemotePackInfo
 	var packsFromCache []resource.Pack
 	var addedPacksRequested []resource.Pack
@@ -711,7 +715,7 @@ loopPacks:
 }
 
 // from client
-func (r *rpHandler) OnResourcePackClientResponse(pk *packet.ResourcePackClientResponse) error {
+func (r *ResourcePackHandler) OnResourcePackClientResponse(pk *packet.ResourcePackClientResponse) error {
 	switch pk.Response {
 	case packet.PackResponseRefused:
 		// Even though this response is never sent, we handle it appropriately in case it is changed to work
@@ -805,7 +809,7 @@ func (r *rpHandler) OnResourcePackClientResponse(pk *packet.ResourcePackClientRe
 	return nil
 }
 
-func (r *rpHandler) GetResourcePacksInfo(texturePacksRequired bool) *packet.ResourcePacksInfo {
+func (r *ResourcePackHandler) GetResourcePacksInfo(texturePacksRequired bool) *packet.ResourcePacksInfo {
 	select {
 	case <-r.receivedRemotePackInfo:
 	case <-r.ctx.Done():
@@ -836,7 +840,7 @@ func (r *rpHandler) GetResourcePacksInfo(texturePacksRequired bool) *packet.Reso
 	return &pk
 }
 
-func (r *rpHandler) ResourcePacks() []resource.Pack {
+func (r *ResourcePackHandler) ResourcePacks() []resource.Pack {
 	select {
 	case <-r.receivedRemoteStack:
 	case <-r.ctx.Done():
@@ -851,7 +855,7 @@ var exemptedPacks = map[string]bool{
 	"0fba4063-dba1-4281-9b89-ff9390653530_1.0.0": true,
 }
 
-func (r *rpHandler) hasPack(uuid string, version string, hasBehaviours bool) bool {
+func (r *ResourcePackHandler) hasPack(uuid string, version string, hasBehaviours bool) bool {
 	if exemptedPacks[uuid+"_"+version] {
 		// The server may send this resource pack on the stack without sending it in the info, as the client
 		// always has it downloaded.

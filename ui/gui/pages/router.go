@@ -5,7 +5,6 @@ import (
 	"errors"
 	"image/color"
 	"log"
-	"reflect"
 	"sync"
 	"time"
 
@@ -14,32 +13,28 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
-	"github.com/bedrock-tool/bedrocktool/ui"
+	"github.com/bedrock-tool/bedrocktool/ui/gui/guim"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/icons"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/popups"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
-	"github.com/bedrock-tool/bedrocktool/utils/updater"
-	"github.com/bedrock-tool/bedrocktool/utils/xbox"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
 )
 
 type Router struct {
-	ui   ui.UI
-	th   *material.Theme
-	auth *authHandler
+	g  guim.Guim
+	th *material.Theme
 
 	ctx          context.Context
 	cmdCtx       context.Context
 	cmdCtxCancel context.CancelFunc
 
-	Wg         sync.WaitGroup
-	Invalidate func()
-	LogWidget  func(layout.Context, *material.Theme) layout.Dimensions
+	wg        sync.WaitGroup
+	LogWidget func(layout.Context, *material.Theme) layout.Dimensions
 
-	pages       map[string]func(invalidate func()) Page
+	pages       map[string]func(g guim.Guim) Page
 	currentPage Page
 
 	ModalNavDrawer *component.ModalNavDrawer
@@ -48,7 +43,6 @@ type Router struct {
 	ModalLayer     *component.ModalLayer
 	NonModalDrawer bool
 
-	login           chan struct{}
 	loginButton     widget.Clickable
 	updateButton    widget.Clickable
 	updateAvailable bool
@@ -57,18 +51,20 @@ type Router struct {
 	showLogs  bool
 
 	popups []popups.Popup
+	toasts []*Toast
 
 	ShuttingDown bool
 }
 
-func NewRouter(ui ui.UI, ctx context.Context) *Router {
+func NewRouter(g guim.Guim, ctx context.Context) *Router {
 	modal := component.NewModal()
 	nav := component.NewNav("Navigation Drawer", "This is an example.")
 
 	r := &Router{
-		ctx:            ctx,
-		ui:             ui,
-		pages:          make(map[string]func(invalidate func()) Page),
+		ctx: ctx,
+		g:   g,
+
+		pages:          make(map[string]func(g guim.Guim) Page),
 		ModalLayer:     modal,
 		ModalNavDrawer: component.ModalNavFrom(&nav, modal),
 		AppBar:         component.NewAppBar(modal),
@@ -78,34 +74,16 @@ func NewRouter(ui ui.UI, ctx context.Context) *Router {
 		},
 	}
 
-	r.auth = &authHandler{r: r}
-	utils.Auth.SetHandler(r.auth)
-
 	return r
 }
 
-type authHandler struct {
-	r *Router
-
-	cancel context.CancelFunc
+func (r *Router) Tick(now time.Time) {
+	r.toasts = slices.DeleteFunc(r.toasts, func(t *Toast) bool {
+		return t.StartTime.Add(t.Duration).Before(now)
+	})
 }
 
-func (a *authHandler) AuthCode(uri, code string) {
-	loginPopup := popups.NewGuiAuth(a.r.Invalidate, uri, code)
-	a.r.PushPopup(loginPopup)
-}
-
-func (a *authHandler) Finished(err error) {
-	a.cancel()
-	a.r.RemovePopup("ms-auth")
-	if err != nil {
-		if !errors.Is(err, context.Canceled) {
-			a.r.PushPopup(popups.NewErrorPopup(err, nil, false))
-		}
-	}
-}
-
-func (r *Router) Register(p func(invalidate func()) Page, id string) {
+func (r *Router) Register(p func(g guim.Guim) Page, id string) {
 	r.pages[id] = p
 }
 
@@ -115,12 +93,12 @@ func (r *Router) SwitchTo(tag string) {
 		logrus.Errorf("unknown page %s", tag)
 		return
 	}
-	page := createPage(r.Invalidate)
+	page := createPage(r.g)
 
 	r.currentPage = page
 	r.AppBar.Title = page.NavItem().Name
 	r.setActions()
-	r.Invalidate()
+	r.g.Invalidate()
 }
 
 func (r *Router) PushPopup(p popups.Popup) bool {
@@ -130,7 +108,7 @@ func (r *Router) PushPopup(p popups.Popup) bool {
 		}
 	}
 	r.popups = append(r.popups, p)
-	r.Invalidate()
+	r.g.Invalidate()
 	return true
 }
 
@@ -147,17 +125,11 @@ func (r *Router) RemovePopup(id string) {
 	r.popups = slices.DeleteFunc(r.popups, func(p popups.Popup) bool {
 		isIt := p.ID() == id
 		if isIt {
-			p.HandleMessage(&messages.Message{
-				Source: "ui",
-				Target: id,
-				Data: messages.Close{
-					ID: id,
-				},
-			})
+			p.Close()
 		}
 		return isIt
 	})
-	r.Invalidate()
+	r.g.Invalidate()
 }
 
 func (r *Router) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
@@ -165,7 +137,7 @@ func (r *Router) Layout(gtx layout.Context, th *material.Theme) layout.Dimension
 	if r.updateButton.Clicked(gtx) {
 		p := r.GetPopup("update")
 		if p == nil {
-			r.PushPopup(popups.NewUpdatePopup(r.ui))
+			r.PushPopup(popups.NewUpdatePopup(r.g))
 		}
 	}
 
@@ -219,17 +191,26 @@ func (r *Router) Layout(gtx layout.Context, th *material.Theme) layout.Dimension
 	})
 	layout.Flex{Axis: layout.Vertical}.Layout(gtx, bar, content)
 	r.ModalLayer.Layout(gtx, th)
+
+	layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+		var dims layout.Dimensions
+		for _, toast := range r.toasts {
+			dims2 := layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+				return toast.Layout(gtx, th)
+			})
+			dims.Size.X = max(dims.Size.X, dims2.Size.X)
+			dims.Size.X = max(dims.Size.Y, dims2.Size.Y)
+		}
+		return dims
+	})
+
 	return layout.Dimensions{Size: gtx.Constraints.Max}
 }
 
 func (r *Router) layoutLoginButton(gtx layout.Context, fg, bg color.NRGBA) layout.Dimensions {
 	if r.loginButton.Clicked(gtx) {
 		if !utils.Auth.LoggedIn() {
-			messages.Router.Handle(&messages.Message{
-				Source: "ui",
-				Target: "ui",
-				Data:   messages.RequestLogin{},
-			})
+			utils.RequestLogin()
 		} else {
 			utils.Auth.Logout()
 		}
@@ -261,102 +242,32 @@ func (r *Router) setActions() {
 	), r.currentPage.Overflow())
 }
 
-func (r *Router) HandleMessage(msg *messages.Message) *messages.Message {
-	if updater.Version == "" {
-		tm := reflect.TypeOf(msg.Data)
-		logrus.Debugf("Message from: %s, %s", msg.Source, tm.String())
-	}
-
-	switch data := msg.Data.(type) {
-	case messages.UpdateAvailable:
-		r.updateAvailable = true
-		r.setActions()
-		if r.Invalidate != nil {
-			r.Invalidate()
-		}
-	case messages.ConnectStateUpdate:
-		if data.State == messages.ConnectStateBegin {
-			r.PushPopup(popups.NewConnect(r.ui, data.ListenIP, data.ListenPort))
-		}
-
-	case messages.ShowPopup:
-		r.PushPopup(data.Popup.(popups.Popup))
-
-	case messages.StartSubcommand:
-		cmd := data.Command.(commands.Command)
-		r.SwitchTo(cmd.Name())
-		r.Execute(cmd, data.CtxKey, data.CtxValue)
-	case messages.ExitSubcommand:
-		r.ExitCommand()
-
-	case messages.Close:
-		switch data.Type {
-		case "popup":
-			r.RemovePopup(data.ID)
-		}
-
-	case messages.RequestLogin:
-		if r.login == nil {
-			ctx, cancel := context.WithCancel(r.ctx)
-			r.auth.cancel = cancel
-			r.login = make(chan struct{})
-			go func() {
-				defer func() {
-					close(r.login)
-					r.login = nil
-				}()
-				utils.Auth.Login(ctx, &xbox.DeviceTypeAndroid)
-			}()
-		}
-		if data.Wait {
-			<-r.login
-		}
-
-	case messages.Error:
-		r.PushPopup(popups.NewErrorPopup(data, nil, false))
-	}
-
-	for _, p := range r.popups {
-		p.HandleMessage(msg)
-	}
-
-	resp := r.currentPage.HandleMessage(msg)
-	r.Invalidate()
-	return resp
-}
-
-func (r *Router) Execute(cmd commands.Command, ctxKey, ctxVal any) {
-	r.Wg.Add(1)
+func (r *Router) Execute(cmd commands.Command, settings any) {
+	r.wg.Add(1)
 	go func() {
 		defer func() {
 			if err, ok := recover().(error); ok {
 				utils.ErrorHandler(err)
 			}
 		}()
-		defer r.Wg.Done()
-		r.cmdCtx, r.cmdCtxCancel = context.WithCancel(context.WithValue(r.ctx, ctxKey, ctxVal))
+		defer r.wg.Done()
+		r.cmdCtx, r.cmdCtxCancel = context.WithCancel(r.ctx)
 
-		err := cmd.Execute(r.cmdCtx)
+		err := cmd.Run(r.cmdCtx, settings)
 		r.RemovePopup("connect")
 		r.cmdCtx = nil
+		r.cmdCtxCancel()
 		r.cmdCtxCancel = nil
 		if err != nil && !errors.Is(err, context.Canceled) {
 			logrus.Error(err)
-			r.PushPopup(popups.NewErrorPopup(err, func() {
+			r.PushPopup(popups.NewErrorPopup(r.g, err, false, func() {
 				r.SwitchTo("settings")
-			}, false))
+			}))
 		}
 
-		resp := r.HandleMessage(&messages.Message{
-			Source: "ui",
-			Target: "ui",
-			Data:   messages.HaveFinishScreen{},
-		})
-		if resp != nil {
-			r.HandleMessage(&messages.Message{
-				Source: "ui",
-				Target: "ui",
-				Data:   messages.UIStateFinished,
+		if page, ok := r.currentPage.(interface{ HaveFinishScreen() bool }); ok && page.HaveFinishScreen() {
+			messages.SendEvent(&messages.EventSetUIState{
+				State: messages.UIStateFinished,
 			})
 		} else {
 			r.SwitchTo("settings")
@@ -364,10 +275,66 @@ func (r *Router) Execute(cmd commands.Command, ctxKey, ctxVal any) {
 	}()
 }
 
-func (r *Router) ExitCommand() {
+func (r *Router) ExitSubcommand() {
 	if r.cmdCtxCancel != nil {
 		r.cmdCtxCancel()
 	} else {
 		r.SwitchTo("settings")
 	}
+}
+
+//
+
+func (r *Router) HandleEvent(event any) error {
+	switch event := event.(type) {
+	case *messages.EventDisplayAuthCode:
+		r.PushPopup(popups.NewGuiAuth(r.g, event.URI, event.AuthCode))
+
+	case *messages.EventAuthFinished:
+		r.RemovePopup("ms-auth")
+		if event.Error != nil {
+			if !errors.Is(event.Error, context.Canceled) {
+				r.PushPopup(popups.NewErrorPopup(r.g, event.Error, false, nil))
+			}
+		}
+
+	case *messages.EventConnectStateUpdate:
+		if event.State == messages.ConnectStateBegin {
+			r.PushPopup(popups.NewConnect(r.g, event.ListenAddr))
+		}
+
+	case *messages.EventUpdateAvailable:
+		r.updateAvailable = true
+		r.setActions()
+		r.g.Invalidate()
+	}
+
+	for _, popup := range r.popups {
+		err := popup.HandleEvent(event)
+		if err != nil {
+			logrus.Error(err)
+		}
+	}
+	err := r.currentPage.HandleEvent(event)
+	if err != nil {
+		logrus.Error(err)
+	}
+	return nil
+}
+
+func (r *Router) Wait() {
+	r.wg.Wait()
+}
+
+func (r *Router) Toast(t string) {
+	r.toasts = append(r.toasts, &Toast{
+		Message:   t,
+		Visible:   true,
+		StartTime: time.Now(),
+		Duration:  5 * time.Second,
+	})
+}
+
+func (r *Router) CloseLogs() {
+	r.logToggle.Value = false
 }

@@ -22,7 +22,7 @@ var CmdName = "invalid"
 
 const UpdateServer = "https://updates.yuv.pink/"
 
-func fetch(url string) (io.ReadCloser, error) {
+func fetchHttp(url string) (io.ReadCloser, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
@@ -44,6 +44,47 @@ func fetch(url string) (io.ReadCloser, error) {
 	return resp.Body, nil
 }
 
+type Updater struct {
+	Update *Update
+}
+
+func (u *Updater) CheckUpdate() {
+	err := func() error {
+		r, err := fetchHttp(fmt.Sprintf("%s%s/%s-%s.json", UpdateServer, CmdName, runtime.GOOS, runtime.GOARCH))
+		if err != nil {
+			return err
+		}
+		defer r.Close()
+		d := json.NewDecoder(r)
+
+		var update Update
+		if err = d.Decode(&update); err != nil {
+			return err
+		}
+		u.Update = &update
+
+		isNew := update.Version != Version
+		if isNew {
+			logrus.Info(locale.Loc("update_available", locale.Strmap{"Version": update.Version}))
+			messages.SendEvent(&messages.EventUpdateAvailable{
+				Version: update.Version,
+			})
+		}
+		return nil
+	}()
+	if err != nil {
+		logrus.Error(err)
+	}
+}
+
+func (u *Updater) DownloadUpdate() error {
+	return nil
+}
+
+func (u *Updater) InstallUpdate() error {
+	return nil
+}
+
 type Update struct {
 	Version string
 	Sha256  string
@@ -59,6 +100,14 @@ func UpdateAvailable() (*Update, error) {
 		return updateAvailable, nil
 	}
 
+	if runtime.GOOS == "android" {
+		updateAvailable = &Update{
+			Version: Version,
+			Sha256:  "",
+		}
+		return updateAvailable, nil
+	}
+
 	if runtime.GOOS == "js" {
 		updateAvailable = &Update{
 			Version: Version,
@@ -67,7 +116,7 @@ func UpdateAvailable() (*Update, error) {
 		return updateAvailable, nil
 	}
 
-	r, err := fetch(fmt.Sprintf("%s%s/%s-%s.json", UpdateServer, CmdName, runtime.GOOS, runtime.GOARCH))
+	r, err := fetchHttp(fmt.Sprintf("%s%s/%s-%s.json", UpdateServer, CmdName, runtime.GOOS, runtime.GOARCH))
 	if err != nil {
 		return nil, err
 	}
@@ -93,11 +142,9 @@ func UpdateCheck(ui ui.UI) {
 	isNew := update.Version != Version
 
 	if isNew {
-		logrus.Infof(locale.Loc("update_available", locale.Strmap{"Version": update.Version}))
-		messages.Router.Handle(&messages.Message{
-			Source: "updater",
-			Target: "ui",
-			Data:   messages.UpdateAvailable{Version: update.Version},
+		logrus.Info(locale.Loc("update_available", locale.Strmap{"Version": update.Version}))
+		messages.SendEvent(&messages.EventUpdateAvailable{
+			Version: update.Version,
 		})
 	}
 }

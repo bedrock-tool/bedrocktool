@@ -3,7 +3,6 @@ package handlers
 import (
 	"fmt"
 	"math"
-	"os"
 	"path"
 	"strings"
 	"time"
@@ -32,7 +31,7 @@ type SkinSaver struct {
 	playersByName map[string]uuid.UUID
 }
 
-func NewSkinSaver(skinCB func(SkinAdd)) func() *proxy.Handler {
+func NewSkinSaver(skinCallback func(SkinAdd)) func() *proxy.Handler {
 	return func() *proxy.Handler {
 		s := &SkinSaver{
 			log: logrus.WithField("part", "SkinSaver"),
@@ -44,15 +43,13 @@ func NewSkinSaver(skinCB func(SkinAdd)) func() *proxy.Handler {
 			Name: "Skin Saver",
 			SessionStart: func(session *proxy.Session, hostname string) error {
 				s.session = session
-				outPathBase := fmt.Sprintf("skins/%s", hostname)
-				os.MkdirAll(outPathBase, 0o755)
-				s.baseDir = outPathBase
+				s.baseDir = utils.PathData("skins", hostname)
 				return nil
 			},
 			PacketCallback: func(session *proxy.Session, pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
 				for _, s := range s.ProcessPacket(pk) {
-					if skinCB != nil {
-						skinCB(s)
+					if skinCallback != nil {
+						skinCallback(s)
 					}
 				}
 				return pk, nil
@@ -135,6 +132,7 @@ func (s *SkinSaver) AddSkin(player *skinPlayer, newSkin *protocol.Skin) (*utils.
 		if err := player.SkinPack.Save(path.Join(s.baseDir, player.Name)); err != nil {
 			s.log.Error(err)
 		}
+		added = true
 	}
 
 	return skin, added
@@ -268,6 +266,7 @@ func (s *SkinSaver) stealSkin() {
 			playerSkin := sp.SkinPack.Latest().Skin
 			if playerSkin == nil {
 				logrus.Warnf("%s has no skin", sp.Name)
+				continue
 			}
 
 			s.session.ClientWritePacket(&packet.PlayerSkin{

@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"os"
 	"strings"
@@ -14,35 +13,33 @@ import (
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/bedrock-tool/bedrocktool/utils/updater"
-	"github.com/bedrock-tool/bedrocktool/utils/xbox"
 	"github.com/sirupsen/logrus"
 )
 
 type CLI struct {
-	ctx context.Context
+	IsInteractive bool
 }
 
-func (c *CLI) Init() bool {
-	messages.Router.AddHandler("ui", c.HandleMessage)
-	return true
+func (c *CLI) Init() error {
+	messages.SetEventHandler(c.eventHandler)
+	return nil
 }
 
 func printCommands() {
 	fmt.Println(locale.Loc("available_commands", nil))
 	for name, cmd := range commands.Registered {
-		fmt.Printf("\t%s\t%s\n\r", name, cmd.Synopsis())
+		fmt.Printf("\t%s\t%s\n\r", name, cmd.Description())
 	}
 }
 
 func (c *CLI) Start(ctx context.Context, cancel context.CancelCauseFunc) error {
-	c.ctx = ctx
 	utils.Auth.SetHandler(nil)
 	isDebug := updater.Version == ""
 	if !isDebug {
 		go updater.UpdateCheck(c)
 	}
 
-	if utils.Options.IsInteractive {
+	if c.IsInteractive {
 		select {
 		case <-ctx.Done():
 			return nil
@@ -67,64 +64,57 @@ func (c *CLI) Start(ctx context.Context, cancel context.CancelCauseFunc) error {
 		}
 	}
 
-	err := flag.CommandLine.Parse(os.Args[1:])
-	if err != nil {
-		fmt.Printf("Available flags: ")
-		flag.CommandLine.VisitAll(func(f *flag.Flag) {
-			fmt.Print("-", f.Name, " ")
-		})
-		fmt.Print("\n")
-		printCommands()
-		return err
+	var subcommandIndex int = -1
+	for i := range len(os.Args[1:]) {
+		arg := os.Args[1+i]
+		if len(arg) == 0 {
+			continue
+		}
+		if arg[0] == '-' {
+			if !strings.ContainsRune(arg, '=') {
+				i++
+			}
+			continue
+		}
+		subcommandIndex = i
+		break
+	}
+	if subcommandIndex == -1 {
+		return fmt.Errorf("no command selected")
 	}
 
-	subcommandArgs := flag.Args()
-	subcommandName := subcommandArgs[0]
+	var args []string
+	for i, arg := range os.Args[1:] {
+		if subcommandIndex == i {
+			continue
+		}
+		args = append(args, arg)
+	}
+	subcommandName := os.Args[1+subcommandIndex]
+
 	subcommand, ok := commands.Registered[subcommandName]
 	if !ok {
 		logrus.Errorf("%s is not a known subcommand", subcommandName)
 		printCommands()
 		return nil
 	}
-	f := flag.NewFlagSet(subcommandName, flag.ContinueOnError)
-	subcommand.SetFlags(f)
-	err = f.Parse(subcommandArgs[1:])
+
+	settings, flags, err := commands.ParseArgs(ctx, subcommand, args)
 	if err != nil {
-		fmt.Printf("Available subcommand flags:\n")
-		f.VisitAll(func(f *flag.Flag) {
-			fmt.Print("\t-", f.Name, "\n")
-		})
+		if flags != nil {
+			fmt.Printf("Usage for %s:\n", subcommandName)
+			flags.PrintDefaults()
+		}
 		return err
 	}
 
-	addressFlag := f.Lookup("address")
-	var serverAddress string
-	if addressFlag != nil {
-		if addressFlag.Value.String() != "" {
-			serverAddress = addressFlag.Value.String()
-		} else {
-			var cancelled bool
-			serverAddress, cancelled = utils.UserInput(ctx, locale.Loc("enter_server", nil), nil)
-			if cancelled {
-				return nil
-			}
-		}
-	}
-	if serverAddress != "" {
-		connectInfo, err := utils.ParseServer(ctx, serverAddress)
-		if err != nil {
-			return err
-		}
-		ctx = context.WithValue(ctx, utils.ConnectInfoKey, connectInfo)
-	}
-
-	err = subcommand.Execute(ctx)
+	err = subcommand.Run(ctx, settings)
 	if err != nil {
 		return err
 	}
 	cancel(nil)
 
-	if utils.Options.IsInteractive {
+	if c.IsInteractive {
 		logrus.Info(locale.Loc("enter_to_exit", nil))
 		input := bufio.NewScanner(os.Stdin)
 		input.Scan()
@@ -133,15 +123,6 @@ func (c *CLI) Start(ctx context.Context, cancel context.CancelCauseFunc) error {
 	return nil
 }
 
-func (c *CLI) HandleMessage(msg *messages.Message) *messages.Message {
-	switch data := msg.Data.(type) {
-	case messages.RequestLogin:
-		deviceType := &xbox.DeviceTypeAndroid
-		if data.Wait {
-			utils.Auth.Login(c.ctx, deviceType)
-		} else {
-			go utils.Auth.Login(c.ctx, deviceType)
-		}
-	}
+func (c *CLI) eventHandler(event any) error {
 	return nil
 }

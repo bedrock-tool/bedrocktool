@@ -1,10 +1,9 @@
-package render
+package subcommands
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"image"
 	"image/draw"
@@ -16,10 +15,10 @@ import (
 	"path"
 	"strings"
 
-	"github.com/bedrock-tool/bedrocktool/subcommands/merge"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/behaviourpack"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
+	"github.com/bedrock-tool/bedrocktool/utils/merge"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/df-mc/dragonfly/server/world/mcdb"
 	"github.com/df-mc/goleveldb/leveldb/opt"
@@ -28,28 +27,36 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type RenderCMD struct {
-	WorldPath string
-	Out       string
+type RenderSettings struct {
+	WorldPath string `opt:"World Path" flag:"world"`
+	Out       string `opt:"Output filename" flag:"out" default:"world.png"`
 }
 
-func (*RenderCMD) Name() string     { return "render" }
-func (*RenderCMD) Synopsis() string { return "render a world to png" }
+type RenderCMD struct{}
 
-func (c *RenderCMD) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&c.WorldPath, "world", "", "world path")
-	f.StringVar(&c.Out, "out", "world.png", "out png path")
+func (RenderCMD) Name() string {
+	return "render"
 }
 
-func (c *RenderCMD) Execute(ctx context.Context) error {
+func (RenderCMD) Description() string {
+	return "render a world to png"
+}
+
+func (RenderCMD) Settings() any {
+	return new(RenderSettings)
+}
+
+func (RenderCMD) Run(ctx context.Context, settings any) error {
+	renderSettings := settings.(*RenderSettings)
+
 	blockReg := &merge.BlockRegistry{
 		BlockRegistry: world.DefaultBlockRegistry,
 		Rids:          make(map[uint32]merge.Block),
 	}
 
-	if c.WorldPath == "" {
+	if renderSettings.WorldPath == "" {
 		var ok bool
-		c.WorldPath, ok = utils.UserInput(ctx, "World Path: ", func(s string) bool {
+		renderSettings.WorldPath, ok = utils.UserInput(ctx, "World Path: ", func(s string) bool {
 			st, err := os.Stat(s)
 			if err != nil {
 				return false
@@ -61,14 +68,13 @@ func (c *RenderCMD) Execute(ctx context.Context) error {
 		}
 	}
 
-	c.WorldPath = path.Clean(strings.ReplaceAll(c.WorldPath, "\\", "/"))
-	c.Out = path.Clean(strings.ReplaceAll(c.Out, "\\", "/"))
+	renderSettings.WorldPath = path.Clean(strings.ReplaceAll(renderSettings.WorldPath, "\\", "/"))
+	renderSettings.Out = path.Clean(strings.ReplaceAll(renderSettings.Out, "\\", "/"))
 
-	if c.WorldPath == "" {
+	if renderSettings.WorldPath == "" {
 		return fmt.Errorf("missing -world")
 	}
-
-	fmt.Printf("%s\n", c.WorldPath)
+	fmt.Printf("%s\n", renderSettings.WorldPath)
 
 	db, err := mcdb.Config{
 		Log:    slog.Default(),
@@ -76,14 +82,14 @@ func (c *RenderCMD) Execute(ctx context.Context) error {
 		LDBOptions: &opt.Options{
 			ReadOnly: true,
 		},
-	}.Open(c.WorldPath)
+	}.Open(renderSettings.WorldPath)
 	if err != nil {
 		return err
 	}
 	defer db.Close()
 
 	var resourcePacks []resource.Pack
-	resourcePacksFolder := path.Join(c.WorldPath, "resource_packs")
+	resourcePacksFolder := path.Join(renderSettings.WorldPath, "resource_packs")
 	resourcePackEntries, err := os.ReadDir(resourcePacksFolder)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
@@ -97,7 +103,7 @@ func (c *RenderCMD) Execute(ctx context.Context) error {
 	}
 
 	var behaviorPacks []resource.Pack
-	behaviorPacksFolder := path.Join(c.WorldPath, "behavior_packs")
+	behaviorPacksFolder := path.Join(renderSettings.WorldPath, "behavior_packs")
 	behaviorPackEntries, err := os.ReadDir(behaviorPacksFolder)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
@@ -186,7 +192,9 @@ func (c *RenderCMD) Execute(ctx context.Context) error {
 		return err
 	}
 
-	f, err := os.Create(c.Out)
+	outPath := utils.PathData(renderSettings.Out)
+
+	f, err := os.Create(outPath)
 	if err != nil {
 		return err
 	}
@@ -196,7 +204,7 @@ func (c *RenderCMD) Execute(ctx context.Context) error {
 		return err
 	}
 
-	logrus.Infof("Wrote %s", c.Out)
+	logrus.Infof("Wrote %s", outPath)
 
 	return nil
 }

@@ -15,6 +15,9 @@ import (
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/proxy/blobcache"
+	"github.com/bedrock-tool/bedrocktool/utils/proxy/pcap2"
+	"github.com/bedrock-tool/bedrocktool/utils/proxy/resourcepacks"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/login"
@@ -28,22 +31,19 @@ type Session struct {
 	ctx       context.Context
 	cancelCtx context.CancelCauseFunc
 	commands  map[string]ingameCommand
+	settings  ProxySettings
 
 	// from proxy
-	withClient        bool
-	extraDebug        bool
-	addedPacks        []resource.Pack
-	listenAddress     string
-	handlers          Handlers
-	enableClientCache bool
-	onHitBlobs        func(hitBlobs []protocol.CacheBlob)
+	addedPacks []resource.Pack
+	withClient bool
+	handlers   Handlers
 
 	packetLogger       *packetLogger
 	packetLoggerClient *packetLogger
 
 	listener  *minecraft.Listener
-	rpHandler *rpHandler
-	blobCache *Blobcache
+	rpHandler *resourcepacks.ResourcePackHandler
+	blobCache *blobcache.Blobcache
 
 	Server minecraft.IConn
 	Client minecraft.IConn
@@ -60,12 +60,16 @@ type Session struct {
 	disconnectReason string
 }
 
-func NewSession(ctx context.Context) *Session {
+func NewSession(ctx context.Context, settings ProxySettings, addedPacks []resource.Pack, withClient bool) *Session {
 	sctx, cancelCtx := context.WithCancelCause(ctx)
 	return &Session{
-		ctx:              sctx,
-		cancelCtx:        cancelCtx,
-		log:              logrus.StandardLogger().WithContext(context.Background()),
+		ctx:        sctx,
+		cancelCtx:  cancelCtx,
+		log:        logrus.StandardLogger().WithContext(ctx),
+		settings:   settings,
+		addedPacks: addedPacks,
+		withClient: withClient,
+
 		clientConnecting: make(chan struct{}),
 		haveClientData:   make(chan struct{}),
 		disconnectReason: "Connection Lost",
@@ -128,62 +132,62 @@ func (s *Session) Disconnect() {
 
 func (s *Session) Run(connectInfo *utils.ConnectInfo) error {
 	defer s.cancelCtx(errors.New("done"))
-	listenIP, _listenPort, _ := net.SplitHostPort(s.listenAddress)
-	listenPort, _ := strconv.Atoi(_listenPort)
 
-	messages.Router.Handle(&messages.Message{
-		Source: "proxy",
-		Target: "ui",
-		Data: messages.ConnectStateUpdate{
-			State:      messages.ConnectStateBegin,
-			ListenIP:   listenIP,
-			ListenPort: listenPort,
-		},
+	messages.SendEvent(&messages.EventConnectStateUpdate{
+		State:      messages.ConnectStateBegin,
+		ListenAddr: s.settings.ListenAddress,
 	})
-
 	onResourcePacksInfo := func() {
-		messages.Router.Handle(&messages.Message{
-			Source: "proxy",
-			Target: "ui",
-			Data: messages.ConnectStateUpdate{
-				State: messages.ConnectStateReceivingResources,
-			},
+		messages.SendEvent(&messages.EventConnectStateUpdate{
+			State: messages.ConnectStateReceivingResources,
 		})
 	}
 
-	s.rpHandler = newRpHandler(s.ctx, s.addedPacks)
+	s.rpHandler = resourcepacks.NewResourcePackHandler(s.ctx, s.addedPacks)
 	s.rpHandler.OnResourcePacksInfoCB = onResourcePacksInfo
-	s.rpHandler.OnFinishedPack = func(p resource.Pack) error { return s.handlers.OnFinishedPack(s, p) }
-	s.rpHandler.filterDownloadResourcePacks = func(id string) bool { return s.handlers.FilterResourcePack(s, id) }
+	s.rpHandler.OnFinishedPack = func(p resource.Pack) error {
+		return s.handlers.OnFinishedPack(s, p)
+	}
+	s.rpHandler.FilterDownloadResourcePacks = func(id string) bool {
+		return s.handlers.FilterResourcePack(s, id)
+	}
 
 	var err error
-	s.blobCache, err = NewBlobCache(s)
-	if err != nil {
-		return err
-	}
-	s.blobCache.OnHitBlobs = s.onHitBlobs
-	s.blobCache.processPacket = func(pk packet.Packet, timeReceived time.Time, preLogin bool) error {
+	s.blobCache, err = blobcache.NewBlobCache(s.log, func(pk packet.Packet) error {
+		return s.Server.WritePacket(pk)
+	}, func() minecraft.IConn {
+		return s.Client
+	}, func(pk packet.Packet, timeReceived time.Time, preLogin bool) error {
 		_, err := s.handlers.PacketCallback(s, pk, false, timeReceived, preLogin)
+		return err
+	}, func(blobs []protocol.CacheBlob) {
+		s.handlers.OnBlobs(s, blobs)
+	}, s.isReplay)
+	if err != nil {
 		return err
 	}
 	defer s.blobCache.Close()
 
-	if utils.Options.Debug || utils.Options.ExtraDebug {
-		s.packetLogger, err = NewPacketLogger(utils.Options.ExtraDebug, false)
+	if s.settings.Debug || s.settings.ExtraDebug {
+		s.packetLogger, err = NewPacketLogger(s.settings.ExtraDebug, false)
 		if err != nil {
 			return err
 		}
 		defer s.packetLogger.Close()
 
-		s.packetLoggerClient, err = NewPacketLogger(utils.Options.ExtraDebug, true)
+		s.packetLoggerClient, err = NewPacketLogger(s.settings.ExtraDebug, true)
 		if err != nil {
 			return err
 		}
 		defer s.packetLogger.Close()
 	}
 
-	if connectInfo.Replay != "" {
-		replay, err := CreateReplayConnector(s.ctx, connectInfo.Replay, s.packetFunc, s.rpHandler)
+	if connectInfo.IsReplay() {
+		replayName, err := connectInfo.Address(s.ctx)
+		if err != nil {
+			return err
+		}
+		replay, err := pcap2.CreateReplayConnector(s.ctx, utils.PathData(replayName), s.packetFunc, s.rpHandler)
 		if err != nil {
 			return err
 		}
@@ -198,11 +202,9 @@ func (s *Session) Run(connectInfo *utils.ConnectInfo) error {
 			return err
 		}
 	}
-
 	if s.Server != nil {
 		defer s.Server.Close()
 	}
-
 	if s.listener != nil {
 		defer func() {
 			if s.Client != nil {
@@ -282,13 +284,8 @@ func (s *Session) Run(connectInfo *utils.ConnectInfo) error {
 		logrus.Info("Disconnecting")
 		return nil
 	}
-
-	messages.Router.Handle(&messages.Message{
-		Source: "proxy",
-		Target: "ui",
-		Data: messages.ConnectStateUpdate{
-			State: messages.ConnectStateDone,
-		},
+	messages.SendEvent(&messages.EventConnectStateUpdate{
+		State: messages.ConnectStateDone,
 	})
 
 	doProxy := func(client bool) {
@@ -360,12 +357,8 @@ func (s *Session) connectServer(connectInfo *utils.ConnectInfo) (err error) {
 		}
 	}
 
-	messages.Router.Handle(&messages.Message{
-		Source: "proxy",
-		Target: "ui",
-		Data: messages.ConnectStateUpdate{
-			State: messages.ConnectStateServerConnecting,
-		},
+	messages.SendEvent(&messages.EventConnectStateUpdate{
+		State: messages.ConnectStateServerConnecting,
 	})
 
 	address, err := connectInfo.Address(s.ctx)
@@ -374,12 +367,12 @@ func (s *Session) connectServer(connectInfo *utils.ConnectInfo) (err error) {
 	}
 
 	logrus.Info(locale.Loc("connecting", locale.Strmap{"Address": address}))
-	d := minecraft.Dialer{
+	dialer := minecraft.Dialer{
 		TokenSource:                utils.Auth,
 		DisconnectOnUnknownPackets: false,
 		ErrorLog:                   slog.Default(),
 		PacketFunc:                 s.packetFunc,
-		EnableClientCache:          s.enableClientCache,
+		EnableClientCache:          s.settings.ClientCache,
 		GetClientData: func() login.ClientData {
 			if s.withClient {
 				select {
@@ -396,7 +389,7 @@ func (s *Session) connectServer(connectInfo *utils.ConnectInfo) (err error) {
 		},
 	}
 	for range 3 {
-		d.ChainKey, d.ChainData, err = utils.Auth.Chain(s.ctx)
+		dialer.ChainKey, dialer.ChainData, err = utils.Auth.Chain(s.ctx)
 		if err != nil {
 			continue
 		}
@@ -406,7 +399,7 @@ func (s *Session) connectServer(connectInfo *utils.ConnectInfo) (err error) {
 		return err
 	}
 
-	_, err = d.DialContext(s.ctx, "raknet", address, 20*time.Second)
+	_, err = dialer.DialContext(s.ctx, "raknet", address, 20*time.Second)
 	if err != nil {
 		if s.expectDisconnect {
 			return nil
@@ -414,12 +407,8 @@ func (s *Session) connectServer(connectInfo *utils.ConnectInfo) (err error) {
 		return err
 	}
 
-	messages.Router.Handle(&messages.Message{
-		Source: "proxy",
-		Target: "ui",
-		Data: messages.ConnectStateUpdate{
-			State: messages.ConnectStateEstablished,
-		},
+	messages.SendEvent(&messages.EventConnectStateUpdate{
+		State: messages.ConnectStateEstablished,
 	})
 	logrus.Debug(locale.Loc("connected", nil))
 	return nil
@@ -450,10 +439,15 @@ func (s *Session) connectClient(connectInfo *utils.ConnectInfo) (err error) {
 		}
 	}
 
+	serverName, err := connectInfo.Name(s.ctx)
+	if err != nil {
+		return err
+	}
+
 	s.listener, err = minecraft.ListenConfig{
 		AuthenticationDisabled: true,
 		AllowUnknownPackets:    true,
-		StatusProvider:         minecraft.NewStatusProvider(fmt.Sprintf("%s Proxy", connectInfo.Name()), "Bedrocktool"),
+		StatusProvider:         minecraft.NewStatusProvider(fmt.Sprintf("%s Proxy", serverName), "Bedrocktool"),
 		ErrorLog:               slog.Default(),
 		PacketFunc:             clientPacketFunc,
 		OnClientData: func(c *minecraft.Conn) {
@@ -470,17 +464,13 @@ func (s *Session) connectClient(connectInfo *utils.ConnectInfo) (err error) {
 			c.ResourcePackHandler = s.rpHandler
 			close(s.clientConnecting)
 		},
-	}.Listen("raknet", s.listenAddress)
+	}.Listen("raknet", s.settings.ListenAddress)
 	if err != nil {
 		return err
 	}
 
-	messages.Router.Handle(&messages.Message{
-		Source: "proxy",
-		Target: "ui",
-		Data: messages.ConnectStateUpdate{
-			State: messages.ConnectStateListening,
-		},
+	messages.SendEvent(&messages.EventConnectStateUpdate{
+		State: messages.ConnectStateListening,
 	})
 	logrus.Info(locale.Loc("listening_on", locale.Strmap{"Address": s.listener.Addr()}))
 	logrus.Info(locale.Loc("help_connect", nil))
@@ -708,7 +698,7 @@ func (s *Session) blobPacketsFromClient(pk packet.Packet) (forward bool, err err
 	return
 }
 
-func (s *Session) commandHandlerPacketCB(pk packet.Packet, toServer bool, _ time.Time, _ bool) (packet.Packet, error) {
+func (s *Session) commandHandlerPacketCB(pk packet.Packet, _ bool, _ time.Time, _ bool) (packet.Packet, error) {
 	switch _pk := pk.(type) {
 	case *packet.CommandRequest:
 		cmd := strings.Split(_pk.CommandLine, " ")

@@ -23,8 +23,8 @@ import (
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/behaviourpack"
 	"github.com/bedrock-tool/bedrocktool/utils/proxy"
+	"github.com/bedrock-tool/bedrocktool/utils/proxy/pcap2"
 	"github.com/bedrock-tool/bedrocktool/utils/resourcepack"
-	"github.com/flytam/filenamify"
 	"github.com/google/uuid"
 
 	"github.com/df-mc/dragonfly/server/block/cube"
@@ -125,9 +125,13 @@ func NewWorldsHandler(ctx context.Context, settings WorldSettings) func() *proxy
 			OnConnect: w.onConnect,
 
 			PacketCallback: w.packetHandler,
-			OnSessionEnd: func(s *proxy.Session) {
-				w.SaveAndReset(true, nil)
-				w.wg.Wait()
+			OnSessionEnd: func(s *proxy.Session, wg *sync.WaitGroup) {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					w.SaveAndReset(true, nil)
+					w.wg.Wait()
+				}()
 			},
 		}
 	}
@@ -236,19 +240,12 @@ func (w *worldsHandler) onSessionStart(session *proxy.Session, serverName string
 }
 
 func (w *worldsHandler) onConnect(_ *proxy.Session) bool {
-	messages.Router.Handle(&messages.Message{
-		Source: "subcommand",
-		Target: "ui",
-		Data:   messages.UIStateMain,
+	messages.SendEvent(&messages.EventSetUIState{
+		State: messages.UIStateMain,
 	})
-
-	messages.Router.Handle(&messages.Message{
-		Source: "subcommand",
-		Target: "ui",
-		Data: messages.SetValue{
-			Name:  "worldName",
-			Value: w.worldState.Name,
-		},
+	messages.SendEvent(&messages.EventSetValue{
+		Name:  "worldName",
+		Value: w.worldState.Name,
 	})
 
 	w.session.ClientWritePacket(&packet.ChunkRadiusUpdated{
@@ -276,9 +273,9 @@ func (w *worldsHandler) preloadReplay() error {
 		return nil
 	}
 	log := w.log.WithField("func", "preloadReplay")
-	var conn *proxy.ReplayConnector
+	var conn *pcap2.ReplayConnector
 	var err error
-	conn, err = proxy.CreateReplayConnector(context.Background(), w.settings.PreloadReplay, func(header packet.Header, payload []byte, src, dst net.Addr, timeReceived time.Time) {
+	conn, err = pcap2.CreateReplayConnector(context.Background(), utils.PathData(w.settings.PreloadReplay), func(header packet.Header, payload []byte, src, dst net.Addr, timeReceived time.Time) {
 		pk, ok := proxy.DecodePacket(header, payload, conn.ShieldID())
 		if !ok {
 			log.Error("unknown packet", header)
@@ -339,15 +336,10 @@ func (w *worldsHandler) setVoidGen(val bool) bool {
 		voidGen = "true"
 	}
 
-	messages.Router.Handle(&messages.Message{
-		Source: "subcommand",
-		Target: "ui",
-		Data: messages.SetValue{
-			Name:  "voidGen",
-			Value: voidGen,
-		},
+	messages.SendEvent(&messages.EventSetValue{
+		Name:  "voidGen",
+		Value: voidGen,
 	})
-
 	return true
 }
 
@@ -358,16 +350,10 @@ func (w *worldsHandler) setWorldName(val string) bool {
 		return false
 	}
 	w.session.SendMessage(locale.Loc("worldname_set", locale.Strmap{"Name": w.worldState.Name}))
-
-	messages.Router.Handle(&messages.Message{
-		Source: "subcommand",
-		Target: "ui",
-		Data: messages.SetValue{
-			Name:  "worldName",
-			Value: w.worldState.Name,
-		},
+	messages.SendEvent(&messages.EventSetValue{
+		Name:  "worldName",
+		Value: w.worldState.Name,
 	})
-
 	return true
 }
 
@@ -427,13 +413,9 @@ func (w *worldsHandler) saveWorldState(worldState *worldstate.World) error {
 
 	filename := worldState.Folder + ".mcworld"
 
-	messages.Router.Handle(&messages.Message{
-		Source: "subcommand",
-		Target: "ui",
-		Data: messages.ProcessingWorldUpdate{
-			Name:  worldState.Name,
-			State: "Saving",
-		},
+	messages.SendEvent(&messages.EventProcessingWorldUpdate{
+		WorldName: worldState.Name,
+		State:     "Saving",
 	})
 	err := worldState.Finish(w.playerData(), w.settings.ExcludedMobs, w.settings.Players, spawnPos, w.session.Server.GameData(), w.serverState.behaviorPack.HasContent())
 	if err != nil {
@@ -461,13 +443,9 @@ func (w *worldsHandler) saveWorldState(worldState *worldstate.World) error {
 		return err
 	}
 
-	messages.Router.Handle(&messages.Message{
-		Source: "subcommand",
-		Target: "ui",
-		Data: messages.ProcessingWorldUpdate{
-			Name:  worldState.Name,
-			State: "Writing mcworld file",
-		},
+	messages.SendEvent(&messages.EventProcessingWorldUpdate{
+		WorldName: worldState.Name,
+		State:     "Writing mcworld file",
 	})
 
 	f, err := os.Create(filename)
@@ -487,20 +465,12 @@ func (w *worldsHandler) saveWorldState(worldState *worldstate.World) error {
 	}
 
 	w.log.Info(locale.Loc("saved", locale.Strmap{"Name": filename}))
-
-	messages.Router.Handle(&messages.Message{
-		Source: "subcommand",
-		Target: "ui",
-		Data: messages.FinishedSavingWorld{
-			World: &messages.SavedWorld{
-				Name:     worldState.Name,
-				Path:     filename,
-				Chunks:   len(worldState.StoredChunks),
-				Entities: worldState.EntityCount(),
-			},
-		},
+	messages.SendEvent(&messages.EventFinishedSavingWorld{
+		WorldName: worldState.Name,
+		Filepath:  filename,
+		Chunks:    len(worldState.StoredChunks),
+		Entities:  worldState.EntityCount(),
 	})
-
 	return nil
 }
 
@@ -515,19 +485,22 @@ func (w *worldsHandler) defaultWorldName() string {
 }
 
 func (w *worldsHandler) openWorldState(deferred bool) {
-	name := w.defaultWorldName()
-	serverName, _ := filenamify.FilenamifyV2(w.serverState.serverName)
-	folder := fmt.Sprintf("worlds/%s/%s", serverName, name)
+	worldName := utils.MakeValidFilename(w.defaultWorldName())
+	serverName := utils.MakeValidFilename(w.serverState.serverName)
+	folder := utils.PathData("worlds", serverName, worldName)
+
 	w.worldState.BiomeRegistry = w.serverState.biomes
 	w.worldState.BlockRegistry = w.serverState.blocks
 	w.worldState.ResourcePacks = w.session.Server.ResourcePacks()
 	w.worldState.UseHashedRids = w.serverState.useHashedRids
-	w.worldState.Open(name, folder, deferred)
+	w.worldState.Open(w.defaultWorldName(), folder, deferred)
 }
 
 func (w *worldsHandler) renameWorldState(name string) error {
-	serverName, _ := filenamify.FilenamifyV2(w.serverState.serverName)
-	folder := fmt.Sprintf("worlds/%s/%s", serverName, name)
+	worldName := utils.MakeValidFilename(name)
+	serverName := utils.MakeValidFilename(w.serverState.serverName)
+	folder := utils.PathData("worlds", serverName, worldName)
+
 	var err error
 	w.currentWorld(func(world *worldstate.World) {
 		err = world.Rename(name, folder)

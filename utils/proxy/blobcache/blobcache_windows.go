@@ -1,4 +1,4 @@
-package proxy
+package blobcache
 
 import "golang.org/x/sys/windows"
 

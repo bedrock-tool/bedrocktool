@@ -2,53 +2,73 @@ package popups
 
 import (
 	"fmt"
+	"net"
 
 	"gioui.org/layout"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"github.com/bedrock-tool/bedrocktool/ui"
+	"github.com/bedrock-tool/bedrocktool/ui/gui/guim"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/sirupsen/logrus"
 )
 
 type ConnectPopup struct {
-	ui    ui.UI
+	g     guim.Guim
 	state string
 	close widget.Clickable
 
-	ListenIP   string
-	ListenPort int
+	listenIP   string
+	listenPort string
+	localIP    string
 
 	connectButton widget.Clickable
 }
 
-func NewConnect(ui ui.UI, ListenIP string, ListenPort int) Popup {
-	if ListenIP == "0.0.0.0" {
-		ListenIP = "127.0.0.1"
+func NewConnect(g guim.Guim, listenAddr string) Popup {
+	listenIp, listenPort, _ := net.SplitHostPort(listenAddr)
+	if listenIp == "0.0.0.0" {
+		listenIp = "127.0.0.1"
 	}
-	return &ConnectPopup{ui: ui, ListenIP: ListenIP, ListenPort: ListenPort}
+
+	localIP, err := utils.GetLocalIP()
+	if err != nil {
+		logrus.Error(err)
+	}
+
+	return &ConnectPopup{
+		g:          g,
+		listenIP:   listenIp,
+		listenPort: listenPort,
+		localIP:    localIP,
+	}
 }
 
-func (p *ConnectPopup) ID() string {
+func (*ConnectPopup) ID() string {
 	return "connect"
+}
+
+func (*ConnectPopup) Close() error {
+	return nil
 }
 
 func (p *ConnectPopup) Layout(gtx C, th *material.Theme) D {
 	if p.connectButton.Clicked(gtx) {
-		go utils.OpenUrl(fmt.Sprintf("minecraft://connect/?serverUrl=%s&serverPort=%d", p.ListenIP, p.ListenPort))
+		p.g.OpenUrl(fmt.Sprintf("minecraft://connect/?serverUrl=%s&serverPort=%s", p.listenIP, p.listenPort))
 	}
 
 	if p.close.Clicked(gtx) {
-		messages.Router.Handle(&messages.Message{
-			Source: p.ID(),
-			Target: "ui",
-			Data:   messages.ExitSubcommand{},
-		})
-		messages.Router.Handle(&messages.Message{
-			Source: p.ID(),
-			Target: "ui",
-			Data:   messages.Close{Type: "popup", ID: p.ID()},
-		})
+		p.g.ClosePopup(p.ID())
+		p.g.ExitSubcommand()
+	}
+
+	var connectStr string
+	connectStr += p.listenIP
+	if p.localIP != "" {
+		connectStr += " or " + p.localIP
+	}
+	if p.listenPort != "19132" {
+		connectStr += " with port " + p.listenPort
 	}
 
 	return LayoutPopupBackground(gtx, th, "connect", func(gtx C) D {
@@ -61,9 +81,10 @@ func (p *ConnectPopup) Layout(gtx C, th *material.Theme) D {
 						layout.Rigid(func(gtx C) D {
 							switch p.state {
 							case "listening":
-								return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+								return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
 									layout.Rigid(material.Label(th, 40, "Listening").Layout),
-									layout.Rigid(material.Body1(th, fmt.Sprintf("connect to %s with port %d\nin the minecraft bedrock client to continue", p.ListenIP, p.ListenPort)).Layout),
+									layout.Rigid(material.Body1(th, fmt.Sprintf("connect to %s", connectStr)).Layout),
+									layout.Rigid(material.Body1(th, "in minecraft bedrock to continue").Layout),
 								)
 							case "connecting-server":
 								return material.Label(th, 40, "Connecting to Server").Layout(gtx)
@@ -109,10 +130,10 @@ func (p *ConnectPopup) Layout(gtx C, th *material.Theme) D {
 	})
 }
 
-func (p *ConnectPopup) HandleMessage(msg *messages.Message) *messages.Message {
-	switch m := msg.Data.(type) {
-	case messages.ConnectStateUpdate:
-		switch m.State {
+func (p *ConnectPopup) HandleEvent(event any) error {
+	switch event := event.(type) {
+	case *messages.EventConnectStateUpdate:
+		switch event.State {
 		case messages.ConnectStateListening:
 			p.state = "listening"
 		case messages.ConnectStateServerConnecting:
@@ -120,11 +141,7 @@ func (p *ConnectPopup) HandleMessage(msg *messages.Message) *messages.Message {
 		case messages.ConnectStateEstablished:
 			p.state = "established"
 		case messages.ConnectStateDone:
-			messages.Router.Handle(&messages.Message{
-				Source: p.ID(),
-				Target: "ui",
-				Data:   messages.Close{Type: "popup", ID: p.ID()},
-			})
+			p.g.ClosePopup(p.ID())
 		}
 	}
 	return nil

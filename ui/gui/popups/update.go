@@ -7,13 +7,13 @@ import (
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
-	"github.com/bedrock-tool/bedrocktool/ui"
+	"github.com/bedrock-tool/bedrocktool/ui/gui/guim"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils/updater"
 )
 
 type UpdatePopup struct {
-	ui          ui.UI
+	g           guim.Guim
 	state       messages.UIState
 	startButton widget.Clickable
 	err         error
@@ -22,15 +22,19 @@ type UpdatePopup struct {
 
 var _ Popup = &UpdatePopup{}
 
-func NewUpdatePopup(ui ui.UI) Popup {
+func NewUpdatePopup(g guim.Guim) Popup {
 	return &UpdatePopup{
-		ui:    ui,
+		g:     g,
 		state: messages.UIStateMain,
 	}
 }
 
 func (p *UpdatePopup) ID() string {
 	return "update"
+}
+
+func (p *UpdatePopup) Close() error {
+	return nil
 }
 
 func (p *UpdatePopup) Layout(gtx C, th *material.Theme) D {
@@ -42,11 +46,7 @@ func (p *UpdatePopup) Layout(gtx C, th *material.Theme) D {
 				p.state = messages.UIStateFinished
 			}
 			p.updating = false
-			messages.Router.Handle(&messages.Message{
-				Source: p.ID(),
-				Target: "ui",
-				Data:   messages.Close{Type: "popup", ID: p.ID()},
-			})
+			p.g.ClosePopup(p.ID())
 		}()
 	}
 
@@ -89,6 +89,6 @@ func (p *UpdatePopup) Layout(gtx C, th *material.Theme) D {
 	})
 }
 
-func (p *UpdatePopup) HandleMessage(msg *messages.Message) *messages.Message {
+func (p *UpdatePopup) HandleEvent(event any) error {
 	return nil
 }

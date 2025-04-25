@@ -1,4 +1,4 @@
-package proxy
+package pcap2
 
 import (
 	"compress/flate"
@@ -13,6 +13,7 @@ import (
 
 	"sync/atomic"
 
+	"github.com/bedrock-tool/bedrocktool/utils/proxy/resourcepacks"
 	"github.com/klauspost/compress/s2"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
@@ -23,7 +24,7 @@ type Pcap2Reader struct {
 	f                 *os.File
 	Version           uint32
 	packetsReader     io.Reader
-	ResourcePacks     *replayCache
+	ResourcePacks     resourcepacks.PackCache
 	packetOffsetIndex []int64
 	CurrentPacket     int
 
@@ -34,21 +35,29 @@ type Pcap2Reader struct {
 	PacketFunc PacketFunc
 }
 
-func NewPcap2Reader(f *os.File) (*Pcap2Reader, error) {
+func Pcap2ReadHead(f *os.File) (ver uint32, zipSize int64, err error) {
 	var head = make([]byte, 16)
-	f.Read(head)
+	f.ReadAt(head, 0)
 	magic := string(head[0:4])
 	if magic != "BTCP" {
-		return nil, errors.New("unsupported old format")
+		return 0, 0, errors.New("unsupported old format")
 	}
 
-	ver := binary.LittleEndian.Uint32(head[4:8])
-	zipSize := int64(binary.LittleEndian.Uint64(head[8:16]))
+	ver = binary.LittleEndian.Uint32(head[4:8])
+	zipSize = int64(binary.LittleEndian.Uint64(head[8:16]))
+	return ver, zipSize, nil
+}
+
+func NewPcap2Reader(f *os.File) (*Pcap2Reader, error) {
+	ver, zipSize, err := Pcap2ReadHead(f)
+	if err != nil {
+		return nil, err
+	}
 
 	// read all packs
 	cacheReader := io.NewSectionReader(f, 16, int64(zipSize))
-	cache := &replayCache{}
-	err := cache.ReadFrom(cacheReader, zipSize)
+	cache := resourcepacks.NewReplayCache()
+	err = cache.ReadFrom(cacheReader, zipSize)
 	if err != nil {
 		return nil, err
 	}

@@ -1,6 +1,6 @@
 //go:build windows
 
-package proxy
+package utils
 
 import (
 	"os"
@@ -9,7 +9,7 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-func createShared(name string) (*os.File, error) {
+func CreateShared(name string) (*os.File, error) {
 	path, _ := syscall.UTF16PtrFromString(name)
 	hand, err := windows.CreateFile(path,
 		syscall.GENERIC_READ|syscall.GENERIC_WRITE,
@@ -25,7 +25,7 @@ func createShared(name string) (*os.File, error) {
 	return os.NewFile(uintptr(hand), name), nil
 }
 
-func openShared(name string) (*os.File, error) {
+func OpenShared(name string) (*os.File, error) {
 	path, _ := syscall.UTF16PtrFromString(name)
 	hand, err := windows.CreateFile(path,
 		syscall.GENERIC_READ,

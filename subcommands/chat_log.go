@@ -2,14 +2,18 @@ package subcommands
 
 import (
 	"context"
-	"flag"
 
 	"github.com/bedrock-tool/bedrocktool/handlers"
 	"github.com/bedrock-tool/bedrocktool/locale"
-	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/bedrock-tool/bedrocktool/utils/proxy"
 )
+
+type ChatLogSettings struct {
+	ProxySettings proxy.ProxySettings
+
+	Verbose bool `opt:"Verbose" flag:"verbose"`
+}
 
 type ChatLogCMD struct {
 	ServerAddress     string
@@ -17,23 +21,26 @@ type ChatLogCMD struct {
 	EnableClientCache bool
 }
 
-func (*ChatLogCMD) Name() string     { return "chat-log" }
-func (*ChatLogCMD) Synopsis() string { return locale.Loc("chat_log_synopsis", nil) }
-func (c *ChatLogCMD) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&c.ServerAddress, "address", "", "remote server address")
-	f.BoolVar(&c.Verbose, "v", false, "verbose")
-	f.BoolVar(&c.EnableClientCache, "client-cache", true, "Enable Client Cache")
+func (ChatLogCMD) Name() string {
+	return "chat-log"
 }
 
-func (c *ChatLogCMD) Execute(ctx context.Context) error {
-	proxyContext, err := proxy.New(ctx, true, c.EnableClientCache)
+func (ChatLogCMD) Description() string {
+	return locale.Loc("chat_log_synopsis", nil)
+}
+
+func (ChatLogCMD) Settings() any {
+	return new(ChatLogSettings)
+}
+
+func (ChatLogCMD) Run(ctx context.Context, settings any) error {
+	chatLogSettings := settings.(*ChatLogSettings)
+	proxyContext, err := proxy.New(ctx, chatLogSettings.ProxySettings)
 	if err != nil {
 		return err
 	}
 	proxyContext.AddHandler(handlers.NewChatLogger())
-
-	server := ctx.Value(utils.ConnectInfoKey).(*utils.ConnectInfo)
-	return proxyContext.Run(server)
+	return proxyContext.Run(true)
 }
 
 func init() {

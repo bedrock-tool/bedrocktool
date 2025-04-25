@@ -506,13 +506,9 @@ func (w *World) Finish(playerData map[string]any, excludedMobs []string, withPla
 		*/
 	}
 
-	messages.Router.Handle(&messages.Message{
-		Source: "subcommand",
-		Target: "ui",
-		Data: messages.ProcessingWorldUpdate{
-			Name:  w.Name,
-			State: "Storing Chunks",
-		},
+	messages.SendEvent(&messages.EventProcessingWorldUpdate{
+		WorldName: w.Name,
+		State:     "Storing Chunks",
 	})
 
 	w.applyBlockUpdates()
@@ -521,13 +517,9 @@ func (w *World) Finish(playerData map[string]any, excludedMobs []string, withPla
 		return err
 	}
 
-	messages.Router.Handle(&messages.Message{
-		Source: "subcommand",
-		Target: "ui",
-		Data: messages.ProcessingWorldUpdate{
-			Name:  w.Name,
-			State: "Storing Entities",
-		},
+	messages.SendEvent(&messages.EventProcessingWorldUpdate{
+		WorldName: w.Name,
+		State:     "Storing Entities",
 	})
 
 	chunkEntities := make(map[world.ChunkPos][]chunk.Entity)

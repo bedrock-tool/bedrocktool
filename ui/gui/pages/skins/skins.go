@@ -8,8 +8,10 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
+	"github.com/bedrock-tool/bedrocktool/ui/gui/guim"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
+	"github.com/sandertv/gophertunnel/minecraft/protocol"
 )
 
 type (
@@ -17,19 +19,27 @@ type (
 	D = layout.Dimensions
 )
 
+type skin struct {
+	PlayerName string
+	Skin       *protocol.Skin
+}
+
 const ID = "skins"
 
 type Page struct {
-	Skins []messages.NewSkin
+	g guim.Guim
 
+	Skins     []skin
 	l         sync.Mutex
 	State     messages.UIState
 	SkinsList widget.List
 	back      widget.Clickable
 }
 
-func New(invalidate func()) pages.Page {
+func New(g guim.Guim) pages.Page {
 	return &Page{
+		g: g,
+
 		SkinsList: widget.List{
 			List: layout.List{
 				Axis: layout.Vertical,
@@ -61,11 +71,7 @@ func (p *Page) NavItem() component.NavItem {
 
 func (p *Page) Layout(gtx C, th *material.Theme) D {
 	if p.back.Clicked(gtx) {
-		messages.Router.Handle(&messages.Message{
-			Source: p.ID(),
-			Target: "ui",
-			Data:   messages.ExitSubcommand{},
-		})
+		p.g.ExitSubcommand()
 	}
 
 	return layout.Inset{
@@ -108,18 +114,21 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 	})
 }
 
-func (p *Page) HandleMessage(msg *messages.Message) *messages.Message {
-	switch m := msg.Data.(type) {
-	case messages.HaveFinishScreen:
-		return &messages.Message{
-			Source: "skins",
-			Data:   true,
-		}
-	case messages.UIState:
-		p.State = m
-	case messages.NewSkin:
+func (*Page) HaveFinishScreen() bool {
+	return true
+}
+
+func (p *Page) HandleEvent(event any) error {
+	switch event := event.(type) {
+	case *messages.EventSetUIState:
+		p.State = event.State
+
+	case *messages.EventPlayerSkin:
 		p.l.Lock()
-		p.Skins = append(p.Skins, m)
+		p.Skins = append(p.Skins, skin{
+			PlayerName: event.PlayerName,
+			Skin:       &event.Skin,
+		})
 		p.l.Unlock()
 	}
 	return nil

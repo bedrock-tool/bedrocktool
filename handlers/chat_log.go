@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/utils/proxy"
@@ -46,7 +47,7 @@ func NewChatLogger() func() *proxy.Handler {
 				c.fio = f
 				return nil
 			},
-			OnSessionEnd: func(_ *proxy.Session) {
+			OnSessionEnd: func(_ *proxy.Session, _ *sync.WaitGroup) {
 				c.fio.Close()
 			},
 		}

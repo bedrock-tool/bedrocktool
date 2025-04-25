@@ -2,7 +2,6 @@ package subcommands
 
 import (
 	"context"
-	"flag"
 	"fmt"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
@@ -13,10 +12,19 @@ import (
 
 type RealmListCMD struct{}
 
-func (*RealmListCMD) Name() string               { return "list-realms" }
-func (*RealmListCMD) Synopsis() string           { return locale.Loc("list_realms_synopsis", nil) }
-func (c *RealmListCMD) SetFlags(f *flag.FlagSet) {}
-func (c *RealmListCMD) Execute(ctx context.Context) error {
+func (RealmListCMD) Name() string {
+	return "list-realms"
+}
+
+func (RealmListCMD) Description() string {
+	return locale.Loc("list_realms_synopsis", nil)
+}
+
+func (RealmListCMD) Settings() any {
+	return nil
+}
+
+func (RealmListCMD) Run(ctx context.Context, settings any) error {
 	if !utils.Auth.LoggedIn() {
 		err := utils.Auth.Login(ctx, &xbox.DeviceTypeAndroid)
 		if err != nil {

@@ -11,15 +11,13 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 )
 
-type HandlerFunc = func(data interface{}) messages.Message
-
 type Page interface {
 	ID() string
 	Actions(th *material.Theme) []component.AppBarAction
 	Overflow() []component.OverflowAction
 	Layout(gtx layout.Context, th *material.Theme) layout.Dimensions
 	NavItem() component.NavItem
-	messages.Handler
+	messages.EventHandler
 }
 
 var Pages = map[string]func(*Router) Page{}

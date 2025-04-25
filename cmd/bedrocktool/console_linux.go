@@ -1,3 +1,5 @@
+//go:build linux && !android
+
 package main
 
 import (

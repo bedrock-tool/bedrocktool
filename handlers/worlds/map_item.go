@@ -100,25 +100,12 @@ func NewMapUI(w *worldsHandler) *MapUI {
 		w:              w,
 		haveColors:     make(chan struct{}),
 		ChunkRenderer:  &utils.ChunkRenderer{},
+		showOnGui:      true,
 	}
 	return m
 }
 
 func (m *MapUI) Start(ctx context.Context) {
-	reply := messages.Router.Handle(&messages.Message{
-		Source: "mapui",
-		Target: "ui",
-		Data:   messages.Features{Request: true},
-	})
-	if reply != nil {
-		features := reply.Data.(messages.Features)
-		for _, feature := range features.Features {
-			if feature == "images" {
-				m.showOnGui = true
-			}
-		}
-	}
-
 	// init map
 	err := m.w.session.ClientWritePacket(&packet.ClientBoundMapItemData{
 		MapID:          ViewMapID,
@@ -198,13 +185,7 @@ func (m *MapUI) Reset() {
 	m.l.Lock()
 	m.renderedChunks = make(map[protocol.ChunkPos]*image.RGBA)
 	m.oldRendered = make(map[protocol.ChunkPos]*image.RGBA)
-	messages.Router.Handle(&messages.Message{
-		Source: "mapui",
-		Target: "ui",
-		Data: messages.UpdateMap{
-			ChunkCount: -1,
-		},
-	})
+	messages.SendEvent(&messages.EventResetMap{})
 	m.l.Unlock()
 	m.SchedRedraw()
 }
@@ -289,15 +270,15 @@ func (m *MapUI) redraw() {
 
 	// send tiles to gui map
 	if m.showOnGui {
-		messages.Router.Handle(&messages.Message{
-			Source: "mapui",
-			Target: "ui",
-			Data: messages.UpdateMap{
-				ChunkCount:    len(m.renderedChunks),
-				Rotation:      m.w.session.Player.Yaw,
-				UpdatedChunks: updatedChunks,
-				Chunks:        m.renderedChunks,
-			},
+		var tiles []messages.MapTile
+		for _, coord := range updatedChunks {
+			tiles = append(tiles, messages.MapTile{
+				Pos: coord,
+				Img: *m.renderedChunks[coord],
+			})
+		}
+		messages.SendEvent(&messages.EventMapTiles{
+			Tiles: tiles,
 		})
 	}
 }

@@ -1,8 +1,7 @@
-package merge
+package subcommands
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"log/slog"
 	"math"
@@ -11,16 +10,32 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
+	"github.com/bedrock-tool/bedrocktool/utils/merge"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/df-mc/dragonfly/server/world/mcdb"
 	"github.com/df-mc/goleveldb/leveldb/opt"
 )
 
-type MergeCMD struct {
-	f          *flag.FlagSet
-	showBounds bool
-	outPath    string
+type MergeSettings struct {
+	Bounds      bool     `opt:"Show Bounds" flag:"bounds"`
+	OutPath     string   `opt:"Out Path" flag:"out"`
+	InputWorlds []string `opt:"Input Worlds" flag:"-args"`
+}
+
+type MergeCMD struct{}
+
+func (MergeCMD) Name() string {
+	return "merge"
+}
+
+func (MergeCMD) Description() string {
+	return "merge worlds"
+}
+
+func (MergeCMD) Settings() any {
+	return new(MergeSettings)
 }
 
 type worldInstance struct {
@@ -29,27 +44,19 @@ type worldInstance struct {
 	offset world.ChunkPos
 }
 
-func (*MergeCMD) Name() string     { return "merge" }
-func (*MergeCMD) Synopsis() string { return "merge worlds" }
-
-func (c *MergeCMD) SetFlags(f *flag.FlagSet) {
-	c.f = f
-	f.BoolVar(&c.showBounds, "bounds", false, "show bounds instead of merge")
-	f.StringVar(&c.outPath, "out", "", "output folder")
-}
-
-func (c *MergeCMD) Execute(ctx context.Context) error {
-	if c.outPath == "" && !c.showBounds {
+func (c MergeCMD) Run(ctx context.Context, settings any) error {
+	mergeSettings := settings.(*MergeSettings)
+	if mergeSettings.OutPath == "" && !mergeSettings.Bounds {
 		return fmt.Errorf("-out must be specified")
 	}
 
-	blockReg := &BlockRegistry{
+	blockReg := &merge.BlockRegistry{
 		BlockRegistry: world.DefaultBlockRegistry,
-		Rids:          make(map[uint32]Block),
+		Rids:          make(map[uint32]merge.Block),
 	}
 
 	var worlds []worldInstance
-	for _, worldName := range c.f.Args() {
+	for _, worldName := range mergeSettings.InputWorlds {
 		sp := strings.SplitN(worldName, ";", 3)
 		worldName = sp[0]
 		var offset world.ChunkPos
@@ -71,7 +78,7 @@ func (c *MergeCMD) Execute(ctx context.Context) error {
 			LDBOptions: &opt.Options{
 				ReadOnly: true,
 			},
-		}.Open(worldName)
+		}.Open(utils.PathData(worldName))
 		if err != nil {
 			return fmt.Errorf("%s %w", worldName, err)
 		}
@@ -79,7 +86,7 @@ func (c *MergeCMD) Execute(ctx context.Context) error {
 		worlds = append(worlds, worldInstance{Name: worldName, db: db, offset: offset})
 	}
 
-	if c.showBounds {
+	if mergeSettings.Bounds {
 		for _, w := range worlds {
 			fmt.Printf("\n%s\n", w.Name)
 			minBound, maxBound, err := w.getWorldBounds()
@@ -91,8 +98,10 @@ func (c *MergeCMD) Execute(ctx context.Context) error {
 		return nil
 	}
 
-	if _, err := os.Stat(c.outPath + "/level.dat"); err == nil {
-		err = os.RemoveAll(c.outPath)
+	outPath := utils.PathData(mergeSettings.OutPath)
+
+	if _, err := os.Stat(outPath + "/level.dat"); err == nil {
+		err = os.RemoveAll(outPath)
 		if err != nil {
 			return err
 		}
@@ -100,7 +109,7 @@ func (c *MergeCMD) Execute(ctx context.Context) error {
 	dbOut, err := mcdb.Config{
 		Log:    slog.Default(),
 		Blocks: blockReg,
-	}.Open(c.outPath)
+	}.Open(outPath)
 	if err != nil {
 		return err
 	}

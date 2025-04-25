@@ -1,6 +1,6 @@
 //go:build !windows
 
-package proxy
+package blobcache
 
 func checkShouldReadOnly(err error) bool {
 	return false

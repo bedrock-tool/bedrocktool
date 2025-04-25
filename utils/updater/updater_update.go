@@ -23,7 +23,7 @@ func DoUpdate() error {
 		return err
 	}
 
-	r, err := fetch(fmt.Sprintf("%s%s/%s/%s-%s.gz", UpdateServer, CmdName, update.Version, runtime.GOOS, runtime.GOARCH))
+	r, err := fetchHttp(fmt.Sprintf("%s%s/%s/%s-%s.gz", UpdateServer, CmdName, update.Version, runtime.GOOS, runtime.GOARCH))
 	if err != nil {
 		return err
 	}

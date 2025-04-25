@@ -7,8 +7,8 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/bedrock-tool/bedrocktool/subcommands/merge"
 	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/merge"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/df-mc/dragonfly/server/world/chunk"
 	"github.com/df-mc/dragonfly/server/world/mcdb"

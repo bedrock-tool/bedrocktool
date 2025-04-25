@@ -67,7 +67,7 @@ func (a *AuthService) StartSession(ctx context.Context, xblToken, titleid string
 			Capabilities:       []string{"RayTracing"},
 			GameVersion:        protocol.CurrentVersion,
 			ID:                 uuid.New().String(),
-			Memory:             fmt.Sprint(16 * (1024 * 1024 * 1024)), // 16 GB
+			Memory:             fmt.Sprintf("%d", int64(16*(1024*1024*1024))), // 16 GB
 			Platform:           "Windows10",
 			PlayFabTitleID:     strings.ToUpper(a.PlayfabTitleID),
 			StorePlatform:      "uwp.store",

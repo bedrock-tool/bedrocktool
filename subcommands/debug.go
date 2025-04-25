@@ -2,38 +2,38 @@ package subcommands
 
 import (
 	"context"
-	"flag"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
-	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/bedrock-tool/bedrocktool/utils/proxy"
 )
 
-type DebugProxyCMD struct {
-	ServerAddress     string
-	ListenAddress     string
-	EnableClientCache bool
+type DebugProxySettings struct {
+	ProxySettings proxy.ProxySettings
 }
 
-func (*DebugProxyCMD) Name() string     { return "debug-proxy" }
-func (*DebugProxyCMD) Synopsis() string { return locale.Loc("debug_proxy_synopsis", nil) }
-func (c *DebugProxyCMD) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&c.ServerAddress, "address", "", locale.Loc("remote_address", nil))
-	f.StringVar(&c.ListenAddress, "listen", "0.0.0.0:19132", "example :19132 or 127.0.0.1:19132")
-	f.BoolVar(&c.EnableClientCache, "client-cache", true, "Enable Client Cache")
+type DebugProxyCMD struct{}
+
+func (DebugProxyCMD) Name() string {
+	return "debug-proxy"
 }
 
-func (c *DebugProxyCMD) Execute(ctx context.Context) error {
-	proxyContext, err := proxy.New(ctx, true, c.EnableClientCache)
+func (DebugProxyCMD) Description() string {
+	return locale.Loc("debug_proxy_synopsis", nil)
+}
+
+func (DebugProxyCMD) Settings() any {
+	return new(DebugProxySettings)
+}
+
+func (DebugProxyCMD) Run(ctx context.Context, settings any) error {
+	debugProxySettings := settings.(*DebugProxySettings)
+	debugProxySettings.ProxySettings.Debug = true
+	p, err := proxy.New(ctx, debugProxySettings.ProxySettings)
 	if err != nil {
 		return err
 	}
-	proxyContext.ListenAddress = c.ListenAddress
-	utils.Options.Debug = true
-
-	server := ctx.Value(utils.ConnectInfoKey).(*utils.ConnectInfo)
-	return proxyContext.Run(server)
+	return p.Run(true)
 }
 
 func init() {

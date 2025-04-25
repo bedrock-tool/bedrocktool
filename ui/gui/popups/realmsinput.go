@@ -4,26 +4,25 @@ import (
 	"context"
 	"errors"
 	"image"
-	"sync"
 
 	"gioui.org/layout"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
-	"github.com/bedrock-tool/bedrocktool/ui/messages"
+	"github.com/bedrock-tool/bedrocktool/ui/gui/guim"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/sandertv/gophertunnel/minecraft/realms"
 )
 
 type RealmsList struct {
+	g        guim.Guim
+	setRealm func(*realms.Realm)
 	Show     widget.Bool
 	close    widget.Clickable
-	l        sync.Mutex
 	list     widget.List
 	realms   []*realmButton
 	loaded   bool
 	loading  bool
-	setRealm func(*realms.Realm)
 }
 
 type realmButton struct {
@@ -31,18 +30,23 @@ type realmButton struct {
 	widget.Clickable
 }
 
-func NewRealmsList(setRealm func(*realms.Realm)) Popup {
+func NewRealmsList(g guim.Guim, setRealm func(*realms.Realm)) Popup {
 	return &RealmsList{
+		g:        g,
 		setRealm: setRealm,
 	}
 }
 
-func (*RealmsList) HandleMessage(msg *messages.Message) *messages.Message {
+func (*RealmsList) HandleEvent(event any) error {
 	return nil
 }
 
 func (*RealmsList) ID() string {
 	return "Realms"
+}
+
+func (*RealmsList) Close() error {
+	return nil
 }
 
 var _ Popup = &RealmsList{}
@@ -76,38 +80,19 @@ func (r *RealmsList) Layout(gtx C, th *material.Theme) D {
 	}
 
 	if r.close.Clicked(gtx) {
-		messages.Router.Handle(&messages.Message{
-			Source: r.ID(),
-			Target: "ui",
-			Data:   messages.Close{Type: "popup", ID: r.ID()},
-		})
+		r.g.ClosePopup(r.ID())
 	}
 
 	if !r.loaded && !r.loading {
 		r.loading = true
 		go func() {
 			if !utils.Auth.LoggedIn() {
-				messages.Router.Handle(&messages.Message{
-					Source: r.ID(),
-					Target: "ui",
-					Data:   messages.RequestLogin{Wait: true},
-				})
+				<-utils.RequestLogin()
 			}
 			err := r.Load()
 			if err != nil {
-				messages.Router.Handle(&messages.Message{
-					Source: r.ID(),
-					Target: "ui",
-					Data:   messages.Error(err),
-				})
-				messages.Router.Handle(&messages.Message{
-					Source: r.ID(),
-					Target: "ui",
-					Data: messages.Close{
-						Type: "popup",
-						ID:   r.ID(),
-					},
-				})
+				r.g.Error(err)
+				r.g.ClosePopup(r.ID())
 			}
 		}()
 	}
@@ -124,8 +109,6 @@ func (r *RealmsList) Layout(gtx C, th *material.Theme) D {
 					})
 				}
 
-				r.l.Lock()
-				defer r.l.Unlock()
 				if len(r.realms) == 0 {
 					return layout.Center.Layout(gtx, material.H5(th, "you have no realms").Layout)
 				}

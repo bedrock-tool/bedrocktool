@@ -1,15 +1,16 @@
-package proxy
+package resourcepacks
 
 import (
 	"os"
 	"path/filepath"
 
+	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 
 	"github.com/google/uuid"
 )
 
-type iPackCache interface {
+type PackCache interface {
 	Get(id uuid.UUID, ver string) (resource.Pack, error)
 	Has(id uuid.UUID, ver string) bool
 	Create(id uuid.UUID, ver string) (*closeMoveWriter, error)
@@ -20,14 +21,14 @@ type packCache struct {
 }
 
 func (packCache) cachedPath(id uuid.UUID, ver string) string {
-	return filepath.Join("packcache", id.String()+"_"+ver+".zip")
+	return utils.PathCache("packcache", id.String()+"_"+ver+".zip")
 }
 
 func (c *packCache) Get(id uuid.UUID, ver string) (resource.Pack, error) {
 	if c.Ignore {
 		panic("not allowed")
 	}
-	f, err := openShared(c.cachedPath(id, ver))
+	f, err := utils.OpenShared(c.cachedPath(id, ver))
 	if err != nil {
 		return nil, err
 	}
@@ -53,7 +54,7 @@ func (c *packCache) Create(id uuid.UUID, ver string) (*closeMoveWriter, error) {
 
 	_ = os.MkdirAll(filepath.Dir(finalPath), 0777)
 
-	f, err := createShared(tmpPath)
+	f, err := utils.CreateShared(tmpPath)
 	if err != nil {
 		return nil, err
 	}

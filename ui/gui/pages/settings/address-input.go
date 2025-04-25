@@ -1,24 +1,21 @@
 package settings
 
 import (
-	"fmt"
-	"net"
-	"slices"
-	"strings"
-
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
+	"github.com/bedrock-tool/bedrocktool/ui/gui/guim"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/popups"
-	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/discovery"
 	"github.com/sandertv/gophertunnel/minecraft/realms"
 )
 
 type addressInput struct {
+	g              guim.Guim
 	editor         widget.Editor
 	showRealmsList widget.Clickable
 	showGatherings widget.Clickable
@@ -27,10 +24,15 @@ type addressInput struct {
 }
 
 var AddressInput = &addressInput{
+	g: nil,
 	editor: widget.Editor{
 		SingleLine: true,
 	},
 	connectInfo: &utils.ConnectInfo{},
+}
+
+func (a *addressInput) SetGuim(g guim.Guim) {
+	a.g = g
 }
 
 func (a *addressInput) GetConnectInfo() *utils.ConnectInfo {
@@ -38,52 +40,27 @@ func (a *addressInput) GetConnectInfo() *utils.ConnectInfo {
 	if len(t) == 0 {
 		return nil
 	}
-	if !slices.Contains([]string{"realm", "gathering"}, strings.Split(t, ":")[0]) {
-		_, _, err := net.SplitHostPort(t)
-		if err != nil {
-			t = t + ":19132"
-		}
-		a.connectInfo = &utils.ConnectInfo{
-			ServerAddress: t,
-		}
-	}
-
+	a.connectInfo.Value = t
 	return a.connectInfo
 }
 
 func (a *addressInput) setRealm(realm *realms.Realm) {
-	a.connectInfo = &utils.ConnectInfo{
-		Realm: realm,
-	}
-	a.editor.SetText(fmt.Sprintf("realm:%s", realm.Name))
+	a.connectInfo.SetRealm(realm)
+	a.editor.SetText(a.connectInfo.Value)
 }
 
 func (a *addressInput) setGathering(gathering *discovery.Gathering) {
-	a.connectInfo = &utils.ConnectInfo{
-		Gathering: gathering,
-	}
-	a.editor.SetText(fmt.Sprintf("gathering:%s", gathering.Title))
+	a.connectInfo.SetGathering(gathering)
+	a.editor.SetText(a.connectInfo.Value)
 }
 
 func (a *addressInput) Layout(gtx C, th *material.Theme) D {
 	if a.showRealmsList.Clicked(gtx) {
-		messages.Router.Handle(&messages.Message{
-			Source: "addressInput",
-			Target: "ui",
-			Data: messages.ShowPopup{
-				Popup: popups.NewRealmsList(a.setRealm),
-			},
-		})
+		a.g.ShowPopup(popups.NewRealmsList(a.g, a.setRealm))
 	}
 
 	if a.showGatherings.Clicked(gtx) {
-		messages.Router.Handle(&messages.Message{
-			Source: "addressInput",
-			Target: "ui",
-			Data: messages.ShowPopup{
-				Popup: popups.NewGatherings(a.setGathering),
-			},
-		})
+		a.g.ShowPopup(popups.NewGatherings(a.g, a.setGathering))
 	}
 
 	return layout.UniformInset(5).Layout(gtx, func(gtx C) D {
@@ -107,11 +84,12 @@ func (a *addressInput) Layout(gtx C, th *material.Theme) D {
 				return d
 			}),
 			layout.Rigid(func(gtx C) D {
+				gtx.Constraints.Max.X = gtx.Dp(unit.Dp(200))
 				return layout.Flex{
-					Axis: layout.Horizontal,
+					Axis:      layout.Horizontal,
+					WeightSum: 2,
 				}.Layout(gtx,
-					layout.Rigid(func(gtx C) D {
-						gtx.Constraints.Max.X = 100
+					layout.Flexed(1, func(gtx C) D {
 						return layout.Inset{
 							Top:    5,
 							Bottom: 5,
@@ -119,14 +97,13 @@ func (a *addressInput) Layout(gtx C, th *material.Theme) D {
 							Right:  5,
 						}.Layout(gtx, material.Button(th, &a.showRealmsList, "Realms").Layout)
 					}),
-					layout.Rigid(func(gtx C) D {
-						gtx.Constraints.Max.X = 100
+					layout.Flexed(1, func(gtx C) D {
 						return layout.Inset{
 							Top:    5,
 							Bottom: 5,
 							Left:   0,
 							Right:  5,
-						}.Layout(gtx, material.Button(th, &a.showGatherings, "Gatherings").Layout)
+						}.Layout(gtx, material.Button(th, &a.showGatherings, "Events").Layout)
 					}),
 				)
 			}),

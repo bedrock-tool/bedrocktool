@@ -46,5 +46,6 @@ entityflags.py
 /actors*.txt
 changelog.txt
 testservers/*
+/scripts/
 
 actors.json

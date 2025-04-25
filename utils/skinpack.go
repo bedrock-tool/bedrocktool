@@ -29,18 +29,6 @@ type SkinMeta struct {
 	PersonaPieces []protocol.PersonaPiece
 }
 
-type _skinWithIndex struct {
-	i    int
-	skin *Skin
-}
-
-func (s _skinWithIndex) Name(name string) string {
-	if s.i == 1 {
-		return name
-	}
-	return fmt.Sprintf("%s-%d", name, s.i)
-}
-
 type SkinPack struct {
 	skins []*Skin
 	Name  string

@@ -2,9 +2,11 @@ package proxy
 
 import (
 	"net"
+	"sync"
 	"time"
 
 	"github.com/sandertv/gophertunnel/minecraft"
+	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 )
@@ -25,7 +27,8 @@ type Handler struct {
 	OnServerConnect func(s *Session) (cancel bool, err error)
 	OnConnect       func(s *Session) (cancel bool)
 
-	OnSessionEnd func(s *Session)
+	OnSessionEnd func(s *Session, wg *sync.WaitGroup)
+	OnBlobs      func(s *Session, blobs []protocol.CacheBlob)
 }
 
 func (h Handlers) SessionStart(s *Session, serverName string) error {
@@ -128,11 +131,20 @@ func (h Handlers) OnConnect(s *Session) (cancel bool) {
 	return false
 }
 
-func (h Handlers) OnSessionEnd(s *Session) {
+func (h Handlers) OnSessionEnd(s *Session, wg *sync.WaitGroup) {
 	for _, handler := range h {
 		if handler.OnSessionEnd == nil {
 			continue
 		}
-		handler.OnSessionEnd(s)
+		handler.OnSessionEnd(s, wg)
+	}
+}
+
+func (h Handlers) OnBlobs(s *Session, blobs []protocol.CacheBlob) {
+	for _, handler := range h {
+		if handler.OnBlobs == nil {
+			continue
+		}
+		handler.OnBlobs(s, blobs)
 	}
 }

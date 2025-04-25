@@ -5,6 +5,6 @@ import (
 )
 
 type UI interface {
-	Init() bool
+	Init() error
 	Start(context.Context, context.CancelCauseFunc) error
 }

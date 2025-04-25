@@ -1,14 +1,15 @@
-package proxy
+package blobcache
 
 import (
 	"encoding/binary"
 	"errors"
-	"slices"
 	"sync"
 	"time"
 
+	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/df-mc/goleveldb/leveldb"
 	"github.com/df-mc/goleveldb/leveldb/storage"
+	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sirupsen/logrus"
@@ -26,11 +27,12 @@ type serverWait struct {
 	count  int
 }
 
+type PacketFunc = func(pk packet.Packet, timeReceived time.Time, preLogin bool) error
+
 type Blobcache struct {
-	db      *leveldb.DB
-	mu      sync.Mutex
-	session *Session
-	log     *logrus.Entry
+	db  *leveldb.DB
+	mu  sync.Mutex
+	log *logrus.Entry
 
 	queued []*packet.ClientCacheBlobStatus
 
@@ -40,12 +42,22 @@ type Blobcache struct {
 	levelChunksWaiting map[protocol.ChunkPos][]uint64
 	subs               map[protocol.ChunkPos][]*serverWait
 
-	processPacket func(pk packet.Packet, timeReceived time.Time, preLogin bool) error
-	OnHitBlobs    func(blobs []protocol.CacheBlob)
+	writeServerPacket func(packet.Packet) error
+	getClient         func() minecraft.IConn
+	processPacket     PacketFunc
+	onHitBlobs        func(blobs []protocol.CacheBlob)
+	isReplay          bool
 }
 
-func NewBlobCache(session *Session) (*Blobcache, error) {
-	db, err := leveldb.OpenFile("blobcache", nil)
+func NewBlobCache(
+	log *logrus.Entry,
+	writeServerPacket func(packet.Packet) error,
+	getClient func() minecraft.IConn,
+	processPacket PacketFunc,
+	onHitBlobs func(blobs []protocol.CacheBlob),
+	isReplay bool,
+) (*Blobcache, error) {
+	db, err := leveldb.OpenFile(utils.PathCache("blobcache"), nil)
 	if err != nil {
 		if checkShouldReadOnly(err) {
 			db, err = leveldb.Open(storage.NewMemStorage(), nil)
@@ -56,12 +68,17 @@ func NewBlobCache(session *Session) (*Blobcache, error) {
 	}
 	return &Blobcache{
 		db:                 db,
-		session:            session,
-		log:                session.log.WithField("in", "blobcache"),
+		log:                log.WithField("in", "blobcache"),
 		serverWait:         make(map[uint64][]*serverWait),
 		clientWait:         make(map[uint64]*clientWait),
 		levelChunksWaiting: make(map[protocol.ChunkPos][]uint64),
 		subs:               make(map[protocol.ChunkPos][]*serverWait),
+
+		writeServerPacket: writeServerPacket,
+		getClient:         getClient,
+		processPacket:     processPacket,
+		onHitBlobs:        onHitBlobs,
+		isReplay:          isReplay,
 	}, nil
 }
 
@@ -183,21 +200,10 @@ func (b *Blobcache) HandleSubChunk(pk *packet.SubChunk, timeReceived time.Time, 
 	return b.finishWait(&reply, &wait, pk, hitBlobs, timeReceived, preLogin)
 }
 
-func removeDuplicate[T comparable](sliceList []T) []T {
-	allKeys := make(map[T]struct{})
-	return slices.DeleteFunc(sliceList, func(t T) bool {
-		if _, ok := allKeys[t]; ok {
-			return true
-		}
-		allKeys[t] = struct{}{}
-		return false
-	})
-}
-
 func (b *Blobcache) finishWait(reply *packet.ClientCacheBlobStatus, wait *serverWait, pk packet.Packet, hitBlobs []protocol.CacheBlob, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
 	// put the blobs from cache into current pcap if there is one
 	if len(hitBlobs) > 0 {
-		b.OnHitBlobs(hitBlobs)
+		b.onHitBlobs(hitBlobs)
 	}
 
 	// send reply if its not empty
@@ -209,7 +215,7 @@ func (b *Blobcache) finishWait(reply *packet.ClientCacheBlobStatus, wait *server
 			b.queued = append(b.queued, reply)
 			b.log.Tracef("queing %v", reply.MissHashes)
 		} else {
-			err := b.session.Server.WritePacket(reply)
+			err := b.writeServerPacket(reply)
 			if err != nil {
 				return nil, err
 			}
@@ -226,8 +232,8 @@ func (b *Blobcache) finishWait(reply *packet.ClientCacheBlobStatus, wait *server
 
 	// missing some hashes, if the client supports blobs send the unfilled packet
 	// otherwise wait for the hashes to be resolved before sending the filled packet
-	if b.session.Client != nil {
-		ClientCacheEnabled := b.session.Client.ClientCacheEnabled()
+	if client := b.getClient(); client != nil {
+		ClientCacheEnabled := client.ClientCacheEnabled()
 		if ClientCacheEnabled {
 			return pk, nil
 		}
@@ -273,7 +279,7 @@ func (b *Blobcache) HandleClientCacheMissResponse(pk *packet.ClientCacheMissResp
 				}
 			}
 		} else {
-			if !b.session.isReplay {
+			if !b.isReplay {
 				logrus.Warnf("Received Unexpected Blob Hash %d", blob.Hash)
 			}
 		}
@@ -282,7 +288,7 @@ func (b *Blobcache) HandleClientCacheMissResponse(pk *packet.ClientCacheMissResp
 	for len(b.queued) > 0 && len(b.serverWait) < maxInflightBlobs {
 		reply := b.queued[0]
 		b.queued = b.queued[1:]
-		err := b.session.Server.WritePacket(reply)
+		err := b.writeServerPacket(reply)
 		if err != nil {
 			return err
 		}
@@ -332,10 +338,10 @@ func (b *Blobcache) serverResolve(wait *serverWait, timeReceived time.Time, preL
 		return err
 	}
 
-	if b.session.Client != nil {
-		ClientCacheEnabled := b.session.Client.ClientCacheEnabled()
+	if client := b.getClient(); client != nil {
+		ClientCacheEnabled := client.ClientCacheEnabled()
 		if !ClientCacheEnabled {
-			err = b.session.Client.WritePacket(wait.pkFill)
+			err = client.WritePacket(wait.pkFill)
 			if err != nil {
 				return err
 			}
@@ -374,7 +380,8 @@ func (b *Blobcache) clientResolve(wait *clientWait) {
 		}
 		blobs = append(blobs, protocol.CacheBlob{Hash: blobHash, Payload: blob})
 	}
-	b.session.Client.WritePacket(&packet.ClientCacheMissResponse{
+	client := b.getClient()
+	client.WritePacket(&packet.ClientCacheMissResponse{
 		Blobs: blobs,
 	})
 }
@@ -403,7 +410,8 @@ func (b *Blobcache) HandleClientCacheBlobStatus(pk *packet.ClientCacheBlobStatus
 	}
 
 	if wait.count == 0 {
-		return b.session.Client.WritePacket(&packet.ClientCacheMissResponse{
+		client := b.getClient()
+		return client.WritePacket(&packet.ClientCacheMissResponse{
 			Blobs: blobs,
 		})
 	}

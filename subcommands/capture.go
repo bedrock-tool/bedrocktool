@@ -2,39 +2,42 @@ package subcommands
 
 import (
 	"context"
-	"flag"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
-	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/bedrock-tool/bedrocktool/utils/proxy"
 )
 
-type CaptureCMD struct {
-	ServerAddress     string
-	ListenAddress     string
-	EnableClientCache bool
+type CaptureSettings struct {
+	ProxySettings proxy.ProxySettings
 }
 
-func (*CaptureCMD) Name() string     { return "capture" }
-func (*CaptureCMD) Synopsis() string { return locale.Loc("capture_synopsis", nil) }
-func (c *CaptureCMD) SetFlags(f *flag.FlagSet) {
-	f.StringVar(&c.ServerAddress, "address", "", "remote server address")
-	f.StringVar(&c.ListenAddress, "listen", "0.0.0.0:19132", "example :19132 or 127.0.0.1:19132")
-	f.BoolVar(&c.EnableClientCache, "client-cache", true, "Enable Client Cache")
+type CaptureCMD struct{}
+
+func (CaptureCMD) Name() string {
+	return "capture"
 }
 
-func (c *CaptureCMD) Execute(ctx context.Context) error {
-	p, err := proxy.New(ctx, true, c.EnableClientCache)
+func (CaptureCMD) Description() string {
+	return locale.Loc("capture_synopsis", nil)
+}
+
+func (CaptureCMD) Settings() any {
+	return new(CaptureSettings)
+}
+
+func (CaptureCMD) Run(ctx context.Context, settings any) error {
+	captureSettings := settings.(*CaptureSettings)
+
+	captureSettings.ProxySettings.Capture = true
+	p, err := proxy.New(ctx, captureSettings.ProxySettings)
 	if err != nil {
 		return err
 	}
-	p.ListenAddress = c.ListenAddress
-	utils.Options.Capture = true
 
-	server := ctx.Value(utils.ConnectInfoKey).(*utils.ConnectInfo)
-	return p.Run(server)
+	return p.Run(true)
 }
+
 func init() {
 	commands.RegisterCommand(&CaptureCMD{})
 }

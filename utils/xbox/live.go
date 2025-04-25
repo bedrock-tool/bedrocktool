@@ -17,7 +17,7 @@ import (
 type MSAuthHandler interface {
 	// called with the url the user needs to go to, the code they need to enter
 	AuthCode(uri, code string)
-	// called when the auth completes, regardless of success, non nil error = Success isnt called
+	// called when the auth completes
 	Finished(err error)
 }
 
