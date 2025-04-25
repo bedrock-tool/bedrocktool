@@ -357,6 +357,7 @@ func guiBuildCmd(buildTag string, build Build, ldflags, tags []string) (string, 
 
 	buildCmd = append(buildCmd,
 		"-arch", build.Arch,
+		"-target", build.OS,
 		"-version", gioVersion,
 		"-icon", "icon.png",
 		"-tags", strings.Join(tags, ","),
