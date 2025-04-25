@@ -337,6 +337,9 @@ func guiBuildCmd(buildTag string, build Build, ldflags, tags []string) (string, 
 	}
 	tagSplit := strings.Split(buildTag, "-")
 	tagSplit = tagSplit[:len(tagSplit)-1]
+	if len(tagSplit) < 4 {
+		tagSplit = append(tagSplit, "0")
+	}
 	gioVersion := strings.Join(tagSplit, ".")
 
 	buildCmd = append(buildCmd,
