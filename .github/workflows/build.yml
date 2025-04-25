@@ -43,6 +43,7 @@ jobs:
         if: ${{ env.REPO_KEY != '' }}
         run: |
           echo ${REPO_KEY} | xxd -r -p > ../bedrock-repo-key.key
+          git status --porcelain
           git-crypt unlock ../bedrock-repo-key.key
           rm ../bedrock-repo-key.key
         env:
