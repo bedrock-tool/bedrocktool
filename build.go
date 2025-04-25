@@ -329,6 +329,18 @@ func guiBuildCmd(buildTag string, build Build, ldflags, tags []string) (string, 
 	outputFilename += build.ExeExt()
 	outputPath := filepath.Join("builds", outputFilename)
 
+	if build.OS == "linux" {
+		return outputPath, []string{
+			"go", "build",
+			"-ldflags", strings.Join(ldflags, " "),
+			"-tags", strings.Join(tags, ","),
+			"-o", outputPath,
+			"-v",
+			"-trimpath",
+			"./cmd/bedrocktool",
+		}
+	}
+
 	buildCmd := []string{
 		"gogio",
 	}
@@ -342,10 +354,6 @@ func guiBuildCmd(buildTag string, build Build, ldflags, tags []string) (string, 
 		tagSplit = append(tagSplit, "0")
 	}
 	gioVersion := strings.Join(tagSplit, ".")
-
-	if build.OS != "linux" {
-		buildCmd = append(buildCmd, "-target", build.OS)
-	}
 
 	buildCmd = append(buildCmd,
 		"-arch", build.Arch,
