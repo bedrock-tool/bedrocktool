@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"strings"
 )
 
@@ -335,7 +336,7 @@ func guiBuildCmd(buildTag string, build Build, ldflags, tags []string) (string, 
 		buildCmd = append(buildCmd, "-target", build.OS)
 		buildCmd = append(buildCmd, "-appid", AppID)
 	}
-	tagSplit := strings.Split(buildTag, "-")
+	tagSplit := strings.Split(strings.ReplaceAll(buildTag, "-", "."), ".")
 	tagSplit = tagSplit[:len(tagSplit)-1]
 	if len(tagSplit) < 4 {
 		tagSplit = append(tagSplit, "0")
@@ -606,26 +607,26 @@ func main() {
 	}
 
 	buildsToRun := allBuilds
-	var selectedOS string
-	var selectedType string
+	var selectedOSes []string
+	var selectedTypes []string
 	if len(os.Args) > 1 {
-		selectedOS = strings.ToLower(os.Args[1])
+		selectedOSes = strings.Split(strings.ToLower(os.Args[1]), ",")
 		if len(os.Args) > 2 {
-			selectedType = strings.ToLower(os.Args[2])
+			selectedTypes = strings.Split(strings.ToLower(os.Args[2]), ",")
 		}
 	}
 
 	shouldRunBuild := func(build Build) bool {
-		if selectedOS != "" && build.OS != selectedOS {
+		if len(selectedOSes) > 0 && !slices.Contains(selectedOSes, build.OS) {
 			return false
 		}
-		if selectedType != "" && build.Type != selectedType {
+		if len(selectedTypes) > 0 && !slices.Contains(selectedTypes, build.Type) {
 			return false
 		}
 		return true
 	}
 
-	if selectedOS == "" && selectedType == "" {
+	if len(selectedOSes)+len(selectedTypes) == 0 {
 		log.Println("Building all configurations...")
 	}
 

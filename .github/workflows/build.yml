@@ -56,7 +56,7 @@ jobs:
       - name: build
         id: build
         run: |
-          go run ./build.go
+          go run ./build.go windows,linux gui,cli
 
       - name: Deploy with rsync
         if: ${{ env.SSH_HOST != '' }}
