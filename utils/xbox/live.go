@@ -55,14 +55,18 @@ func RequestLiveTokenWriter(ctx context.Context, deviceType *DeviceType, h MSAut
 	ticker := time.NewTicker(time.Second * time.Duration(d.Interval))
 	defer ticker.Stop()
 
+	var errors int
 	for {
 		select {
 		case <-ticker.C:
 			t, err := pollDeviceAuth(deviceType, d.DeviceCode)
 			if err != nil {
-				err = fmt.Errorf("error polling for device auth: %w", err)
-				h.Finished(err)
-				return nil, err
+				errors++
+				if errors > 5 {
+					err = fmt.Errorf("error polling for device auth: %w", err)
+					h.Finished(err)
+					return nil, err
+				}
 			}
 			// If the token could not be obtained yet (authentication wasn't finished yet), the token is nil.
 			// We just retry if this is the case.

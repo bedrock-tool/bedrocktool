@@ -862,6 +862,10 @@ func (r *ResourcePackHandler) hasPack(uuid string, version string, hasBehaviours
 		return true
 	}
 
+	if uuid == "" {
+		return true
+	}
+
 	for _, pack := range r.resourcePacks {
 		if pack.UUID().String() == uuid && pack.Version() == version && pack.HasBehaviours() == hasBehaviours {
 			return true

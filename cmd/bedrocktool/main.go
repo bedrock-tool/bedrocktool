@@ -16,6 +16,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui/cli"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
+	"github.com/bedrock-tool/bedrocktool/utils/osabs"
 	"github.com/bedrock-tool/bedrocktool/utils/updater"
 	"github.com/bedrock-tool/bedrocktool/utils/xbox"
 
@@ -39,10 +40,12 @@ func selectUI() ui.UI {
 }
 
 func main() {
-	baseDir := utils.BaseDir()
+	if err := osabs.Init(); err != nil {
+		panic(err)
+	}
+	baseDir := osabs.GetDataDir()
 	if baseDir != "" {
-		err := os.Chdir(utils.BaseDir())
-		if err != nil {
+		if err := os.Chdir(baseDir); err != nil {
 			panic(err)
 		}
 	}

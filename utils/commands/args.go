@@ -188,6 +188,7 @@ func ParseArgs(ctx context.Context, cmd Command, argValues []string) (any, *flag
 		if arg.Type == "connectInfo" {
 			connectInfo = &utils.ConnectInfo{}
 			flags.StringVar(&connectInfo.Value, arg.Flag, "", arg.Desc)
+			arg.SetConnectInfo(connectInfo)
 			continue
 		}
 		if arg.Type == "bool" {

@@ -112,6 +112,10 @@ func (p *Context) Run(withClient bool) (err error) {
 		})
 	}()
 
+	if p.settings.ConnectInfo == nil || p.settings.ConnectInfo.Value == "" {
+		return fmt.Errorf("no address")
+	}
+
 	if p.settings.ConnectInfo.IsReplay() && !utils.Auth.LoggedIn() {
 		err := <-utils.RequestLogin()
 		if err != nil {

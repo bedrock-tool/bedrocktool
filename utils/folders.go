@@ -1,16 +1,17 @@
 package utils
 
-import "path"
+import (
+	"path"
 
-var CacheFolder string
-var DataFolder string
+	"github.com/bedrock-tool/bedrocktool/utils/osabs"
+)
 
 func PathCache(p ...string) string {
 	pj := path.Join(p...)
 	if path.IsAbs(pj) {
 		return pj
 	}
-	return path.Join(CacheFolder, pj)
+	return path.Join(osabs.GetCacheDir(), pj)
 }
 
 func PathData(p ...string) string {
@@ -18,5 +19,5 @@ func PathData(p ...string) string {
 	if path.IsAbs(pj) {
 		return pj
 	}
-	return path.Join(DataFolder, pj)
+	return path.Join(osabs.GetDataDir(), pj)
 }

@@ -353,6 +353,9 @@ func guiBuildCmd(buildTag string, build Build, ldflags, tags []string) (string, 
 	if len(tagSplit) < 4 {
 		tagSplit = append(tagSplit, "0")
 	}
+	if build.OS == "android" {
+		tagSplit[3] = strings.Join(tagSplit, "")
+	}
 	gioVersion := strings.Join(tagSplit, ".")
 
 	buildCmd = append(buildCmd,
