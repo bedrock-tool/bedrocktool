@@ -5,11 +5,11 @@ import (
 	"context"
 	"fmt"
 	"image/png"
+	"maps"
 	"math"
 	"math/rand"
 	"net"
 	"os"
-	"path"
 	"slices"
 	"strings"
 	"sync"
@@ -33,7 +33,6 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
-	"github.com/sandertv/gophertunnel/minecraft/resource"
 	"github.com/sirupsen/logrus"
 )
 
@@ -384,7 +383,7 @@ func (w *worldsHandler) SaveAndReset(end bool, dim world.Dimension) {
 		w.wg.Add(1)
 		go func() {
 			defer w.wg.Done()
-			err := w.saveWorldState(worldState)
+			err := w.saveWorldState(worldState, w.session.Player, w.serverState.behaviorPack)
 			if err != nil {
 				w.log.Error(err)
 			}
@@ -403,42 +402,25 @@ func (w *worldsHandler) SaveAndReset(end bool, dim world.Dimension) {
 	}
 }
 
-func (w *worldsHandler) saveWorldState(worldState *worldstate.World) error {
-	playerPos := w.session.Player.Position
-	spawnPos := cube.Pos{int(playerPos.X()), int(playerPos.Y()), int(playerPos.Z())}
-
+func (w *worldsHandler) saveWorldState(worldState *worldstate.World, player proxy.Player, behaviorPack *behaviourpack.Pack) error {
 	text := locale.Loc("saving_world", locale.Strmap{"Name": worldState.Name, "Count": len(worldState.StoredChunks)})
 	w.log.Info(text)
 	w.session.SendMessage(text)
-
-	filename := worldState.Folder + ".mcworld"
 
 	messages.SendEvent(&messages.EventProcessingWorldUpdate{
 		WorldName: worldState.Name,
 		State:     "Saving",
 	})
-	err := worldState.Finish(w.playerData(), w.settings.ExcludedMobs, w.settings.Players, spawnPos, w.session.Server.GameData(), w.serverState.behaviorPack.HasContent())
-	if err != nil {
-		return err
-	}
 
-	err = worldState.FinalizePacks(func(fs utils.WriterFS) (*resource.Header, error) {
-		if w.serverState.behaviorPack.HasContent() {
-			packFolder := path.Join("behavior_packs", utils.FormatPackName(w.serverState.serverName))
+	var playerSkins = make(map[uuid.UUID]*protocol.Skin)
+	maps.Copy(playerSkins, w.serverState.playerSkins)
 
-			for _, p := range w.session.Server.ResourcePacks() {
-				w.serverState.behaviorPack.CheckAddLink(p)
-			}
-
-			err = w.serverState.behaviorPack.Save(fs, packFolder)
-			if err != nil {
-				return nil, err
-			}
-
-			return &w.serverState.behaviorPack.Manifest.Header, nil
-		}
-		return nil, nil
-	})
+	err := worldState.Save(
+		player, w.playerData(),
+		w.serverState.behaviorPack,
+		w.settings.ExcludedMobs,
+		w.settings.Players, playerSkins,
+		w.session.Server.GameData(), w.serverState.serverName)
 	if err != nil {
 		return err
 	}
@@ -448,6 +430,7 @@ func (w *worldsHandler) saveWorldState(worldState *worldstate.World) error {
 		State:     "Writing mcworld file",
 	})
 
+	filename := worldState.Folder + ".mcworld"
 	f, err := os.Create(filename)
 	if err != nil {
 		return err

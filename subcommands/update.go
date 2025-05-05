@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
+	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/bedrock-tool/bedrocktool/utils/updater"
 	"github.com/sirupsen/logrus"
@@ -26,7 +27,7 @@ func (c *UpdateCMD) Run(ctx context.Context, settings any) error {
 	if err != nil {
 		return err
 	}
-	isNew := update.Version != updater.Version
+	isNew := update.Version != utils.Version
 	if !isNew {
 		logrus.Info(locale.Loc("no_update", nil))
 		return nil

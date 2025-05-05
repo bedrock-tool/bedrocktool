@@ -452,6 +452,8 @@ func (s *Session) connectClient(connectInfo *utils.ConnectInfo) (err error) {
 		PacketFunc:             clientPacketFunc,
 		OnClientData: func(c *minecraft.Conn) {
 			s.clientData = c.ClientData()
+			ident := c.IdentityData()
+			s.handlers.PlayerDataModifier(s, &ident, &s.clientData)
 			close(s.haveClientData)
 		},
 		EarlyConnHandler: func(c *minecraft.Conn) {

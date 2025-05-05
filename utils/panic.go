@@ -6,7 +6,6 @@ import (
 	"runtime/debug"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
-	"github.com/bedrock-tool/bedrocktool/utils/updater"
 )
 
 var panicStack string
@@ -17,7 +16,7 @@ func PrintPanic(err error) {
 	panicErr = err
 	fmt.Println(locale.Loc("fatal_error", nil))
 	fmt.Println("--COPY FROM HERE--")
-	fmt.Printf("Version: %s\n", updater.Version)
+	fmt.Printf("Version: %s\n", Version)
 	fmt.Printf("Cmdline: %s\n", os.Args)
 	fmt.Printf("Error: %s\n", err)
 	fmt.Println("stacktrace from panic: \n" + panicStack)

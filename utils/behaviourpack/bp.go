@@ -100,8 +100,8 @@ func splitNamespace(identifier string) (ns, name string) {
 	return split[0], split[len(split)-1]
 }
 
-func (bp *Pack) Save(fs utils.WriterFS, fpath string) error {
-	if err := utils.WriteManifest(bp.Manifest, fs, fpath); err != nil {
+func (bp *Pack) Save(fs utils.WriterFS) error {
+	if err := utils.WriteManifest(bp.Manifest, fs, ""); err != nil {
 		return err
 	}
 
@@ -126,27 +126,24 @@ func (bp *Pack) Save(fs utils.WriterFS, fpath string) error {
 	}
 
 	if bp.HasBlocks() { // blocks
-		blocksDir := path.Join(fpath, "blocks")
 		for _, be := range bp.blocks {
-			err := _add_thing(blocksDir, be.MinecraftBlock.Description.Identifier, be)
+			err := _add_thing("blocks", be.MinecraftBlock.Description.Identifier, be)
 			if err != nil {
 				return err
 			}
 		}
 	}
 	if bp.HasItems() { // items
-		itemsDir := path.Join(fpath, "items")
 		for _, ib := range bp.items {
-			err := _add_thing(itemsDir, ib.MinecraftItem.Description.Identifier, ib)
+			err := _add_thing("items", ib.MinecraftItem.Description.Identifier, ib)
 			if err != nil {
 				return err
 			}
 		}
 	}
 	if bp.HasEntities() { // entities
-		entitiesDir := path.Join(fpath, "entities")
 		for _, eb := range bp.entities {
-			err := _add_thing(entitiesDir, eb.MinecraftEntity.Description.Identifier, eb)
+			err := _add_thing("entities", eb.MinecraftEntity.Description.Identifier, eb)
 			if err != nil {
 				return err
 			}

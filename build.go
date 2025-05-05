@@ -30,6 +30,16 @@ var (
 	versionRegexp = regexp.MustCompile(`v(\d\.\d+\.\d+)(?:-(\d+)-(\w+))?`)
 )
 
+var gogioCmd string
+
+func init() {
+	var exeExt = ""
+	if runtime.GOOS == "windows" {
+		exeExt = ".exe"
+	}
+	gogioCmd = "./gogio" + exeExt
+}
+
 // Build represents a specific build configuration.
 type Build struct {
 	OS   string
@@ -43,6 +53,9 @@ func (b Build) ExeExt() string {
 	}
 	if b.OS == "android" {
 		return ".apk"
+	}
+	if b.OS == "darwin" {
+		return ".app"
 	}
 	return ""
 }
@@ -342,11 +355,12 @@ func guiBuildCmd(buildTag string, build Build, ldflags, tags []string) (string, 
 	}
 
 	buildCmd := []string{
-		"gogio",
+		gogioCmd,
 	}
 	if build.OS == "android" {
 		buildCmd = append(buildCmd, "-target", build.OS)
 		buildCmd = append(buildCmd, "-appid", AppID)
+		buildCmd = append(buildCmd, "-resources", "./android-resources")
 	}
 	tagSplit := strings.Split(strings.ReplaceAll(buildTag, "-", "."), ".")
 	tagSplit = tagSplit[:len(tagSplit)-1]
@@ -357,10 +371,14 @@ func guiBuildCmd(buildTag string, build Build, ldflags, tags []string) (string, 
 		tagSplit[3] = strings.Join(tagSplit, "")
 	}
 	gioVersion := strings.Join(tagSplit, ".")
+	gioTarget := build.OS
+	if build.OS == "darwin" {
+		gioTarget = "macos"
+	}
 
 	buildCmd = append(buildCmd,
 		"-arch", build.Arch,
-		"-target", build.OS,
+		"-target", gioTarget,
 		"-version", gioVersion,
 		"-icon", "icon.png",
 		"-tags", strings.Join(tags, ","),
@@ -373,17 +391,14 @@ func guiBuildCmd(buildTag string, build Build, ldflags, tags []string) (string, 
 	return outputPath, buildCmd
 }
 
-func runCommand(buildCmd, env []string, buildName string) error {
+func runCommand(buildCmd, env []string, cwd string) error {
 	log.Printf("Executing: %s", strings.Join(buildCmd, " "))
 	cmd := exec.Command(buildCmd[0], buildCmd[1:]...)
 	cmd.Env = env
-
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = io.MultiWriter(os.Stdout, &stdout)
-	cmd.Stderr = io.MultiWriter(os.Stderr, &stderr)
-
+	cmd.Dir = cwd
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		log.Printf("Build failed for %s:", buildName)
 		return fmt.Errorf("build command failed: %w", err)
 	}
 	return nil
@@ -425,13 +440,18 @@ func (c *BuildConfig) doBuild(build Build) error {
 	}
 
 	ldflags := []string{"-s", "-w"}
-	ldflags = append(ldflags, fmt.Sprintf("-X github.com/bedrock-tool/%s/utils/updater.Version=%s", AppName, c.BuildTag))
+	ldflags = append(ldflags, fmt.Sprintf("-X github.com/bedrock-tool/%s/utils.Version=%s", AppName, c.BuildTag))
+
+	cmdName := AppName
+	if build.Type != "cli" {
+		cmdName += "-" + build.Type
+	}
+	ldflags = append(ldflags, fmt.Sprintf("-X github.com/bedrock-tool/%s/utils.CmdName=%s", AppName, cmdName))
 
 	var outputPath string
 	var buildCmd []string
 	switch build.OS {
 	case "android":
-		ldflags = append(ldflags, fmt.Sprintf("-X github.com/bedrock-tool/%s/utils/updater.CmdName=%s", AppName, "lib"+AppName))
 		err := androidEnv(build, &env)
 		if err != nil {
 			return err
@@ -445,26 +465,18 @@ func (c *BuildConfig) doBuild(build Build) error {
 			return fmt.Errorf("%s not supported on android", build.Type)
 		}
 
-	case "windows", "linux":
-		cmdName := AppName
-		if build.Type != "cli" {
-			cmdName += "-" + build.Type
-		}
-		ldflags = append(ldflags, fmt.Sprintf("-X github.com/bedrock-tool/%s/utils/updater.CmdName=%s", AppName, cmdName))
+	case "windows", "linux", "darwin":
 		switch build.Type {
 		case "lib":
 			outputPath, buildCmd = libBuildCmd(c.BuildTag, build, ldflags, tags)
-
 		case "gui":
 			if build.OS == "windows" {
 				cleanSyso()
 				ldflags = append(ldflags, "-H=windows")
 			}
 			outputPath, buildCmd = guiBuildCmd(c.BuildTag, build, ldflags, tags)
-
 		case "cli":
 			outputPath, buildCmd = cliBuildCmd(c.BuildTag, build, ldflags, tags)
-
 		default:
 			return fmt.Errorf("unknown build type %s", build.Type)
 		}
@@ -477,70 +489,18 @@ func (c *BuildConfig) doBuild(build Build) error {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
 
-	err := runCommand(buildCmd, env, buildName)
+	err := runCommand(buildCmd, env, "")
 	if err != nil {
 		return err
 	}
 
 	log.Printf("Successfully built: %s", outputPath)
 
-	// Post-Build
 	if build.OS != "wasm" && build.OS != "android" {
-		exeHash, err := sha256File(outputPath)
+		err := createUpdate(build, outputPath, c.BuildTag)
 		if err != nil {
-			log.Printf("Warning: Could not calculate file hash for %s: %v. Skipping update file creation.", outputPath, err)
-			return nil
+			return err
 		}
-
-		updatesDirName := AppName
-		if build.Type == "gui" {
-			updatesDirName += "-gui"
-		}
-		updatesBaseDir := "updates"
-		updatesDir := filepath.Join(updatesBaseDir, updatesDirName)
-		if err := os.MkdirAll(updatesDir, 0755); err != nil {
-			return fmt.Errorf("failed to create updates directory %s: %w", updatesDir, err)
-		}
-
-		updateInfoPath := filepath.Join(updatesDir, fmt.Sprintf("%s-%s.json", build.OS, build.Arch))
-		updateInfo := map[string]string{
-			"Version": c.BuildTag,
-			"Sha256":  exeHash,
-		}
-		updateInfoBytes, err := json.MarshalIndent(updateInfo, "", "  ")
-		if err != nil {
-			return fmt.Errorf("failed to marshal update info JSON for %s: %w", updateInfoPath, err)
-		}
-		if err := os.WriteFile(updateInfoPath, updateInfoBytes, 0644); err != nil {
-			return fmt.Errorf("failed to write update info file %s: %w", updateInfoPath, err)
-		}
-		log.Printf("Generated update info file: %s", updateInfoPath)
-
-		compressedUpdatesDir := filepath.Join(updatesDir, c.BuildTag)
-		if err := os.MkdirAll(compressedUpdatesDir, 0755); err != nil {
-			return fmt.Errorf("failed to create compressed updates directory %s: %w", compressedUpdatesDir, err)
-		}
-		compressedFilePath := filepath.Join(compressedUpdatesDir, fmt.Sprintf("%s-%s.gz", build.OS, build.Arch))
-
-		compressedFile, err := os.Create(compressedFilePath)
-		if err != nil {
-			return fmt.Errorf("failed to create compressed update file %s: %w", compressedFilePath, err)
-		}
-		defer compressedFile.Close()
-
-		gzipWriter := gzip.NewWriter(compressedFile)
-		defer gzipWriter.Close()
-
-		exeFile, err := os.Open(outputPath)
-		if err != nil {
-			return fmt.Errorf("failed to open executable for compression %s: %w", outputPath, err)
-		}
-		defer exeFile.Close()
-
-		if _, err := io.Copy(gzipWriter, exeFile); err != nil {
-			return fmt.Errorf("failed to compress executable to %s: %w", compressedFilePath, err)
-		}
-		log.Printf("Generated compressed update file: %s", compressedFilePath)
 	}
 
 	if build.Type == "gui" && build.OS == "windows" {
@@ -550,9 +510,91 @@ func (c *BuildConfig) doBuild(build Build) error {
 	return nil
 }
 
+func createUpdate(build Build, outputPath, buildTag string) error {
+	exeHash, err := sha256File(outputPath)
+	if err != nil {
+		log.Printf("Warning: Could not calculate file hash for %s: %v. Skipping update file creation.", outputPath, err)
+		return nil
+	}
+
+	updatesDirName := AppName
+	if build.Type == "gui" {
+		updatesDirName += "-gui"
+	}
+	updatesBaseDir := "updates"
+	updatesDir := filepath.Join(updatesBaseDir, updatesDirName)
+	if err := os.MkdirAll(updatesDir, 0755); err != nil {
+		return fmt.Errorf("failed to create updates directory %s: %w", updatesDir, err)
+	}
+
+	updateInfoPath := filepath.Join(updatesDir, fmt.Sprintf("%s-%s.json", build.OS, build.Arch))
+	updateInfo := map[string]string{
+		"Version": buildTag,
+		"Sha256":  exeHash,
+	}
+	updateInfoBytes, err := json.MarshalIndent(updateInfo, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal update info JSON for %s: %w", updateInfoPath, err)
+	}
+	if err := os.WriteFile(updateInfoPath, updateInfoBytes, 0644); err != nil {
+		return fmt.Errorf("failed to write update info file %s: %w", updateInfoPath, err)
+	}
+	log.Printf("Generated update info file: %s", updateInfoPath)
+
+	compressedUpdatesDir := filepath.Join(updatesDir, buildTag)
+	if err := os.MkdirAll(compressedUpdatesDir, 0755); err != nil {
+		return fmt.Errorf("failed to create compressed updates directory %s: %w", compressedUpdatesDir, err)
+	}
+	compressedFilePath := filepath.Join(compressedUpdatesDir, fmt.Sprintf("%s-%s.gz", build.OS, build.Arch))
+
+	compressedFile, err := os.Create(compressedFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to create compressed update file %s: %w", compressedFilePath, err)
+	}
+	defer compressedFile.Close()
+
+	gzipWriter := gzip.NewWriter(compressedFile)
+	defer gzipWriter.Close()
+
+	exeFile, err := os.Open(outputPath)
+	if err != nil {
+		return fmt.Errorf("failed to open executable for compression %s: %w", outputPath, err)
+	}
+	defer exeFile.Close()
+
+	if _, err := io.Copy(gzipWriter, exeFile); err != nil {
+		return fmt.Errorf("failed to compress executable to %s: %w", compressedFilePath, err)
+	}
+	log.Printf("Generated compressed update file: %s", compressedFilePath)
+	return nil
+}
+
+func buildGogio() error {
+	var env []string
+	env = append(env, os.Environ()...)
+	err := runCommand([]string{
+		"go", "build",
+		"-o", gogioCmd,
+		"-v",
+		"-trimpath",
+		"./gio-cmd/gogio",
+	}, env, "")
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func main() {
 	log.SetFlags(0)
 	log.Println("--- Starting Build Process ---")
+
+	if false {
+		if err := buildGogio(); err != nil {
+			log.Fatalf("building gogio %s", err)
+		}
+	}
+	gogioCmd = "gogio"
 
 	buildCfg := &BuildConfig{}
 
@@ -601,18 +643,18 @@ func main() {
 		{"windows", "amd64", "gui"},
 		{"linux", "amd64", "gui"},
 		{"android", "arm64", "gui"},
-		// {"darwin", "amd64", true},
-		// {"darwin", "arm64", true},
+		{"darwin", "amd64", "gui"},
+		{"darwin", "arm64", "gui"},
 
 		// Desktop CLI builds
 		{"windows", "amd64", "cli"},
 		{"linux", "amd64", "cli"},
-		// {"darwin", "amd64", false},
-		// {"darwin", "arm64", false},
+		{"darwin", "amd64", "cli"},
+		{"darwin", "arm64", "cli"},
 
 		// Desktop LIB builds
-		{"windows", "amd64", "lib"},
-		{"linux", "amd64", "lib"},
+		//{"windows", "amd64", "lib"},
+		//{"linux", "amd64", "lib"},
 
 		// Android Library builds
 		//{"android", "arm64", "lib"},

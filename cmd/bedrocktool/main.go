@@ -17,7 +17,6 @@ import (
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/bedrock-tool/bedrocktool/utils/osabs"
-	"github.com/bedrock-tool/bedrocktool/utils/updater"
 	"github.com/bedrock-tool/bedrocktool/utils/xbox"
 
 	_ "github.com/bedrock-tool/bedrocktool/subcommands"
@@ -50,13 +49,12 @@ func main() {
 		}
 	}
 
-	isDebug := updater.Version == ""
-	setupLogging(isDebug)
+	setupLogging(utils.IsDebug())
 	log := logrus.WithField("part", "main")
 	ctx, cancel := context.WithCancelCause(context.Background())
 
 	utils.ErrorHandler = func(err error) {
-		if isDebug {
+		if utils.IsDebug() {
 			panic(err)
 		}
 		utils.PrintPanic(err)
@@ -73,7 +71,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if isDebug {
+	if utils.IsDebug() {
 		f, err := os.Create("cpu.pprof")
 		if err != nil {
 			panic(err)
@@ -92,7 +90,7 @@ func main() {
 
 		http.DefaultTransport = &logTransport{rt: http.DefaultTransport}
 	} else {
-		log.Info(locale.Loc("bedrocktool_version", locale.Strmap{"Version": updater.Version}))
+		log.Info(locale.Loc("bedrocktool_version", locale.Strmap{"Version": utils.Version}))
 	}
 
 	env, ok := os.LookupEnv("BEDROCK_ENV")

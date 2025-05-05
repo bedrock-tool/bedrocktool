@@ -9,6 +9,7 @@ import (
 
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/proxy"
+	"github.com/bedrock-tool/bedrocktool/utils/skinconverter"
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/block/cube/trace"
 	"github.com/go-gl/mathgl/mgl32"
@@ -65,7 +66,7 @@ type skinPlayer struct {
 	AltName   string
 	NameFinal bool
 	Position  mgl32.Vec3
-	SkinPack  *utils.SkinPack
+	SkinPack  *skinconverter.SkinPack
 	gone      bool
 }
 
@@ -84,7 +85,7 @@ func (s *SkinSaver) AddOrGetPlayer(id uuid.UUID, name string) *skinPlayer {
 	return player
 }
 
-func (s *SkinSaver) AddSkin(player *skinPlayer, newSkin *protocol.Skin) (*utils.Skin, bool) {
+func (s *SkinSaver) AddSkin(player *skinPlayer, newSkin *protocol.Skin) (*skinconverter.Skin, bool) {
 	if !player.NameFinal {
 		player.NameFinal = true
 		var name = player.Name
@@ -114,14 +115,14 @@ func (s *SkinSaver) AddSkin(player *skinPlayer, newSkin *protocol.Skin) (*utils.
 		return nil, false
 	}
 
-	skin := &utils.Skin{Skin: newSkin}
+	skin := &skinconverter.Skin{Skin: newSkin}
 	if !skin.HaveGeometry() && s.OnlyIfHasGeometry {
 		return nil, false
 	}
 
 	var added bool
 	if player.SkinPack == nil {
-		player.SkinPack = utils.NewSkinPack(player.Name, s.baseDir)
+		player.SkinPack = skinconverter.NewSkinPack(player.Name, s.baseDir)
 		creating := fmt.Sprintf("Creating Skinpack for %s", player.Name)
 		s.log.Info(creating)
 	}

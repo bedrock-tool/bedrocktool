@@ -135,7 +135,9 @@ func (p *Context) Run(withClient bool) (err error) {
 		return err
 	}
 
-	return p.connect(p.settings.ConnectInfo, withClient)
+	err = p.connect(p.settings.ConnectInfo, withClient)
+	p.wg.Wait()
+	return err
 }
 
 func loadForcedPacks() ([]resource.Pack, error) {

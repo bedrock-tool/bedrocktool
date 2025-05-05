@@ -66,6 +66,7 @@ func (WorldCMD) Run(ctx context.Context, settings any) error {
 		ChunkRadius:     int32(worldSettings.ChunkRadius),
 		Script:          scriptSource,
 		BlockUpdates:    worldSettings.BlockUpdates,
+		//Players:         true,
 	}))
 
 	err = p.Run(true)

@@ -7,7 +7,6 @@ import (
 	"os"
 
 	"github.com/OneOfOne/xxhash"
-	"github.com/bedrock-tool/bedrocktool/utils/updater"
 	"github.com/df-mc/dragonfly/server/world"
 )
 
@@ -79,7 +78,7 @@ func (t *TextureMap) SetTextures(blocks []world.Block, resolvedTextures map[stri
 		i++
 	}
 
-	if updater.Version == "" {
+	if IsDebug() {
 		f, err := os.Create("tex.png")
 		if err != nil {
 			panic(err)

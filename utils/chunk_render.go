@@ -4,7 +4,6 @@ import (
 	"image"
 	"image/color"
 
-	"github.com/bedrock-tool/bedrocktool/utils/updater"
 	"github.com/df-mc/dragonfly/server/block"
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"
@@ -70,7 +69,7 @@ func (cr *ChunkRenderer) blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8)
 
 haveColor:
 	if blockColor.R == 0xff && blockColor.G == 0x0 && blockColor.B == 0xff {
-		if updater.Version == "" {
+		if IsDebug() {
 			name, props := b.EncodeBlock()
 			logrus.Infof("no color %s %v", name, props)
 			b.Color()

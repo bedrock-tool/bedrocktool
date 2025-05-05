@@ -110,12 +110,11 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelCauseFunc) (err er
 	logrus.AddHook(&g.logger)
 
 	settings.AddressInput.SetGuim(g)
-	g.window.Option(app.Title("Bedrocktool " + updater.Version))
+	g.window.Option(app.Title("Bedrocktool " + utils.Version))
 	g.window.Option(app.Size(800, 700))
 	g.window.Option(app.MinSize(600, 700))
 
-	isDebug := updater.Version == ""
-	if !isDebug {
+	if !utils.IsDebug() {
 		go updater.UpdateCheck(g)
 	}
 

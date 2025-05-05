@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/bedrock-tool/bedrocktool/utils/updater"
+	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sirupsen/logrus"
 )
@@ -109,7 +109,7 @@ func processComponent(name string, value map[string]any, version *string) (strin
 		}
 
 	default:
-		if updater.Version == "" {
+		if utils.IsDebug() {
 			fmt.Printf("unhandled component %s\n%v\n\n", name, value)
 		}
 	}

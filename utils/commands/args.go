@@ -203,6 +203,7 @@ func ParseArgs(ctx context.Context, cmd Command, argValues []string) (any, *flag
 			consumer = &arg
 			continue
 		}
+		arg.Set(arg.Default)
 		flags.Var(&arg, arg.Flag, arg.Desc)
 	}
 	if err := flags.Parse(argValues); err != nil {

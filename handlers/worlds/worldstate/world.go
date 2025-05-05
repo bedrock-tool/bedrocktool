@@ -15,6 +15,9 @@ import (
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/behaviourpack"
+	"github.com/bedrock-tool/bedrocktool/utils/proxy"
+	"github.com/bedrock-tool/bedrocktool/utils/resourcepack"
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/df-mc/dragonfly/server/world/chunk"
@@ -69,9 +72,8 @@ type World struct {
 	pausedState *memoryState
 	// access to states
 
-	ResourcePacks            []resource.Pack
-	resourcePacksDone        chan error
-	resourcePackDependencies []resourcePackDependency
+	ResourcePacks     []resource.Pack
+	resourcePacksDone chan error
 
 	players map[uuid.UUID]*player
 
@@ -490,21 +492,84 @@ func (w *World) Rename(name, folder string) error {
 
 var errFinished = errors.New("finished")
 
-func (w *World) Finish(playerData map[string]any, excludedMobs []string, withPlayers bool, spawn cube.Pos, gd minecraft.GameData, experimental bool) error {
+func (w *World) Save(
+	player proxy.Player, playerData map[string]any,
+	behaviorPack *behaviourpack.Pack,
+	excludedMobs []string,
+	withPlayers bool, playerSkins map[uuid.UUID]*protocol.Skin,
+	gameData minecraft.GameData, serverName string,
+) error {
+	spawnPos := cube.Pos{int(player.Position.X()), int(player.Position.Y()), int(player.Position.Z())}
+
+	var playerResourcePack *resourcepack.Pack
+	if withPlayers {
+		playerEntities := w.playersToEntities()
+
+		for _, player := range playerEntities {
+			behaviorPack.AddEntity(player.Identifier, nil, protocol.EntityMetadata{}, nil)
+		}
+
+		playerResourcePack = resourcepack.New()
+		err := playerResourcePack.MakePlayers(playerEntities, playerSkins)
+		if err != nil {
+			return err
+		}
+	}
+
+	err := w.finalizeProvider(
+		playerData,
+		excludedMobs,
+		withPlayers,
+		spawnPos,
+		gameData,
+		behaviorPack.HasContent(),
+	)
+	if err != nil {
+		return err
+	}
+
+	additionalPacks := func(fs utils.WriterFS) ([]addedPack, error) {
+		var headers []addedPack
+
+		if behaviorPack.HasContent() {
+			packFolder := path.Join("behavior_packs", utils.FormatPackName(serverName))
+			for _, p := range w.ResourcePacks {
+				behaviorPack.CheckAddLink(p)
+			}
+			if err = behaviorPack.Save(utils.SubFS(fs, packFolder)); err != nil {
+				return nil, err
+			}
+			headers = append(headers, addedPack{
+				BehaviorPack: true,
+				Header:       &behaviorPack.Manifest.Header,
+			})
+		}
+
+		if playerResourcePack != nil {
+			packFolder := path.Join("resource_packs", "bedrocktool_players")
+			if err := playerResourcePack.WriteToFS(utils.SubFS(fs, packFolder)); err != nil {
+				return nil, err
+			}
+			headers = append(headers, addedPack{
+				BehaviorPack: false,
+				Header:       &playerResourcePack.Manifest.Header,
+			})
+		}
+
+		return headers, nil
+	}
+
+	if err = w.finalizePacks(additionalPacks); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (w *World) finalizeProvider(playerData map[string]any, excludedMobs []string, withPlayers bool, spawn cube.Pos, gd minecraft.GameData, experimental bool) error {
 	w.stateLock.Lock()
 	defer w.stateLock.Unlock()
 	w.cancelCtx(errFinished)
-
-	if withPlayers {
-		w.playersToEntities()
-		/*
-			for _, p := range w.players.players {
-				bp.AddEntity(behaviourpack.EntityIn{
-					Identifier: "player:" + p.add.UUID.String(),
-				})
-			}
-		*/
-	}
 
 	messages.SendEvent(&messages.EventProcessingWorldUpdate{
 		WorldName: w.Name,

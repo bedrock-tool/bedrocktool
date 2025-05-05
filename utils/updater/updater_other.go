@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"runtime"
 
+	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/minio/selfupdate"
 )
 
@@ -23,7 +24,7 @@ func DoUpdate() error {
 		return err
 	}
 
-	r, err := fetchHttp(fmt.Sprintf("%s%s/%s/%s-%s.gz", UpdateServer, CmdName, update.Version, runtime.GOOS, runtime.GOARCH))
+	r, _, err := fetchHttp(fmt.Sprintf("%s%s/%s/%s-%s.gz", UpdateServer, utils.CmdName, update.Version, runtime.GOOS, runtime.GOARCH))
 	if err != nil {
 		return err
 	}

@@ -7,6 +7,7 @@ import (
 
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
+	"github.com/sandertv/gophertunnel/minecraft/protocol/login"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 )
@@ -17,6 +18,7 @@ type Handler struct {
 	Name string
 
 	SessionStart       func(s *Session, serverName string) error
+	PlayerDataModifier func(s *Session, identity *login.IdentityData, data *login.ClientData)
 	GameDataModifier   func(s *Session, gameData *minecraft.GameData)
 	FilterResourcePack func(s *Session, id string) bool
 	OnFinishedPack     func(s *Session, pack resource.Pack) error
@@ -50,6 +52,15 @@ func (h Handlers) GameDataModifier(s *Session, gameData *minecraft.GameData) {
 			continue
 		}
 		handler.GameDataModifier(s, gameData)
+	}
+}
+
+func (h Handlers) PlayerDataModifier(s *Session, identity *login.IdentityData, data *login.ClientData) {
+	for _, handler := range h {
+		if handler.PlayerDataModifier == nil {
+			continue
+		}
+		handler.PlayerDataModifier(s, identity, data)
 	}
 }
 

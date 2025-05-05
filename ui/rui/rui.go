@@ -15,7 +15,6 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
-	"github.com/bedrock-tool/bedrocktool/utils/updater"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sirupsen/logrus"
 )
@@ -33,14 +32,13 @@ var _ ui.UI = &Rui{}
 // Init implements ui.UI.
 func (r *Rui) Init() error {
 	r.toClient = make(chan any, 10)
-	isDebug := updater.Version == ""
 	messages.SetEventHandler(func(event any) error {
 		r.toClient <- event
 		return nil
 	})
 	utils.Auth.SetHandler(new(messages.AuthHandler))
 	utils.ErrorHandler = func(err error) {
-		if isDebug {
+		if utils.IsDebug() {
 			panic(err)
 		}
 		utils.PrintPanic(err)

@@ -1,11 +1,8 @@
 package worlds
 
 import (
-	"encoding/json"
 	"fmt"
-	"image"
 	"maps"
-	"strconv"
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds/entity"
@@ -189,8 +186,9 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 		w.scripting.OnSpawnParticle(pk.ParticleName, pk.Position, timeReceived)
 
 	case *packet.AddPlayer:
-		//w.currentWorld.AddPlayer(pk)
-		//w.addPlayer(pk)
+		w.currentWorld(func(world *worldstate.World) {
+			world.AddPlayer(pk)
+		})
 
 	case *packet.PlayerList:
 		if pk.ActionType == packet.PlayerListActionAdd {
@@ -616,48 +614,5 @@ func applyProperties(log *logrus.Entry, properties []entity.EntityProperty, enti
 		propType := properties[prop.Index]
 		propType.Value = prop.Value
 		out[propType.Name] = &propType
-	}
-}
-
-func (w *worldsHandler) addPlayer(pk *packet.AddPlayer) {
-	skin, ok := w.serverState.playerSkins[pk.UUID]
-	if ok {
-		skinTexture := image.NewNRGBA(image.Rect(0, 0, int(skin.SkinImageWidth), int(skin.SkinImageHeight)))
-		copy(skinTexture.Pix, skin.SkinData)
-
-		var capeTexture *image.NRGBA
-		if skin.CapeID != "" {
-			capeTexture = image.NewNRGBA(image.Rect(0, 0, int(skin.CapeImageWidth), int(skin.CapeImageHeight)))
-			copy(capeTexture.Pix, skin.CapeData)
-		}
-
-		var geometry *utils.SkinGeometryFile
-		var isDefault bool
-		var identifier string
-		if len(skin.SkinGeometry) > 0 {
-			var err error
-			geometry, identifier, err = utils.ParseServerSkinGeometry(skin)
-			if err != nil {
-				w.log.WithField("player", pk.Username).Warn(err)
-				return
-			}
-		}
-		if geometry == nil {
-			geometry = &utils.SkinGeometryFile{
-				FormatVersion: string(skin.GeometryDataEngineVersion),
-				Geometry: []utils.SkinGeometry{
-					{
-						Description: utils.SkinGeometryDescription{
-							Identifier:    identifier,
-							TextureWidth:  json.Number(strconv.Itoa(int(skin.SkinImageWidth))),
-							TextureHeight: json.Number(strconv.Itoa(int(skin.SkinImageHeight))),
-						},
-					},
-				},
-			}
-			isDefault = true
-		}
-
-		w.serverState.resourcePack.AddPlayer(pk.UUID.String(), skinTexture, capeTexture, skin.CapeID, geometry, isDefault)
 	}
 }

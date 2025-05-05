@@ -9,6 +9,7 @@ import (
 	"gioui.org/widget/material"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/guim"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
+	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/updater"
 )
 
@@ -73,7 +74,7 @@ func (p *UpdatePopup) Layout(gtx C, th *material.Theme) D {
 			switch p.state {
 			case messages.UIStateMain:
 				children = append(children,
-					layout.Rigid(material.Label(th, 20, fmt.Sprintf("Current: %s\nNew:     %s", updater.Version, update.Version)).Layout),
+					layout.Rigid(material.Label(th, 20, fmt.Sprintf("Current: %s\nNew:     %s", utils.Version, update.Version)).Layout),
 					layout.Rigid(material.Button(th, &p.startButton, "Do Update").Layout),
 				)
 			case messages.UIStateFinished:

@@ -73,7 +73,7 @@ func (c *ConnectInfo) Name(ctx context.Context) (string, error) {
 		return host, nil
 	}
 	if info.replayName != "" {
-		return path.Base(info.realmName), nil
+		return path.Base(info.replayName), nil
 	}
 	if info.realmName != "" {
 		realm, err := c.getRealm(ctx, info.realmName)

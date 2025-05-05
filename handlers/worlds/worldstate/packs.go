@@ -56,11 +56,6 @@ func (w *World) addResourcePacks() error {
 			log.Error(err)
 			continue
 		}
-
-		w.resourcePackDependencies = append(w.resourcePackDependencies, resourcePackDependency{
-			UUID:    pack.Manifest().Header.UUID.String(),
-			Version: pack.Manifest().Header.Version,
-		})
 	}
 
 	messages.SendEvent(&messages.EventProcessingWorldUpdate{
@@ -71,7 +66,12 @@ func (w *World) addResourcePacks() error {
 	return nil
 }
 
-func (w *World) FinalizePacks(addBehaviorPack func(fs utils.WriterFS) (*resource.Header, error)) error {
+type addedPack struct {
+	BehaviorPack bool
+	Header       *resource.Header
+}
+
+func (w *World) finalizePacks(addAdditionalPacks func(fs utils.WriterFS) ([]addedPack, error)) error {
 	err := <-w.resourcePacksDone
 	if err != nil {
 		return err
@@ -83,23 +83,41 @@ func (w *World) FinalizePacks(addBehaviorPack func(fs utils.WriterFS) (*resource
 	})
 
 	fs := utils.OSWriter{Base: w.Folder}
-	header, err := addBehaviorPack(fs)
+	additionalPacks, err := addAdditionalPacks(fs)
 	if err != nil {
 		return err
 	}
 
-	if header != nil {
-		err = addPacksJSON(fs, "world_behavior_packs.json", []resourcePackDependency{{
-			UUID:    header.UUID.String(),
-			Version: header.Version,
-		}})
+	var resourcePackDependencies []resourcePackDependency
+	for _, pack := range w.ResourcePacks {
+		resourcePackDependencies = append(resourcePackDependencies, resourcePackDependency{
+			UUID:    pack.Manifest().Header.UUID.String(),
+			Version: pack.Manifest().Header.Version,
+		})
+	}
+
+	var behaviorPackDependencies []resourcePackDependency
+	for _, p := range additionalPacks {
+		dep := resourcePackDependency{
+			UUID:    p.Header.UUID.String(),
+			Version: p.Header.Version,
+		}
+		if p.BehaviorPack {
+			behaviorPackDependencies = append(behaviorPackDependencies, dep)
+		} else {
+			resourcePackDependencies = append(resourcePackDependencies, dep)
+		}
+	}
+
+	if len(behaviorPackDependencies) > 0 {
+		err := addPacksJSON(fs, "world_behavior_packs.json", behaviorPackDependencies)
 		if err != nil {
 			return err
 		}
 	}
 
-	if len(w.resourcePackDependencies) > 0 {
-		err := addPacksJSON(fs, "world_resource_packs.json", w.resourcePackDependencies)
+	if len(resourcePackDependencies) > 0 {
+		err := addPacksJSON(fs, "world_resource_packs.json", resourcePackDependencies)
 		if err != nil {
 			return err
 		}

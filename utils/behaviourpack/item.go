@@ -3,7 +3,7 @@ package behaviourpack
 import (
 	"fmt"
 
-	"github.com/bedrock-tool/bedrocktool/utils/updater"
+	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 )
 
@@ -71,7 +71,7 @@ func processItemComponent(name string, component map[string]any, componentsOut m
 		return name, component
 
 	default:
-		if updater.Version == "" {
+		if utils.IsDebug() {
 			fmt.Printf("unhandled component %s\n%v\n\n", name, component)
 		}
 		return name, component

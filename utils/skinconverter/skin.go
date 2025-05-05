@@ -1,11 +1,13 @@
-package utils
+package skinconverter
 
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
+	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/google/uuid"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 )
@@ -39,9 +41,12 @@ type SkinGeometryFile struct {
 }
 
 type geometry180 struct {
-	Bones         json.RawMessage `json:"bones"`
-	TextureWidth  int             `json:"texturewidth"`
-	TextureHeight int             `json:"textureheight"`
+	Bones               json.RawMessage `json:"bones"`
+	TextureWidth        int             `json:"texturewidth"`
+	TextureHeight       int             `json:"textureheight"`
+	VisibleBoundsWidth  float64         `json:"visible_bounds_width"`
+	VisibleBoundsHeight float64         `json:"visible_bounds_height"`
+	VisibleBoundsOffset []float64       `json:"visible_bounds_offset,omitempty"`
 }
 
 type geom180 struct {
@@ -82,24 +87,7 @@ func (skin *Skin) Hash() uuid.UUID {
 	return uuid.NewSHA1(uuid.NameSpaceURL, h)
 }
 
-func (skin *Skin) getGeometry() (*SkinGeometry, string, error) {
-	if !skin.HaveGeometry() {
-		return nil, "", errors.New("no geometry")
-	}
-	geom, identifier, err := ParseServerSkinGeometry(skin.Skin)
-	if err != nil {
-		return nil, "", err
-	}
-	if geom == nil {
-		return nil, identifier, nil
-	}
-	if len(geom.Geometry) == 0 {
-		return nil, identifier, nil
-	}
-	return &geom.Geometry[0], identifier, nil
-}
-
-func (skin *Skin) writeMetadataJson(fs WriterFS, filename string) error {
+func (skin *Skin) writeMetadataJson(fs utils.WriterFS, filename string) error {
 	f, err := fs.Create(filename)
 	if err != nil {
 		return errors.New(locale.Loc("failed_write", locale.Strmap{"Part": "Meta", "Path": filename, "Err": err}))
@@ -140,57 +128,77 @@ func (skin *Skin) Complex() bool {
 	return skin.HaveGeometry() || skin.HaveCape() || skin.HaveAnimations() || skin.HaveTint()
 }
 
-func ParseServerSkinGeometry(skin *protocol.Skin) (*SkinGeometryFile, string, error) {
+func parseGeometry180(raw []byte, identifier string) (*SkinGeometry, error) {
+	var m map[string]geometry180
+	err := json.Unmarshal(raw, &m)
+	if err != nil {
+		return nil, err
+	}
+	geom, ok := m[identifier]
+	if !ok {
+		return nil, fmt.Errorf("wrong identifier")
+	}
+
+	return &SkinGeometry{
+		Description: SkinGeometryDescription{
+			Identifier:          identifier,
+			TextureWidth:        json.Number(strconv.Itoa(int(geom.TextureWidth))),
+			TextureHeight:       json.Number(strconv.Itoa(int(geom.TextureHeight))),
+			VisibleBoundsWidth:  geom.VisibleBoundsWidth,
+			VisibleBoundsHeight: geom.VisibleBoundsHeight,
+			VisibleBoundsOffset: geom.VisibleBoundsOffset,
+		},
+		Bones: geom.Bones,
+	}, nil
+}
+
+func (skin *Skin) ParseGeometry() (identifier string, format_version string, geometry *SkinGeometry, err error) {
 	var resourcePatch map[string]map[string]string
 	if len(skin.SkinResourcePatch) > 0 {
-		err := ParseJson(skin.SkinResourcePatch, &resourcePatch)
+		err := utils.ParseJson(skin.SkinResourcePatch, &resourcePatch)
 		if err != nil {
-			return nil, "", err
+			return "", "", nil, err
 		}
 	}
-	var identifier string
 	if resourcePatch != nil {
 		identifier = resourcePatch["geometry"]["default"]
 	}
 
-	var data *struct {
-		FormatVersion string         `json:"format_version"`
-		Geometry      []SkinGeometry `json:"minecraft:geometry"`
-	}
-	err := ParseJson(skin.SkinGeometry, &data)
-	if err != nil {
-		return nil, identifier, err
-	}
-	if data == nil {
-		return nil, identifier, nil
+	if len(skin.SkinGeometry) == 0 {
+		return identifier, "", nil, nil
 	}
 
-	if data.FormatVersion == "1.8.0" {
-		var m geom180 = geom180{
-			id: identifier,
-		}
-		err := ParseJson(skin.SkinGeometry, &m)
-		if err != nil {
-			return nil, "", err
-		}
-		geom := m.m[identifier]
-		return &SkinGeometryFile{
-			FormatVersion: data.FormatVersion,
-			Geometry: []SkinGeometry{
-				{
-					Description: SkinGeometryDescription{
-						Identifier:    identifier,
-						TextureWidth:  json.Number(strconv.Itoa(int(geom.TextureWidth))),
-						TextureHeight: json.Number(strconv.Itoa(int(geom.TextureHeight))),
-					},
-					Bones: geom.Bones,
-				},
-			},
-		}, identifier, nil
+	var ver struct {
+		FormatVersion string `json:"format_version"`
 	}
-
-	return &SkinGeometryFile{
-		FormatVersion: string(skin.GeometryDataEngineVersion),
-		Geometry:      data.Geometry,
-	}, identifier, nil
+	if err := utils.ParseJson(skin.SkinGeometry, &ver); err != nil {
+		return "", "", nil, err
+	}
+	if ver.FormatVersion == "1.8.0" {
+		geometry, err := parseGeometry180(skin.SkinGeometry, identifier)
+		return identifier, ver.FormatVersion, geometry, err
+	} else {
+		var data struct {
+			Geometry []SkinGeometry `json:"minecraft:geometry"`
+		}
+		if err := utils.ParseJson(skin.SkinGeometry, &data); err != nil {
+			return "", "", nil, err
+		}
+		if len(data.Geometry) == 0 {
+			return identifier, ver.FormatVersion, nil, nil
+		}
+		var geometry *SkinGeometry
+		if identifier == "" {
+			geometry = &data.Geometry[0]
+			identifier = geometry.Description.Identifier
+		} else {
+			for _, geom := range data.Geometry {
+				if geom.Description.Identifier == identifier {
+					geometry = &geom
+					break
+				}
+			}
+		}
+		return identifier, ver.FormatVersion, geometry, nil
+	}
 }

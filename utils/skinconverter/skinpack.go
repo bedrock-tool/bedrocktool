@@ -1,4 +1,4 @@
-package utils
+package skinconverter
 
 import (
 	"encoding/json"
@@ -11,6 +11,7 @@ import (
 	"strconv"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
+	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/google/uuid"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
@@ -65,7 +66,7 @@ func (s *SkinPack) Latest() *Skin {
 	return s.skins[len(s.skins)-1]
 }
 
-func write112Geometry(fs WriterFS, geometryName string, geometry *SkinGeometry) error {
+func write112Geometry(fs utils.WriterFS, geometryName string, geometry *SkinGeometry) error {
 	f, err := fs.Create(fmt.Sprintf("geometry-%s.json", geometryName))
 	if err != nil {
 		return err
@@ -79,7 +80,7 @@ func write112Geometry(fs WriterFS, geometryName string, geometry *SkinGeometry) 
 	})
 }
 
-func writePng(fs WriterFS, filename string, img image.Image) error {
+func writePng(fs utils.WriterFS, filename string, img image.Image) error {
 	f, err := fs.Create(filename)
 	if err != nil {
 		return errors.New(locale.Loc("failed_write", locale.Strmap{"Part": "Meta", "Path": filename, "Err": err}))
@@ -93,7 +94,7 @@ func writePng(fs WriterFS, filename string, img image.Image) error {
 
 func (sp *SkinPack) Save(fpath string) error {
 	os.MkdirAll(fpath, 0o755)
-	fs := OSWriter{Base: fpath}
+	fs := utils.OSWriter{Base: fpath}
 
 	var skinsJson struct {
 		Skins []skinEntry `json:"skins"`
@@ -136,20 +137,21 @@ func (sp *SkinPack) Save(fpath string) error {
 		}
 
 		if skin.HaveGeometry() {
-			geometry, geometryName, err := skin.getGeometry()
+			identifier, formatVersion, geometry, err := skin.ParseGeometry()
 			if err != nil {
 				logrus.Warnf("failed to decode geometry %s %v", skinName, err)
 			}
+			_ = formatVersion
 			if geometry != nil {
-				err := write112Geometry(fs, geometryName, geometry)
+				err := write112Geometry(fs, identifier, geometry)
 				if err != nil {
 					logrus.Warnf("failed to write geometry %s %v", skinName, err)
 				}
-				geometryJson[geometryName] = SkinGeometry_Old{
+				geometryJson[identifier] = SkinGeometry_Old{
 					SkinGeometryDescription: geometry.Description,
 					Bones:                   geometry.Bones,
 				}
-				entry.Geometry = geometryName
+				entry.Geometry = identifier
 			}
 		}
 		skinsJson.Skins = append(skinsJson.Skins, entry)
@@ -201,7 +203,7 @@ func (sp *SkinPack) Save(fpath string) error {
 			},
 		}
 
-		if err := WriteManifest(&manifest, fs, ""); err != nil {
+		if err := utils.WriteManifest(&manifest, fs, ""); err != nil {
 			return err
 		}
 	}

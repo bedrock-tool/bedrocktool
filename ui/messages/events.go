@@ -48,6 +48,10 @@ type EventUpdateDownloadProgress struct {
 	Progress int
 }
 
+type EventUpdateDoInstall struct {
+	Filepath string
+}
+
 type EventError struct {
 	Error error
 }
