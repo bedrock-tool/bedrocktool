@@ -206,19 +206,21 @@ func (b *Blobcache) finishWait(reply *packet.ClientCacheBlobStatus, wait *server
 		b.onHitBlobs(hitBlobs)
 	}
 
+	// queue up the misses to avoid too many in flight
+	if len(reply.MissHashes) > 0 && len(b.serverWait) > maxInflightBlobs && false {
+		replyCopy := *reply
+		reply.MissHashes = nil
+		b.queued = append(b.queued, &replyCopy)
+		b.log.Tracef("queued %v", replyCopy.MissHashes)
+	}
+
 	// send reply if its not empty
 	if len(reply.HitHashes)+len(reply.MissHashes) > 0 {
 		//reply.MissHashes = removeDuplicate(reply.MissHashes)
 		//reply.HitHashes = removeDuplicate(reply.HitHashes)
-
-		if len(b.serverWait) > maxInflightBlobs {
-			b.queued = append(b.queued, reply)
-			b.log.Tracef("queing %v", reply.MissHashes)
-		} else {
-			err := b.writeServerPacket(reply)
-			if err != nil {
-				return nil, err
-			}
+		err := b.writeServerPacket(reply)
+		if err != nil {
+			return nil, err
 		}
 	}
 
@@ -409,7 +411,7 @@ func (b *Blobcache) HandleClientCacheBlobStatus(pk *packet.ClientCacheBlobStatus
 		blobs = append(blobs, protocol.CacheBlob{Hash: blobHash, Payload: blob})
 	}
 
-	if wait.count == 0 {
+	if len(blobs) > 0 {
 		client := b.getClient()
 		return client.WritePacket(&packet.ClientCacheMissResponse{
 			Blobs: blobs,

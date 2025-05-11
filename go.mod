@@ -8,6 +8,7 @@ replace github.com/brentp/intintmap => github.com/brentp/intintmap v0.0.0-201902
 require (
 	gioui.org v0.8.0
 	gioui.org/x v0.8.1
+	git.wow.st/gmp/jni v0.0.0-20210610011705-34026c7e22d0
 	github.com/OneOfOne/xxhash v1.2.8
 	github.com/chzyer/readline v1.5.1
 	github.com/cloudfoundry/jibber_jabber v0.0.0-20151120183258-bcc4c8345a21
@@ -45,7 +46,6 @@ require (
 require (
 	aead.dev/minisign v0.3.0 // indirect
 	gioui.org/shader v1.0.8 // indirect
-	git.wow.st/gmp/jni v0.0.0-20210610011705-34026c7e22d0 // indirect
 	github.com/brentp/intintmap v0.0.0-20230108034600-4d14af6efe11 // indirect
 	github.com/changkun/lockfree v0.0.1 // indirect
 	github.com/df-mc/worldupgrader v1.0.20-0.20250218221316-e2a2610f4655 // indirect

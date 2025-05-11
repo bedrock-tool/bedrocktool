@@ -382,10 +382,11 @@ func (s *Session) connectServer(connectInfo *utils.ConnectInfo) (err error) {
 			}
 			return s.clientData
 		},
-		EarlyConnHandler: func(c *minecraft.Conn) {
-			s.Server = c
-			s.rpHandler.SetServer(c)
-			c.ResourcePackHandler = s.rpHandler
+		EarlyConnHandler: func(conn *minecraft.Conn) {
+			s.Server = conn
+			s.rpHandler.SetServer(conn)
+			conn.ResourcePackHandler = s.rpHandler
+			conn.SetPrePlayPacketHandler(s.serverPrePlayHandler)
 		},
 	}
 	for range 3 {
@@ -485,13 +486,22 @@ func (s *Session) connectClient(connectInfo *utils.ConnectInfo) (err error) {
 		}
 	}()
 
-	_, err = s.listener.Accept()
+	_, err = s.listener.AcceptMinecraft()
 	if err != nil {
 		return err
 	}
 	accepted = true
 	logrus.Info("Client Connected")
 	return nil
+}
+
+func (s *Session) serverPrePlayHandler(conn *minecraft.Conn, pk packet.Packet, timeReceived time.Time) (handled bool, err error) {
+	switch pk := pk.(type) {
+	case *packet.BiomeDefinitionList:
+		err = s.ClientWritePacket(pk)
+		return true, err
+	}
+	return false, nil
 }
 
 func (s *Session) proxyLoop(ctx context.Context, toServer bool) (err error) {
@@ -526,9 +536,6 @@ func (s *Session) proxyLoop(ctx context.Context, toServer bool) (err error) {
 			forward, process, err = s.blobPacketsFromServer(pk, timeReceived, false)
 			if err != nil {
 				return err
-			}
-			if pk.ID() == packet.IDCompressedBiomeDefinitionList {
-				forward = nil
 			}
 		} else {
 			if pk.ID() == packet.IDClientCacheBlobStatus {

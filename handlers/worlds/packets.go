@@ -15,7 +15,6 @@ import (
 	"github.com/df-mc/dragonfly/server/item/inventory"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/go-gl/mathgl/mgl32"
-	"github.com/sandertv/gophertunnel/minecraft/nbt"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sirupsen/logrus"
@@ -103,22 +102,15 @@ func (w *worldsHandler) packetHandlerPreLogin(_pk packet.Packet, timeReceived ti
 		w.serverState.behaviorPack.ApplyComponentEntries(pk.Items)
 
 	case *packet.BiomeDefinitionList:
-		var biomes map[string]any
-		err := nbt.UnmarshalEncoding(pk.SerialisedBiomeDefinitions, &biomes, nbt.NetworkLittleEndian)
-		if err != nil {
-			w.log.WithField("packet", "BiomeDefinitionList").Error(err)
-		}
-
-		for k, v := range biomes {
-			_, ok := w.serverState.biomes.BiomeByName(k)
+		for _, biome := range pk.BiomeDefinitions {
+			biomeName := pk.StringList[biome.NameIndex]
+			_, ok := w.serverState.biomes.BiomeByName(biomeName)
 			if !ok {
-				w.serverState.biomes.Register(&customBiome{
-					name: k,
-					data: v.(map[string]any),
-				})
+				w.serverState.biomes.Register(&customBiome{name: biomeName, biome: biome, pk: pk})
+				w.serverState.behaviorPack.AddBiome(biomeName, biome)
 			}
 		}
-		w.serverState.behaviorPack.AddBiomes(biomes)
+
 	}
 
 	return _pk, nil
