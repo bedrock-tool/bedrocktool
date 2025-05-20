@@ -150,6 +150,9 @@ func (m *MapUI) Start(ctx context.Context) {
 					if errors.Is(err, net.ErrClosed) {
 						return
 					}
+					if errors.Is(err, context.Canceled) {
+						return
+					}
 					m.log.Error(err)
 					return
 				}
@@ -165,6 +168,9 @@ func (m *MapUI) Start(ctx context.Context) {
 			err := m.w.session.ClientWritePacket(&mapItemPacket)
 			if err != nil {
 				if errors.Is(err, net.ErrClosed) {
+					return
+				}
+				if errors.Is(err, context.Canceled) {
 					return
 				}
 				m.log.Error(err)

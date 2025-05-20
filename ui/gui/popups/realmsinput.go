@@ -87,7 +87,7 @@ func (r *RealmsList) Layout(gtx C, th *material.Theme) D {
 		r.loading = true
 		go func() {
 			if !utils.Auth.LoggedIn() {
-				<-utils.RequestLogin()
+				<-utils.Auth.RequestLogin()
 			}
 			err := r.Load()
 			if err != nil {

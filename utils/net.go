@@ -24,7 +24,6 @@ func GetLocalIP() (string, error) {
 	}
 
 	for _, iface := range interfaces {
-		fmt.Printf("%v\n", iface)
 		if iface.Flags&net.FlagLoopback != 0 {
 			continue
 		}

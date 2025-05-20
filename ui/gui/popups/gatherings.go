@@ -116,7 +116,7 @@ func (g *Gatherings) Layout(gtx C, th *material.Theme) D {
 		g.loading = true
 		go func() {
 			if !utils.Auth.LoggedIn() {
-				<-utils.RequestLogin()
+				<-utils.Auth.RequestLogin()
 			}
 			err := g.Load()
 			if err != nil {

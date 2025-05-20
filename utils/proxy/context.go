@@ -117,7 +117,7 @@ func (p *Context) Run(withClient bool) (err error) {
 	}
 
 	if p.settings.ConnectInfo.IsReplay() && !utils.Auth.LoggedIn() {
-		err := <-utils.RequestLogin()
+		err := <-utils.Auth.RequestLogin()
 		if err != nil {
 			return err
 		}

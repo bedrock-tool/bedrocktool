@@ -65,9 +65,6 @@ func (t XBLToken) XBL() string {
 
 // RequestXBLToken requests an XBOX Live auth token using the passed Live token pair.
 func RequestXBLToken(ctx context.Context, liveToken *oauth2.Token, relyingParty string, deviceType *DeviceType) (*XBLToken, error) {
-	if deviceType == nil {
-		deviceType = &DeviceTypeAndroid
-	}
 	if !liveToken.Valid() {
 		return nil, fmt.Errorf("live token is no longer valid")
 	}

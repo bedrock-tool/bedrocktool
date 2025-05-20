@@ -26,7 +26,8 @@ type msAuthWriter struct {
 }
 
 func (m *msAuthWriter) AuthCode(uri, code string) {
-	fmt.Fprintf(m.w, "Authenticate at %v using the code %v.\n", uri, code)
+	betterUri := "https://login.live.com/oauth20_remoteconnect.srf?otc=" + code
+	fmt.Fprintf(m.w, "Authenticate at %s\n", betterUri)
 }
 
 func (m *msAuthWriter) Finished(err error) {

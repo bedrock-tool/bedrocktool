@@ -69,12 +69,6 @@ func (a *authsrv) SetHandler(handler xbox.MSAuthHandler) (err error) {
 }
 
 func (a *authsrv) Login(ctx context.Context, deviceType *xbox.DeviceType) (err error) {
-	if deviceType == nil {
-		deviceType = a.token.DeviceType2()
-	}
-	if deviceType == nil {
-		deviceType = &xbox.DeviceTypeAndroid
-	}
 	liveToken, err := xbox.RequestLiveTokenWriter(ctx, deviceType, a.handler)
 	if err != nil {
 		return err
@@ -101,7 +95,7 @@ func (a *authsrv) refreshLiveToken() error {
 	}
 
 	a.log.Info("Refreshing Microsoft Token")
-	liveToken, err := xbox.RefreshToken(a.token.LiveToken(), a.token.DeviceType2())
+	liveToken, err := xbox.RefreshToken(a.token.LiveToken(), a.token.XboxDeviceType())
 	if err != nil {
 		return err
 	}
@@ -169,7 +163,7 @@ func (t *tokenInfo) LiveToken() *oauth2.Token {
 	return t.Token
 }
 
-func (t *tokenInfo) DeviceType2() *xbox.DeviceType {
+func (t *tokenInfo) XboxDeviceType() *xbox.DeviceType {
 	switch t.DeviceType {
 	case "Android":
 		return &xbox.DeviceTypeAndroid
@@ -227,7 +221,7 @@ func (a *authsrv) PlayfabXblToken(ctx context.Context) (*xbox.XBLToken, error) {
 	if err != nil {
 		return nil, err
 	}
-	xboxToken, err := xbox.RequestXBLToken(ctx, liveToken, "rp://playfabapi.com/", &xbox.DeviceTypeAndroid)
+	xboxToken, err := xbox.RequestXBLToken(ctx, liveToken, "rp://playfabapi.com/", a.token.XboxDeviceType())
 	if err != nil {
 		return nil, err
 	}
@@ -396,7 +390,7 @@ func (a *authsrv) authChain(ctx context.Context) (key *ecdsa.PrivateKey, chain s
 	if err != nil {
 		return nil, "", fmt.Errorf("request Live Connect token: %w", err)
 	}
-	xsts, err := xbox.RequestXBLToken(ctx, liveToken, "https://multiplayer.minecraft.net/", a.token.DeviceType2())
+	xsts, err := xbox.RequestXBLToken(ctx, liveToken, "https://multiplayer.minecraft.net/", a.token.XboxDeviceType())
 	if err != nil {
 		return nil, "", fmt.Errorf("request XBOX Live token: %w", err)
 	}
@@ -417,23 +411,27 @@ var authCtxCancel atomic.Pointer[context.CancelFunc]
 
 func CancelLogin() {
 	cancel := authCtxCancel.Swap(nil)
-	(*cancel)()
+	if cancel != nil {
+		(*cancel)()
+	}
 }
 
-func RequestLogin() chan error {
+var defaultDeviceType = &xbox.DeviceTypeAndroid
+
+func (a *authsrv) RequestLogin() chan error {
 	errC := make(chan error, 1)
+	ctx, cancel := context.WithCancel(context.Background())
+	authCtxCancel.Store(&cancel)
 	go func() {
-		ctx, cancel := context.WithCancel(context.Background())
-		authCtxCancel.Store(&cancel)
-		deviceType := &xbox.DeviceTypeAndroid
-		err := Auth.Login(ctx, deviceType)
+		defer cancel()
+		defer close(errC)
+		err := a.Login(ctx, defaultDeviceType)
 		messages.SendEvent(&messages.EventAuthFinished{
 			Error: err,
 		})
 		if err != nil {
 			errC <- err
 		}
-		close(errC)
 	}()
 	return errC
 }

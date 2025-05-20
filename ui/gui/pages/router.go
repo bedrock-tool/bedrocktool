@@ -210,7 +210,7 @@ func (r *Router) Layout(gtx layout.Context, th *material.Theme) layout.Dimension
 func (r *Router) layoutLoginButton(gtx layout.Context, fg, bg color.NRGBA) layout.Dimensions {
 	if r.loginButton.Clicked(gtx) {
 		if !utils.Auth.LoggedIn() {
-			utils.RequestLogin()
+			utils.Auth.RequestLogin()
 		} else {
 			utils.Auth.Logout()
 		}

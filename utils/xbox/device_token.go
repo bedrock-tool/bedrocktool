@@ -41,8 +41,8 @@ var (
 		DeviceType: "Win32",
 		ClientID:   "0000000040159362",
 		TitleID:    "896928775",
-		Version:    "10.0.0",
-		UserAgent:  "XAL",
+		Version:    "10.0.25398.4909",
+		UserAgent:  "XAL Win32 2021.11.20220411.002",
 	}
 	DeviceTypeNintendo = DeviceType{
 		DeviceType: "Nintendo",
@@ -69,14 +69,31 @@ type deviceToken struct {
 // obtainDeviceToken sends a POST request to the device auth endpoint using the ECDSA private key passed to
 // sign the request.
 func obtainDeviceToken(ctx context.Context, c *http.Client, key *ecdsa.PrivateKey, deviceType *DeviceType) (token *deviceToken, err error) {
-	var ProofOfPossession string
+	var properties = map[string]any{
+		"AuthMethod": "ProofOfPossession",
+		"Id":         "",
+		"DeviceType": deviceType.DeviceType,
+		"Version":    deviceType.Version,
+		"ProofKey": map[string]any{
+			"crv": "P-256",
+			"alg": "ES256",
+			"use": "sig",
+			"kty": "EC",
+			"x":   base64.RawURLEncoding.EncodeToString(key.PublicKey.X.Bytes()),
+			"y":   base64.RawURLEncoding.EncodeToString(key.PublicKey.Y.Bytes()),
+		},
+	}
+
 	switch deviceType.DeviceType {
 	case "Android", "Nintendo":
-		ProofOfPossession = "{" + uuid.NewString() + "}"
+		properties["Id"] = "{" + uuid.NewString() + "}"
 	case "iOS":
-		ProofOfPossession = strings.ToUpper(uuid.NewString())
-	case "Win32", "Playstation":
-		ProofOfPossession = uuid.NewString()
+		properties["Id"] = strings.ToUpper(uuid.NewString())
+	case "Playstation":
+		properties["Id"] = uuid.NewString()
+	case "Win32", "Xbox":
+		properties["Id"] = "{" + strings.ToUpper(uuid.NewString()) + "}"
+		properties["SerialNumber"] = properties["Id"]
 	default:
 		return nil, errors.New("unknown device type")
 	}
@@ -84,24 +101,17 @@ func obtainDeviceToken(ctx context.Context, c *http.Client, key *ecdsa.PrivateKe
 	data, _ := json.Marshal(map[string]any{
 		"RelyingParty": "http://auth.xboxlive.com",
 		"TokenType":    "JWT",
-		"Properties": map[string]any{
-			"AuthMethod": "ProofOfPossession",
-			"Id":         ProofOfPossession,
-			"DeviceType": deviceType.DeviceType,
-			"Version":    deviceType.Version,
-			"ProofKey": map[string]any{
-				"crv": "P-256",
-				"alg": "ES256",
-				"use": "sig",
-				"kty": "EC",
-				"x":   base64.RawURLEncoding.EncodeToString(key.PublicKey.X.Bytes()),
-				"y":   base64.RawURLEncoding.EncodeToString(key.PublicKey.Y.Bytes()),
-			},
-		},
+		"Properties":   properties,
 	})
 	request, _ := http.NewRequestWithContext(ctx, "POST", "https://device.auth.xboxlive.com/device/authenticate", bytes.NewReader(data))
-	request.Header.Set("x-xbl-contract-version", "1")
+	request.Header.Set("X-Xbl-contract-version", "1")
 	request.Header.Set("User-Agent", deviceType.UserAgent)
+	request.Header.Set("Content-Type", "application/json;charset=utf-8")
+	request.Header.Set("Accept", "application/json")
+	request.Header.Set("Pragma", "no-cache")
+	request.Header.Set("Cache-Control", "no-store, must-revalidate, no-cache")
+	request.Header.Set("Accept-Encoding", "gzip, deflate, compress")
+	request.Header.Set("Accept-Language", "en-US, en;q=0.9")
 	sign(request, data, key)
 
 	resp, err := c.Do(request)
