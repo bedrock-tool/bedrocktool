@@ -125,7 +125,7 @@ func (c *ConnectInfo) IsReplay() bool {
 }
 
 func (c *ConnectInfo) SetRealm(realm *realms.Realm) {
-	c.Value = "realm:" + c.realm.Name
+	c.Value = "realm:" + realm.Name
 	c.realm = realm
 }
 

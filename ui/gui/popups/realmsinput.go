@@ -55,16 +55,25 @@ func (r *RealmsList) Load() error {
 	if !utils.Auth.LoggedIn() {
 		return errors.New("not Logged In")
 	}
-	realms, err := utils.Auth.Realms().Realms(context.Background())
+	realmsList, err := utils.Auth.Realms().Realms(context.Background())
 	if err != nil {
 		return err
 	}
 	r.realms = nil
-	for _, realm := range realms {
+	for _, realm := range realmsList {
 		r.realms = append(r.realms, &realmButton{
 			Realm: &realm,
 		})
 	}
+
+	/*
+		r.realms = append(r.realms, &realmButton{
+			Realm: &realms.Realm{
+				ID:   1,
+				Name: "test",
+			},
+		})
+	*/
 
 	r.loading = false
 	r.loaded = true
@@ -114,6 +123,7 @@ func (r *RealmsList) Layout(gtx C, th *material.Theme) D {
 				}
 
 				return material.List(th, &r.list).Layout(gtx, len(r.realms), func(gtx C, index int) D {
+					gtx.Constraints.Max.Y = min(gtx.Constraints.Max.Y, 60)
 					realm := r.realms[index]
 					return material.ButtonLayoutStyle{
 						Background:   component.WithAlpha(th.ContrastBg, 0x80),
@@ -121,7 +131,7 @@ func (r *RealmsList) Layout(gtx C, th *material.Theme) D {
 						CornerRadius: 8,
 					}.Layout(gtx, func(gtx C) D {
 						return layout.UniformInset(15).Layout(gtx, func(gtx C) D {
-							return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+							return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 								layout.Rigid(material.Label(th, th.TextSize, realm.Name).Layout),
 							)
 						})

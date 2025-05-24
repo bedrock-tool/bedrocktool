@@ -44,23 +44,19 @@ func (a *addressInput) GetConnectInfo() *utils.ConnectInfo {
 	return a.connectInfo
 }
 
-func (a *addressInput) setRealm(realm *realms.Realm) {
-	a.connectInfo.SetRealm(realm)
-	a.editor.SetText(a.connectInfo.Value)
-}
-
-func (a *addressInput) setGathering(gathering *discovery.Gathering) {
-	a.connectInfo.SetGathering(gathering)
-	a.editor.SetText(a.connectInfo.Value)
-}
-
 func (a *addressInput) Layout(gtx C, th *material.Theme) D {
 	if a.showRealmsList.Clicked(gtx) {
-		a.g.ShowPopup(popups.NewRealmsList(a.g, a.setRealm))
+		a.g.ShowPopup(popups.NewRealmsList(a.g, func(realm *realms.Realm) {
+			a.connectInfo.SetRealm(realm)
+			a.editor.SetText(a.connectInfo.Value)
+		}))
 	}
 
 	if a.showGatherings.Clicked(gtx) {
-		a.g.ShowPopup(popups.NewGatherings(a.g, a.setGathering))
+		a.g.ShowPopup(popups.NewGatherings(a.g, func(gathering *discovery.Gathering) {
+			a.connectInfo.SetGathering(gathering)
+			a.editor.SetText(a.connectInfo.Value)
+		}))
 	}
 
 	return layout.UniformInset(5).Layout(gtx, func(gtx C) D {
