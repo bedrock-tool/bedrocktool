@@ -221,7 +221,7 @@ func (g *GUI) Explorer() *explorer.Explorer {
 
 func (g *GUI) OpenUrl(uri string) {
 	_uri, _ := url.Parse(uri)
-	err := g.hyperlink.Open(_uri)
+	err := g.hyperlink.OpenUnsafe(_uri)
 	if err != nil {
 		logrus.Errorf("OpenUrl: %s", err)
 	}
