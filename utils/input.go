@@ -32,7 +32,7 @@ func UserInput(ctx context.Context, q string, validator func(string) bool) (stri
 }
 
 var (
-	realmRegex     = regexp.MustCompile("realm:(?P<Name>.*)(?::(?P<ID>.*))+")
+	realmRegex     = regexp.MustCompile("realm:(?P<Name>.*)")
 	pcapRegex      = regexp.MustCompile(`(?P<Filename>(?P<Name>.*)\.pcap2)(?:\?(?P<Args>.*))?`)
 	gatheringRegex = regexp.MustCompile("gathering:(?P<Title>.*)+")
 )
