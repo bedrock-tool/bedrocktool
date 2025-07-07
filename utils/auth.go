@@ -279,7 +279,7 @@ func (a *authsrv) Gatherings(ctx context.Context) (*discovery.GatheringsService,
 
 func (a *authsrv) Realms() *realms.Client {
 	if a.realms == nil {
-		a.realms = realms.NewClient(a, "")
+		a.realms = realms.NewClient(a, nil, "")
 	}
 	return a.realms
 }
