@@ -89,6 +89,12 @@ func WriteSkinTexture(fs utils.WriterFS, skinName string, skin *Skin) error {
 	return writePng(fs, skinName+".png", skinImage)
 }
 
+func WriteCapeTexture(fs utils.WriterFS, skinName string, skin *Skin) error {
+	capeImage := image.NewNRGBA(image.Rect(0, 0, int(skin.CapeImageWidth), int(skin.CapeImageHeight)))
+	copy(capeImage.Pix, skin.CapeData)
+	return writePng(fs, skinName+"_cape.png", capeImage)
+}
+
 func (sp *SkinPack) Save(fs utils.WriterFS) error {
 	var skinsJson struct {
 		Skins []skinEntry `json:"skins"`
@@ -106,9 +112,8 @@ func (sp *SkinPack) Save(fs utils.WriterFS) error {
 		}
 
 		if skin.HaveCape() {
-			capeImage := image.NewNRGBA(image.Rect(0, 0, int(skin.CapeImageWidth), int(skin.CapeImageHeight)))
-			copy(capeImage.Pix, skin.CapeData)
-			if err := writePng(fs, skinName+"_cape.png", capeImage); err != nil {
+			err := WriteCapeTexture(fs, skinName, skin)
+			if err != nil {
 				return err
 			}
 		}

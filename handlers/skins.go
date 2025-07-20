@@ -158,6 +158,14 @@ func (s *SkinSaver) AddSkin(player *skinPlayer, newSkin *protocol.Skin) (*skinco
 			return skin, false
 		}
 
+		if skin.HaveCape() {
+			err := skinconverter.WriteCapeTexture(s.fs, skinName, skin)
+			if err != nil {
+				s.log.WithError(err).Error("failed to write cape texture")
+				return skin, false
+			}
+		}
+
 		return skin, true
 	} else {
 		if player.SkinPack == nil {
