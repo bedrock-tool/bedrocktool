@@ -2,6 +2,7 @@ package subcommands
 
 import (
 	"context"
+	"regexp"
 
 	"github.com/bedrock-tool/bedrocktool/handlers"
 	"github.com/bedrock-tool/bedrocktool/locale"
@@ -13,7 +14,7 @@ import (
 type SkinSettings struct {
 	ProxySettings proxy.ProxySettings
 
-	Filter      string `opt:"Name Filter" flag:"filter"`
+	Filter      string `opt:"Name Regex (save if it matches)" flag:"filter"`
 	NoProxy     bool   `opt:"No Proxy" flag:"no-proxy"`
 	TextureOnly bool   `opt:"Texture Only" flag:"texture-only"`
 	Timestamped bool   `opt:"Timestamped" flag:"timestamped" default:"true"`
@@ -48,7 +49,15 @@ func (SkinCMD) Run(ctx context.Context, settings any) error {
 		})
 	}
 
-	p.AddHandler(handlers.NewSkinSaver(handleSkin, skinSettings.Filter, skinSettings.TextureOnly, skinSettings.Timestamped))
+	var playerNameFilter *regexp.Regexp
+	if skinSettings.Filter != "" {
+		playerNameFilter, err = regexp.Compile(skinSettings.Filter)
+		if err != nil {
+			return err
+		}
+	}
+
+	p.AddHandler(handlers.NewSkinSaver(handleSkin, playerNameFilter, skinSettings.TextureOnly, skinSettings.Timestamped))
 
 	p.AddHandler(func() *proxy.Handler {
 		return &proxy.Handler{

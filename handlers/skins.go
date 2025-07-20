@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"math"
 	"path"
+	"regexp"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/utils"
@@ -25,7 +25,7 @@ type SkinSaver struct {
 	log     *logrus.Entry
 	session *proxy.Session
 
-	PlayerNameFilter  string
+	PlayerNameFilter  *regexp.Regexp
 	OnlyIfHasGeometry bool
 	TextureOnly       bool
 
@@ -34,7 +34,7 @@ type SkinSaver struct {
 	playersByName map[string]uuid.UUID
 }
 
-func NewSkinSaver(skinCallback func(SkinAdd), PlayerNameFilter string, TextureOnly, Timestamped bool) func() *proxy.Handler {
+func NewSkinSaver(skinCallback func(SkinAdd), PlayerNameFilter *regexp.Regexp, TextureOnly, Timestamped bool) func() *proxy.Handler {
 	return func() *proxy.Handler {
 		s := &SkinSaver{
 			log: logrus.WithField("part", "SkinSaver"),
@@ -55,6 +55,7 @@ func NewSkinSaver(skinCallback func(SkinAdd), PlayerNameFilter string, TextureOn
 					basePath = path.Join(basePath, ts)
 				}
 				s.fs = utils.OSWriter{Base: basePath}
+
 				return nil
 			},
 			PacketCallback: func(session *proxy.Session, pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
@@ -126,8 +127,10 @@ func (s *SkinSaver) ensureFinalName(player *skinPlayer) {
 func (s *SkinSaver) AddSkin(player *skinPlayer, newSkin *protocol.Skin) (*skinconverter.Skin, bool) {
 	s.ensureFinalName(player)
 
-	if !strings.HasPrefix(player.Name, s.PlayerNameFilter) {
-		return nil, false
+	if s.PlayerNameFilter != nil {
+		if !s.PlayerNameFilter.MatchString(player.Name) {
+			return nil, false
+		}
 	}
 
 	skin := &skinconverter.Skin{Skin: newSkin}
