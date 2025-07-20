@@ -13,17 +13,13 @@ import (
 type SkinSettings struct {
 	ProxySettings proxy.ProxySettings
 
-	Filter  string `opt:"Name Filter" flag:"filter"`
-	NoProxy bool   `opt:"No Proxy" flag:"no-proxy"`
+	Filter      string `opt:"Name Filter" flag:"filter"`
+	NoProxy     bool   `opt:"No Proxy" flag:"no-proxy"`
+	TextureOnly bool   `opt:"Texture Only" flag:"texture-only"`
+	Timestamped bool   `opt:"Timestamped" flag:"timestamped" default:"true"`
 }
 
-type SkinCMD struct {
-	ServerAddress     string
-	ListenAddress     string
-	Filter            string
-	NoProxy           bool
-	EnableClientCache bool
-}
+type SkinCMD struct{}
 
 func (SkinCMD) Name() string {
 	return "skins"
@@ -45,12 +41,14 @@ func (SkinCMD) Run(ctx context.Context, settings any) error {
 		return err
 	}
 
-	p.AddHandler(handlers.NewSkinSaver(func(sa handlers.SkinAdd) {
+	handleSkin := func(sa handlers.SkinAdd) {
 		messages.SendEvent(&messages.EventPlayerSkin{
 			PlayerName: sa.PlayerName,
 			Skin:       *sa.Skin,
 		})
-	}))
+	}
+
+	p.AddHandler(handlers.NewSkinSaver(handleSkin, skinSettings.Filter, skinSettings.TextureOnly, skinSettings.Timestamped))
 
 	p.AddHandler(func() *proxy.Handler {
 		return &proxy.Handler{

@@ -29,6 +29,7 @@ type authsrv struct {
 	log     *logrus.Entry
 	handler xbox.MSAuthHandler
 	env     string
+	name    string
 
 	token *tokenInfo
 
@@ -42,9 +43,10 @@ var Auth *authsrv = &authsrv{
 }
 
 // reads token from storage if there is one
-func (a *authsrv) Startup(env string) (err error) {
+func (a *authsrv) Startup(env, name string) (err error) {
 	a.token = nil
 	a.env = env
+	a.name = name
 	tokenInfo, err := a.readToken()
 	if errors.Is(err, os.ErrNotExist) || errors.Is(err, errors.ErrUnsupported) {
 		return nil
@@ -55,6 +57,19 @@ func (a *authsrv) Startup(env string) (err error) {
 	a.token = tokenInfo
 
 	return nil
+}
+func (a *authsrv) tokenFileName() string {
+	if a.name == "" {
+		return "token.json"
+	}
+	return "token-" + a.name + ".json"
+}
+
+func (a *authsrv) chainFileName() string {
+	if a.name == "" {
+		return "chain.bin"
+	}
+	return "chain-" + a.name + ".bin"
 }
 
 // if the user is currently logged in or not
@@ -85,8 +100,10 @@ func (a *authsrv) Login(ctx context.Context, deviceType *xbox.DeviceType) (err e
 
 func (a *authsrv) Logout() {
 	a.token = nil
-	os.Remove("token.json")
-	os.Remove("chain.bin")
+	a.realms = nil
+	a.gatherings = nil
+	os.Remove(a.tokenFileName())
+	os.Remove(a.chainFileName())
 }
 
 func (a *authsrv) refreshLiveToken() error {
@@ -182,12 +199,12 @@ func (t *tokenInfo) XboxDeviceType() *xbox.DeviceType {
 
 // writes the livetoken to storage
 func (a *authsrv) writeToken() error {
-	return writeAuth("token.json", *a.token)
+	return writeAuth(a.tokenFileName(), *a.token)
 }
 
 // reads the live token from storage, returns os.ErrNotExist if no token is stored
 func (a *authsrv) readToken() (*tokenInfo, error) {
-	return readAuth[tokenInfo]("token.json")
+	return readAuth[tokenInfo](a.tokenFileName())
 }
 
 var ErrNotLoggedIn = errors.New("not logged in")
@@ -344,11 +361,11 @@ func (c *chain) Expired() bool {
 }
 
 func (a *authsrv) readChain() (*chain, error) {
-	return readAuth[chain]("chain.bin")
+	return readAuth[chain](a.chainFileName())
 }
 
 func (a *authsrv) writeChain(ch *chain) error {
-	return writeAuth("chain.bin", ch)
+	return writeAuth(a.chainFileName(), ch)
 }
 
 func (a *authsrv) Chain(ctx context.Context) (ChainKey *ecdsa.PrivateKey, ChainData string, err error) {
@@ -418,20 +435,13 @@ func CancelLogin() {
 
 var defaultDeviceType = &xbox.DeviceTypeAndroid
 
-func (a *authsrv) RequestLogin() chan error {
-	errC := make(chan error, 1)
+func (a *authsrv) RequestLogin() error {
 	ctx, cancel := context.WithCancel(context.Background())
 	authCtxCancel.Store(&cancel)
-	go func() {
-		defer cancel()
-		defer close(errC)
-		err := a.Login(ctx, defaultDeviceType)
-		messages.SendEvent(&messages.EventAuthFinished{
-			Error: err,
-		})
-		if err != nil {
-			errC <- err
-		}
-	}()
-	return errC
+	defer cancel()
+	err := a.Login(ctx, defaultDeviceType)
+	messages.SendEvent(&messages.EventAuthFinished{
+		Error: err,
+	})
+	return err
 }

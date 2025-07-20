@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -116,13 +115,13 @@ func (p *Context) Run(withClient bool) (err error) {
 		return fmt.Errorf("no address")
 	}
 
-	if p.settings.ConnectInfo.IsReplay() && !utils.Auth.LoggedIn() {
-		err := <-utils.Auth.RequestLogin()
+	if !p.settings.ConnectInfo.IsReplay() && !utils.Auth.LoggedIn() {
+		err := utils.Auth.RequestLogin()
 		if err != nil {
 			return err
 		}
 		if !utils.Auth.LoggedIn() {
-			return errors.New("not Logged In")
+			return utils.ErrNotLoggedIn
 		}
 	}
 

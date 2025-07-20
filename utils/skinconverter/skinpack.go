@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"image"
 	"image/png"
-	"os"
-	"path"
 	"strconv"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
@@ -42,21 +40,14 @@ type skinEntry struct {
 	Type             string `json:"type"`
 }
 
-func NewSkinPack(name, fpath string) *SkinPack {
+func NewSkinPack(name string) *SkinPack {
 	return &SkinPack{
 		Name: name,
 	}
 }
 
-func (s *SkinPack) AddSkin(skin *Skin) bool {
-	sh := skin.Hash()
-	for _, skin2 := range s.skins {
-		if skin2.Hash() == sh {
-			return false
-		}
-	}
+func (s *SkinPack) AddSkin(skin *Skin) {
 	s.skins = append(s.skins, skin)
-	return true
 }
 
 func (s *SkinPack) Latest() *Skin {
@@ -92,10 +83,13 @@ func writePng(fs utils.WriterFS, filename string, img image.Image) error {
 	return nil
 }
 
-func (sp *SkinPack) Save(fpath string) error {
-	os.MkdirAll(fpath, 0o755)
-	fs := utils.OSWriter{Base: fpath}
+func WriteSkinTexture(fs utils.WriterFS, skinName string, skin *Skin) error {
+	skinImage := image.NewNRGBA(image.Rect(0, 0, int(skin.SkinImageWidth), int(skin.SkinImageHeight)))
+	copy(skinImage.Pix, skin.SkinData)
+	return writePng(fs, skinName+".png", skinImage)
+}
 
+func (sp *SkinPack) Save(fs utils.WriterFS) error {
 	var skinsJson struct {
 		Skins []skinEntry `json:"skins"`
 	}
@@ -106,10 +100,8 @@ func (sp *SkinPack) Save(fpath string) error {
 		if i > 0 {
 			skinName += "-" + strconv.Itoa(i)
 		}
-
-		skinImage := image.NewNRGBA(image.Rect(0, 0, int(skin.SkinImageWidth), int(skin.SkinImageHeight)))
-		copy(skinImage.Pix, skin.SkinData)
-		if err := writePng(fs, skinName+".png", skinImage); err != nil {
+		err := WriteSkinTexture(fs, skinName, skin)
+		if err != nil {
 			return err
 		}
 
@@ -171,7 +163,7 @@ func (sp *SkinPack) Save(fpath string) error {
 	}
 
 	{ // skins.json
-		f, err := os.Create(path.Join(fpath, "skins.json"))
+		f, err := fs.Create("skins.json")
 		if err != nil {
 			return err
 		}

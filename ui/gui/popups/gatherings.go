@@ -2,7 +2,6 @@ package popups
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"image"
 	"time"
@@ -66,7 +65,7 @@ func (g *Gatherings) HandleEvent(event any) error {
 
 func (g *Gatherings) Load() error {
 	if !utils.Auth.LoggedIn() {
-		return errors.New("not Logged In")
+		return utils.ErrNotLoggedIn
 	}
 
 	gatheringsClient, err := utils.Auth.Gatherings(context.TODO())
@@ -116,7 +115,7 @@ func (g *Gatherings) Layout(gtx C, th *material.Theme) D {
 		g.loading = true
 		go func() {
 			if !utils.Auth.LoggedIn() {
-				<-utils.Auth.RequestLogin()
+				utils.Auth.RequestLogin()
 			}
 			err := g.Load()
 			if err != nil {

@@ -191,7 +191,7 @@ func (r *Rui) stopSubcommand() {
 
 func (r *Rui) requestLogin() {
 	go func() {
-		err := <-utils.Auth.RequestLogin()
+		err := utils.Auth.RequestLogin()
 		if err != nil {
 			r.toClient <- &messages.EventError{
 				Error: err,

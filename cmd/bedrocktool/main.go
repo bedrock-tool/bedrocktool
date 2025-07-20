@@ -97,7 +97,8 @@ func main() {
 	if !ok {
 		env = "prod"
 	}
-	if err := utils.Auth.Startup(env); err != nil {
+	tokenName, _ := os.LookupEnv("TOKEN_NAME")
+	if err := utils.Auth.Startup(env, tokenName); err != nil {
 		logrus.Fatal(err)
 	}
 

@@ -1,6 +1,7 @@
 package skinconverter
 
 import (
+	"crypto/sha1"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -8,7 +9,6 @@ import (
 
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
-	"github.com/google/uuid"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 )
 
@@ -49,42 +49,10 @@ type geometry180 struct {
 	VisibleBoundsOffset []float64       `json:"visible_bounds_offset,omitempty"`
 }
 
-type geom180 struct {
-	m  map[string]geometry180
-	id string
-}
-
-func (n *geom180) MarshalJSON() ([]byte, error) {
-	m := map[string]any{
-		"format_version": "1.8.0",
-	}
-	for k, v := range n.m {
-		m[k] = v
-	}
-	return json.Marshal(m)
-}
-
-func (n *geom180) UnmarshalJSON(b []byte) error {
-	var m map[string]json.RawMessage
-	err := json.Unmarshal(b, &m)
-	if err != nil {
-		return err
-	}
-	if n.m == nil {
-		n.m = make(map[string]geometry180)
-	}
-	var geom geometry180
-	err = json.Unmarshal(m[n.id], &geom)
-	if err != nil {
-		return err
-	}
-	n.m[n.id] = geom
-	return nil
-}
-
-func (skin *Skin) Hash() uuid.UUID {
+func (skin *Skin) Hash() string {
 	h := append(skin.CapeData, append(skin.SkinData, skin.SkinGeometry...)...)
-	return uuid.NewSHA1(uuid.NameSpaceURL, h)
+	hh := sha1.Sum(h)
+	return string(hh[:])
 }
 
 func (skin *Skin) writeMetadataJson(fs utils.WriterFS, filename string) error {

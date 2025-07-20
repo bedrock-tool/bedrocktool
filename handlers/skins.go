@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -26,16 +27,20 @@ type SkinSaver struct {
 
 	PlayerNameFilter  string
 	OnlyIfHasGeometry bool
-	baseDir           string
+	TextureOnly       bool
 
+	fs            utils.WriterFS
 	playersById   map[uuid.UUID]*skinPlayer
 	playersByName map[string]uuid.UUID
 }
 
-func NewSkinSaver(skinCallback func(SkinAdd)) func() *proxy.Handler {
+func NewSkinSaver(skinCallback func(SkinAdd), PlayerNameFilter string, TextureOnly, Timestamped bool) func() *proxy.Handler {
 	return func() *proxy.Handler {
 		s := &SkinSaver{
 			log: logrus.WithField("part", "SkinSaver"),
+
+			PlayerNameFilter: PlayerNameFilter,
+			TextureOnly:      TextureOnly,
 
 			playersById:   make(map[uuid.UUID]*skinPlayer),
 			playersByName: make(map[string]uuid.UUID),
@@ -44,7 +49,12 @@ func NewSkinSaver(skinCallback func(SkinAdd)) func() *proxy.Handler {
 			Name: "Skin Saver",
 			SessionStart: func(session *proxy.Session, hostname string) error {
 				s.session = session
-				s.baseDir = utils.PathData("skins", hostname)
+				basePath := utils.PathData("skins", hostname)
+				if Timestamped {
+					ts := time.Now().Format("2006-01-02_15-04-05")
+					basePath = path.Join(basePath, ts)
+				}
+				s.fs = utils.OSWriter{Base: basePath}
 				return nil
 			},
 			PacketCallback: func(session *proxy.Session, pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
@@ -64,30 +74,31 @@ type skinPlayer struct {
 	RuntimeID uint64
 	Name      string
 	AltName   string
-	NameFinal bool
+	nameFinal bool
 	Position  mgl32.Vec3
 	SkinPack  *skinconverter.SkinPack
-	gone      bool
+
+	seenSkins map[string]struct{}
+
+	gone bool
 }
 
 // gets player by id, or creates it setting name to the name if one is given
 func (s *SkinSaver) AddOrGetPlayer(id uuid.UUID, name string) *skinPlayer {
 	player, ok := s.playersById[id]
 	if !ok {
-		player = &skinPlayer{
-			UUID: id,
-		}
+		player = &skinPlayer{UUID: id, seenSkins: make(map[string]struct{})}
 		s.playersById[id] = player
 	}
-	if player.Name == "" && name != "" && !player.NameFinal {
+	if player.Name == "" && name != "" {
 		player.Name = utils.CleanupName(name)
 	}
 	return player
 }
 
-func (s *SkinSaver) AddSkin(player *skinPlayer, newSkin *protocol.Skin) (*skinconverter.Skin, bool) {
-	if !player.NameFinal {
-		player.NameFinal = true
+func (s *SkinSaver) ensureFinalName(player *skinPlayer) {
+	if !player.nameFinal {
+		player.nameFinal = true
 		var name = player.Name
 		switch {
 		case player.Name != "":
@@ -110,6 +121,10 @@ func (s *SkinSaver) AddSkin(player *skinPlayer, newSkin *protocol.Skin) (*skinco
 		}
 		s.playersByName[player.Name] = player.UUID
 	}
+}
+
+func (s *SkinSaver) AddSkin(player *skinPlayer, newSkin *protocol.Skin) (*skinconverter.Skin, bool) {
+	s.ensureFinalName(player)
 
 	if !strings.HasPrefix(player.Name, s.PlayerNameFilter) {
 		return nil, false
@@ -120,23 +135,44 @@ func (s *SkinSaver) AddSkin(player *skinPlayer, newSkin *protocol.Skin) (*skinco
 		return nil, false
 	}
 
-	var added bool
-	if player.SkinPack == nil {
-		player.SkinPack = skinconverter.NewSkinPack(player.Name, s.baseDir)
-		creating := fmt.Sprintf("Creating Skinpack for %s", player.Name)
-		s.log.Info(creating)
+	// check for duplicate
+	sh := skin.Hash()
+	_, ok := player.seenSkins[sh]
+	if ok {
+		return skin, false
 	}
-	if player.SkinPack.AddSkin(skin) {
+	player.seenSkins[sh] = struct{}{}
+
+	if s.TextureOnly {
+		skinName := player.Name
+		if len(player.seenSkins) > 1 {
+			skinName += "-" + strconv.Itoa(len(player.seenSkins))
+		}
+
+		err := skinconverter.WriteSkinTexture(s.fs, skinName, skin)
+		if err != nil {
+			s.log.WithError(err).Error("failed to write skin texture")
+			return skin, false
+		}
+
+		return skin, true
+	} else {
+		if player.SkinPack == nil {
+			player.SkinPack = skinconverter.NewSkinPack(player.Name)
+			creating := fmt.Sprintf("Creating Skinpack for %s", player.Name)
+			s.log.Info(creating)
+		}
+		player.SkinPack.AddSkin(skin)
 		addedStr := fmt.Sprintf("Added a skin %s", player.Name)
 		s.session.SendPopup(addedStr)
 		s.log.Info(addedStr)
-		if err := player.SkinPack.Save(path.Join(s.baseDir, player.Name)); err != nil {
+		pfs := utils.SubFS(s.fs, player.Name)
+		err := player.SkinPack.Save(pfs)
+		if err != nil {
 			s.log.Error(err)
 		}
-		added = true
+		return skin, true
 	}
-
-	return skin, added
 }
 
 type SkinAdd struct {

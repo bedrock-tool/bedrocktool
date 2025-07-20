@@ -2,7 +2,6 @@ package popups
 
 import (
 	"context"
-	"errors"
 	"image"
 
 	"gioui.org/layout"
@@ -53,7 +52,7 @@ var _ Popup = &RealmsList{}
 
 func (r *RealmsList) Load() error {
 	if !utils.Auth.LoggedIn() {
-		return errors.New("not Logged In")
+		return utils.ErrNotLoggedIn
 	}
 	realmsList, err := utils.Auth.Realms().Realms(context.Background())
 	if err != nil {
@@ -96,7 +95,7 @@ func (r *RealmsList) Layout(gtx C, th *material.Theme) D {
 		r.loading = true
 		go func() {
 			if !utils.Auth.LoggedIn() {
-				<-utils.Auth.RequestLogin()
+				utils.Auth.RequestLogin()
 			}
 			err := r.Load()
 			if err != nil {
