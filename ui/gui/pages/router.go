@@ -44,6 +44,7 @@ type Router struct {
 	NonModalDrawer bool
 
 	loginButton     widget.Clickable
+	switchButton    widget.Clickable
 	updateButton    widget.Clickable
 	updateAvailable bool
 
@@ -210,7 +211,7 @@ func (r *Router) Layout(gtx layout.Context, th *material.Theme) layout.Dimension
 func (r *Router) layoutLoginButton(gtx layout.Context, fg, bg color.NRGBA) layout.Dimensions {
 	if r.loginButton.Clicked(gtx) {
 		if !utils.Auth.LoggedIn() {
-			utils.Auth.RequestLogin()
+			go utils.Auth.RequestLogin()
 		} else {
 			utils.Auth.Logout()
 		}
@@ -220,16 +221,31 @@ func (r *Router) layoutLoginButton(gtx layout.Context, fg, bg color.NRGBA) layou
 	if utils.Auth.LoggedIn() {
 		text = "Logout"
 	}
+	if utils.Auth.InstName != "" {
+		text += " (" + utils.Auth.InstName + ")"
+	}
 	button := material.Button(r.th, &r.loginButton, text)
 	button.Background.R -= 20
 	button.Background.G -= 20
 	button.Background.B -= 32
-	return button.Layout(gtx)
+	return layout.UniformInset(4).Layout(gtx, button.Layout)
+}
+
+func (r *Router) layoutSwitchInstance(gtx layout.Context, fg, bg color.NRGBA) layout.Dimensions {
+	if r.switchButton.Clicked(gtx) {
+		r.PushPopup(popups.NewSelectAccount(r.g))
+	}
+	button := material.Button(r.th, &r.switchButton, "Switch")
+	button.Background.R -= 20
+	button.Background.G -= 20
+	button.Background.B -= 32
+	return layout.UniformInset(4).Layout(gtx, button.Layout)
 }
 
 func (r *Router) setActions() {
 	var extra []component.AppBarAction
 	extra = append(extra, component.AppBarAction{Layout: r.layoutLoginButton})
+	extra = append(extra, component.AppBarAction{Layout: r.layoutSwitchInstance})
 	extra = append(extra, AppBarSwitch(&r.logToggle, "Logs", &r.th))
 
 	if r.updateAvailable {

@@ -26,10 +26,10 @@ import (
 )
 
 type authsrv struct {
-	log     *logrus.Entry
-	handler xbox.MSAuthHandler
-	env     string
-	name    string
+	log      *logrus.Entry
+	handler  xbox.MSAuthHandler
+	env      string
+	InstName string
 
 	token *tokenInfo
 
@@ -46,7 +46,19 @@ var Auth *authsrv = &authsrv{
 func (a *authsrv) Startup(env, name string) (err error) {
 	a.token = nil
 	a.env = env
-	a.name = name
+	a.InstName = name
+	return a.readTokenStartup()
+}
+
+func (a *authsrv) ChangeName(name string) error {
+	a.token = nil
+	a.realms = nil
+	a.gatherings = nil
+	a.InstName = name
+	return a.readTokenStartup()
+}
+
+func (a *authsrv) readTokenStartup() error {
 	tokenInfo, err := a.readToken()
 	if errors.Is(err, os.ErrNotExist) || errors.Is(err, errors.ErrUnsupported) {
 		return nil
@@ -55,21 +67,21 @@ func (a *authsrv) Startup(env, name string) (err error) {
 		return err
 	}
 	a.token = tokenInfo
-
 	return nil
 }
+
 func (a *authsrv) tokenFileName() string {
-	if a.name == "" {
+	if a.InstName == "" {
 		return "token.json"
 	}
-	return "token-" + a.name + ".json"
+	return "token-" + a.InstName + ".json"
 }
 
 func (a *authsrv) chainFileName() string {
-	if a.name == "" {
+	if a.InstName == "" {
 		return "chain.bin"
 	}
-	return "chain-" + a.name + ".bin"
+	return "chain-" + a.InstName + ".bin"
 }
 
 // if the user is currently logged in or not
