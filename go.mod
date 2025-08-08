@@ -16,7 +16,7 @@ require (
 	github.com/denisbrodbeck/machineid v1.0.1
 	github.com/df-mc/dragonfly v0.10.3
 	github.com/df-mc/goleveldb v1.1.9
-	github.com/dop251/goja v0.0.0-20250309171923-bcd7cc6bf64c
+	github.com/dop251/goja v0.0.0-20250630131328-58d95d85e994
 	github.com/dop251/goja_nodejs v0.0.0-20250409162600-f7acab6894b0
 	github.com/fatih/color v1.18.0
 	github.com/gioui-plugins/gio-plugins v0.1.1-0.20241219101404-5bad9f318498
@@ -39,7 +39,7 @@ require (
 	golang.org/x/exp/shiny v0.0.0-20250408133849-7e4ce0ab07d0
 	golang.org/x/oauth2 v0.29.0
 	golang.org/x/sys v0.32.0
-	golang.org/x/text v0.24.0
+	golang.org/x/text v0.28.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -57,7 +57,7 @@ require (
 	github.com/go-text/typesetting v0.3.0 // indirect
 	github.com/godbus/dbus/v5 v5.0.6 // indirect
 	github.com/golang/snappy v1.0.0 // indirect
-	github.com/google/pprof v0.0.0-20250418163039-24c5476c6587 // indirect
+	github.com/google/pprof v0.0.0-20250630185457-6e76a2b096b5 // indirect
 	github.com/lufia/plan9stats v0.0.0-20250317134145-8bc96cf8fc35 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect

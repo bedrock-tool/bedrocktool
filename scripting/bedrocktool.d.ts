@@ -231,17 +231,17 @@ declare const events: {
 };
 
 interface FileWriter {
-	write(data: string): void | Error;
-	close(): void | Error;
+	write(data: string): void;
+	close(): void;
 }
 
 interface FileReader {
-	read(): string | Error;
-	close(): void | Error;
+	read(): string;
+	close(): void;
 }
 
 interface FileSystem {
-	create(name: string): FileWriter | Error;
+	create(name: string): FileWriter;
 }
 
 interface BlockState {
@@ -253,6 +253,7 @@ interface BlockEntity {
 	x: number;
 	y: number;
 	z: number;
+	id: string;
 	data: {[k: string]: any};
 };
 

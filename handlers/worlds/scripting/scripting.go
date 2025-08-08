@@ -142,16 +142,17 @@ func New() *VM {
 
 		// getBlockEntities()
 		obj.Set("getBlockEntities", func(call goja.FunctionCall) goja.Value {
-			var objs []goja.Value
-			for pos, be := range ch.BlockEntities {
-				beObj := v.runtime.NewObject()
-				beObj.Set("x", pos.X())
-				beObj.Set("y", pos.Y())
-				beObj.Set("z", pos.Z())
-				beObj.Set("data", be)
-				objs = append(objs, beObj)
+			var objs []any
+			for pos, data := range ch.BlockEntities {
+				objs = append(objs, map[string]any{
+					"x":    pos.X(),
+					"y":    pos.Y(),
+					"z":    pos.Z(),
+					"id":   data["id"],
+					"data": data,
+				})
 			}
-			return v.runtime.NewArray(objs)
+			return v.runtime.NewArray(objs...)
 		})
 
 		return obj
