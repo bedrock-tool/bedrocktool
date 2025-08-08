@@ -73,6 +73,8 @@ declare type SpawnParticleCallback = (name: string, pos: [number, number, number
 declare type PacketCallback = (name: string, packet: any, toServer: boolean, time: number) => void;
 
 
+declare type ChunkDataCallback = (pos: [number, number]) => void;
+
 declare const events: {
     /**
      * Registers a callback function to be executed when a specified event occurs.
@@ -224,26 +226,49 @@ declare const events: {
      * 
      */
     register(name: 'Packet', callback: PacketCallback): void;
+
+	register(name: "ChunkData", callback: ChunkDataCallback): void;
 };
 
-declare global {
-	interface FileWriter {
-	  write(data: string): void | Error;
-	  close(): void | Error;
-	}
-  
-	interface FileReader {
-	  read(): string | Error;
-	  close(): void | Error;
-	}
-  
-	interface FileSystem {
-	  create(name: string): FileWriter | Error;
-	}
+interface FileWriter {
+	write(data: string): void | Error;
+	close(): void | Error;
+}
+
+interface FileReader {
+	read(): string | Error;
+	close(): void | Error;
+}
+
+interface FileSystem {
+	create(name: string): FileWriter | Error;
+}
+
+interface BlockState {
+	name: string;
+	state: {[k: string]: any};
+}
+
+interface BlockEntity {
+	x: number;
+	y: number;
+	z: number;
+	data: {[k: string]: any};
+};
+
+interface Chunk {
+	getBlockAt(x: number, y: number, z: number): BlockState;
+	getHighestBlockAt(x: number, z: number): number;
+	getBlockEntities(): BlockEntity[];
+};
+
+interface Chunks {
+	get(x: number, z: number): Chunk|null;
 }
 
 declare const fs: FileSystem;
 
+declare const chunks: Chunks;
 
 /**
  * Represents an entity in the world.

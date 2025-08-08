@@ -63,6 +63,16 @@ func (v *VM) OnChunkAdd(pos world.ChunkPos, timeReceived time.Time) (apply bool)
 	return
 }
 
+func (v *VM) OnChunkData(pos world.ChunkPos) {
+	err := utils.RecoverCall(func() error {
+		v.CB.OnChunkData(pos)
+		return nil
+	})
+	if err != nil {
+		v.log.Error(err)
+	}
+}
+
 func (v *VM) OnBlockUpdate(name string, properties map[string]any, pos protocol.BlockPos, timeReceived time.Time) (apply bool) {
 	if v.CB.OnBlockUpdate == nil {
 		return true

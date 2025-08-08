@@ -97,6 +97,8 @@ func (w *worldsHandler) handleLevelChunk(pk *packet.LevelChunk, timeReceived tim
 		w.log.Error(err)
 	}
 
+	w.scripting.OnChunkData(pos)
+
 	w.session.SendPopup(locale.Locm("popup_chunk_count", locale.Strmap{
 		"Chunks":   len(w.worldState.StoredChunks),
 		"Entities": w.worldState.EntityCount(),
@@ -188,6 +190,9 @@ func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) error {
 
 	for pos, ch := range chunks {
 		w.worldState.StoreChunk(pos, ch)
+	}
+	for pos := range chunks {
+		w.scripting.OnChunkData(pos)
 	}
 
 	w.mapUI.SchedRedraw()

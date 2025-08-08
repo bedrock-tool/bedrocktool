@@ -153,6 +153,9 @@ func (w *worldsHandler) onSessionStart(session *proxy.Session, serverName string
 
 	w.mapUI = NewMapUI(w)
 	w.scripting = scripting.New()
+	w.scripting.GetWorld = func() *worldstate.World {
+		return w.worldState // locked by calls to the vm
+	}
 
 	session.AddCommand(func(cmdline []string) bool {
 		return w.setWorldName(strings.Join(cmdline, " "))

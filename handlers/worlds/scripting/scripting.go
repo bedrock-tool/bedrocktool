@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds/entity"
+	"github.com/bedrock-tool/bedrocktool/handlers/worlds/worldstate"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/dop251/goja"
@@ -26,12 +27,15 @@ type VM struct {
 
 	CB struct {
 		OnEntityAdd        func(entity *entity.Entity, metadata *goja.Object, timeReceived float64) (apply goja.Value)
+		OnChunkData        func(pos world.ChunkPos)
 		OnChunkAdd         func(pos world.ChunkPos, timeReceived float64) (apply goja.Value)
 		OnEntityDataUpdate func(entity *entity.Entity, metadata *goja.Object, timeReceived float64)
 		OnBlockUpdate      func(name string, properties map[string]any, pos protocol.BlockPos, timeReceived float64) (apply goja.Value)
 		OnSpawnParticle    func(name string, pos mgl32.Vec3, timeReceived float64)
 		OnPacket           func(name string, pk packet.Packet, toServer bool, timeReceived float64) (drop bool)
 	}
+
+	GetWorld func() *worldstate.World
 }
 
 func New() *VM {
@@ -53,6 +57,8 @@ func New() *VM {
 			err = v.runtime.ExportTo(callback, &v.CB.OnEntityDataUpdate)
 		case "ChunkAdd":
 			err = v.runtime.ExportTo(callback, &v.CB.OnChunkAdd)
+		case "ChunkData":
+			err = v.runtime.ExportTo(callback, &v.CB.OnChunkData)
 		case "BlockUpdate":
 			err = v.runtime.ExportTo(callback, &v.CB.OnBlockUpdate)
 		case "SpawnParticle":
@@ -93,6 +99,64 @@ func New() *VM {
 	})
 
 	v.runtime.GlobalObject().Set("fs", fs)
+
+	chunks := v.runtime.NewObject()
+	chunks.Set("get", func(call goja.FunctionCall) goja.Value {
+		x := call.Argument(0).ToInteger()
+		z := call.Argument(1).ToInteger()
+
+		obj := v.runtime.NewObject()
+
+		ch, ok, err := v.GetWorld().LoadChunk(world.ChunkPos{int32(x), int32(z)})
+		if err != nil {
+			v.log.Error("loadChunk", err)
+		}
+		if !ok {
+			return goja.Null()
+		}
+
+		// getBlockAt(x, y, z)
+		obj.Set("getBlockAt", func(call goja.FunctionCall) goja.Value {
+			bx := int(call.Argument(0).ToInteger())
+			by := int(call.Argument(1).ToInteger())
+			bz := int(call.Argument(2).ToInteger())
+
+			name, state, ok := ch.BlockRegistry.RuntimeIDToState(ch.Block(uint8(bx), int16(by), uint8(bz), 0))
+			if !ok {
+				return goja.Null()
+			}
+
+			blockObj := v.runtime.NewObject()
+			blockObj.Set("name", name)
+			blockObj.Set("state", state)
+			return blockObj
+		})
+
+		// getHighestBlockAt(x, z)
+		obj.Set("getHighestBlockAt", func(call goja.FunctionCall) goja.Value {
+			bx := int(call.Argument(0).ToInteger())
+			bz := int(call.Argument(1).ToInteger())
+			y := ch.HighestBlock(uint8(bx), uint8(bz))
+			return v.runtime.ToValue(y)
+		})
+
+		// getBlockEntities()
+		obj.Set("getBlockEntities", func(call goja.FunctionCall) goja.Value {
+			var objs []goja.Value
+			for pos, be := range ch.BlockEntities {
+				beObj := v.runtime.NewObject()
+				beObj.Set("x", pos.X())
+				beObj.Set("y", pos.Y())
+				beObj.Set("z", pos.Z())
+				beObj.Set("data", be)
+				objs = append(objs, beObj)
+			}
+			return v.runtime.NewArray(objs)
+		})
+
+		return obj
+	})
+	v.runtime.GlobalObject().Set("chunks", chunks)
 
 	return v
 }
