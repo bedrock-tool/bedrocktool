@@ -70,6 +70,7 @@ type ResourcePackHandler struct {
 
 	// all active resource packs for access by the proxy
 	resourcePacks     []resource.Pack
+	finishedPacks     []string
 	lockResourcePacks sync.Mutex
 
 	//
@@ -141,6 +142,79 @@ func (r *ResourcePackHandler) SetClient(c minecraft.IConn) {
 	r.clientDone = make(chan struct{})
 }
 
+var httpClient = http.Client{
+	Transport: &http.Transport{
+		ForceAttemptHTTP2: false,
+		TLSClientConfig: &tls.Config{
+			NextProtos: []string{"http/1.1"},
+		},
+	},
+}
+
+func (r *ResourcePackHandler) downloadFromUrl(pack protocol.TexturePackInfo) error {
+	defer r.dlwg.Done()
+	r.log.Infof("Downloading Resourcepack: %s", pack.DownloadURL)
+
+	f, err := r.cache.Create(pack.UUID, pack.Version)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest("GET", pack.DownloadURL, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("User-Agent", "libhttpclient/1.0.0.0")
+	res, err := httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	size, err := io.Copy(f, res.Body)
+	if err != nil {
+		return err
+	}
+
+	err = f.Move()
+	if err != nil {
+		return err
+	}
+
+	newPack, err := resource.FromReaderAt(f, size)
+	if err != nil {
+		return err
+	}
+	if len(pack.ContentKey) > 0 {
+		newPack = newPack.WithContentKey(pack.ContentKey)
+	}
+	newPack, err = utils.PackFromBase(newPack)
+	if err != nil {
+		return err
+	}
+
+	r.lockResourcePacks.Lock()
+	r.resourcePacks = append(r.resourcePacks, newPack)
+	r.finishedPacks = append(r.finishedPacks, pack.UUID.String()+"_"+pack.Version)
+	err = r.OnFinishedPack(newPack)
+	r.lockResourcePacks.Unlock()
+	if err != nil {
+		return err
+	}
+
+	if r.nextPackToClient != nil {
+		select {
+		case <-r.knowPacksRequestedFromServer:
+		case <-r.ctx.Done():
+			return r.ctx.Err()
+		}
+		if slices.Contains(r.packsRequestedFromServer, pack.UUID.String()+"_"+pack.Version) {
+			r.nextPackToClient <- newPack
+		}
+	}
+	return nil
+}
+
 // from server
 func (r *ResourcePackHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) error {
 	if r.OnResourcePacksInfoCB != nil {
@@ -149,78 +223,6 @@ func (r *ResourcePackHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) 
 	// First create a new resource pack queue with the information in the packet so we can download them
 	// properly later.
 	packsToDownload := make([]string, 0, len(pk.TexturePacks))
-
-	var httpClient = http.Client{
-		Transport: &http.Transport{
-			ForceAttemptHTTP2: false,
-			TLSClientConfig: &tls.Config{
-				NextProtos: []string{"http/1.1"},
-			},
-		},
-	}
-
-	doDownload := func(pack protocol.TexturePackInfo) error {
-		defer r.dlwg.Done()
-		r.log.Infof("Downloading Resourcepack: %s", pack.DownloadURL)
-
-		f, err := r.cache.Create(pack.UUID, pack.Version)
-		if err != nil {
-			return err
-		}
-
-		req, err := http.NewRequest("GET", pack.DownloadURL, nil)
-		if err != nil {
-			return err
-		}
-		req.Header.Set("User-Agent", "libhttpclient/1.0.0.0")
-		res, err := httpClient.Do(req)
-		if err != nil {
-			return err
-		}
-		defer res.Body.Close()
-
-		size, err := io.Copy(f, res.Body)
-		if err != nil {
-			return err
-		}
-
-		err = f.Move()
-		if err != nil {
-			return err
-		}
-
-		newPack, err := resource.FromReaderAt(f, size)
-		if err != nil {
-			return err
-		}
-		if len(pack.ContentKey) > 0 {
-			newPack = newPack.WithContentKey(pack.ContentKey)
-		}
-		newPack, err = utils.PackFromBase(newPack)
-		if err != nil {
-			return err
-		}
-
-		r.lockResourcePacks.Lock()
-		r.resourcePacks = append(r.resourcePacks, newPack)
-		err = r.OnFinishedPack(newPack)
-		r.lockResourcePacks.Unlock()
-		if err != nil {
-			return err
-		}
-
-		if r.nextPackToClient != nil {
-			select {
-			case <-r.knowPacksRequestedFromServer:
-			case <-r.ctx.Done():
-				return r.ctx.Err()
-			}
-			if slices.Contains(r.packsRequestedFromServer, newPack.UUID().String()+"_"+newPack.Version()) {
-				r.nextPackToClient <- newPack
-			}
-		}
-		return nil
-	}
 
 	var urlDownloads []protocol.TexturePackInfo
 	for _, pack := range pk.TexturePacks {
@@ -251,6 +253,7 @@ func (r *ResourcePackHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) 
 
 			r.lockResourcePacks.Lock()
 			r.resourcePacks = append(r.resourcePacks, newPack)
+			r.finishedPacks = append(r.finishedPacks, pack.UUID.String()+"_"+pack.Version)
 			err = r.OnFinishedPack(newPack)
 			r.lockResourcePacks.Unlock()
 			if err != nil {
@@ -259,7 +262,7 @@ func (r *ResourcePackHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) 
 			continue
 		}
 
-		if pack.DownloadURL != "" && !strings.Contains(pack.DownloadURL, "zeqa.net") {
+		if pack.DownloadURL != "" {
 			urlDownloads = append(urlDownloads, pack)
 			continue
 		}
@@ -283,7 +286,7 @@ func (r *ResourcePackHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) 
 		r.dlwg.Add(len(urlDownloads))
 		go func() {
 			for _, dl := range urlDownloads {
-				if err := doDownload(dl); err != nil {
+				if err := r.downloadFromUrl(dl); err != nil {
 					r.log.Errorf("download %s %s", dl.DownloadURL, err)
 				}
 			}
@@ -471,6 +474,7 @@ func (r *ResourcePackHandler) downloadResourcePack(pk *packet.ResourcePackDataIn
 	// Finally we add the resource to the resource packs slice.
 	r.lockResourcePacks.Lock()
 	r.resourcePacks = append(r.resourcePacks, newPack)
+	r.finishedPacks = append(r.finishedPacks, pack.ID.String()+"_"+pack.Version)
 	err = r.OnFinishedPack(newPack)
 	r.lockResourcePacks.Unlock()
 	if err != nil {
@@ -866,10 +870,6 @@ func (r *ResourcePackHandler) hasPack(uuid string, version string, hasBehaviours
 		return true
 	}
 
-	for _, pack := range r.resourcePacks {
-		if pack.UUID().String() == uuid && pack.Version() == version && pack.HasBehaviours() == hasBehaviours {
-			return true
-		}
-	}
-	return false
+	search := uuid + "_" + version
+	return slices.Contains(r.finishedPacks, search)
 }
