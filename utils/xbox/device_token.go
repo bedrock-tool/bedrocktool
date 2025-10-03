@@ -79,8 +79,8 @@ func obtainDeviceToken(ctx context.Context, c *http.Client, key *ecdsa.PrivateKe
 			"alg": "ES256",
 			"use": "sig",
 			"kty": "EC",
-			"x":   base64.RawURLEncoding.EncodeToString(key.PublicKey.X.Bytes()),
-			"y":   base64.RawURLEncoding.EncodeToString(key.PublicKey.Y.Bytes()),
+			"x":   base64.RawURLEncoding.EncodeToString(padTo32Bytes(key.PublicKey.X)),
+			"y":   base64.RawURLEncoding.EncodeToString(padTo32Bytes(key.PublicKey.Y)),
 		},
 	}
 

@@ -12,7 +12,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 
 	"golang.org/x/oauth2"
@@ -148,8 +147,8 @@ func sisuAuthorize(ctx context.Context, c *http.Client, key *ecdsa.PrivateKey, l
 			"alg": "ES256",
 			"use": "sig",
 			"kty": "EC",
-			"x":   base64.RawURLEncoding.EncodeToString(key.PublicKey.X.Bytes()),
-			"y":   base64.RawURLEncoding.EncodeToString(key.PublicKey.Y.Bytes()),
+			"x":   base64.RawURLEncoding.EncodeToString(padTo32Bytes(key.PublicKey.X)),
+			"y":   base64.RawURLEncoding.EncodeToString(padTo32Bytes(key.PublicKey.Y)),
 		},
 	})
 	req, _ := http.NewRequestWithContext(ctx, "POST", "https://sisu.xboxlive.com/authorize", bytes.NewReader(data))
@@ -165,10 +164,36 @@ func sisuAuthorize(ctx context.Context, c *http.Client, key *ecdsa.PrivateKey, l
 		_ = resp.Body.Close()
 	}()
 	if resp.StatusCode != 200 {
-		b, _ := io.ReadAll(resp.Body)
-		_ = b
+		// Xbox Live returns a custom error code in the x-err header.
+		if errorCode := resp.Header.Get("x-err"); errorCode != "" {
+			return nil, fmt.Errorf("POST %v: %v", "https://sisu.xboxlive.com/authorize", parseXboxErrorCode(errorCode))
+		}
 		return nil, fmt.Errorf("POST %v: %v", "https://sisu.xboxlive.com/authorize", resp.Status)
 	}
 	info := new(XBLToken)
 	return info, json.NewDecoder(resp.Body).Decode(info)
+}
+
+// parseXboxError returns the message associated with an Xbox Live error code.
+func parseXboxErrorCode(code string) string {
+	switch code {
+	case "2148916227":
+		return "Your account was banned by Xbox for violating one or more Community Standards for Xbox and is unable to be used."
+	case "2148916229":
+		return "Your account is currently restricted and your guardian has not given you permission to play online. Login to https://account.microsoft.com/family/ and have your guardian change your permissions."
+	case "2148916233":
+		return "Your account currently does not have an Xbox profile. Please create one at https://signup.live.com/signup"
+	case "2148916234":
+		return "Your account has not accepted Xbox's Terms of Service. Please login and accept them."
+	case "2148916235":
+		return "Your account resides in a region that Xbox has not authorized use from. Xbox has blocked your attempt at logging in."
+	case "2148916236":
+		return "Your account requires proof of age. Please login to https://login.live.com/login.srf and provide proof of age."
+	case "2148916237":
+		return "Your account has reached its limit for playtime. Your account has been blocked from logging in."
+	case "2148916238":
+		return "The account date of birth is under 18 years and cannot proceed unless the account is added to a family by an adult."
+	default:
+		return fmt.Sprintf("unknown error code: %v", code)
+	}
 }

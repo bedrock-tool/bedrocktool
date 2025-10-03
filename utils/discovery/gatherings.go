@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 )
 
@@ -110,6 +111,27 @@ func (g *GatheringsService) Gatherings(ctx context.Context) ([]*Gathering, error
 		gatherings = append(gatherings, &gathering)
 	}
 	return gatherings, nil
+}
+
+func (g *GatheringsService) JoinExperience(ctx context.Context, id uuid.UUID) (string, error) {
+	type joinExperienceResponse struct {
+		Result struct {
+			NetworkProtocol string `json:"networkProtocol"`
+			IPV4Address     string `json:"ipV4Address"`
+			Port            int    `json:"port"`
+		} `json:"result"`
+	}
+	resp, err := doRequest[joinExperienceResponse](ctx, http.DefaultClient, "POST",
+		fmt.Sprintf("%s/api/v2.0/join/experience", g.ServiceURI),
+		map[string]any{
+			"experienceId": id,
+		},
+		g.mcTokenAuth,
+	)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s:%d", resp.Result.IPV4Address, resp.Result.Port), nil
 }
 
 func (g *GatheringsService) mcTokenAuth(req *http.Request) {

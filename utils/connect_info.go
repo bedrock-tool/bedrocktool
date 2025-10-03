@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/bedrock-tool/bedrocktool/utils/discovery"
+	"github.com/google/uuid"
 	"github.com/sandertv/gophertunnel/minecraft/realms"
 )
 
@@ -18,6 +19,8 @@ type ConnectInfo struct {
 	gathering *discovery.Gathering
 	realm     *realms.Realm
 }
+
+var zeroUUID = uuid.UUID{}
 
 func (c *ConnectInfo) getGathering(ctx context.Context, name string) (*discovery.Gathering, error) {
 	if c.gathering != nil && c.gathering.Title == name {
@@ -89,6 +92,9 @@ func (c *ConnectInfo) Name(ctx context.Context) (string, error) {
 		}
 		return gathering.Title, nil
 	}
+	if info.experienceID != zeroUUID {
+		return info.experienceID.String(), nil
+	}
 	return "invalid", nil
 }
 
@@ -117,6 +123,13 @@ func (c *ConnectInfo) Address(ctx context.Context) (string, error) {
 		}
 		return gathering.Address(ctx)
 	}
+	if info.experienceID != zeroUUID {
+		gatheringsService, err := Auth.Gatherings(ctx)
+		if err != nil {
+			return "", err
+		}
+		return gatheringsService.JoinExperience(ctx, info.experienceID)
+	}
 	return "", errors.New("invalid address")
 }
 
@@ -138,6 +151,7 @@ type parsedConnectInfo struct {
 	gatheringName string
 	realmName     string
 	replayName    string
+	experienceID  uuid.UUID
 	serverAddress string
 }
 
@@ -146,6 +160,15 @@ func parseConnectInfo(value string) (*parsedConnectInfo, error) {
 		p := regexGetParams(gatheringRegex, value)
 		input := strings.ToLower(p["Title"])
 		return &parsedConnectInfo{gatheringName: input}, nil
+	}
+
+	if experienceRegex.MatchString(value) {
+		p := regexGetParams(experienceRegex, value)
+		id, err := uuid.Parse(p["ID"])
+		if err != nil {
+			return nil, err
+		}
+		return &parsedConnectInfo{experienceID: id}, nil
 	}
 
 	// realm

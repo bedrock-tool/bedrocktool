@@ -41,9 +41,8 @@ func (w *worldsHandler) handleLevelChunk(pk *packet.LevelChunk, timeReceived tim
 	levelChunk, blockNBTs, err := chunk.NetworkDecode(
 		w.serverState.blocks,
 		pk.RawPayload, subChunkCount,
-		false,
-		w.serverState.useHashedRids,
 		w.worldState.Range(),
+		w.serverState.useHashedRids,
 	)
 	if err != nil {
 		return err

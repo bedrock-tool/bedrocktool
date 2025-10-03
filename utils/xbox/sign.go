@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
+	"math/big"
 	"net/http"
 	"time"
 )
@@ -28,7 +29,11 @@ func sign(request *http.Request, body []byte, key *ecdsa.PrivateKey) {
 	hash.Write([]byte("POST"))
 	hash.Write([]byte{0})
 	// Request uri path + raw query + 0 byte.
-	hash.Write([]byte(request.URL.Path + request.URL.RawQuery))
+	path := request.URL.Path
+	if rq := request.URL.RawQuery; rq != "" {
+		path += "?" + rq
+	}
+	hash.Write([]byte(path))
 	hash.Write([]byte{0})
 
 	// Authorization header if present, otherwise an empty string + 0 byte.
@@ -40,8 +45,11 @@ func sign(request *http.Request, body []byte, key *ecdsa.PrivateKey) {
 	hash.Write([]byte{0})
 
 	// Sign the checksum produced, and combine the 'r' and 's' into a single signature.
+	// Encode r and s as 32-byte, zero-padded big-endian values so the P-256 signature is always exactly 64 bytes long.
 	r, s, _ := ecdsa.Sign(rand.Reader, key, hash.Sum(nil))
-	signature := append(r.Bytes(), s.Bytes()...)
+	signature := make([]byte, 64)
+	r.FillBytes(signature[:32])
+	s.FillBytes(signature[32:])
 
 	// The signature begins with 12 bytes, the first being the signature policy version (0, 0, 0, 1) again,
 	// and the other 8 the timestamp again.
@@ -57,4 +65,13 @@ func sign(request *http.Request, body []byte, key *ecdsa.PrivateKey) {
 // accounted for.
 func windowsTimestamp() int64 {
 	return (time.Now().Unix() + 11644473600) * 10000000
+}
+
+// padTo32Bytes converts a big.Int into a fixed 32-byte, zero-padded slice.
+// This is used to ensure that the X and Y coordinates of the ECDSA public key are always 32 bytes long,
+// because big.Int.Bytes() returns a minimal encoding which may sometimes be less than 32 bytes.
+func padTo32Bytes(b *big.Int) []byte {
+	out := make([]byte, 32)
+	b.FillBytes(out)
+	return out
 }

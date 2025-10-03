@@ -32,9 +32,10 @@ func UserInput(ctx context.Context, q string, validator func(string) bool) (stri
 }
 
 var (
-	realmRegex     = regexp.MustCompile("realm:(?P<Name>.*)")
-	pcapRegex      = regexp.MustCompile(`(?P<Filename>(?P<Name>.*)\.pcap2)(?:\?(?P<Args>.*))?`)
-	gatheringRegex = regexp.MustCompile("gathering:(?P<Title>.*)+")
+	realmRegex      = regexp.MustCompile("realm:(?P<Name>.*)")
+	pcapRegex       = regexp.MustCompile(`(?P<Filename>(?P<Name>.*)\.pcap2)(?:\?(?P<Args>.*))?`)
+	gatheringRegex  = regexp.MustCompile("gathering:(?P<Title>.*)+")
+	experienceRegex = regexp.MustCompile(`experience:(?P<ID>.+)`)
 )
 
 func regexGetParams(r *regexp.Regexp, s string) (params map[string]string) {
@@ -58,6 +59,10 @@ func ValidateServerInput(server string) bool {
 	}
 
 	if gatheringRegex.MatchString(server) {
+		return true
+	}
+
+	if experienceRegex.MatchString(server) {
 		return true
 	}
 
