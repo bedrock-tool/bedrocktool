@@ -26,6 +26,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui/gui/popups"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/auth"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/bedrock-tool/bedrocktool/utils/updater"
 	"github.com/sirupsen/logrus"
@@ -39,6 +40,8 @@ type GUI struct {
 	ctx    context.Context
 	cancel context.CancelCauseFunc
 
+	accountName string
+
 	router    *pages.Router
 	logger    logger
 	theme     *material.Theme
@@ -49,9 +52,17 @@ type GUI struct {
 
 var _ guim.Guim = &GUI{}
 
+func (g *GUI) AccountName() string {
+	return g.accountName
+}
+
+func (g *GUI) SetAccountName(name string) {
+	g.accountName = name
+}
+
 func (g *GUI) Init() error {
 	messages.SetEventHandler(g.eventHandler)
-	utils.Auth.SetHandler(&messages.AuthHandler{})
+	auth.Auth.SetHandler(&messages.AuthHandler{})
 
 	g.logger.list = widget.List{
 		List: layout.List{

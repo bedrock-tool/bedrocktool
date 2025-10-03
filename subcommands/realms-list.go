@@ -5,9 +5,9 @@ import (
 	"fmt"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
-	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/auth"
+	"github.com/bedrock-tool/bedrocktool/utils/auth/xbox"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
-	"github.com/bedrock-tool/bedrocktool/utils/xbox"
 )
 
 type RealmListCMD struct{}
@@ -25,13 +25,14 @@ func (RealmListCMD) Settings() any {
 }
 
 func (RealmListCMD) Run(ctx context.Context, settings any) error {
-	if !utils.Auth.LoggedIn() {
-		err := utils.Auth.Login(ctx, &xbox.DeviceTypeAndroid)
+	if !auth.Auth.LoggedIn() {
+		err := auth.Auth.Login(ctx, &xbox.DeviceTypeAndroid, "")
 		if err != nil {
 			return err
 		}
 	}
-	realms, err := utils.Auth.Realms().Realms(ctx)
+	account := auth.Auth.Account()
+	realms, err := account.Realms().Realms(ctx)
 	if err != nil {
 		return err
 	}

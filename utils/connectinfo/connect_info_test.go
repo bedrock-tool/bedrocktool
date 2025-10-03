@@ -1,4 +1,4 @@
-package utils
+package connectinfo
 
 import "testing"
 

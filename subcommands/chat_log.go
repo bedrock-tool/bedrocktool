@@ -40,7 +40,7 @@ func (ChatLogCMD) Run(ctx context.Context, settings any) error {
 		return err
 	}
 	proxyContext.AddHandler(handlers.NewChatLogger())
-	return proxyContext.Run(true)
+	return proxyContext.Run(ctx, true)
 }
 
 func init() {

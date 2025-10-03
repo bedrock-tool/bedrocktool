@@ -11,7 +11,7 @@ import (
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/guim"
-	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/auth"
 	"github.com/bedrock-tool/bedrocktool/utils/discovery"
 )
 
@@ -64,11 +64,12 @@ func (g *Gatherings) HandleEvent(event any) error {
 }
 
 func (g *Gatherings) Load() error {
-	if !utils.Auth.LoggedIn() {
-		return utils.ErrNotLoggedIn
+	account := auth.Auth.Account()
+	if account == nil {
+		return auth.ErrNotLoggedIn
 	}
 
-	gatheringsClient, err := utils.Auth.Gatherings(context.TODO())
+	gatheringsClient, err := account.Gatherings(context.Background())
 	if err != nil {
 		return err
 	}
@@ -114,8 +115,8 @@ func (g *Gatherings) Layout(gtx C, th *material.Theme) D {
 	if !g.loaded && !g.loading {
 		g.loading = true
 		go func() {
-			if !utils.Auth.LoggedIn() {
-				utils.Auth.RequestLogin()
+			if auth.Auth.Account() == nil {
+				auth.Auth.RequestLogin(g.g.AccountName())
 			}
 			err := g.Load()
 			if err != nil {

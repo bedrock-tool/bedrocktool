@@ -33,7 +33,7 @@ func (DebugProxyCMD) Run(ctx context.Context, settings any) error {
 	if err != nil {
 		return err
 	}
-	return p.Run(true)
+	return p.Run(ctx, true)
 }
 
 func init() {

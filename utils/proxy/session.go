@@ -15,6 +15,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/connectinfo"
 	"github.com/bedrock-tool/bedrocktool/utils/proxy/blobcache"
 	"github.com/bedrock-tool/bedrocktool/utils/proxy/pcap2"
 	"github.com/bedrock-tool/bedrocktool/utils/proxy/resourcepacks"
@@ -34,15 +35,15 @@ type Session struct {
 	settings  ProxySettings
 
 	// from proxy
-	addedPacks []resource.Pack
-	withClient bool
-	handlers   Handlers
+	addedPacks  []resource.Pack
+	withClient  bool
+	handlers    Handlers
+	connectInfo *connectinfo.ConnectInfo
 
 	packetLogger       *packetLogger
 	packetLoggerClient *packetLogger
 
 	listener  *minecraft.Listener
-	rpHandler *resourcepacks.ResourcePackHandler
 	blobCache *blobcache.Blobcache
 
 	Server minecraft.IConn
@@ -60,15 +61,16 @@ type Session struct {
 	disconnectReason string
 }
 
-func NewSession(ctx context.Context, settings ProxySettings, addedPacks []resource.Pack, withClient bool) *Session {
+func NewSession(ctx context.Context, settings ProxySettings, addedPacks []resource.Pack, connectInfo *connectinfo.ConnectInfo, withClient bool) *Session {
 	sctx, cancelCtx := context.WithCancelCause(ctx)
 	return &Session{
-		ctx:        sctx,
-		cancelCtx:  cancelCtx,
-		log:        logrus.StandardLogger().WithContext(ctx),
-		settings:   settings,
-		addedPacks: addedPacks,
-		withClient: withClient,
+		ctx:         sctx,
+		cancelCtx:   cancelCtx,
+		log:         logrus.StandardLogger().WithContext(ctx),
+		settings:    settings,
+		addedPacks:  addedPacks,
+		withClient:  withClient,
+		connectInfo: connectInfo,
 
 		clientConnecting: make(chan struct{}),
 		haveClientData:   make(chan struct{}),
@@ -130,27 +132,29 @@ func (s *Session) Disconnect() {
 	s.DisconnectServer()
 }
 
-func (s *Session) Run(connectInfo *utils.ConnectInfo) error {
+func (s *Session) newResourcePackHandler(ctx context.Context) *resourcepacks.ResourcePackHandler {
+	rpHandler := resourcepacks.NewResourcePackHandler(ctx, s.addedPacks)
+	rpHandler.OnResourcePacksInfoCB = func() {
+		messages.SendEvent(&messages.EventConnectStateUpdate{
+			State: messages.ConnectStateReceivingResources,
+		})
+	}
+	rpHandler.OnFinishedPack = func(p resource.Pack) error {
+		return s.handlers.OnFinishedPack(s, p)
+	}
+	rpHandler.FilterDownloadResourcePacks = func(id string) bool {
+		return s.handlers.FilterResourcePack(s, id)
+	}
+	return rpHandler
+}
+
+func (s *Session) Run() error {
 	defer s.cancelCtx(errors.New("done"))
 
 	messages.SendEvent(&messages.EventConnectStateUpdate{
 		State:      messages.ConnectStateBegin,
 		ListenAddr: s.settings.ListenAddress,
 	})
-	onResourcePacksInfo := func() {
-		messages.SendEvent(&messages.EventConnectStateUpdate{
-			State: messages.ConnectStateReceivingResources,
-		})
-	}
-
-	s.rpHandler = resourcepacks.NewResourcePackHandler(s.ctx, s.addedPacks)
-	s.rpHandler.OnResourcePacksInfoCB = onResourcePacksInfo
-	s.rpHandler.OnFinishedPack = func(p resource.Pack) error {
-		return s.handlers.OnFinishedPack(s, p)
-	}
-	s.rpHandler.FilterDownloadResourcePacks = func(id string) bool {
-		return s.handlers.FilterResourcePack(s, id)
-	}
 
 	var err error
 	s.blobCache, err = blobcache.NewBlobCache(s.log, func(pk packet.Packet) error {
@@ -179,15 +183,16 @@ func (s *Session) Run(connectInfo *utils.ConnectInfo) error {
 		if err != nil {
 			return err
 		}
-		defer s.packetLogger.Close()
+		defer s.packetLoggerClient.Close()
 	}
 
-	if connectInfo.IsReplay() {
-		replayName, err := connectInfo.Address(s.ctx)
+	if s.connectInfo.IsReplay() {
+		replayName, err := s.connectInfo.Address(s.ctx)
 		if err != nil {
 			return err
 		}
-		replay, err := pcap2.CreateReplayConnector(s.ctx, utils.PathData(replayName), s.packetFunc, s.rpHandler)
+		rpHandler := s.newResourcePackHandler(s.ctx)
+		replay, err := pcap2.CreateReplayConnector(s.ctx, utils.PathData(replayName), s.packetFunc, rpHandler)
 		if err != nil {
 			return err
 		}
@@ -198,7 +203,7 @@ func (s *Session) Run(connectInfo *utils.ConnectInfo) error {
 			return err
 		}
 	} else {
-		if err = s.connect(connectInfo); err != nil {
+		if err = s.connect(); err != nil {
 			return err
 		}
 	}
@@ -322,33 +327,38 @@ func (s *Session) Run(connectInfo *utils.ConnectInfo) error {
 	return nil
 }
 
-func (s *Session) connect(connectInfo *utils.ConnectInfo) error {
+func (s *Session) connect() error {
 	var wg sync.WaitGroup
+	ctx, cancelCause := context.WithCancelCause(s.ctx)
+	defer cancelCause(nil)
+
+	rpHandler := s.newResourcePackHandler(ctx)
 	if s.withClient {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			err := s.connectClient(connectInfo)
-			if err != nil {
-				s.cancelCtx(err)
-				return
+			err := s.connectClient(ctx, rpHandler)
+			if err != nil && !errors.Is(err, context.Canceled) {
+				cancelCause(err)
 			}
 		}()
 	}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		err := s.connectServer(connectInfo)
-		if err != nil {
-			s.cancelCtx(err)
-			return
+		err := s.connectServer(ctx, rpHandler)
+		if err != nil && !errors.Is(err, context.Canceled) {
+			cancelCause(err)
 		}
 	}()
 	wg.Wait()
-	return context.Cause(s.ctx)
+	if err := context.Cause(ctx); err != nil {
+		return err
+	}
+	return nil
 }
 
-func (s *Session) connectServer(connectInfo *utils.ConnectInfo) (err error) {
+func (s *Session) connectServer(ctx context.Context, rpHandler *resourcepacks.ResourcePackHandler) (err error) {
 	if s.withClient {
 		select {
 		case <-s.clientConnecting:
@@ -361,14 +371,14 @@ func (s *Session) connectServer(connectInfo *utils.ConnectInfo) (err error) {
 		State: messages.ConnectStateServerConnecting,
 	})
 
-	address, err := connectInfo.Address(s.ctx)
+	address, err := s.connectInfo.Address(s.ctx)
 	if err != nil {
 		return err
 	}
 
 	logrus.Info(locale.Loc("connecting", locale.Strmap{"Address": address}))
 	dialer := minecraft.Dialer{
-		TokenSource:                utils.Auth,
+		TokenSource:                s.connectInfo.Account,
 		DisconnectOnUnknownPackets: false,
 		ErrorLog:                   slog.Default(),
 		PacketFunc:                 s.packetFunc,
@@ -377,20 +387,20 @@ func (s *Session) connectServer(connectInfo *utils.ConnectInfo) (err error) {
 			if s.withClient {
 				select {
 				case <-s.haveClientData:
-				case <-s.ctx.Done():
+				case <-ctx.Done():
 				}
 			}
 			return s.clientData
 		},
 		EarlyConnHandler: func(conn *minecraft.Conn) {
 			s.Server = conn
-			s.rpHandler.SetServer(conn)
-			conn.ResourcePackHandler = s.rpHandler
+			rpHandler.SetServer(conn)
+			conn.ResourcePackHandler = rpHandler
 			conn.SetPrePlayPacketHandler(s.serverPrePlayHandler)
 		},
 	}
 	for range 3 {
-		dialer.ChainKey, dialer.ChainData, err = utils.Auth.Chain(s.ctx)
+		dialer.ChainKey, dialer.ChainData, err = s.connectInfo.Account.Chain(s.ctx)
 		if err != nil {
 			continue
 		}
@@ -400,7 +410,7 @@ func (s *Session) connectServer(connectInfo *utils.ConnectInfo) (err error) {
 		return err
 	}
 
-	_, err = dialer.DialContext(s.ctx, "raknet", address, 20*time.Second)
+	_, err = dialer.DialContext(ctx, "raknet", address, 20*time.Second)
 	if err != nil {
 		if s.expectDisconnect {
 			return nil
@@ -415,7 +425,7 @@ func (s *Session) connectServer(connectInfo *utils.ConnectInfo) (err error) {
 	return nil
 }
 
-func (s *Session) connectClient(connectInfo *utils.ConnectInfo) (err error) {
+func (s *Session) connectClient(ctx context.Context, rpHandler *resourcepacks.ResourcePackHandler) (err error) {
 	clientPacketFunc := func(header packet.Header, payload []byte, src, dst net.Addr, timeReceived time.Time) {
 		pk, ok := DecodePacket(header, payload, s.Client.ShieldID())
 		if !ok {
@@ -440,7 +450,7 @@ func (s *Session) connectClient(connectInfo *utils.ConnectInfo) (err error) {
 		}
 	}
 
-	serverName, err := connectInfo.Name(s.ctx)
+	serverName, err := s.connectInfo.Name(s.ctx)
 	if err != nil {
 		return err
 	}
@@ -463,8 +473,8 @@ func (s *Session) connectClient(connectInfo *utils.ConnectInfo) (err error) {
 				return
 			}
 			s.Client = c
-			s.rpHandler.SetClient(c)
-			c.ResourcePackHandler = s.rpHandler
+			rpHandler.SetClient(c)
+			c.ResourcePackHandler = rpHandler
 			close(s.clientConnecting)
 		},
 	}.Listen("raknet", s.settings.ListenAddress)

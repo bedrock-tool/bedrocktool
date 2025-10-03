@@ -11,6 +11,9 @@ import (
 
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/auth"
+	"github.com/bedrock-tool/bedrocktool/utils/auth/xbox"
+	"github.com/bedrock-tool/bedrocktool/utils/connectinfo"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 	"github.com/sirupsen/logrus"
@@ -52,8 +55,8 @@ func (p *Context) Context() context.Context {
 	return p.ctx
 }
 
-func (p *Context) connect(connectInfo *utils.ConnectInfo, withClient bool) (err error) {
-	session := NewSession(p.ctx, p.settings, p.addedPacks, withClient)
+func (p *Context) connect(connectInfo *connectinfo.ConnectInfo, withClient bool) (err error) {
+	session := NewSession(p.ctx, p.settings, p.addedPacks, connectInfo, withClient)
 	for _, handlerFunc := range p.handlers {
 		session.handlers = append(session.handlers, handlerFunc())
 	}
@@ -64,7 +67,7 @@ func (p *Context) connect(connectInfo *utils.ConnectInfo, withClient bool) (err 
 	}
 
 	session.handlers.SessionStart(session, serverName)
-	err = session.Run(connectInfo)
+	err = session.Run()
 	session.handlers.OnSessionEnd(session, &p.wg)
 
 	if err, ok := err.(*errTransfer); ok {
@@ -73,9 +76,7 @@ func (p *Context) connect(connectInfo *utils.ConnectInfo, withClient bool) (err 
 		}
 		address := fmt.Sprintf("%s:%d", err.transfer.Address, err.transfer.Port)
 		logrus.Infof("transferring to %s", address)
-		return p.connect(&utils.ConnectInfo{
-			Value: address,
-		}, withClient)
+		return p.connect(&connectinfo.ConnectInfo{Value: address}, withClient)
 	}
 	return err
 }
@@ -99,7 +100,7 @@ func (p *Context) newPlayerHandler() *Handler {
 	}
 }
 
-func (p *Context) Run(withClient bool) (err error) {
+func (p *Context) Run(ctx context.Context, withClient bool) (err error) {
 	err = utils.Netisolation()
 	if err != nil {
 		logrus.Warnf("Failed to Enable Loopback for Minecraft: %s", err)
@@ -115,14 +116,14 @@ func (p *Context) Run(withClient bool) (err error) {
 		return fmt.Errorf("no address")
 	}
 
-	if !p.settings.ConnectInfo.IsReplay() && !utils.Auth.LoggedIn() {
-		err := utils.Auth.RequestLogin()
-		if err != nil {
-			return err
+	if !p.settings.ConnectInfo.IsReplay() && p.settings.ConnectInfo.Account == nil {
+		if !auth.Auth.LoggedIn() {
+			err := auth.Auth.Login(ctx, &xbox.DeviceTypeAndroid, "")
+			if err != nil {
+				return err
+			}
 		}
-		if !utils.Auth.LoggedIn() {
-			return utils.ErrNotLoggedIn
-		}
+		p.settings.ConnectInfo.Account = auth.Auth.Account()
 	}
 
 	if p.settings.Capture {

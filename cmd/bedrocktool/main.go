@@ -15,9 +15,10 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui"
 	"github.com/bedrock-tool/bedrocktool/ui/cli"
 	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/auth"
+	"github.com/bedrock-tool/bedrocktool/utils/auth/xbox"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/bedrock-tool/bedrocktool/utils/osabs"
-	"github.com/bedrock-tool/bedrocktool/utils/xbox"
 
 	_ "github.com/bedrock-tool/bedrocktool/subcommands"
 
@@ -97,8 +98,9 @@ func main() {
 	if !ok {
 		env = "prod"
 	}
+	auth.Auth.SetEnv(env)
 	tokenName, _ := os.LookupEnv("TOKEN_NAME")
-	if err := utils.Auth.Startup(env, tokenName); err != nil {
+	if err := auth.Auth.LoadAccount(tokenName); err != nil {
 		logrus.Fatal(err)
 	}
 
@@ -116,7 +118,7 @@ func main() {
 		return
 	}
 	err := ui.Start(ctx, cancel)
-	if err != nil && !errors.Is(err, context.Canceled) {
+	if err != nil {
 		log.Error(err)
 	}
 }
@@ -150,10 +152,10 @@ func (TransCMD) Run(ctx context.Context, settings any) error {
 		Reset   = "\033[0m"
 	)
 	if transSettings.Auth {
-		if utils.Auth.LoggedIn() {
+		if auth.Auth.LoggedIn() {
 			logrus.Info("Already Logged in")
 		} else {
-			utils.Auth.Login(ctx, &xbox.DeviceTypeAndroid)
+			auth.Auth.Login(ctx, &xbox.DeviceTypeAndroid, "")
 		}
 	}
 	fmt.Println(BlackFg + Bold + Blue + " Trans " + Pink + " Rights " + White + " Are " + Pink + " Human " + Blue + " Rights " + Reset)

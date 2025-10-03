@@ -11,6 +11,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/auth"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/bedrock-tool/bedrocktool/utils/updater"
 	"github.com/sirupsen/logrus"
@@ -33,7 +34,7 @@ func printCommands() {
 }
 
 func (c *CLI) Start(ctx context.Context, cancel context.CancelCauseFunc) error {
-	utils.Auth.SetHandler(nil)
+	auth.Auth.SetHandler(nil)
 	if !utils.IsDebug() {
 		go updater.UpdateCheck(c)
 	}

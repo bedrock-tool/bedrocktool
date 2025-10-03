@@ -3,8 +3,8 @@ package subcommands
 import (
 	"context"
 
-	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
+	"github.com/bedrock-tool/bedrocktool/utils/connectinfo"
 	"github.com/sirupsen/logrus"
 )
 
@@ -28,7 +28,7 @@ func (RealmAddressCMD) Settings() any {
 
 func (c *RealmAddressCMD) Run(ctx context.Context, settings any) error {
 	realmSettings := settings.(*RealmAddressSettings)
-	connectInfo := utils.ConnectInfo{Value: "realm:" + realmSettings.Realm}
+	connectInfo := connectinfo.ConnectInfo{Value: "realm:" + realmSettings.Realm}
 	address, err := connectInfo.Address(ctx)
 	if err != nil {
 		return err

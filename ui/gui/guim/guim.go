@@ -16,4 +16,6 @@ type Guim interface {
 	OpenUrl(uri string)
 	Toast(gtx layout.Context, t string)
 	CloseLogs()
+	AccountName() string
+	SetAccountName(name string)
 }

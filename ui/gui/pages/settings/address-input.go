@@ -9,7 +9,8 @@ import (
 	"gioui.org/x/component"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/guim"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/popups"
-	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/auth"
+	"github.com/bedrock-tool/bedrocktool/utils/connectinfo"
 	"github.com/bedrock-tool/bedrocktool/utils/discovery"
 	"github.com/sandertv/gophertunnel/minecraft/realms"
 )
@@ -20,7 +21,7 @@ type addressInput struct {
 	showRealmsList widget.Clickable
 	showGatherings widget.Clickable
 
-	connectInfo *utils.ConnectInfo
+	connectInfo *connectinfo.ConnectInfo
 }
 
 var AddressInput = &addressInput{
@@ -28,19 +29,20 @@ var AddressInput = &addressInput{
 	editor: widget.Editor{
 		SingleLine: true,
 	},
-	connectInfo: &utils.ConnectInfo{},
+	connectInfo: &connectinfo.ConnectInfo{},
 }
 
 func (a *addressInput) SetGuim(g guim.Guim) {
 	a.g = g
 }
 
-func (a *addressInput) GetConnectInfo() *utils.ConnectInfo {
+func (a *addressInput) GetConnectInfo() *connectinfo.ConnectInfo {
 	t := a.editor.Text()
 	if len(t) == 0 {
 		return nil
 	}
 	a.connectInfo.Value = t
+	a.connectInfo.Account = auth.Auth.Account()
 	return a.connectInfo
 }
 

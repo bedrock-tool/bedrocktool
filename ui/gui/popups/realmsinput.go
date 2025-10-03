@@ -9,7 +9,7 @@ import (
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/guim"
-	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/auth"
 	"github.com/sandertv/gophertunnel/minecraft/realms"
 )
 
@@ -51,10 +51,11 @@ func (*RealmsList) Close() error {
 var _ Popup = &RealmsList{}
 
 func (r *RealmsList) Load() error {
-	if !utils.Auth.LoggedIn() {
-		return utils.ErrNotLoggedIn
+	account := auth.Auth.Account()
+	if account == nil {
+		return auth.ErrNotLoggedIn
 	}
-	realmsList, err := utils.Auth.Realms().Realms(context.Background())
+	realmsList, err := account.Realms().Realms(context.Background())
 	if err != nil {
 		return err
 	}
@@ -94,8 +95,8 @@ func (r *RealmsList) Layout(gtx C, th *material.Theme) D {
 	if !r.loaded && !r.loading {
 		r.loading = true
 		go func() {
-			if !utils.Auth.LoggedIn() {
-				utils.Auth.RequestLogin()
+			if !auth.Auth.LoggedIn() {
+				auth.Auth.RequestLogin(r.g.AccountName())
 			}
 			err := r.Load()
 			if err != nil {

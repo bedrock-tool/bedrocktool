@@ -11,7 +11,7 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/guim"
-	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/auth"
 )
 
 type guiAuth struct {
@@ -55,7 +55,7 @@ func (g *guiAuth) Layout(gtx C, th *material.Theme) D {
 	}
 
 	if g.close.Clicked(gtx) {
-		utils.CancelLogin()
+		auth.Auth.CancelLogin()
 		g.g.ClosePopup(g.ID())
 	}
 

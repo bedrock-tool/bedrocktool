@@ -7,14 +7,14 @@ import (
 	"net"
 	"time"
 
-	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/connectinfo"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sirupsen/logrus"
 )
 
 type ProxySettings struct {
-	ConnectInfo *utils.ConnectInfo `opt:"Address" flag:"address" desc:"locale.remote_address"`
+	ConnectInfo *connectinfo.ConnectInfo `opt:"Address" flag:"address" desc:"locale.remote_address"`
 
 	Debug         bool   `opt:"Debug" flag:"debug" desc:"locale.debug_mode"`
 	ExtraDebug    bool   `opt:"Extra Debug" flag:"extra-debug" desc:"extra debug info (packet.log)"`

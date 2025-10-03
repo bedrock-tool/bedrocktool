@@ -71,7 +71,7 @@ func (SkinCMD) Run(ctx context.Context, settings any) error {
 		}
 	})
 
-	return p.Run(!skinSettings.NoProxy)
+	return p.Run(ctx, !skinSettings.NoProxy)
 }
 
 func init() {

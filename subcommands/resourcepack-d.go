@@ -280,7 +280,7 @@ func (ResourcePackCMD) Run(ctx context.Context, settings any) error {
 
 	p.AddHandler(handler.Handler)
 
-	err = p.Run(false)
+	err = p.Run(ctx, false)
 	if err != nil {
 		return err
 	}

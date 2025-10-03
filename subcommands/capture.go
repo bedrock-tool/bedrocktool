@@ -35,7 +35,7 @@ func (CaptureCMD) Run(ctx context.Context, settings any) error {
 		return err
 	}
 
-	return p.Run(true)
+	return p.Run(ctx, true)
 }
 
 func init() {

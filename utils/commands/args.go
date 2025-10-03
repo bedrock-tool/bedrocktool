@@ -11,6 +11,7 @@ import (
 
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/connectinfo"
 )
 
 type StringSliceFlag struct {
@@ -30,7 +31,7 @@ func (s StringSliceFlag) String() string {
 	return strings.Join(*s.A, ",")
 }
 
-var connectInfoType = reflect.TypeFor[*utils.ConnectInfo]()
+var connectInfoType = reflect.TypeFor[*connectinfo.ConnectInfo]()
 
 type Arg struct {
 	Name    string
@@ -76,7 +77,7 @@ func (a *Arg) Set(v string) error {
 	panic("unimplemented")
 }
 
-func (a *Arg) SetConnectInfo(connectInfo *utils.ConnectInfo) {
+func (a *Arg) SetConnectInfo(connectInfo *connectinfo.ConnectInfo) {
 	if a.Type != "connectInfo" {
 		panic("invalid")
 	}
@@ -181,12 +182,12 @@ func ParseArgs(ctx context.Context, cmd Command, argValues []string) (any, *flag
 		return nil, nil, err
 	}
 
-	var connectInfo *utils.ConnectInfo
+	var connectInfo *connectinfo.ConnectInfo
 	var consumer *Arg
 	flags := flag.NewFlagSet(cmd.Name(), flag.ContinueOnError)
 	for _, arg := range args {
 		if arg.Type == "connectInfo" {
-			connectInfo = &utils.ConnectInfo{}
+			connectInfo = &connectinfo.ConnectInfo{}
 			flags.StringVar(&connectInfo.Value, arg.Flag, "", arg.Desc)
 			arg.SetConnectInfo(connectInfo)
 			continue

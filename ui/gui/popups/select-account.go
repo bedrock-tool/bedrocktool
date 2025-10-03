@@ -5,7 +5,7 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/guim"
-	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/auth"
 	"github.com/sirupsen/logrus"
 )
 
@@ -33,9 +33,13 @@ func (*SelectAccount) Close() error {
 func (p *SelectAccount) Layout(gtx C, th *material.Theme) D {
 	if p.done.Clicked(gtx) {
 		name := p.editor.Text()
-		utils.Auth.ChangeName(name)
 		logrus.WithField("name", name).Info("switched account")
 		p.g.ClosePopup(p.ID())
+		p.g.SetAccountName(name)
+		err := auth.Auth.LoadAccount(name)
+		if err != nil {
+			logrus.WithField("name", name).WithError(err).Error("LoadAccount")
+		}
 	}
 
 	if p.close.Clicked(gtx) {

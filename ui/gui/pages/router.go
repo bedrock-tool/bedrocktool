@@ -18,6 +18,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui/gui/popups"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
+	"github.com/bedrock-tool/bedrocktool/utils/auth"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/slices"
@@ -209,20 +210,21 @@ func (r *Router) Layout(gtx layout.Context, th *material.Theme) layout.Dimension
 }
 
 func (r *Router) layoutLoginButton(gtx layout.Context, fg, bg color.NRGBA) layout.Dimensions {
+	account := auth.Auth.Account()
 	if r.loginButton.Clicked(gtx) {
-		if !utils.Auth.LoggedIn() {
-			go utils.Auth.RequestLogin()
+		if account == nil {
+			go auth.Auth.RequestLogin(r.g.AccountName())
 		} else {
-			utils.Auth.Logout()
+			auth.Auth.Logout()
 		}
 	}
 
 	var text = "Login"
-	if utils.Auth.LoggedIn() {
+	if account != nil {
 		text = "Logout"
 	}
-	if utils.Auth.InstName != "" {
-		text += " (" + utils.Auth.InstName + ")"
+	if account != nil && account.Name() != "" {
+		text += " (" + account.Name() + ")"
 	}
 	button := material.Button(r.th, &r.loginButton, text)
 	button.Background.R -= 20

@@ -69,7 +69,7 @@ func (WorldCMD) Run(ctx context.Context, settings any) error {
 		//Players:         true,
 	}))
 
-	err = p.Run(true)
+	err = p.Run(ctx, true)
 	if err != nil {
 		return err
 	}

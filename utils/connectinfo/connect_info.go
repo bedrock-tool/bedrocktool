@@ -1,4 +1,4 @@
-package utils
+package connectinfo
 
 import (
 	"context"
@@ -8,13 +8,15 @@ import (
 	"path"
 	"strings"
 
+	"github.com/bedrock-tool/bedrocktool/utils/auth"
 	"github.com/bedrock-tool/bedrocktool/utils/discovery"
 	"github.com/google/uuid"
 	"github.com/sandertv/gophertunnel/minecraft/realms"
 )
 
 type ConnectInfo struct {
-	Value string
+	Value   string
+	Account *auth.Account
 
 	gathering *discovery.Gathering
 	realm     *realms.Realm
@@ -26,7 +28,7 @@ func (c *ConnectInfo) getGathering(ctx context.Context, name string) (*discovery
 	if c.gathering != nil && c.gathering.Title == name {
 		return c.gathering, nil
 	}
-	gatheringsService, err := Auth.Gatherings(ctx)
+	gatheringsService, err := c.Account.Gatherings(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +50,7 @@ func (c *ConnectInfo) getRealm(ctx context.Context, name string) (*realms.Realm,
 	if c.realm != nil && c.realm.Name == name {
 		return c.realm, nil
 	}
-	realms, err := Auth.Realms().Realms(ctx)
+	realms, err := c.Account.Realms().Realms(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +126,7 @@ func (c *ConnectInfo) Address(ctx context.Context) (string, error) {
 		return gathering.Address(ctx)
 	}
 	if info.experienceID != zeroUUID {
-		gatheringsService, err := Auth.Gatherings(ctx)
+		gatheringsService, err := c.Account.Gatherings(ctx)
 		if err != nil {
 			return "", err
 		}
