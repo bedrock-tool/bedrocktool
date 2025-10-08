@@ -642,13 +642,15 @@ func main() {
 		// Desktop GUI builds
 		{"windows", "amd64", "gui"},
 		{"linux", "amd64", "gui"},
-		{"android", "arm64", "gui"},
+		//{"android", "arm64", "gui"},
 		{"darwin", "amd64", "gui"},
 		{"darwin", "arm64", "gui"},
 
 		// Desktop CLI builds
 		{"windows", "amd64", "cli"},
 		{"linux", "amd64", "cli"},
+		{"linux", "arm64", "cli"},
+		{"linux", "arm", "cli"},
 		{"darwin", "amd64", "cli"},
 		{"darwin", "arm64", "cli"},
 
