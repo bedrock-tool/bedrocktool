@@ -84,6 +84,10 @@ func (p *packetLogger) logPacket(pk packet.Packet, t time.Time, toServer bool) e
 		utils.DumpStruct(p.packetLogWriter, pk)
 		p.packetLogWriter.Write([]byte("\n\n\n"))
 		p.packetLogWriter.Flush()
+		//switch pk := pk.(type) {
+		//case *packet.Login:
+		//	fmt.Fprintf(p.packetLogWriter, "%s\n", hex.EncodeToString(pk.ConnectionRequest))
+		//}
 	}
 
 	var dir string = dirS2C

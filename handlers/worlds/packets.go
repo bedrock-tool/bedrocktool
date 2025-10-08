@@ -3,6 +3,7 @@ package worlds
 import (
 	"fmt"
 	"maps"
+	"strings"
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds/entity"
@@ -104,6 +105,13 @@ func (w *worldsHandler) packetHandlerPreLogin(_pk packet.Packet, timeReceived ti
 	case *packet.BiomeDefinitionList:
 		for _, biome := range pk.BiomeDefinitions {
 			biomeName := pk.StringList[biome.NameIndex]
+			sp := strings.SplitN(biomeName, ":", 2)
+			if len(sp) > 1 {
+				ns := sp[0]
+				if ns == "minecraft" {
+					biomeName = sp[1]
+				}
+			}
 			_, ok := w.serverState.biomes.BiomeByName(biomeName)
 			if !ok {
 				w.serverState.biomes.Register(&customBiome{name: biomeName, biome: biome, pk: pk})

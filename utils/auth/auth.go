@@ -85,10 +85,6 @@ func (a *authSrv) Logout() {
 	os.Remove(chainFileName(acc.name))
 }
 
-func (a *authSrv) setAccount(acc *Account) {
-	a.account.Store(acc)
-}
-
 func (a *authSrv) Account() *Account {
 	return a.account.Load()
 }

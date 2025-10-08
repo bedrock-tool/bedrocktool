@@ -378,7 +378,7 @@ func (s *Session) connectServer(ctx context.Context, rpHandler *resourcepacks.Re
 
 	logrus.Info(locale.Loc("connecting", locale.Strmap{"Address": address}))
 	dialer := minecraft.Dialer{
-		TokenSource:                s.connectInfo.Account,
+		AuthSource:                 s.connectInfo.Account,
 		DisconnectOnUnknownPackets: false,
 		ErrorLog:                   slog.Default(),
 		PacketFunc:                 s.packetFunc,
@@ -398,16 +398,6 @@ func (s *Session) connectServer(ctx context.Context, rpHandler *resourcepacks.Re
 			conn.ResourcePackHandler = rpHandler
 			conn.SetPrePlayPacketHandler(s.serverPrePlayHandler)
 		},
-	}
-	for range 3 {
-		dialer.ChainKey, dialer.ChainData, err = s.connectInfo.Account.Chain(s.ctx)
-		if err != nil {
-			continue
-		}
-		break
-	}
-	if err != nil {
-		return err
 	}
 
 	_, err = dialer.DialContext(ctx, "raknet", address, 20*time.Second)

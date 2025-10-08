@@ -1,11 +1,9 @@
 package discovery
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
+	"encoding/base64"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -88,50 +86,26 @@ func (a *AuthService) StartSession(ctx context.Context, xblToken, titleid string
 	return &resp.Result, nil
 }
 
-func doRequest[T any](ctx context.Context, client *http.Client, method, url string, payload any, extraHeaders func(*http.Request)) (*T, error) {
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return nil, err
-	}
-	req, err := http.NewRequestWithContext(ctx, method, url, bytes.NewReader(body))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Accept", "*/*")
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", minecraftUserAgent)
-	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
-	req.Header.Set("Cache-Control", "no-cache")
-	if extraHeaders != nil {
-		extraHeaders(req)
-	}
+type multiplayerSessionStartResponse struct {
+	Result struct {
+		IssuedAt    time.Time `json:"issuedAt"`
+		SignedToken string    `json:"signedToken"`
+		ValidUntil  time.Time `json:"validUntil"`
+	} `json:"result"`
+}
 
-	res, err := client.Do(req)
+func (a *AuthService) MultiplayerSessionStart(ctx context.Context, publicKey []byte, mcToken *MCToken) (signedToken string, validUntil time.Time, err error) {
+	resp, err := doRequest[multiplayerSessionStartResponse](ctx, http.DefaultClient, "POST",
+		fmt.Sprintf("%s/api/v1.0/multiplayer/session/start", a.ServiceURI),
+		map[string]any{
+			"publicKey": base64.RawStdEncoding.EncodeToString(publicKey),
+		},
+		func(req *http.Request) {
+			req.Header.Set("Authorization", mcToken.AuthorizationHeader)
+		},
+	)
 	if err != nil {
-		return nil, err
+		return "", time.Time{}, err
 	}
-	defer res.Body.Close()
-
-	if res.StatusCode >= 400 {
-		bodyResp, err := io.ReadAll(res.Body)
-		if err != nil {
-			return nil, err
-		}
-		var resp map[string]any
-		err = json.Unmarshal(bodyResp, &resp)
-		if err != nil {
-			return nil, err
-		}
-		return nil, &JsonResponseError{
-			Status: res.Status,
-			Data:   resp,
-		}
-	}
-
-	var resp T
-	err = json.NewDecoder(res.Body).Decode(&resp)
-	if err != nil {
-		return nil, err
-	}
-	return &resp, nil
+	return resp.Result.SignedToken, resp.Result.ValidUntil, nil
 }

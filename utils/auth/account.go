@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"os"
@@ -27,11 +28,19 @@ type Account struct {
 	gatherings *discovery.GatheringsService
 }
 
+type accountTokenSource struct {
+	account *Account
+}
+
+func (a *accountTokenSource) Token() (t *oauth2.Token, err error) {
+	return a.account.Token(context.Background())
+}
+
 func (a *Account) Name() string {
 	return a.name
 }
 
-func (a *Account) Token() (t *oauth2.Token, err error) {
+func (a *Account) Token(ctx context.Context) (t *oauth2.Token, err error) {
 	if a.token == nil {
 		return nil, ErrNotLoggedIn
 	}
@@ -60,11 +69,11 @@ func (a *Account) Discovery() (d *discovery.Discovery, err error) {
 }
 
 func (a *Account) PlayfabXblToken(ctx context.Context) (*xbox.XBLToken, error) {
-	liveToken, err := a.Token()
+	liveToken, err := a.Token(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return xbox.RequestXBLToken(ctx, liveToken, "rp://[playfabapi.com/](https://playfabapi.com/)", a.token.XboxDeviceType())
+	return xbox.RequestXBLToken(ctx, liveToken, "rp://playfabapi.com/", a.token.XboxDeviceType())
 }
 
 func (a *Account) MCToken(ctx context.Context) (*discovery.MCToken, error) {
@@ -115,7 +124,7 @@ func (a *Account) Gatherings(ctx context.Context) (*discovery.GatheringsService,
 
 func (a *Account) Realms() *realms.Client {
 	if a.realms == nil {
-		a.realms = realms.NewClient(a, nil, "")
+		a.realms = realms.NewClient(&accountTokenSource{account: a}, nil, "")
 	}
 	return a.realms
 }
@@ -148,18 +157,44 @@ func (a *Account) Chain(ctx context.Context) (ChainKey *ecdsa.PrivateKey, ChainD
 	return ch.ChainKey, ch.ChainData, nil
 }
 
-func (a *Account) authChain(ctx context.Context) (key *ecdsa.PrivateKey, chain string, err error) {
-	key, _ = ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
-	liveToken, err := a.Token()
+func (a *Account) PfToken(ctx context.Context, publicKey *ecdsa.PublicKey) (string, error) {
+	discovery, err := a.Discovery()
 	if err != nil {
-		return nil, "", fmt.Errorf("request Live Connect token: %w", err)
+		return "", err
+	}
+	authService, err := discovery.AuthService()
+	if err != nil {
+		return "", err
+	}
+	mcToken, err := a.MCToken(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	keyData, _ := x509.MarshalPKIXPublicKey(publicKey)
+	signedToken, _, err := authService.MultiplayerSessionStart(ctx, keyData, mcToken)
+	return signedToken, err
+}
+
+func (a *Account) XBLToken(ctx context.Context) (*auth.XBLToken, error) {
+	liveToken, err := a.Token(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("request Live Connect token: %w", err)
 	}
 	xsts, err := xbox.RequestXBLToken(ctx, liveToken, "https://multiplayer.minecraft.net/", a.token.XboxDeviceType())
 	if err != nil {
-		return nil, "", fmt.Errorf("request XBOX Live token: %w", err)
+		return nil, fmt.Errorf("request XBOX Live token: %w", err)
 	}
-	xstsa := &auth.XBLToken{
+	return &auth.XBLToken{
 		AuthorizationToken: xsts.AuthorizationToken,
+	}, nil
+}
+
+func (a *Account) authChain(ctx context.Context) (key *ecdsa.PrivateKey, chain string, err error) {
+	key, _ = ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+	xstsa, err := a.XBLToken(ctx)
+	if err != nil {
+		return nil, "", err
 	}
 	chain, err = auth.RequestMinecraftChain(ctx, xstsa, key)
 	if err != nil {
