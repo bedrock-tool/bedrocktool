@@ -798,7 +798,7 @@ func (r *ResourcePackHandler) OnResourcePackClientResponse(pk *packet.ResourcePa
 		select {
 		case <-r.receivedRemoteStack:
 		case <-r.ctx.Done():
-			return r.ctx.Err()
+			return context.Cause(r.ctx)
 		}
 
 		if err := r.Client.WritePacket(r.remoteStack); err != nil {

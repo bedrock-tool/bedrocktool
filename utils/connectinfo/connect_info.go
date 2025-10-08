@@ -130,7 +130,11 @@ func (c *ConnectInfo) Address(ctx context.Context) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		return gatheringsService.JoinExperience(ctx, info.experienceID)
+		address, err := gatheringsService.JoinExperience(ctx, info.experienceID)
+		if err != nil {
+			return "", fmt.Errorf("JoinExperience: %w", err)
+		}
+		return address, nil
 	}
 	return "", errors.New("invalid address")
 }

@@ -440,7 +440,7 @@ func (s *Session) connectClient(ctx context.Context, rpHandler *resourcepacks.Re
 		}
 	}
 
-	serverName, err := s.connectInfo.Name(s.ctx)
+	serverName, err := s.connectInfo.Name(ctx)
 	if err != nil {
 		return err
 	}
@@ -480,7 +480,7 @@ func (s *Session) connectClient(ctx context.Context, rpHandler *resourcepacks.Re
 
 	var accepted = false
 	go func() {
-		<-s.ctx.Done()
+		<-ctx.Done()
 		if !accepted {
 			_ = s.listener.Close()
 		}
