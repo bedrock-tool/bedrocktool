@@ -152,9 +152,17 @@ func (w *worldsHandler) onSessionStart(session *proxy.Session, serverName string
 	}
 
 	w.mapUI = NewMapUI(w)
-	w.scripting = scripting.New()
-	w.scripting.GetWorld = func() *worldstate.World {
-		return w.worldState // locked by calls to the vm
+
+	w.scripting = nil
+	if w.settings.Script != "" {
+		w.scripting = scripting.New()
+		w.scripting.GetWorld = func() *worldstate.World {
+			return w.worldState // locked by calls to the vm
+		}
+		err := w.scripting.Load(w.settings.Script)
+		if err != nil {
+			return err
+		}
 	}
 
 	session.AddCommand(func(cmdline []string) bool {
@@ -225,13 +233,6 @@ func (w *worldsHandler) onSessionStart(session *proxy.Session, serverName string
 		worldState.PauseCapture()
 	}
 	w.worldState = worldState
-
-	if w.settings.Script != "" {
-		err := w.scripting.Load(w.settings.Script)
-		if err != nil {
-			return err
-		}
-	}
 
 	err = w.preloadReplay()
 	if err != nil {

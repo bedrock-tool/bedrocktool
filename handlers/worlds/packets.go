@@ -183,7 +183,9 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 		}
 
 	case *packet.SpawnParticleEffect:
-		w.scripting.OnSpawnParticle(pk.ParticleName, pk.Position, timeReceived)
+		if w.scripting != nil {
+			w.scripting.OnSpawnParticle(pk.ParticleName, pk.Position, timeReceived)
+		}
 
 	case *packet.AddPlayer:
 		w.currentWorld(func(world *worldstate.World) {
@@ -223,9 +225,11 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 			ent.Velocity = pk.Velocity
 			w.applyEntityData(ent, pk.EntityMetadata, pk.EntityProperties, timeReceived)
 
-			if !w.scripting.OnEntityAdd(ent, timeReceived) {
-				logrus.Infof("Ignoring Entity: %s %d", ent.EntityType, ent.UniqueID)
-				return
+			if w.scripting != nil {
+				if !w.scripting.OnEntityAdd(ent, timeReceived) {
+					logrus.Infof("Ignoring Entity: %s %d", ent.EntityType, ent.UniqueID)
+					return
+				}
 			}
 			world.StoreEntity(pk.EntityRuntimeID, ent)
 			for _, el := range pk.EntityLinks {
@@ -469,10 +473,12 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 				if !found {
 					return
 				}
-				apply := w.scripting.OnBlockUpdate(name, properties, pk.Position, timeReceived)
-				if apply {
-					world.QueueBlockUpdate(pk.Position, rid, uint8(pk.Layer))
+				if w.scripting != nil {
+					if !w.scripting.OnBlockUpdate(name, properties, pk.Position, timeReceived) {
+						return
+					}
 				}
+				world.QueueBlockUpdate(pk.Position, rid, uint8(pk.Layer))
 			})
 
 		case *packet.UpdateBlockSynced:
@@ -481,10 +487,12 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 				if !found {
 					return
 				}
-				apply := w.scripting.OnBlockUpdate(name, properties, pk.Position, timeReceived)
-				if apply {
-					world.QueueBlockUpdate(pk.Position, rid, uint8(pk.Layer))
+				if w.scripting != nil {
+					if !w.scripting.OnBlockUpdate(name, properties, pk.Position, timeReceived) {
+						return
+					}
 				}
+				world.QueueBlockUpdate(pk.Position, rid, uint8(pk.Layer))
 			})
 
 		case *packet.UpdateSubChunkBlocks:
@@ -494,10 +502,12 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 					if !found {
 						break
 					}
-					apply := w.scripting.OnBlockUpdate(name, properties, block.BlockPos, timeReceived)
-					if apply {
-						world.QueueBlockUpdate(block.BlockPos, rid, uint8(0))
+					if w.scripting != nil {
+						if !w.scripting.OnBlockUpdate(name, properties, block.BlockPos, timeReceived) {
+							return
+						}
 					}
+					world.QueueBlockUpdate(block.BlockPos, rid, uint8(0))
 				}
 			})
 		}
@@ -507,9 +517,11 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 }
 
 func (w *worldsHandler) packetHandler(_ *proxy.Session, pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
-	drop := w.scripting.OnPacket(pk, toServer, timeReceived)
-	if drop {
-		return nil, nil
+	if w.scripting != nil {
+		drop := w.scripting.OnPacket(pk, toServer, timeReceived)
+		if drop {
+			return nil, nil
+		}
 	}
 	if preLogin {
 		return w.packetHandlerPreLogin(pk, timeReceived)
@@ -587,7 +599,9 @@ func (w *worldsHandler) applyPlayerData(entityMetadata protocol.EntityMetadata, 
 
 func (w *worldsHandler) applyEntityData(ent *entity.Entity, entityMetadata protocol.EntityMetadata, entityProperties protocol.EntityProperties, timeReceived time.Time) {
 	maps.Copy(ent.Metadata, entityMetadata)
-	w.scripting.OnEntityDataUpdate(ent, timeReceived)
+	if w.scripting != nil {
+		w.scripting.OnEntityDataUpdate(ent, timeReceived)
+	}
 	properties := w.serverState.entityProperties[ent.EntityType]
 	applyProperties(w.log, properties, entityProperties, ent.Properties)
 }

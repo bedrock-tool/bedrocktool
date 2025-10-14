@@ -61,9 +61,11 @@ func (w *worldsHandler) handleLevelChunk(pk *packet.LevelChunk, timeReceived tim
 	}
 
 	pos := world.ChunkPos(pk.Position)
-	if !w.scripting.OnChunkAdd(pos, timeReceived) {
-		w.worldState.IgnoredChunks[pos] = true
-		return
+	if w.scripting != nil {
+		if !w.scripting.OnChunkAdd(pos, timeReceived) {
+			w.worldState.IgnoredChunks[pos] = true
+			return
+		}
 	}
 	w.worldState.IgnoredChunks[pos] = false
 
@@ -96,7 +98,9 @@ func (w *worldsHandler) handleLevelChunk(pk *packet.LevelChunk, timeReceived tim
 		w.log.Error(err)
 	}
 
-	w.scripting.OnChunkData(pos)
+	if w.scripting != nil {
+		w.scripting.OnChunkData(pos)
+	}
 
 	w.session.SendPopup(locale.Locm("popup_chunk_count", locale.Strmap{
 		"Chunks":   len(w.worldState.StoredChunks),
@@ -190,8 +194,10 @@ func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) error {
 	for pos, ch := range chunks {
 		w.worldState.StoreChunk(pos, ch)
 	}
-	for pos := range chunks {
-		w.scripting.OnChunkData(pos)
+	if w.scripting != nil {
+		for pos := range chunks {
+			w.scripting.OnChunkData(pos)
+		}
 	}
 
 	w.mapUI.SchedRedraw()
