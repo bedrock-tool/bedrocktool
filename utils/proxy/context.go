@@ -76,7 +76,7 @@ func (p *Context) connect(connectInfo *connectinfo.ConnectInfo, withClient bool)
 		}
 		address := fmt.Sprintf("%s:%d", err.transfer.Address, err.transfer.Port)
 		logrus.Infof("transferring to %s", address)
-		return p.connect(&connectinfo.ConnectInfo{Value: address}, withClient)
+		return p.connect(&connectinfo.ConnectInfo{Value: address, Account: connectInfo.Account}, withClient)
 	}
 	return err
 }
