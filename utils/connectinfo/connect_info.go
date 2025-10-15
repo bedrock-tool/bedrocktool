@@ -18,11 +18,10 @@ type ConnectInfo struct {
 	Value   string
 	Account *auth.Account
 
-	gathering *discovery.Gathering
-	realm     *realms.Realm
+	gathering  *discovery.Gathering
+	realm      *realms.Realm
+	experience *discovery.FeaturedServer
 }
-
-var zeroUUID = uuid.UUID{}
 
 func (c *ConnectInfo) getGathering(ctx context.Context, name string) (*discovery.Gathering, error) {
 	if c.gathering != nil && c.gathering.Title == name {
@@ -32,7 +31,7 @@ func (c *ConnectInfo) getGathering(ctx context.Context, name string) (*discovery
 	if err != nil {
 		return nil, err
 	}
-	gatherings, err := gatheringsService.Gatherings(ctx)
+	gatherings, err := gatheringsService.GetGatherings(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -44,6 +43,32 @@ func (c *ConnectInfo) getGathering(ctx context.Context, name string) (*discovery
 		}
 	}
 	return nil, fmt.Errorf("gathering %s not found", name)
+}
+
+func (c *ConnectInfo) getExperience(ctx context.Context, name string) (*discovery.FeaturedServer, error) {
+	if c.experience != nil {
+		if c.experience.ExperienceId == name {
+			return c.experience, nil
+		}
+		if strings.EqualFold(c.experience.Name, name) {
+			return c.experience, nil
+		}
+	}
+	gatherings, err := c.Account.Gatherings(ctx)
+	if err != nil {
+		return nil, err
+	}
+	featuredServers, err := gatherings.GetFeaturedServers(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, experience := range featuredServers {
+		if experience.ExperienceId == name || strings.EqualFold(experience.Name, name) {
+			c.experience = &experience
+			return c.experience, nil
+		}
+	}
+	return nil, nil
 }
 
 func (c *ConnectInfo) getRealm(ctx context.Context, name string) (*realms.Realm, error) {
@@ -94,8 +119,15 @@ func (c *ConnectInfo) Name(ctx context.Context) (string, error) {
 		}
 		return gathering.Title, nil
 	}
-	if info.experienceID != zeroUUID {
-		return info.experienceID.String(), nil
+	if info.experience != "" {
+		exp, err := c.getExperience(ctx, info.experience)
+		if err != nil {
+			return "", err
+		}
+		if exp == nil {
+			return info.experience, nil
+		}
+		return exp.Name, nil
 	}
 	return "invalid", nil
 }
@@ -125,12 +157,21 @@ func (c *ConnectInfo) Address(ctx context.Context) (string, error) {
 		}
 		return gathering.Address(ctx)
 	}
-	if info.experienceID != zeroUUID {
+
+	if info.experience != "" {
+		experience, err := c.getExperience(ctx, info.experience)
+		if err != nil {
+			return "", err
+		}
+		expId, err := uuid.Parse(experience.ExperienceId)
+		if err != nil {
+			return "", err
+		}
 		gatheringsService, err := c.Account.Gatherings(ctx)
 		if err != nil {
 			return "", err
 		}
-		address, err := gatheringsService.JoinExperience(ctx, info.experienceID)
+		address, err := gatheringsService.JoinExperience(ctx, expId)
 		if err != nil {
 			return "", fmt.Errorf("JoinExperience: %w", err)
 		}
@@ -153,11 +194,20 @@ func (c *ConnectInfo) SetGathering(gathering *discovery.Gathering) {
 	c.gathering = gathering
 }
 
+func (c *ConnectInfo) SetFeaturedServer(server *discovery.FeaturedServer) {
+	if server.ExperienceId != "" {
+		c.Value = "experience:" + server.Name
+		c.experience = server
+	} else {
+		c.Value = server.Address
+	}
+}
+
 type parsedConnectInfo struct {
 	gatheringName string
 	realmName     string
 	replayName    string
-	experienceID  uuid.UUID
+	experience    string
 	serverAddress string
 }
 
@@ -170,11 +220,7 @@ func parseConnectInfo(value string) (*parsedConnectInfo, error) {
 
 	if experienceRegex.MatchString(value) {
 		p := regexGetParams(experienceRegex, value)
-		id, err := uuid.Parse(p["ID"])
-		if err != nil {
-			return nil, err
-		}
-		return &parsedConnectInfo{experienceID: id}, nil
+		return &parsedConnectInfo{experience: p["ID"]}, nil
 	}
 
 	// realm

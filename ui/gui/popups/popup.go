@@ -8,6 +8,7 @@ import (
 	"gioui.org/io/event"
 	"gioui.org/io/pointer"
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/widget/material"
@@ -49,16 +50,23 @@ func LayoutPopupBackground(gtx C, th *material.Theme, tag string, widget layout.
 			}
 		}
 
-		component.Rect{
-			Color: th.Bg,
-			Size:  image.Pt(width, gtx.Dp(250)),
-			Radii: gtx.Dp(15),
-		}.Layout(gtx)
-
+		// set width constant, height min 250, max 80%
 		gtx.Constraints.Min.X = width
 		gtx.Constraints.Max.X = gtx.Constraints.Min.X
 		gtx.Constraints.Min.Y = gtx.Dp(250)
-		gtx.Constraints.Max.Y = gtx.Constraints.Min.Y
-		return layout.UniformInset(8).Layout(gtx, widget)
+		gtx.Constraints.Max.Y = int(float32(gtx.Constraints.Max.Y) * 0.8)
+
+		macro := op.Record(gtx.Ops)
+		wdims := layout.UniformInset(8).Layout(gtx, widget)
+		call := macro.Stop()
+
+		component.Rect{
+			Color: th.Bg,
+			Size:  image.Pt(width, wdims.Size.Y),
+			Radii: gtx.Dp(15),
+		}.Layout(gtx)
+
+		call.Add(gtx.Ops)
+		return wdims
 	})
 }

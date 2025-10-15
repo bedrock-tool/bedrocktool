@@ -68,13 +68,13 @@ func (g *Gatherings) Load() error {
 	if account == nil {
 		return auth.ErrNotLoggedIn
 	}
-
-	gatheringsClient, err := account.Gatherings(context.Background())
+	ctx := context.Background()
+	gatheringsClient, err := account.Gatherings(ctx)
 	if err != nil {
 		return err
 	}
 
-	gatherings, err := gatheringsClient.Gatherings(context.TODO())
+	gatherings, err := gatheringsClient.GetGatherings(ctx)
 	if err != nil {
 		return err
 	}
@@ -126,7 +126,7 @@ func (g *Gatherings) Layout(gtx C, th *material.Theme) D {
 		}()
 	}
 
-	return LayoutPopupBackground(gtx, th, "Realms", func(gtx C) D {
+	return LayoutPopupBackground(gtx, th, "Events", func(gtx C) D {
 		return layout.Flex{
 			Axis: layout.Vertical,
 		}.Layout(gtx,
@@ -139,7 +139,7 @@ func (g *Gatherings) Layout(gtx C, th *material.Theme) D {
 				}
 
 				if len(g.gatherings) == 0 {
-					return layout.Center.Layout(gtx, material.H5(th, "there are no gatherings active").Layout)
+					return layout.Center.Layout(gtx, material.H5(th, "there are no Events active").Layout)
 				}
 
 				l := material.List(th, &g.list)

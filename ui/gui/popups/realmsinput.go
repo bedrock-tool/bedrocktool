@@ -81,6 +81,7 @@ func (r *RealmsList) Load() error {
 }
 
 func (r *RealmsList) Layout(gtx C, th *material.Theme) D {
+	gtx.Constraints.Max.Y = min(gtx.Constraints.Max.Y, 500)
 	for _, realm := range r.realms {
 		if realm.Clicked(gtx) {
 			r.setRealm(realm.Realm)

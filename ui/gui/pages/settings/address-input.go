@@ -20,6 +20,7 @@ type addressInput struct {
 	editor         widget.Editor
 	showRealmsList widget.Clickable
 	showGatherings widget.Clickable
+	showFeatured   widget.Clickable
 
 	connectInfo *connectinfo.ConnectInfo
 }
@@ -61,6 +62,13 @@ func (a *addressInput) Layout(gtx C, th *material.Theme) D {
 		}))
 	}
 
+	if a.showFeatured.Clicked(gtx) {
+		a.g.ShowPopup(popups.NewFeaturedServers(a.g, func(server *discovery.FeaturedServer) {
+			a.connectInfo.SetFeaturedServer(server)
+			a.editor.SetText(a.connectInfo.Value)
+		}))
+	}
+
 	return layout.UniformInset(5).Layout(gtx, func(gtx C) D {
 		return layout.Flex{
 			Axis: layout.Vertical,
@@ -82,10 +90,10 @@ func (a *addressInput) Layout(gtx C, th *material.Theme) D {
 				return d
 			}),
 			layout.Rigid(func(gtx C) D {
-				gtx.Constraints.Max.X = gtx.Dp(unit.Dp(200))
+				gtx.Constraints.Max.X = gtx.Dp(unit.Dp(300))
 				return layout.Flex{
 					Axis:      layout.Horizontal,
-					WeightSum: 2,
+					WeightSum: 3,
 				}.Layout(gtx,
 					layout.Flexed(1, func(gtx C) D {
 						return layout.Inset{
@@ -102,6 +110,14 @@ func (a *addressInput) Layout(gtx C, th *material.Theme) D {
 							Left:   0,
 							Right:  5,
 						}.Layout(gtx, material.Button(th, &a.showGatherings, "Events").Layout)
+					}),
+					layout.Flexed(1, func(gtx C) D {
+						return layout.Inset{
+							Top:    5,
+							Bottom: 5,
+							Left:   0,
+							Right:  5,
+						}.Layout(gtx, material.Button(th, &a.showFeatured, "Featured").Layout)
 					}),
 				)
 			}),

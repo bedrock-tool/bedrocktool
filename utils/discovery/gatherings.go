@@ -92,7 +92,7 @@ func (g *GatheringsService) SetToken(token *MCToken) {
 	g.token = token
 }
 
-func (g *GatheringsService) Gatherings(ctx context.Context) ([]*Gathering, error) {
+func (g *GatheringsService) GetGatherings(ctx context.Context) ([]*Gathering, error) {
 	type gatheringsResponse struct {
 		Result []Gathering `json:"result"`
 	}
@@ -132,6 +132,106 @@ func (g *GatheringsService) JoinExperience(ctx context.Context, id uuid.UUID) (s
 		return "", err
 	}
 	return fmt.Sprintf("%s:%d", resp.Result.IPV4Address, resp.Result.Port), nil
+}
+
+type FeaturedServer struct {
+	Name         string
+	Address      string
+	ExperienceId string
+}
+
+func (g *GatheringsService) GetFeaturedServers(ctx context.Context) ([]FeaturedServer, error) {
+	type Translated struct {
+		Neutral string `json:"NEUTRAL"`
+	}
+	type Images struct {
+		Tag  string `json:"Tag"`
+		ID   string `json:"Id"`
+		Type string `json:"Type"`
+		URL  string `json:"Url"`
+	}
+	type AvailableGames struct {
+		Description string `json:"description"`
+		ImageTag    string `json:"imageTag"`
+		Subtitle    string `json:"subtitle"`
+		Title       string `json:"title"`
+	}
+	type DisplayProperties struct {
+		AvailableGames    []AvailableGames `json:"availableGames"`
+		CreatorName       string           `json:"creatorName"`
+		MaxClientVersion  string           `json:"maxClientVersion"`
+		MinClientVersion  string           `json:"minClientVersion"`
+		News              string           `json:"news"`
+		NewsTitle         string           `json:"newsTitle"`
+		OriginalCreatorID string           `json:"originalCreatorId"`
+		Port              int              `json:"port"`
+		RequireXBL        string           `json:"requireXBL"`
+		StorePageID       string           `json:"storePageId"`
+		URL               string           `json:"url"`
+		WhitelistURL      string           `json:"whitelistUrl"`
+		AllowListURL      string           `json:"allowListUrl"`
+		ExperienceID      string           `json:"experienceId"`
+		IsTop             bool             `json:"isTop"`
+	}
+	type EntityKey struct {
+		ID         string `json:"Id"`
+		Type       string `json:"Type"`
+		TypeString string `json:"TypeString"`
+	}
+	type Items struct {
+		ID                string            `json:"Id"`
+		Type              string            `json:"Type"`
+		AlternateIds      []any             `json:"AlternateIds"`
+		Title             Translated        `json:"Title"`
+		Description       Translated        `json:"Description,omitempty"`
+		ContentType       string            `json:"ContentType"`
+		Platforms         []string          `json:"Platforms"`
+		Tags              []string          `json:"Tags"`
+		CreationDate      time.Time         `json:"CreationDate"`
+		LastModifiedDate  time.Time         `json:"LastModifiedDate"`
+		StartDate         time.Time         `json:"StartDate"`
+		Contents          []any             `json:"Contents"`
+		Images            []Images          `json:"Images"`
+		ItemReferences    []any             `json:"ItemReferences"`
+		DisplayProperties DisplayProperties `json:"DisplayProperties,omitempty"`
+		IsStackable       bool              `json:"IsStackable"`
+		CreatorEntityKey  EntityKey         `json:"CreatorEntityKey"`
+		IsHydrated        bool              `json:"IsHydrated"`
+		Keywords          Translated        `json:"Keywords"`
+		CreatorEntity     EntityKey         `json:"CreatorEntity,omitempty"`
+	}
+	type Data struct {
+		Count             int     `json:"Count"`
+		Items             []Items `json:"Items"`
+		ConfigurationName string  `json:"ConfigurationName"`
+	}
+	type Response struct {
+		Status string `json:"status"`
+		Code   int    `json:"code"`
+		Data   Data   `json:"data"`
+	}
+
+	resp, err := doRequest[Response](ctx, http.DefaultClient, "POST",
+		fmt.Sprintf("%s/api/v2.0/discovery/blob/client", g.ServiceURI), nil, func(r *http.Request) {
+			g.mcTokenAuth(r)
+		})
+	if err != nil {
+		return nil, err
+	}
+
+	var out []FeaturedServer
+	for _, item := range resp.Data.Items {
+		address := ""
+		if item.DisplayProperties.URL != "" {
+			address = fmt.Sprintf("%s:%d", item.DisplayProperties.URL, item.DisplayProperties.Port)
+		}
+		out = append(out, FeaturedServer{
+			Name:         item.Title.Neutral,
+			Address:      address,
+			ExperienceId: item.DisplayProperties.ExperienceID,
+		})
+	}
+	return out, nil
 }
 
 func (g *GatheringsService) mcTokenAuth(req *http.Request) {

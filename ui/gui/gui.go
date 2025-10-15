@@ -158,7 +158,7 @@ func (g *GUI) loop() error {
 		g.window.Invalidate()
 	}()
 
-	for {
+	for !closing {
 		event := gioplugins.Hijack(&g.window)
 		g.explorer.ListenEvents(event)
 
@@ -187,6 +187,7 @@ func (g *GUI) loop() error {
 			g.hyperlink.Configure(giohyperlink.NewConfigFromViewEvent(&g.window, event))
 		}
 	}
+	return nil
 }
 
 func (g *GUI) eventHandler(event any) error {

@@ -31,7 +31,7 @@ func (*SelectAccount) Close() error {
 }
 
 func (p *SelectAccount) Layout(gtx C, th *material.Theme) D {
-	if p.done.Clicked(gtx) {
+	if p.done.Clicked(gtx) && p.editor.Len() != 0 {
 		name := p.editor.Text()
 		logrus.WithField("name", name).Info("switched account")
 		p.g.ClosePopup(p.ID())
@@ -47,34 +47,45 @@ func (p *SelectAccount) Layout(gtx C, th *material.Theme) D {
 	}
 
 	return LayoutPopupBackground(gtx, th, "switch-account", func(gtx C) D {
+		gtx.Constraints.Max = gtx.Constraints.Min
 		return layout.Flex{
-			Axis: layout.Vertical,
+			Axis:    layout.Vertical,
+			Spacing: layout.SpaceBetween,
 		}.Layout(gtx,
 			layout.Rigid(func(gtx C) D {
-				return material.H3(th, "Select Account Instance").Layout(gtx)
+				return material.H4(th, "Select Account Instance").Layout(gtx)
 			}),
-			layout.Flexed(1, func(gtx C) D {
-				return layout.Center.Layout(gtx, func(gtx C) D {
+			layout.Rigid(func(gtx C) D {
+				return layout.N.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return material.Editor(th, &p.editor, "enter instance name").Layout(gtx)
 				})
 			}),
 			layout.Rigid(func(gtx C) D {
 				gtx.Constraints.Max.X /= 2
-
 				return layout.Flex{
 					Axis:      layout.Horizontal,
-					Spacing:   layout.SpaceBetween,
+					Spacing:   layout.SpaceSides,
 					Alignment: layout.End,
 				}.Layout(gtx,
 					layout.Rigid(func(gtx C) D {
-						b := material.Button(th, &p.close, "Close")
-						b.CornerRadius = 8
-						return b.Layout(gtx)
+						return layout.UniformInset(8).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							gtx.Constraints.Min.X = 80
+							b := material.Button(th, &p.close, "Close")
+							b.CornerRadius = 8
+							return b.Layout(gtx)
+						})
 					}),
 					layout.Rigid(func(gtx C) D {
-						b := material.Button(th, &p.done, "Done")
-						b.CornerRadius = 8
-						return b.Layout(gtx)
+						return layout.UniformInset(8).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
+							gtx.Constraints.Min.X = 80
+							b := material.Button(th, &p.done, "Done")
+							b.CornerRadius = 8
+							if p.editor.Len() == 0 {
+								b.Color = th.Bg
+								b.Background = th.Fg
+							}
+							return b.Layout(gtx)
+						})
 					}),
 				)
 			}),
