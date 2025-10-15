@@ -2,7 +2,6 @@ package subcommands
 
 import (
 	"archive/zip"
-	"bufio"
 	"context"
 	"image"
 	"image/draw"
@@ -64,40 +63,45 @@ func processPack(outputDir string, packNameCounts map[string]int, pack resource.
 		ID: pack.UUID().String(),
 	})
 
-	if packSettings.SaveEncrypted {
-		fw, err := os.Create(filepath.Join(outputDir, packFilename+".zip"))
+	if packSettings.SaveEncrypted && pack.Encrypted() {
+		f, err := os.Create(filepath.Join(outputDir, packFilename+".zip"))
 		if err != nil {
 			return err
 		}
-		bw := bufio.NewWriter(fw)
-		_, err = pack.WriteTo(bw)
-		bw.Flush()
-		fw.Close()
-		if err != nil {
+		defer f.Close()
+		if _, err = pack.WriteTo(f); err != nil {
 			return err
 		}
 	}
 
-	var err error
 	var packPath string
 	if packSettings.Folders {
 		packPath = filepath.Join(outputDir, packFilename)
-		err = utils.CopyFS(pack, utils.OSWriter{Base: packPath})
+		if err := utils.CopyFS(pack, utils.OSWriter{Base: packPath}); err != nil {
+			return err
+		}
 	} else {
 		packPath = filepath.Join(outputDir, packFilename+".mcpack")
-		var f *os.File
-		f, err = os.Create(packPath)
+		f, err := os.Create(packPath)
 		if err != nil {
 			return err
 		}
-		zw := zip.NewWriter(f)
-		utils.ZipCompressPool(zw)
-		err = utils.CopyFS(pack, utils.ZipWriter{Writer: zw})
-		zw.Close()
-		f.Close()
-	}
-	if err != nil {
-		return err
+		defer f.Close()
+
+		if !pack.Encrypted() {
+			logrus.Trace("Saving verbatim")
+			if _, err := pack.WriteTo(f); err != nil {
+				return err
+			}
+		} else {
+			zw := zip.NewWriter(f)
+			defer zw.Close()
+			utils.ZipCompressPool(zw)
+			err = utils.CopyFS(pack, utils.ZipWriter{Writer: zw})
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	var icon *image.RGBA
@@ -265,6 +269,7 @@ func (r *resourcePackHandler) Handler() *proxy.Handler {
 		OnSessionEnd: func(s *proxy.Session, _wg *sync.WaitGroup) {
 			close(packChannel)
 			wg.Wait()
+			logrus.Info("Done!")
 		},
 	}
 }
