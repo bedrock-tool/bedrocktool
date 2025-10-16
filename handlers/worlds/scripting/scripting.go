@@ -32,7 +32,7 @@ type VM struct {
 		OnEntityDataUpdate func(entity *entity.Entity, metadata *goja.Object, timeReceived float64)
 		OnBlockUpdate      func(name string, properties map[string]any, pos protocol.BlockPos, timeReceived float64) (apply goja.Value)
 		OnSpawnParticle    func(name string, pos mgl32.Vec3, timeReceived float64)
-		OnPacket           func(name string, pk packet.Packet, toServer bool, timeReceived float64) (drop bool)
+		OnPacket           func(name string, pk packet.Packet, toServer bool, timeReceived float64) (apply goja.Value)
 	}
 
 	GetWorld func() *worldstate.World

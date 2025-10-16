@@ -18,6 +18,9 @@ func (v *VM) OnEntityAdd(entity *entity.Entity, timeReceived time.Time) (apply b
 	if v.CB.OnEntityAdd == nil {
 		return true
 	}
+
+	v.lock.Lock()
+	defer v.lock.Unlock()
 	apply = true
 	err := utils.RecoverCall(func() error {
 		applyV := v.CB.OnEntityAdd(entity, newEntityDataObject(v.runtime, entity.Metadata), float64(timeReceived.UnixMilli()))
@@ -36,6 +39,9 @@ func (v *VM) OnEntityDataUpdate(entity *entity.Entity, timeReceived time.Time) {
 	if v.CB.OnEntityDataUpdate == nil {
 		return
 	}
+
+	v.lock.Lock()
+	defer v.lock.Unlock()
 	err := utils.RecoverCall(func() error {
 		v.CB.OnEntityDataUpdate(entity, newEntityDataObject(v.runtime, entity.Metadata), float64(timeReceived.UnixMilli()))
 		return nil
@@ -49,21 +55,29 @@ func (v *VM) OnChunkAdd(pos world.ChunkPos, timeReceived time.Time) (apply bool)
 	if v.CB.OnChunkAdd == nil {
 		return true
 	}
+
+	v.lock.Lock()
+	defer v.lock.Unlock()
+	apply = true
 	err := utils.RecoverCall(func() error {
 		applyV := v.CB.OnChunkAdd(pos, float64(timeReceived.UnixMilli()))
-		if !goja.IsUndefined(applyV) {
-			apply = applyV.ToBoolean()
-		}
+		apply = goja.IsUndefined(applyV) || applyV.ToBoolean()
 		return nil
 	})
 	if err != nil {
 		v.log.Error(err)
 		apply = true
 	}
-	return
+	return apply
 }
 
 func (v *VM) OnChunkData(pos world.ChunkPos) {
+	if v.CB.OnChunkData == nil {
+		return
+	}
+
+	v.lock.Lock()
+	defer v.lock.Unlock()
 	err := utils.RecoverCall(func() error {
 		v.CB.OnChunkData(pos)
 		return nil
@@ -78,12 +92,12 @@ func (v *VM) OnBlockUpdate(name string, properties map[string]any, pos protocol.
 		return true
 	}
 
+	v.lock.Lock()
+	defer v.lock.Unlock()
 	apply = true
 	err := utils.RecoverCall(func() error {
 		applyV := v.CB.OnBlockUpdate(name, properties, pos, float64(timeReceived.UnixMilli()))
-		if !goja.IsUndefined(applyV) {
-			apply = applyV.ToBoolean()
-		}
+		apply = goja.IsUndefined(applyV) || applyV.ToBoolean()
 		return nil
 	})
 	if err != nil {
@@ -108,21 +122,22 @@ func (v *VM) OnSpawnParticle(name string, position mgl32.Vec3, timeReceived time
 	}
 }
 
-func (v *VM) OnPacket(pk packet.Packet, toServer bool, timeReceived time.Time) (drop bool) {
+func (v *VM) OnPacket(pk packet.Packet, toServer bool, timeReceived time.Time) (apply bool) {
 	if v.CB.OnPacket == nil {
-		return false
+		return true
 	}
 
 	v.lock.Lock()
 	defer v.lock.Unlock()
 	err := utils.RecoverCall(func() error {
 		packetName := strings.Split(reflect.TypeOf(pk).String(), ".")[1]
-		drop = v.CB.OnPacket(packetName, pk, toServer, float64(timeReceived.UnixMilli()))
+		applyV := v.CB.OnPacket(packetName, pk, toServer, float64(timeReceived.UnixMilli()))
+		apply = goja.IsUndefined(applyV) || applyV.ToBoolean()
 		return nil
 	})
 	if err != nil {
 		v.log.Error(err)
-		return false
+		return true
 	}
-	return drop
+	return apply
 }

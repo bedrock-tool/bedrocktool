@@ -31,7 +31,11 @@ func (c *ConnectInfo) getGathering(ctx context.Context, name string) (*discovery
 	if err != nil {
 		return nil, err
 	}
-	gatherings, err := gatheringsService.GetGatherings(ctx)
+	mcToken, err := c.Account.MCToken(ctx)
+	if err != nil {
+		return nil, err
+	}
+	gatherings, err := gatheringsService.GetGatherings(ctx, mcToken)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +62,11 @@ func (c *ConnectInfo) getExperience(ctx context.Context, name string) (*discover
 	if err != nil {
 		return nil, err
 	}
-	featuredServers, err := gatherings.GetFeaturedServers(ctx)
+	mcToken, err := c.Account.MCToken(ctx)
+	if err != nil {
+		return nil, err
+	}
+	featuredServers, err := gatherings.GetFeaturedServers(ctx, mcToken)
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +163,11 @@ func (c *ConnectInfo) Address(ctx context.Context) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		return gathering.Address(ctx)
+		mcToken, err := c.Account.MCToken(ctx)
+		if err != nil {
+			return "", err
+		}
+		return gathering.Address(ctx, mcToken)
 	}
 
 	if info.experience != "" {
@@ -171,7 +183,11 @@ func (c *ConnectInfo) Address(ctx context.Context) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		address, err := gatheringsService.JoinExperience(ctx, expId)
+		mcToken, err := c.Account.MCToken(ctx)
+		if err != nil {
+			return "", err
+		}
+		address, err := gatheringsService.JoinExperience(ctx, mcToken, expId)
 		if err != nil {
 			return "", fmt.Errorf("JoinExperience: %w", err)
 		}

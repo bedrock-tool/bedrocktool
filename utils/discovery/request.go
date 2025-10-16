@@ -8,6 +8,25 @@ import (
 	"net/http"
 )
 
+func mcTokenAuth(mcToken *MCToken) func(req *http.Request) {
+	return func(req *http.Request) {
+		req.Header.Set("Authorization", mcToken.AuthorizationHeader)
+	}
+}
+
+type JsonResponseError struct {
+	Status string
+	Data   map[string]any
+}
+
+func (e JsonResponseError) Error() string {
+	message, ok := e.Data["message"].(string)
+	if ok {
+		return e.Status + "\n" + message
+	}
+	return e.Status
+}
+
 func doRequest[T any](ctx context.Context, client *http.Client, method, url string, payload any, extraHeaders func(*http.Request)) (*T, error) {
 	body, err := json.Marshal(payload)
 	if err != nil {

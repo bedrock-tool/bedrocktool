@@ -73,8 +73,11 @@ func (g *Gatherings) Load() error {
 	if err != nil {
 		return err
 	}
-
-	gatherings, err := gatheringsClient.GetGatherings(ctx)
+	mcToken, err := account.MCToken(ctx)
+	if err != nil {
+		return err
+	}
+	gatherings, err := gatheringsClient.GetGatherings(ctx, mcToken)
 	if err != nil {
 		return err
 	}

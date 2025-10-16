@@ -73,8 +73,11 @@ func (fs *FeaturedServers) Load() error {
 	if err != nil {
 		return err
 	}
-
-	servers, err := gatheringsClient.GetFeaturedServers(ctx)
+	mcToken, err := account.MCToken(ctx)
+	if err != nil {
+		return err
+	}
+	servers, err := gatheringsClient.GetFeaturedServers(ctx, mcToken)
 	if err != nil {
 		return err
 	}

@@ -518,8 +518,7 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 
 func (w *worldsHandler) packetHandler(_ *proxy.Session, pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
 	if w.scripting != nil {
-		drop := w.scripting.OnPacket(pk, toServer, timeReceived)
-		if drop {
+		if !w.scripting.OnPacket(pk, toServer, timeReceived) {
 			return nil, nil
 		}
 	}

@@ -49,7 +49,7 @@ type Gathering struct {
 	AdditionalLoc map[string]any `json:"additionalLoc"`
 }
 
-func (g *Gathering) Address(ctx context.Context) (string, error) {
+func (g *Gathering) Address(ctx context.Context, mcToken *MCToken) (string, error) {
 	type venueResponse struct {
 		Result struct {
 			Venue struct {
@@ -61,7 +61,7 @@ func (g *Gathering) Address(ctx context.Context) (string, error) {
 
 	resp1, err := doRequest[map[string]any](ctx, http.DefaultClient, "GET",
 		fmt.Sprintf("%s/api/v1.0/access?lang=en-US&clientVersion=%s&clientPlatform=Windows10&clientSubPlatform=Windows10", g.client.ServiceURI, protocol.CurrentVersion),
-		nil, g.client.mcTokenAuth,
+		nil, mcTokenAuth(mcToken),
 	)
 	if err != nil {
 		return "", err
@@ -70,7 +70,7 @@ func (g *Gathering) Address(ctx context.Context) (string, error) {
 
 	resp, err := doRequest[venueResponse](ctx, http.DefaultClient, "GET",
 		fmt.Sprintf("%s/api/v1.0/venue/%s", g.client.ServiceURI, g.GatheringID),
-		nil, g.client.mcTokenAuth,
+		nil, mcTokenAuth(mcToken),
 	)
 	if err != nil {
 		return "", err
@@ -85,21 +85,16 @@ func (g *Gathering) Address(ctx context.Context) (string, error) {
 
 type GatheringsService struct {
 	Service
-	token *MCToken
 }
 
-func (g *GatheringsService) SetToken(token *MCToken) {
-	g.token = token
-}
-
-func (g *GatheringsService) GetGatherings(ctx context.Context) ([]*Gathering, error) {
+func (g *GatheringsService) GetGatherings(ctx context.Context, mcToken *MCToken) ([]*Gathering, error) {
 	type gatheringsResponse struct {
 		Result []Gathering `json:"result"`
 	}
 
 	resp, err := doRequest[gatheringsResponse](ctx, http.DefaultClient, "GET",
 		fmt.Sprintf("%s/api/v1.0/config/public?lang=en-GB&clientVersion=%s&clientPlatform=Windows10&clientSubPlatform=Windows10", g.ServiceURI, protocol.CurrentVersion),
-		nil, g.mcTokenAuth,
+		nil, mcTokenAuth(mcToken),
 	)
 	if err != nil {
 		return nil, err
@@ -113,7 +108,7 @@ func (g *GatheringsService) GetGatherings(ctx context.Context) ([]*Gathering, er
 	return gatherings, nil
 }
 
-func (g *GatheringsService) JoinExperience(ctx context.Context, id uuid.UUID) (string, error) {
+func (g *GatheringsService) JoinExperience(ctx context.Context, mcToken *MCToken, id uuid.UUID) (string, error) {
 	type joinExperienceResponse struct {
 		Result struct {
 			NetworkProtocol string `json:"networkProtocol"`
@@ -126,7 +121,7 @@ func (g *GatheringsService) JoinExperience(ctx context.Context, id uuid.UUID) (s
 		map[string]any{
 			"experienceId": id,
 		},
-		g.mcTokenAuth,
+		mcTokenAuth(mcToken),
 	)
 	if err != nil {
 		return "", err
@@ -140,7 +135,7 @@ type FeaturedServer struct {
 	ExperienceId string
 }
 
-func (g *GatheringsService) GetFeaturedServers(ctx context.Context) ([]FeaturedServer, error) {
+func (g *GatheringsService) GetFeaturedServers(ctx context.Context, mcToken *MCToken) ([]FeaturedServer, error) {
 	type Translated struct {
 		Neutral string `json:"NEUTRAL"`
 	}
@@ -212,9 +207,7 @@ func (g *GatheringsService) GetFeaturedServers(ctx context.Context) ([]FeaturedS
 	}
 
 	resp, err := doRequest[Response](ctx, http.DefaultClient, "POST",
-		fmt.Sprintf("%s/api/v2.0/discovery/blob/client", g.ServiceURI), nil, func(r *http.Request) {
-			g.mcTokenAuth(r)
-		})
+		fmt.Sprintf("%s/api/v2.0/discovery/blob/client", g.ServiceURI), nil, mcTokenAuth(mcToken))
 	if err != nil {
 		return nil, err
 	}
@@ -232,21 +225,4 @@ func (g *GatheringsService) GetFeaturedServers(ctx context.Context) ([]FeaturedS
 		})
 	}
 	return out, nil
-}
-
-func (g *GatheringsService) mcTokenAuth(req *http.Request) {
-	req.Header.Set("Authorization", g.token.AuthorizationHeader)
-}
-
-type JsonResponseError struct {
-	Status string
-	Data   map[string]any
-}
-
-func (e JsonResponseError) Error() string {
-	message, ok := e.Data["message"].(string)
-	if ok {
-		return e.Status + "\n" + message
-	}
-	return e.Status
 }

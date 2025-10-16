@@ -108,15 +108,10 @@ func (a *Account) Gatherings(ctx context.Context) (*discovery.GatheringsService,
 		if err != nil {
 			return nil, err
 		}
-		mcToken, err := a.MCToken(ctx)
-		if err != nil {
-			return nil, err
-		}
 		gatheringService, err := discovery.GatheringsService()
 		if err != nil {
 			return nil, err
 		}
-		gatheringService.SetToken(mcToken)
 		a.gatherings = gatheringService
 	}
 	return a.gatherings, nil
