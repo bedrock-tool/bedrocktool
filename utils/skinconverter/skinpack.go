@@ -57,8 +57,8 @@ func (s *SkinPack) Latest() *Skin {
 	return s.skins[len(s.skins)-1]
 }
 
-func write112Geometry(fs utils.WriterFS, geometryName string, geometry *SkinGeometry) error {
-	f, err := fs.Create(fmt.Sprintf("geometry-%s.json", geometryName))
+func write112Geometry(fs utils.WriterFS, filename string, geometries []*SkinGeometry) error {
+	f, err := fs.Create(filename)
 	if err != nil {
 		return err
 	}
@@ -67,7 +67,7 @@ func write112Geometry(fs utils.WriterFS, geometryName string, geometry *SkinGeom
 	e.SetIndent("", "\t")
 	return e.Encode(map[string]any{
 		"format_version":     "1.12.0",
-		"minecraft:geometry": []*SkinGeometry{geometry},
+		"minecraft:geometry": geometries,
 	})
 }
 
@@ -99,7 +99,7 @@ func (sp *SkinPack) Save(fs utils.WriterFS) error {
 	var skinsJson struct {
 		Skins []skinEntry `json:"skins"`
 	}
-	geometryJson := map[string]SkinGeometry_Old{}
+	var geometriesMap = make(map[string]SkinGeometry)
 
 	for i, skin := range sp.skins { // write skin texture
 		skinName := sp.Name
@@ -140,13 +140,13 @@ func (sp *SkinPack) Save(fs utils.WriterFS) error {
 			}
 			_ = formatVersion
 			if geometry != nil {
-				err := write112Geometry(fs, identifier, geometry)
+				err := write112Geometry(fs, fmt.Sprintf("geometry-%s.json", identifier), []*SkinGeometry{geometry})
 				if err != nil {
 					logrus.Warnf("failed to write geometry %s %v", skinName, err)
 				}
-				geometryJson[identifier] = SkinGeometry_Old{
-					SkinGeometryDescription: geometry.Description,
-					Bones:                   geometry.Bones,
+				geometriesMap[identifier] = SkinGeometry{
+					Description: geometry.Description,
+					Bones:       geometry.Bones,
 				}
 				entry.Geometry = identifier
 			}
@@ -154,15 +154,13 @@ func (sp *SkinPack) Save(fs utils.WriterFS) error {
 		skinsJson.Skins = append(skinsJson.Skins, entry)
 	}
 
-	if len(geometryJson) > 0 {
-		f, err := fs.Create("geometry.json")
-		if err != nil {
-			return err
+	if len(geometriesMap) > 0 {
+		var geometries []*SkinGeometry
+		for _, geom := range geometriesMap {
+			geometries = append(geometries, &geom)
 		}
-		defer f.Close()
-		e := json.NewEncoder(f)
-		e.SetIndent("", "  ")
-		if err := e.Encode(geometryJson); err != nil {
+		err := write112Geometry(fs, "geometry.json", geometries)
+		if err != nil {
 			return err
 		}
 	}
