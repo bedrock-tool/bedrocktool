@@ -33,7 +33,7 @@ func (w *World) playersToEntities() (out []resourcepack.EntityPlayer) {
 		metadata.SetFlag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagShowName)
 		metadata[protocol.EntityDataKeyName] = p.add.Username
 		identifier := fmt.Sprintf("bedrocktool_player:%s", p.add.UUID)
-		w.currState().StoreEntity(p.add.EntityRuntimeID, &entity.Entity{
+		w.memState.StoreEntity(p.add.EntityRuntimeID, &entity.Entity{
 			RuntimeID:  p.add.EntityRuntimeID,
 			UniqueID:   int64(p.add.EntityRuntimeID),
 			EntityType: identifier,

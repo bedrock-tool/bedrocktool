@@ -3,6 +3,7 @@ package worlds
 import (
 	"fmt"
 	"maps"
+	"math"
 	"strings"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/df-mc/dragonfly/server/item/inventory"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/go-gl/mathgl/mgl32"
+	"github.com/go-gl/mathgl/mgl64"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sirupsen/logrus"
@@ -84,7 +86,7 @@ func (w *worldsHandler) packetHandlerPreLogin(_pk packet.Packet, timeReceived ti
 			}
 			w.worldState.SetDimension(dim)
 			w.worldState.SetTime(timeReceived, int(pk.Time))
-			w.openWorldState(w.settings.StartPaused)
+			w.openWorldState()
 			w.worldStateMu.Unlock()
 		}
 
@@ -207,104 +209,147 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 
 	case *packet.AddActor:
 		w.currentWorld(func(world *worldstate.World) {
-			ent := world.GetEntity(pk.EntityRuntimeID)
-			if ent == nil {
-				ent = &entity.Entity{
-					RuntimeID:  pk.EntityRuntimeID,
-					UniqueID:   pk.EntityUniqueID,
-					EntityType: pk.EntityType,
-					Inventory:  make(map[byte]map[byte]protocol.ItemInstance),
-					Metadata:   make(map[uint32]any),
-					Properties: make(map[string]*entity.EntityProperty),
-				}
-			}
-			ent.Position = pk.Position
-			ent.Pitch = pk.Pitch
-			ent.Yaw = pk.Yaw
-			ent.HeadYaw = pk.HeadYaw
-			ent.Velocity = pk.Velocity
-			w.applyEntityData(ent, pk.EntityMetadata, pk.EntityProperties, timeReceived)
+			err := world.ActEntity(pk.EntityRuntimeID, true, func(ent *entity.Entity) error {
+				playerPos := w.session.Player.Position
+				dist3d := ent.Position.Sub(playerPos).Len()
 
-			if w.scripting != nil {
-				if !w.scripting.OnEntityAdd(ent, timeReceived) {
-					logrus.Infof("Ignoring Entity: %s %d", ent.EntityType, ent.UniqueID)
-					return
+				// get samples of the entity render distance
+				if ent.DeletedDistance > 0 && len(w.serverState.entityRenderDistances) < 200 {
+					diff := float32(math.Abs(float64(ent.DeletedDistance - dist3d)))
+					if diff < 10 {
+						w.serverState.entityRenderDistances = append(w.serverState.entityRenderDistances, dist3d)
+					}
 				}
+				ent.DeletedDistance = -1
+				ent.LastTeleport = 0
+
+				ent.UniqueID = pk.EntityUniqueID
+				ent.EntityType = pk.EntityType
+				ent.Position = pk.Position
+				ent.Pitch = pk.Pitch
+				ent.Yaw = pk.Yaw
+				ent.HeadYaw = pk.HeadYaw
+				ent.Velocity = pk.Velocity
+				w.applyEntityData(ent, pk.EntityMetadata, pk.EntityProperties, timeReceived)
+
+				if w.scripting != nil {
+					if !w.scripting.OnEntityAdd(ent, timeReceived) {
+						logrus.Infof("Ignoring Entity: %s %d", ent.EntityType, ent.UniqueID)
+						return worldstate.ErrIgnoreEntity
+					}
+				}
+
+				for _, el := range pk.EntityLinks {
+					world.AddEntityLink(el)
+				}
+
+				properties := w.serverState.entityProperties[ent.EntityType]
+				w.serverState.behaviorPack.AddEntity(pk.EntityType, pk.Attributes, ent.Metadata, properties)
+				return nil
+			})
+			if err != nil {
+				logrus.Errorf("AddActor: %s", err)
 			}
-			world.StoreEntity(pk.EntityRuntimeID, ent)
-			for _, el := range pk.EntityLinks {
-				world.AddEntityLink(el)
-			}
-			properties := w.serverState.entityProperties[ent.EntityType]
-			w.serverState.behaviorPack.AddEntity(pk.EntityType, pk.Attributes, ent.Metadata, properties)
 		})
 
-		/*
-			case *packet.RemoveActor:
-				entity := w.currentWorld.GetEntityUniqueID(pk.EntityUniqueID)
-				if entity != nil {
-						dist := entity.Position.Vec2().Sub(playerPos.Vec2()).Len()
+	case *packet.MovePlayer:
+		entityRenderDistance := w.serverState.getEntityRenderDistance()
+		if pk.EntityRuntimeID == w.session.Player.RuntimeID && pk.Mode == packet.MoveModeTeleport {
+			w.currentWorld(func(world *worldstate.World) {
+				world.PlayerMove(w.session.Player.TeleportLocation, entityRenderDistance, w.session.Player.Teleports)
+			})
+		}
 
-						fmt.Fprintf(distf, "%.5f\t%s\n", dist, entity.EntityType)
+	case *packet.RemoveActor:
+		entityRenderDistance := w.serverState.getEntityRenderDistance()
+		w.currentWorld(func(world *worldstate.World) {
+			world.ActEntity(world.GetEntityRuntimeID(pk.EntityUniqueID), false, func(ent *entity.Entity) error {
+				playerPos := w.session.Player.Position
+				dist3d := ent.Position.Sub(playerPos).Len()
 
-						_ = dist
-						println()
+				player2d := mgl32.Vec2{playerPos.X(), playerPos.Z()}
+				entity2d := mgl32.Vec2{ent.Position.X(), ent.Position.Z()}
+				dist2d := entity2d.Sub(player2d).Len()
+
+				playerChunk := mgl64.Vec2{math.Floor(float64(playerPos.X() / 16)), math.Floor(float64(playerPos.Z() / 16))}
+				entityChunk := mgl64.Vec2{math.Floor(float64(ent.Position.X() / 16)), math.Floor(float64(ent.Position.Z() / 16))}
+				distch := entityChunk.Sub(playerChunk).Len()
+				if utils.IsDebug() {
+					fmt.Printf("RemoveActor 3d: %.5f 2d: %.5f ch: %.5f\t%s\n", dist3d, dist2d, distch, ent.EntityType)
 				}
-		*/
+
+				// if the player recently was teleported, check if the removed actor was in the view distance previously
+				// if it was, that means it wasnt actually removed,
+				// set delete distance to the render distance to say its an out of view remove instead
+				if w.session.Player.Teleports == ent.LastTeleport {
+					dist3d := w.session.Player.TeleportLocation.Sub(ent.Position).Len()
+					if dist3d < entityRenderDistance+3 {
+						ent.DeletedDistance = entityRenderDistance
+					}
+				} else {
+					ent.DeletedDistance = dist3d
+				}
+				return nil
+			})
+		})
 
 	case *packet.SetActorData:
 		w.currentWorld(func(world *worldstate.World) {
 			if pk.EntityRuntimeID == w.session.Player.RuntimeID {
 				w.applyPlayerData(pk.EntityMetadata, pk.EntityProperties, timeReceived)
 			}
-			if entity := world.GetEntity(pk.EntityRuntimeID); entity != nil {
-				w.applyEntityData(entity, pk.EntityMetadata, pk.EntityProperties, timeReceived)
-				properties := w.serverState.entityProperties[entity.EntityType]
-				w.serverState.behaviorPack.AddEntity(entity.EntityType, nil, entity.Metadata, properties)
-			}
+			world.ActEntity(pk.EntityRuntimeID, false, func(ent *entity.Entity) error {
+				w.applyEntityData(ent, pk.EntityMetadata, pk.EntityProperties, timeReceived)
+				properties := w.serverState.entityProperties[ent.EntityType]
+				w.serverState.behaviorPack.AddEntity(ent.EntityType, nil, ent.Metadata, properties)
+				return nil
+			})
 		})
 
 	case *packet.SetActorMotion:
 		w.currentWorld(func(world *worldstate.World) {
-			if e := world.GetEntity(pk.EntityRuntimeID); e != nil {
-				e.Velocity = pk.Velocity
-			}
+			world.ActEntity(pk.EntityRuntimeID, false, func(ent *entity.Entity) error {
+				ent.Velocity = pk.Velocity
+				return nil
+			})
 		})
 
 	case *packet.MoveActorDelta:
 		w.currentWorld(func(world *worldstate.World) {
-			if e := world.GetEntity(pk.EntityRuntimeID); e != nil {
+			world.ActEntity(pk.EntityRuntimeID, false, func(ent *entity.Entity) error {
 				if pk.Flags&packet.MoveActorDeltaFlagHasX != 0 {
-					e.Position[0] = pk.Position[0]
+					ent.Position[0] = pk.Position[0]
 				}
 				if pk.Flags&packet.MoveActorDeltaFlagHasY != 0 {
-					e.Position[1] = pk.Position[1]
+					ent.Position[1] = pk.Position[1]
 				}
 				if pk.Flags&packet.MoveActorDeltaFlagHasZ != 0 {
-					e.Position[2] = pk.Position[2]
+					ent.Position[2] = pk.Position[2]
 				}
 				if pk.Flags&packet.MoveActorDeltaFlagHasRotX != 0 {
-					e.Pitch = pk.Rotation.X()
+					ent.Pitch = pk.Rotation.X()
 				}
 				if pk.Flags&packet.MoveActorDeltaFlagHasRotY != 0 {
-					e.Yaw = pk.Rotation.Y()
+					ent.Yaw = pk.Rotation.Y()
 				}
-				if !e.Velocity.ApproxEqual(mgl32.Vec3{}) {
-					e.HasMoved = true
+				if !ent.Velocity.ApproxEqual(mgl32.Vec3{}) {
+					ent.HasMoved = true
 				}
-			}
+				return nil
+			})
 		})
 
 	case *packet.MoveActorAbsolute:
 		w.currentWorld(func(world *worldstate.World) {
-			if e := world.GetEntity(pk.EntityRuntimeID); e != nil {
-				e.Position = pk.Position
-				e.Pitch = pk.Rotation.X()
-				e.Yaw = pk.Rotation.Y()
-				if !e.Velocity.ApproxEqual(mgl32.Vec3{}) {
-					e.HasMoved = true
+			world.ActEntity(pk.EntityRuntimeID, false, func(ent *entity.Entity) error {
+				ent.Position = pk.Position
+				ent.Pitch = pk.Rotation.X()
+				ent.Yaw = pk.Rotation.Y()
+				if !ent.Velocity.ApproxEqual(mgl32.Vec3{}) {
+					ent.HasMoved = true
 				}
-			}
+				return nil
+			})
 		})
 
 	case *packet.MobEquipment:
@@ -312,25 +357,27 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 			_pk = nil
 		} else {
 			w.currentWorld(func(world *worldstate.World) {
-				if e := world.GetEntity(pk.EntityRuntimeID); e != nil {
-					w, ok := e.Inventory[pk.WindowID]
+				world.ActEntity(pk.EntityRuntimeID, false, func(ent *entity.Entity) error {
+					w, ok := ent.Inventory[pk.WindowID]
 					if !ok {
 						w = make(map[byte]protocol.ItemInstance)
-						e.Inventory[pk.WindowID] = w
+						ent.Inventory[pk.WindowID] = w
 					}
 					w[pk.HotBarSlot] = pk.NewItem
-				}
+					return nil
+				})
 			})
 		}
 
 	case *packet.MobArmourEquipment:
 		w.currentWorld(func(world *worldstate.World) {
-			if e := world.GetEntity(pk.EntityRuntimeID); e != nil {
-				e.Helmet = &pk.Helmet
-				e.Chestplate = &pk.Chestplate
-				e.Leggings = &pk.Chestplate
-				e.Boots = &pk.Boots
-			}
+			world.ActEntity(pk.EntityRuntimeID, false, func(ent *entity.Entity) error {
+				ent.Helmet = &pk.Helmet
+				ent.Chestplate = &pk.Chestplate
+				ent.Leggings = &pk.Chestplate
+				ent.Boots = &pk.Boots
+				return nil
+			})
 		})
 
 	case *packet.SetActorLink:

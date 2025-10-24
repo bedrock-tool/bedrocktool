@@ -37,6 +37,9 @@ type Entity struct {
 	Chestplate *protocol.ItemInstance
 	Leggings   *protocol.ItemInstance
 	Boots      *protocol.ItemInstance
+
+	DeletedDistance float32 // distance to player when it was removed
+	LastTeleport    int
 }
 
 type EntityProperty struct {

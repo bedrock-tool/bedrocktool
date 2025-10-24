@@ -31,6 +31,8 @@ type Handler struct {
 
 	OnSessionEnd func(s *Session, wg *sync.WaitGroup)
 	OnBlobs      func(s *Session, blobs []protocol.CacheBlob)
+
+	OnPlayerMove func(s *Session)
 }
 
 func (h Handlers) SessionStart(s *Session, serverName string) error {
@@ -157,5 +159,14 @@ func (h Handlers) OnBlobs(s *Session, blobs []protocol.CacheBlob) {
 			continue
 		}
 		handler.OnBlobs(s, blobs)
+	}
+}
+
+func (h Handlers) OnPlayerMove(s *Session) {
+	for _, handler := range h {
+		if handler.OnPlayerMove == nil {
+			continue
+		}
+		handler.OnPlayerMove(s)
 	}
 }

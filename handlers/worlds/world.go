@@ -6,14 +6,11 @@ import (
 	"fmt"
 	"image/png"
 	"maps"
-	"math"
 	"math/rand"
-	"net"
 	"os"
 	"slices"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds/entity"
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds/scripting"
@@ -23,11 +20,9 @@ import (
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/behaviourpack"
 	"github.com/bedrock-tool/bedrocktool/utils/proxy"
-	"github.com/bedrock-tool/bedrocktool/utils/proxy/pcap2"
 	"github.com/bedrock-tool/bedrocktool/utils/resourcepack"
 	"github.com/google/uuid"
 
-	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"
 	_ "github.com/df-mc/dragonfly/server/world/biome"
 	"github.com/sandertv/gophertunnel/minecraft"
@@ -42,12 +37,11 @@ type WorldSettings struct {
 	SaveEntities    bool
 	SaveInventories bool
 	ExcludedMobs    []string
-	StartPaused     bool
-	PreloadReplay   string
 	ChunkRadius     int32
 	Script          string
 	Players         bool
 	BlockUpdates    bool
+	EntityCulling   bool
 }
 
 type serverState struct {
@@ -72,6 +66,20 @@ type serverState struct {
 	entityProperties   map[string][]entity.EntityProperty
 
 	playerProperties map[string]*entity.EntityProperty
+
+	entityRenderDistances []float32
+}
+
+func (s *serverState) getEntityRenderDistance() float32 {
+	var entityRenderDistance float32 = 0
+	if len(s.entityRenderDistances) > 4 {
+		var sum float32
+		for _, dist := range s.entityRenderDistances {
+			sum += dist
+		}
+		entityRenderDistance = sum / float32(len(s.entityRenderDistances))
+	}
+	return entityRenderDistance
 }
 
 type worldsHandler struct {
@@ -132,6 +140,13 @@ func NewWorldsHandler(ctx context.Context, settings WorldSettings) func() *proxy
 					w.wg.Wait()
 				}()
 			},
+
+			OnPlayerMove: func(s *proxy.Session) {
+				playerPos := s.Player.Position
+				w.currentWorld(func(world *worldstate.World) {
+					world.PlayerMove(playerPos, w.serverState.getEntityRenderDistance(), 0)
+				})
+			},
 		}
 	}
 }
@@ -189,33 +204,6 @@ func (w *worldsHandler) onSessionStart(session *proxy.Session, serverName string
 	})
 
 	session.AddCommand(func(args []string) bool {
-		w.currentWorld(func(world *worldstate.World) {
-			world.PauseCapture()
-		})
-		session.SendMessage("Paused Capturing")
-		return true
-	}, protocol.Command{
-		Name:        "stop-capture",
-		Description: "stop capturing entities, chunks",
-	})
-
-	session.AddCommand(func(args []string) bool {
-		session.SendMessage("Restarted Capturing")
-		pos := cube.Pos{
-			int(math.Floor(float64(session.Player.Position[0]))),
-			int(math.Floor(float64(session.Player.Position[1]))),
-			int(math.Floor(float64(session.Player.Position[2]))),
-		}
-		w.currentWorld(func(world *worldstate.World) {
-			world.UnpauseCapture(pos, w.serverState.realChunkRadius)
-		})
-		return true
-	}, protocol.Command{
-		Name:        "start-capture",
-		Description: "start capturing entities, chunks",
-	})
-
-	session.AddCommand(func(args []string) bool {
 		w.SaveAndReset(false, nil)
 		return true
 	}, protocol.Command{
@@ -229,16 +217,7 @@ func (w *worldsHandler) onSessionStart(session *proxy.Session, serverName string
 		return err
 	}
 	worldState.VoidGen = w.settings.VoidGen
-	if w.settings.StartPaused {
-		worldState.PauseCapture()
-	}
 	w.worldState = worldState
-
-	err = w.preloadReplay()
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -269,53 +248,6 @@ func (w *worldsHandler) onConnect(_ *proxy.Session) bool {
 	w.session.SendMessage(locale.Loc("use_setname", nil))
 	w.mapUI.Start(w.ctx)
 	return false
-}
-
-func (w *worldsHandler) preloadReplay() error {
-	if w.settings.PreloadReplay == "" {
-		return nil
-	}
-	log := w.log.WithField("func", "preloadReplay")
-	var conn *pcap2.ReplayConnector
-	var err error
-	conn, err = pcap2.CreateReplayConnector(context.Background(), utils.PathData(w.settings.PreloadReplay), func(header packet.Header, payload []byte, src, dst net.Addr, timeReceived time.Time) {
-		pk, ok := proxy.DecodePacket(header, payload, conn.ShieldID())
-		if !ok {
-			log.Error("unknown packet", header)
-			return
-		}
-
-		if header.PacketID == packet.IDCommandRequest {
-			return
-		}
-
-		toServer := src.String() == conn.LocalAddr().String()
-		_, err := w.packetHandler(w.session, pk, toServer, time.Now(), false)
-		if err != nil {
-			log.Error(err)
-		}
-	}, nil)
-	if err != nil {
-		return err
-	}
-	w.session.Server = conn
-
-	err = conn.ReadUntilLogin()
-	if err != nil {
-		return err
-	}
-
-	for {
-		_, err := conn.ReadPacket()
-		if err != nil {
-			break
-		}
-	}
-	w.session.Server = nil
-
-	log.Info("finished preload")
-	w.serverState.blocks = nil
-	return nil
 }
 
 func (w *worldsHandler) currentWorld(fn func(world *worldstate.World)) {
@@ -402,7 +334,7 @@ func (w *worldsHandler) SaveAndReset(end bool, dim world.Dimension) {
 		worldState.VoidGen = w.settings.VoidGen
 		worldState.SetDimension(dim)
 		w.worldState = worldState
-		w.openWorldState(false)
+		w.openWorldState()
 	}
 }
 
@@ -424,7 +356,10 @@ func (w *worldsHandler) saveWorldState(worldState *worldstate.World, player prox
 		w.serverState.behaviorPack,
 		w.settings.ExcludedMobs,
 		w.settings.Players, playerSkins,
-		w.session.Server.GameData(), w.serverState.serverName)
+		w.session.Server.GameData(), w.serverState.serverName,
+		w.settings.EntityCulling,
+		w.serverState.getEntityRenderDistance(),
+	)
 	if err != nil {
 		return err
 	}
@@ -450,13 +385,16 @@ func (w *worldsHandler) saveWorldState(worldState *worldstate.World, player prox
 	if err != nil {
 		return err
 	}
-
-	w.log.Info(locale.Loc("saved", locale.Strmap{"Name": filename}))
+	total, active := worldState.EntityCounts(w.serverState.getEntityRenderDistance())
+	w.log.WithFields(logrus.Fields{
+		"Entities": fmt.Sprintf("%d (%d)", total, active),
+		"Chunks":   len(worldState.StoredChunks),
+	}).Info(locale.Loc("saved", locale.Strmap{"Name": filename}))
 	messages.SendEvent(&messages.EventFinishedSavingWorld{
 		WorldName: worldState.Name,
 		Filepath:  filename,
 		Chunks:    len(worldState.StoredChunks),
-		Entities:  worldState.EntityCount(),
+		Entities:  total,
 	})
 	return nil
 }
@@ -471,7 +409,7 @@ func (w *worldsHandler) defaultWorldName() string {
 	return worldName
 }
 
-func (w *worldsHandler) openWorldState(deferred bool) {
+func (w *worldsHandler) openWorldState() {
 	worldName := utils.MakeValidFilename(w.defaultWorldName())
 	serverName := utils.MakeValidFilename(w.serverState.serverName)
 	folder := utils.PathData("worlds", serverName, worldName)
@@ -480,7 +418,7 @@ func (w *worldsHandler) openWorldState(deferred bool) {
 	w.worldState.BlockRegistry = w.serverState.blocks
 	w.worldState.ResourcePacks = w.session.Server.ResourcePacks()
 	w.worldState.UseHashedRids = w.serverState.useHashedRids
-	w.worldState.Open(w.defaultWorldName(), folder, deferred)
+	w.worldState.Open(w.defaultWorldName(), folder)
 }
 
 func (w *worldsHandler) renameWorldState(name string) error {

@@ -50,7 +50,6 @@ type Session struct {
 	Client minecraft.IConn
 	Player Player
 
-	isReplay         bool
 	expectDisconnect bool
 	dimensionData    *packet.DimensionData
 	clientConnecting chan struct{}
@@ -166,7 +165,7 @@ func (s *Session) Run() error {
 		return err
 	}, func(blobs []protocol.CacheBlob) {
 		s.handlers.OnBlobs(s, blobs)
-	}, s.isReplay)
+	}, s.connectInfo.IsReplay())
 	if err != nil {
 		return err
 	}
@@ -197,7 +196,6 @@ func (s *Session) Run() error {
 			return err
 		}
 		s.Server = replay
-		s.isReplay = true
 		err = replay.ReadUntilLogin()
 		if err != nil {
 			return err
@@ -548,6 +546,11 @@ func (s *Session) proxyLoop(ctx context.Context, toServer bool) (err error) {
 			return err
 		}
 
+		pk, err = s.playerPacketCB(pk, toServer, timeReceived, false)
+		if err != nil {
+			return err
+		}
+
 		if process {
 			pk, err = s.handlers.PacketCallback(s, pk, toServer, timeReceived, false)
 			if err != nil {
@@ -722,6 +725,18 @@ func (s *Session) commandHandlerPacketCB(pk packet.Packet, _ bool, _ time.Time, 
 			cmds = append(cmds, ic.Cmd)
 		}
 		_pk.Commands = append(_pk.Commands, cmds...)
+	}
+	return pk, nil
+}
+
+func (s *Session) playerPacketCB(pk packet.Packet, _ bool, _ time.Time, _ bool) (packet.Packet, error) {
+	if pk, ok := pk.(*packet.PacketViolationWarning); ok {
+		logrus.Infof("%+#v\n", pk)
+	}
+
+	haveMoved := s.Player.handlePackets(pk)
+	if haveMoved {
+		s.handlers.OnPlayerMove(s)
 	}
 	return pk, nil
 }

@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-	"time"
 
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
@@ -81,25 +80,6 @@ func (p *Context) connect(connectInfo *connectinfo.ConnectInfo, withClient bool)
 	return err
 }
 
-func (p *Context) newPlayerHandler() *Handler {
-	return &Handler{
-		Name: "Player",
-		PacketCallback: func(s *Session, pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
-			if pk, ok := pk.(*packet.PacketViolationWarning); ok {
-				logrus.Infof("%+#v\n", pk)
-			}
-
-			haveMoved := s.Player.handlePackets(pk)
-			if haveMoved {
-				for _, cb := range p.OnPlayerMove {
-					cb()
-				}
-			}
-			return pk, nil
-		},
-	}
-}
-
 func (p *Context) Run(ctx context.Context, withClient bool) (err error) {
 	err = utils.Netisolation()
 	if err != nil {
@@ -129,7 +109,6 @@ func (p *Context) Run(ctx context.Context, withClient bool) (err error) {
 	if p.settings.Capture {
 		p.AddHandler(NewPacketCapturer)
 	}
-	p.AddHandler(p.newPlayerHandler)
 	p.addedPacks, err = loadForcedPacks()
 	if err != nil {
 		return err

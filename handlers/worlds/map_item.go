@@ -65,8 +65,6 @@ func (m *MapUI) GetBounds() (Min, Max protocol.ChunkPos) {
 type renderElem struct {
 	ch  *chunk.Chunk
 	pos protocol.ChunkPos
-
-	isDeferredState bool
 }
 
 type MapUI struct {
@@ -223,13 +221,6 @@ func (m *MapUI) processQueue() []protocol.ChunkPos {
 		}
 		if r.ch != nil {
 			img := m.ChunkRenderer.Chunk2Img(r.ch)
-			if r.isDeferredState {
-				if old, ok := m.renderedChunks[r.pos]; ok {
-					m.oldRendered[r.pos] = old
-				}
-				draw.Draw(img, img.Rect, red, image.Point{}, draw.Over)
-			}
-
 			m.renderedChunks[r.pos] = img
 			updatedChunks = append(updatedChunks, r.pos)
 		} else {
@@ -313,11 +304,10 @@ func (m *MapUI) ToImage() *image.RGBA {
 	return img
 }
 
-func (m *MapUI) SetChunk(pos world.ChunkPos, ch *chunk.Chunk, isDeferredState bool) {
+func (m *MapUI) SetChunk(pos world.ChunkPos, ch *chunk.Chunk) {
 	m.renderQueue.Enqueue(&renderElem{
-		ch:              ch,
-		pos:             (protocol.ChunkPos)(pos),
-		isDeferredState: isDeferredState,
+		ch:  ch,
+		pos: (protocol.ChunkPos)(pos),
 	})
 	m.SchedRedraw()
 }

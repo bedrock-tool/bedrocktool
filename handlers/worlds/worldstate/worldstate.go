@@ -11,7 +11,6 @@ import (
 	"github.com/df-mc/dragonfly/server/world/chunk"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
-	"github.com/thomaso-mirodin/intmath/i32"
 )
 
 type memoryState struct {
@@ -80,29 +79,6 @@ chunks:
 			}
 		}
 		delete(w.chunks, key)
-	}
-}
-
-func (w *memoryState) ApplyTo(w2 worldStateInterface, around cube.Pos, radius int32, cf func(world.ChunkPos, *chunk.Chunk)) {
-	w.cullChunks()
-	for pos, ch := range w.chunks {
-		dist := i32.Sqrt(i32.Pow(pos.X()-int32(around.X()/16), 2) + i32.Pow(pos.Z()-int32(around.Z()/16), 2))
-		if dist <= radius || radius < 0 {
-			w2.StoreChunk(pos, ch)
-			cf(pos, ch.Chunk)
-		} else {
-			cf(pos, nil)
-		}
-	}
-
-	for k, es := range w.entities {
-		x := int(es.Position[0])
-		z := int(es.Position[2])
-		dist := i32.Sqrt(i32.Pow(int32(x-around.X()), 2) + i32.Pow(int32(z-around.Z()), 2))
-		e2 := w2.GetEntity(k)
-		if e2 != nil || dist < radius*16 || radius < 0 {
-			w2.StoreEntity(k, es)
-		}
 	}
 }
 

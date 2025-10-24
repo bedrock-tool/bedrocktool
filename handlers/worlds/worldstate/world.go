@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math"
 	"os"
 	"path"
 	"strings"
@@ -24,6 +25,7 @@ import (
 	"github.com/df-mc/dragonfly/server/world/mcdb"
 	"github.com/df-mc/goleveldb/leveldb"
 	"github.com/df-mc/goleveldb/leveldb/opt"
+	"github.com/go-gl/mathgl/mgl32"
 	"github.com/google/uuid"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/nbt"
@@ -33,14 +35,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/maps"
 )
-
-type worldStateInterface interface {
-	StoreChunk(pos world.ChunkPos, col *Chunk) error
-	SetBlockNBT(pos cube.Pos, nbt map[string]any, merge bool) error
-	StoreEntity(id entity.RuntimeID, es *entity.Entity)
-	GetEntity(id entity.RuntimeID) *entity.Entity
-	AddEntityLink(el protocol.EntityLink)
-}
 
 type resourcePackDependency struct {
 	UUID    string `json:"pack_id"`
@@ -68,8 +62,6 @@ type World struct {
 	provider  *mcdb.DB
 	onceOpen  sync.Once
 	opened    bool
-	// state to be used while paused
-	pausedState *memoryState
 	// access to states
 
 	ResourcePacks     []resource.Pack
@@ -86,7 +78,7 @@ type World struct {
 	UseHashedRids    bool
 	blockUpdatesLock sync.Mutex
 	blockUpdates     map[world.ChunkPos][]blockUpdate
-	onChunkUpdate    func(pos world.ChunkPos, chunk *chunk.Chunk, isPaused bool)
+	onChunkUpdate    func(pos world.ChunkPos, chunk *chunk.Chunk)
 	IgnoredChunks    map[world.ChunkPos]bool
 
 	log *logrus.Entry
@@ -114,7 +106,7 @@ type Map struct {
 	MapLocked         bool             `nbt:"mapLocked"`
 }
 
-func New(ctx context.Context, dimensionDefinitions map[int]protocol.DimensionDefinition, onChunkUpdate func(pos world.ChunkPos, chunk *chunk.Chunk, isPaused bool)) (*World, error) {
+func New(ctx context.Context, dimensionDefinitions map[int]protocol.DimensionDefinition, onChunkUpdate func(pos world.ChunkPos, chunk *chunk.Chunk)) (*World, error) {
 	ctxw, cancel := context.WithCancelCause(ctx)
 	w := &World{
 		ctx:       ctxw,
@@ -131,14 +123,6 @@ func New(ctx context.Context, dimensionDefinitions map[int]protocol.DimensionDef
 	}
 
 	return w, nil
-}
-
-func (w *World) currState() *memoryState {
-	if w.pausedState != nil {
-		return w.pausedState
-	} else {
-		return w.memState
-	}
 }
 
 func (w *World) storeMemToProvider() error {
@@ -245,7 +229,7 @@ func (w *World) storeChunkLocked(pos world.ChunkPos, ch *Chunk) (err error) {
 	}
 	if !empty {
 		w.StoredChunks[pos] = struct{}{}
-		w.onChunkUpdate(pos, ch.Chunk, w.pausedState != nil)
+		w.onChunkUpdate(pos, ch.Chunk)
 		// only start saving once a non empty chunk is received
 		w.onceOpen.Do(func() {
 			go func() {
@@ -264,8 +248,7 @@ func (w *World) storeChunkLocked(pos world.ChunkPos, ch *Chunk) (err error) {
 			}()
 		})
 	}
-
-	w.currState().StoreChunk(pos, ch)
+	w.memState.StoreChunk(pos, ch)
 	return nil
 }
 
@@ -276,11 +259,6 @@ func (w *World) LoadChunk(pos world.ChunkPos) (*Chunk, bool, error) {
 }
 
 func (w *World) loadChunkLocked(pos world.ChunkPos) (*Chunk, bool, error) {
-	if w.pausedState != nil {
-		if ch, ok := w.pausedState.chunks[pos]; ok {
-			return ch, true, nil
-		}
-	}
 	if ch, ok := w.memState.chunks[pos]; ok {
 		return ch, true, nil
 	}
@@ -341,78 +319,92 @@ func (w *World) SetBlockNBT(pos cube.Pos, nbt map[string]any, merge bool) error 
 func (w *World) StoreEntity(id entity.RuntimeID, es *entity.Entity) {
 	w.stateLock.Lock()
 	defer w.stateLock.Unlock()
-	w.currState().StoreEntity(id, es)
+	w.memState.StoreEntity(id, es)
 }
 
 func (w *World) StoreMap(m *packet.ClientBoundMapItemData) {
 	w.stateLock.Lock()
 	defer w.stateLock.Unlock()
-	w.currState().StoreMap(m)
+	w.memState.StoreMap(m)
 }
 
-func (w *World) GetEntityUniqueID(id entity.UniqueID) *entity.Entity {
-	rid := w.currState().uniqueIDsToRuntimeIDs[id]
-	return w.GetEntity(rid)
+func (w *World) GetEntityRuntimeID(id entity.UniqueID) entity.RuntimeID {
+	return w.memState.uniqueIDsToRuntimeIDs[id]
 }
 
-func (w *World) GetEntity(id entity.RuntimeID) *entity.Entity {
+var ErrIgnoreEntity = errors.New("ignore entity")
+
+func (w *World) ActEntity(id entity.RuntimeID, create bool, fn func(ent *entity.Entity) error) error {
 	w.stateLock.Lock()
 	defer w.stateLock.Unlock()
-	if w.pausedState != nil {
-		es := w.pausedState.GetEntity(id)
-		if es != nil {
-			return es
+	var new bool
+	ent := w.memState.GetEntity(id)
+	if ent == nil {
+		if !create {
+			return nil
 		}
+		ent = &entity.Entity{
+			RuntimeID:       id,
+			Inventory:       make(map[byte]map[byte]protocol.ItemInstance),
+			Metadata:        make(map[uint32]any),
+			Properties:      make(map[string]*entity.EntityProperty),
+			DeletedDistance: -1,
+		}
+		new = true
 	}
-	return w.memState.entities[id]
+	err := fn(ent)
+	if err == ErrIgnoreEntity {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if new {
+		w.memState.StoreEntity(id, ent)
+	}
+	return nil
 }
 
-func (w *World) EntityCount() int {
-	return len(w.memState.entities)
+func (w *World) PlayerMove(playerPos mgl32.Vec3, entityRenderDistance float32, teleport int) {
+	// all entities that are deleted and in the entity render range:
+	// update distance they were *not* seen at to the current distance
+	for _, ent := range w.memState.entities {
+		if teleport > 0 && ent.DeletedDistance == -1 {
+			ent.LastTeleport = teleport
+		}
+
+		if ent.DeletedDistance > 0 && entityRenderDistance != 0 {
+			dist3d := ent.Position.Sub(playerPos).Len()
+			if dist3d < entityRenderDistance+3 {
+				ent.DeletedDistance = min(dist3d, ent.DeletedDistance)
+			}
+		}
+	}
+}
+
+func entityCull(ent *entity.Entity, entityRenderDistance float32, diffOut *float32) bool {
+	if ent.DeletedDistance > 0 && entityRenderDistance != 0 {
+		diff := math.Abs(float64(ent.DeletedDistance - entityRenderDistance))
+		return diff > 5
+	}
+	return false
+}
+
+func (w *World) EntityCounts(entityRenderDistance float32) (total, active int) {
+	total = len(w.memState.entities)
+	active = total
+	for _, ent := range w.memState.entities {
+		if entityCull(ent, entityRenderDistance, nil) {
+			active -= 1
+		}
+	}
+	return
 }
 
 func (w *World) AddEntityLink(el protocol.EntityLink) {
 	w.stateLock.Lock()
 	defer w.stateLock.Unlock()
-	w.currState().AddEntityLink(el)
-}
-
-func (w *World) PauseCapture() {
-	w.stateLock.Lock()
-	w.pausedState = newWorldState()
-	w.stateLock.Unlock()
-}
-
-func (w *World) UnpauseCapture(around cube.Pos, radius int32) {
-	w.stateLock.Lock()
-	defer w.stateLock.Unlock()
-	if w.pausedState == nil {
-		panic("attempt to unpause when not paused")
-	}
-	w.pausedState.ApplyTo(w, around, radius, func(pos world.ChunkPos, ch *chunk.Chunk) {
-		w.onChunkUpdate(pos, ch, false)
-	})
-	w.pausedState = nil
-}
-
-func (w *World) IsPaused() bool {
-	return w.pausedState != nil
-}
-
-func (w *World) Open(name string, folder string, deferred bool) {
-	w.stateLock.Lock()
-	defer w.stateLock.Unlock()
-	w.Name = name
-	w.Folder = folder
-
-	if w.opened {
-		panic("trying to open already opened world")
-	}
-	w.opened = true
-
-	if w.pausedState != nil && !deferred {
-		w.pausedState.ApplyTo(w, cube.Pos{}, -1, w.ChunkFunc)
-	}
+	w.memState.AddEntityLink(el)
 }
 
 func blockPosInChunk(bp protocol.BlockPos) (x uint8, y int16, z uint8) {
@@ -458,6 +450,18 @@ func (w *World) applyBlockUpdates() {
 	}
 }
 
+func (w *World) Open(name string, folder string) {
+	w.stateLock.Lock()
+	defer w.stateLock.Unlock()
+	w.Name = name
+	w.Folder = folder
+
+	if w.opened {
+		panic("trying to open already opened world")
+	}
+	w.opened = true
+}
+
 // Rename moves the folder and reopens it
 func (w *World) Rename(name, folder string) error {
 	w.stateLock.Lock()
@@ -498,6 +502,7 @@ func (w *World) Save(
 	excludedMobs []string,
 	withPlayers bool, playerSkins map[uuid.UUID]*protocol.Skin,
 	gameData minecraft.GameData, serverName string,
+	entityCulling bool, entityRenderDistance float32,
 ) error {
 	spawnPos := cube.Pos{int(player.Position.X()), int(player.Position.Y()), int(player.Position.Z())}
 
@@ -523,6 +528,8 @@ func (w *World) Save(
 		spawnPos,
 		gameData,
 		behaviorPack.HasContent(),
+		entityCulling,
+		entityRenderDistance,
 	)
 	if err != nil {
 		return err
@@ -566,7 +573,16 @@ func (w *World) Save(
 	return nil
 }
 
-func (w *World) finalizeProvider(playerData map[string]any, excludedMobs []string, withPlayers bool, spawn cube.Pos, gd minecraft.GameData, experimental bool) error {
+func (w *World) finalizeProvider(
+	playerData map[string]any,
+	excludedMobs []string,
+	withPlayers bool,
+	spawn cube.Pos,
+	gd minecraft.GameData,
+	experimental bool,
+	entityCulling bool,
+	entityRenderDistance float32,
+) error {
 	w.stateLock.Lock()
 	defer w.stateLock.Unlock()
 	w.cancelCtx(errFinished)
@@ -587,23 +603,31 @@ func (w *World) finalizeProvider(playerData map[string]any, excludedMobs []strin
 		State:     "Storing Entities",
 	})
 
+	logrus.Infof("entityRenderDistance: %.5f", entityRenderDistance)
+
 	chunkEntities := make(map[world.ChunkPos][]chunk.Entity)
-	for _, entityState := range w.memState.entities {
+	for _, ent := range w.memState.entities {
 		var ignore bool
 		for _, ex := range excludedMobs {
-			if ok, err := path.Match(ex, entityState.EntityType); ok {
-				w.log.Debugf("Excluding: %s %v", entityState.EntityType, entityState.Position)
+			if ok, err := path.Match(ex, ent.EntityType); ok {
+				w.log.Debugf("Excluding: %s %v", ent.EntityType, ent.Position)
 				ignore = true
 				break
 			} else if err != nil {
 				w.log.Warn(err)
 			}
 		}
-		if !ignore {
-			cp := world.ChunkPos{int32(entityState.Position.X()) >> 4, int32(entityState.Position.Z()) >> 4}
-			links := maps.Keys(w.memState.entityLinks[entityState.UniqueID])
-			chunkEntities[cp] = append(chunkEntities[cp], entityState.ToChunkEntity(links))
+		if ignore {
+			continue
 		}
+		var diff float32
+		if entityCulling && entityCull(ent, entityRenderDistance, &diff) {
+			logrus.Infof("dropping entity %s, dist: %.5f diff: %.5f", ent.EntityType, ent.DeletedDistance, diff)
+			continue
+		}
+		cp := world.ChunkPos{int32(ent.Position.X()) >> 4, int32(ent.Position.Z()) >> 4}
+		links := maps.Keys(w.memState.entityLinks[ent.UniqueID])
+		chunkEntities[cp] = append(chunkEntities[cp], ent.ToChunkEntity(links))
 	}
 
 	for cp, v := range chunkEntities {

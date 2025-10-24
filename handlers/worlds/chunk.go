@@ -3,6 +3,7 @@ package worlds
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds/worldstate"
@@ -102,9 +103,10 @@ func (w *worldsHandler) handleLevelChunk(pk *packet.LevelChunk, timeReceived tim
 		w.scripting.OnChunkData(pos)
 	}
 
+	total, active := w.worldState.EntityCounts(w.serverState.getEntityRenderDistance())
 	w.session.SendPopup(locale.Locm("popup_chunk_count", locale.Strmap{
 		"Chunks":   len(w.worldState.StoredChunks),
-		"Entities": w.worldState.EntityCount(),
+		"Entities": fmt.Sprintf("%d (%d)", total, active),
 		"Name":     w.worldState.Name,
 	}, len(w.worldState.StoredChunks)))
 
