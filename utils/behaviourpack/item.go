@@ -41,7 +41,7 @@ func (bp *Pack) AddItem(item protocol.ItemEntry) {
 	}
 }
 
-func processItemComponent(name string, component map[string]any, componentsOut map[string]any) (string, any) {
+func processItemComponent(name string, component map[string]any, componentsOut map[string]any, minVersion *string) (string, any) {
 	switch name {
 	case "item_properties":
 		if icon, ok := component["minecraft:icon"].(map[string]any); ok {
@@ -65,9 +65,15 @@ func processItemComponent(name string, component map[string]any, componentsOut m
 		return name, component["interact_text"]
 
 	case "item_tags":
-		return "", nil
+		return name, component
 
 	case "minecraft:durability":
+		return name, component
+
+	case "minecraft:dyeable":
+		if *minVersion < "1.21.30" {
+			*minVersion = "1.21.30"
+		}
 		return name, component
 
 	default:
@@ -87,12 +93,20 @@ func (bp *Pack) ApplyComponentEntries(entries []protocol.ItemEntry) {
 		if components, ok := ice.Data["components"].(map[string]any); ok {
 			var componentsOut = make(map[string]any)
 			for name, component := range components {
+				if name == "item_tags" {
+					if componentSlice, ok := component.([]any); ok {
+						component = map[string]any{
+							"tags": componentSlice,
+						}
+					}
+				}
+
 				componentMap, ok := component.(map[string]any)
 				if !ok {
 					fmt.Printf("skipped component %s %v\n", name, component)
 					continue
 				}
-				nameOut, value := processItemComponent(name, componentMap, componentsOut)
+				nameOut, value := processItemComponent(name, componentMap, componentsOut, &item.FormatVersion)
 				if name == "" {
 					continue
 				}
