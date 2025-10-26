@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"image"
-	"image/color"
 	"image/draw"
 	"math"
 	"net"
@@ -14,7 +13,6 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/go-gl/mathgl/mgl32"
-	"golang.design/x/lockfree"
 
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/df-mc/dragonfly/server/world/chunk"
@@ -25,24 +23,18 @@ import (
 
 const ViewMapID = 0x424242
 
-// mapItemPacket tells the client that it has a map with id 0x424242 in the offhand
-var mapItemPacket = packet.InventoryContent{
-	WindowID: 119,
-	Content: []protocol.ItemInstance{
-		{
-			StackNetworkID: 1, // random if auth inv
-			Stack: protocol.ItemStack{
-				ItemType: protocol.ItemType{
-					NetworkID:     420, // overwritten in onconnect
-					MetadataValue: 0,
-				},
-				BlockRuntimeID: 0,
-				Count:          1,
-				NBTData: map[string]interface{}{
-					"map_name_index": int64(1),
-					"map_uuid":       int64(ViewMapID),
-				},
-			},
+var mapItem = protocol.ItemInstance{
+	StackNetworkID: 1, // random if auth inv
+	Stack: protocol.ItemStack{
+		ItemType: protocol.ItemType{
+			NetworkID:     420, // overwritten in onconnect
+			MetadataValue: 0,
+		},
+		BlockRuntimeID: 0,
+		Count:          1,
+		NBTData: map[string]interface{}{
+			"map_name_index": int64(1),
+			"map_uuid":       int64(ViewMapID),
 		},
 	},
 }
@@ -69,8 +61,8 @@ type renderElem struct {
 
 type MapUI struct {
 	log            *logrus.Entry
-	img            *image.RGBA // rendered image
-	renderQueue    *lockfree.Queue
+	mapImage       *image.RGBA // rendered image
+	renderQueue    []*renderElem
 	renderedChunks map[protocol.ChunkPos]*image.RGBA // prerendered chunks
 	oldRendered    map[protocol.ChunkPos]*image.RGBA
 	ticker         *time.Ticker
@@ -78,29 +70,115 @@ type MapUI struct {
 
 	ChunkRenderer *utils.ChunkRenderer
 
-	l          sync.Mutex
+	mu         sync.Mutex
 	haveColors chan struct{}
 
 	zoomLevel  int  // pixels per chunk
 	needRedraw bool // when the map has updated this is true
-	showOnGui  bool
+	isDisabled bool
+
+	offHandItem protocol.ItemInstance
 }
 
 func NewMapUI(w *worldsHandler) *MapUI {
 	m := &MapUI{
 		log:            logrus.WithField("part", "MapUI"),
-		img:            image.NewRGBA(image.Rect(0, 0, 128, 128)),
+		mapImage:       image.NewRGBA(image.Rect(0, 0, 128, 128)),
 		zoomLevel:      16,
-		renderQueue:    lockfree.NewQueue(),
 		renderedChunks: make(map[protocol.ChunkPos]*image.RGBA),
 		oldRendered:    make(map[protocol.ChunkPos]*image.RGBA),
 		needRedraw:     true,
 		w:              w,
 		haveColors:     make(chan struct{}),
 		ChunkRenderer:  &utils.ChunkRenderer{},
-		showOnGui:      true,
 	}
 	return m
+}
+
+func (m *MapUI) SetEnabled(enabled bool) {
+	change := enabled == m.isDisabled
+	if !change {
+		return
+	}
+	m.isDisabled = !enabled
+
+	var newItem protocol.ItemInstance
+	if m.isDisabled {
+		newItem = m.offHandItem
+	} else {
+		newItem = mapItem
+	}
+	err := m.w.session.ClientWritePacket(&packet.InventoryContent{
+		WindowID: 119,
+		Content:  []protocol.ItemInstance{newItem},
+	})
+	if err != nil {
+		m.log.Error(err)
+		return
+	}
+}
+
+func (m *MapUI) mapUpdater(ctx context.Context) {
+	var oldPos mgl32.Vec3
+	for range m.ticker.C {
+		if ctx.Err() != nil {
+			return
+		}
+		newPos := m.w.session.Player.Position
+		if int(oldPos.X()) != int(newPos.X()) || int(oldPos.Z()) != int(newPos.Z()) {
+			m.needRedraw = true
+			oldPos = newPos
+		}
+
+		if m.needRedraw {
+			m.needRedraw = false
+			m.redraw()
+
+			if err := m.w.session.ClientWritePacket(&packet.ClientBoundMapItemData{
+				MapID:       ViewMapID,
+				Scale:       4,
+				Width:       128,
+				Height:      128,
+				Pixels:      utils.Img2rgba(m.mapImage),
+				UpdateFlags: packet.MapUpdateFlagTexture,
+			}); err != nil {
+				if errors.Is(err, net.ErrClosed) {
+					return
+				}
+				if errors.Is(err, context.Canceled) {
+					return
+				}
+				m.log.Error(err)
+				return
+			}
+		}
+	}
+}
+
+func (m *MapUI) itemSender() {
+	t := time.NewTicker(1 * time.Second)
+	for range t.C {
+		if m.w.session.Client == nil {
+			return
+		}
+		if m.isDisabled {
+			continue
+		}
+		err := m.w.session.ClientWritePacket(&packet.InventoryContent{
+			WindowID: 119,
+			Content:  []protocol.ItemInstance{mapItem},
+		})
+		if err != nil {
+			if errors.Is(err, net.ErrClosed) {
+				return
+			}
+			if errors.Is(err, context.Canceled) {
+				return
+			}
+			m.log.Error(err)
+			return
+		}
+	}
 }
 
 func (m *MapUI) Start(ctx context.Context) {
@@ -118,64 +196,14 @@ func (m *MapUI) Start(ctx context.Context) {
 
 	m.ticker = time.NewTicker(33 * time.Millisecond)
 	go func() {
-		m.ChunkRenderer.ResolveColors(m.w.serverState.customBlocks, m.w.session.Server.ResourcePacks())
+		m.ChunkRenderer.ResolveColors(
+			m.w.serverState.customBlocks,
+			m.w.session.Server.ResourcePacks(),
+		)
 		close(m.haveColors)
 	}()
-	go func() {
-		var oldPos mgl32.Vec3
-		for range m.ticker.C {
-			if ctx.Err() != nil {
-				return
-			}
-			newPos := m.w.session.Player.Position
-			if int(oldPos.X()) != int(newPos.X()) || int(oldPos.Z()) != int(newPos.Z()) {
-				m.needRedraw = true
-				oldPos = newPos
-			}
-
-			if m.needRedraw {
-				m.needRedraw = false
-				m.redraw()
-
-				if err := m.w.session.ClientWritePacket(&packet.ClientBoundMapItemData{
-					MapID:       ViewMapID,
-					Scale:       4,
-					Width:       128,
-					Height:      128,
-					Pixels:      utils.Img2rgba(m.img),
-					UpdateFlags: packet.MapUpdateFlagTexture,
-				}); err != nil {
-					if errors.Is(err, net.ErrClosed) {
-						return
-					}
-					if errors.Is(err, context.Canceled) {
-						return
-					}
-					m.log.Error(err)
-					return
-				}
-			}
-		}
-	}()
-	go func() { // send map item
-		t := time.NewTicker(1 * time.Second)
-		for range t.C {
-			if m.w.session.Client == nil {
-				return
-			}
-			err := m.w.session.ClientWritePacket(&mapItemPacket)
-			if err != nil {
-				if errors.Is(err, net.ErrClosed) {
-					return
-				}
-				if errors.Is(err, context.Canceled) {
-					return
-				}
-				m.log.Error(err)
-				return
-			}
-		}
-	}()
+	go m.mapUpdater(ctx)
+	go m.itemSender()
 }
 
 func (m *MapUI) Stop() {
@@ -186,11 +214,11 @@ func (m *MapUI) Stop() {
 
 // Reset resets the map to inital state
 func (m *MapUI) Reset() {
-	m.l.Lock()
+	m.mu.Lock()
 	m.renderedChunks = make(map[protocol.ChunkPos]*image.RGBA)
 	m.oldRendered = make(map[protocol.ChunkPos]*image.RGBA)
 	messages.SendEvent(&messages.EventResetMap{})
-	m.l.Unlock()
+	m.mu.Unlock()
 	m.SchedRedraw()
 }
 
@@ -208,17 +236,11 @@ func (m *MapUI) SchedRedraw() {
 	m.needRedraw = true
 }
 
-var red = image.NewUniform(color.RGBA{R: 0xff, G: 0, B: 0, A: 128})
-
 func (m *MapUI) processQueue() []protocol.ChunkPos {
 	<-m.haveColors
 
-	updatedChunks := make([]protocol.ChunkPos, 0, m.renderQueue.Length())
-	for {
-		r, ok := m.renderQueue.Dequeue().(*renderElem)
-		if !ok {
-			break
-		}
+	updatedChunks := make([]protocol.ChunkPos, 0, len(m.renderQueue))
+	for _, r := range m.renderQueue {
 		if r.ch != nil {
 			img := m.ChunkRenderer.Chunk2Img(r.ch)
 			m.renderedChunks[r.pos] = img
@@ -231,13 +253,14 @@ func (m *MapUI) processQueue() []protocol.ChunkPos {
 			}
 		}
 	}
+	m.renderQueue = m.renderQueue[:0]
 	return updatedChunks
 }
 
 // redraw draws chunk images to the map image
 func (m *MapUI) redraw() {
-	m.l.Lock()
-	defer m.l.Unlock()
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	updatedChunks := m.processQueue()
 
 	// draw ingame map
@@ -249,8 +272,8 @@ func (m *MapUI) redraw() {
 	pxPerBlock := 128 / chunksPerLine / 16 // how many pixels per block
 	pxSizeChunk := int(math.Floor(pxPerBlock * 16))
 
-	for i := 0; i < len(m.img.Pix); i++ { // clear canvas
-		m.img.Pix[i] = 0
+	for i := 0; i < len(m.mapImage.Pix); i++ { // clear canvas
+		m.mapImage.Pix[i] = 0
 	}
 	for _ch := range m.renderedChunks {
 		relativeMiddleX := float64(_ch.X()*16 - middle.X())
@@ -260,29 +283,27 @@ func (m *MapUI) redraw() {
 			Y: int(math.Floor(relativeMiddleZ*pxPerBlock)) + 64,
 		}
 
-		if !m.img.Rect.Intersect(image.Rect(px.X, px.Y, px.X+pxSizeChunk, px.Y+pxSizeChunk)).Empty() {
-			utils.DrawImgScaledPos(m.img, m.renderedChunks[_ch], px, pxSizeChunk)
+		if !m.mapImage.Rect.Intersect(image.Rect(px.X, px.Y, px.X+pxSizeChunk, px.Y+pxSizeChunk)).Empty() {
+			utils.DrawImgScaledPos(m.mapImage, m.renderedChunks[_ch], px, pxSizeChunk)
 		}
 	}
 
 	// send tiles to gui map
-	if m.showOnGui {
-		var tiles []messages.MapTile
-		for _, coord := range updatedChunks {
-			tiles = append(tiles, messages.MapTile{
-				Pos: coord,
-				Img: *m.renderedChunks[coord],
-			})
-		}
-		messages.SendEvent(&messages.EventMapTiles{
-			Tiles: tiles,
+	var tiles []messages.MapTile
+	for _, coord := range updatedChunks {
+		tiles = append(tiles, messages.MapTile{
+			Pos: coord,
+			Img: *m.renderedChunks[coord],
 		})
 	}
+	messages.SendEvent(&messages.EventMapTiles{
+		Tiles: tiles,
+	})
 }
 
 func (m *MapUI) ToImage() *image.RGBA {
-	m.l.Lock()
-	defer m.l.Unlock()
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.processQueue()
 	// get the chunk coord bounds
 	min, max := m.GetBounds()
@@ -305,7 +326,9 @@ func (m *MapUI) ToImage() *image.RGBA {
 }
 
 func (m *MapUI) SetChunk(pos world.ChunkPos, ch *chunk.Chunk) {
-	m.renderQueue.Enqueue(&renderElem{
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.renderQueue = append(m.renderQueue, &renderElem{
 		ch:  ch,
 		pos: (protocol.ChunkPos)(pos),
 	})

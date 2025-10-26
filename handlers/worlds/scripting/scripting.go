@@ -37,6 +37,7 @@ type VM struct {
 
 	GetWorld           func() *worldstate.World
 	DisplayChatMessage func(msg string)
+	SetIngameMap       func(enabled bool)
 }
 
 func New() *VM {
@@ -104,6 +105,12 @@ func New() *VM {
 	v.runtime.Set("displayChatMessage", func(call goja.FunctionCall) goja.Value {
 		msg := call.Argument(0).ToString().String()
 		v.DisplayChatMessage(msg)
+		return goja.Undefined()
+	})
+
+	v.runtime.Set("setIngameMap", func(call goja.FunctionCall) goja.Value {
+		enabled := call.Argument(0).ToBoolean()
+		v.SetIngameMap(enabled)
 		return goja.Undefined()
 	})
 

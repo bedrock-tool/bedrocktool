@@ -177,6 +177,9 @@ func (w *worldsHandler) onSessionStart(session *proxy.Session, serverName string
 		w.scripting.DisplayChatMessage = func(msg string) {
 			w.session.SendMessage(msg)
 		}
+		w.scripting.SetIngameMap = func(enabled bool) {
+			w.mapUI.SetEnabled(enabled)
+		}
 		err := w.scripting.Load(w.settings.Script)
 		if err != nil {
 			return err
@@ -243,9 +246,9 @@ func (w *worldsHandler) onConnect(_ *proxy.Session) bool {
 
 	gameData := w.session.Server.GameData()
 	mapItemID, _ := world.ItemRidByName("minecraft:filled_map")
-	mapItemPacket.Content[0].Stack.ItemType.NetworkID = mapItemID
+	mapItem.Stack.ItemType.NetworkID = mapItemID
 	if gameData.ServerAuthoritativeInventory {
-		mapItemPacket.Content[0].StackNetworkID = 0xffff + rand.Int31n(0xfff)
+		mapItem.StackNetworkID = 0xffff + rand.Int31n(0xfff)
 	}
 
 	w.session.SendMessage(locale.Loc("use_setname", nil))

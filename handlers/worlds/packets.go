@@ -179,7 +179,7 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 			_pk = nil
 		}
 	case *packet.Animate:
-		if toServer && pk.ActionType == packet.AnimateActionSwingArm {
+		if toServer && pk.ActionType == packet.AnimateActionSwingArm && !w.mapUI.isDisabled {
 			w.mapUI.ChangeZoom()
 			w.session.SendPopup(locale.Loc("zoom_level", locale.Strmap{"Level": w.mapUI.zoomLevel}))
 		}
@@ -416,32 +416,32 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 		for _, isr := range pk.Requests {
 			for _, sra := range isr.Actions {
 				if sra, ok := sra.(*protocol.TakeStackRequestAction); ok {
-					if sra.Source.StackNetworkID == mapItemPacket.Content[0].StackNetworkID {
+					if sra.Source.StackNetworkID == mapItem.StackNetworkID {
 						continue
 					}
 				}
 				if sra, ok := sra.(*protocol.DropStackRequestAction); ok {
-					if sra.Source.StackNetworkID == mapItemPacket.Content[0].StackNetworkID {
+					if sra.Source.StackNetworkID == mapItem.StackNetworkID {
 						continue
 					}
 				}
 				if sra, ok := sra.(*protocol.DestroyStackRequestAction); ok {
-					if sra.Source.StackNetworkID == mapItemPacket.Content[0].StackNetworkID {
+					if sra.Source.StackNetworkID == mapItem.StackNetworkID {
 						continue
 					}
 				}
 				if sra, ok := sra.(*protocol.PlaceInContainerStackRequestAction); ok {
-					if sra.Source.StackNetworkID == mapItemPacket.Content[0].StackNetworkID {
+					if sra.Source.StackNetworkID == mapItem.StackNetworkID {
 						continue
 					}
 				}
 				if sra, ok := sra.(*protocol.TakeOutContainerStackRequestAction); ok {
-					if sra.Source.StackNetworkID == mapItemPacket.Content[0].StackNetworkID {
+					if sra.Source.StackNetworkID == mapItem.StackNetworkID {
 						continue
 					}
 				}
 				if sra, ok := sra.(*protocol.DestroyStackRequestAction); ok {
-					if sra.Source.StackNetworkID == mapItemPacket.Content[0].StackNetworkID {
+					if sra.Source.StackNetworkID == mapItem.StackNetworkID {
 						continue
 					}
 				}
@@ -466,7 +466,12 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 		case 0:
 			w.serverState.playerInventory = pk.Content
 		case protocol.WindowIDOffHand:
-			_pk = nil
+			if !w.mapUI.isDisabled {
+				_pk = nil
+				if len(pk.Content) > 0 {
+					w.mapUI.offHandItem = pk.Content[0]
+				}
+			}
 		default:
 			// save content
 			existing, ok := w.serverState.openItemContainers[byte(pk.WindowID)]
@@ -483,7 +488,10 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 			}
 			w.serverState.playerInventory[pk.Slot] = pk.NewItem
 		case protocol.WindowIDOffHand:
-			_pk = nil
+			if !w.mapUI.isDisabled {
+				_pk = nil
+				w.mapUI.offHandItem = pk.NewItem
+			}
 		default:
 			// save content
 			existing, ok := w.serverState.openItemContainers[byte(pk.WindowID)]

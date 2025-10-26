@@ -3,6 +3,7 @@ declare const console: {
 };
 
 function displayChatMessage(msg: string);
+function setIngameMap(enabled: boolean);
 
 
 /**
