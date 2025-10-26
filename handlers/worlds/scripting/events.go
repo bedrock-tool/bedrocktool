@@ -14,7 +14,7 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 )
 
-func (v *VM) OnEntityAdd(entity *entity.Entity, timeReceived time.Time) (apply bool) {
+func (v *VM) OnEntityAdd(entity *entity.Entity, isNew bool, timeReceived time.Time) (apply bool) {
 	if v.CB.OnEntityAdd == nil {
 		return true
 	}
@@ -23,7 +23,12 @@ func (v *VM) OnEntityAdd(entity *entity.Entity, timeReceived time.Time) (apply b
 	defer v.lock.Unlock()
 	apply = true
 	err := utils.RecoverCall(func() error {
-		applyV := v.CB.OnEntityAdd(entity, newEntityDataObject(v.runtime, entity.Metadata), float64(timeReceived.UnixMilli()))
+		applyV := v.CB.OnEntityAdd(
+			entity,
+			newEntityDataObject(v.runtime, entity.Metadata),
+			float64(timeReceived.UnixMilli()),
+			isNew,
+		)
 		if !goja.IsUndefined(applyV) {
 			apply = applyV.ToBoolean()
 		}
@@ -35,15 +40,31 @@ func (v *VM) OnEntityAdd(entity *entity.Entity, timeReceived time.Time) (apply b
 	return
 }
 
-func (v *VM) OnEntityDataUpdate(entity *entity.Entity, timeReceived time.Time) {
-	if v.CB.OnEntityDataUpdate == nil {
+func (v *VM) OnEntityUpdate(
+	entity *entity.Entity,
+	prevPosition *mgl32.Vec3,
+	changedProperties map[string]any,
+	timeReceived time.Time,
+) {
+	if v.CB.OnEntityUpdate == nil {
 		return
 	}
-
 	v.lock.Lock()
 	defer v.lock.Unlock()
 	err := utils.RecoverCall(func() error {
-		v.CB.OnEntityDataUpdate(entity, newEntityDataObject(v.runtime, entity.Metadata), float64(timeReceived.UnixMilli()))
+		update := v.runtime.NewObject()
+		update.Set("Entity", entity)
+		update.Set("Metadata", newEntityDataObject(v.runtime, entity.Metadata))
+		if prevPosition != nil {
+			update.Set("PreviousPosition", prevPosition)
+		}
+		if changedProperties != nil {
+			update.Set("ChangedProperties", changedProperties)
+		}
+		v.CB.OnEntityUpdate(
+			update,
+			float64(timeReceived.UnixMilli()),
+		)
 		return nil
 	})
 	if err != nil {

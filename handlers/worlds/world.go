@@ -58,14 +58,13 @@ type serverState struct {
 	behaviorPack *behaviourpack.Pack
 	resourcePack *resourcepack.Pack
 
-	customBlocks       []protocol.BlockEntry
-	openItemContainers map[byte]*itemContainer
-	playerInventory    []protocol.ItemInstance
-	dimensions         map[int]protocol.DimensionDefinition
-	playerSkins        map[uuid.UUID]*protocol.Skin
-	entityProperties   map[string][]entity.EntityProperty
-
-	playerProperties map[string]*entity.EntityProperty
+	customBlocks         []protocol.BlockEntry
+	openItemContainers   map[byte]*itemContainer
+	playerInventory      []protocol.ItemInstance
+	dimensions           map[int]protocol.DimensionDefinition
+	playerSkins          map[uuid.UUID]*protocol.Skin
+	entityProperties     map[string][]entity.EntityPropertyDef
+	playerPropertyValues map[string]any
 
 	entityRenderDistances []float32
 }
@@ -154,16 +153,16 @@ func NewWorldsHandler(ctx context.Context, settings WorldSettings) func() *proxy
 func (w *worldsHandler) onSessionStart(session *proxy.Session, serverName string) error {
 	w.session = session
 	w.serverState = serverState{
-		serverName:         serverName,
-		worldCounter:       0,
-		openItemContainers: make(map[byte]*itemContainer),
-		dimensions:         make(map[int]protocol.DimensionDefinition),
-		playerSkins:        make(map[uuid.UUID]*protocol.Skin),
-		biomes:             world.DefaultBiomes.Clone(),
-		entityProperties:   make(map[string][]entity.EntityProperty),
-		behaviorPack:       behaviourpack.New(serverName),
-		resourcePack:       resourcepack.New(),
-		playerProperties:   make(map[string]*entity.EntityProperty),
+		serverName:           serverName,
+		worldCounter:         0,
+		openItemContainers:   make(map[byte]*itemContainer),
+		dimensions:           make(map[int]protocol.DimensionDefinition),
+		playerSkins:          make(map[uuid.UUID]*protocol.Skin),
+		biomes:               world.DefaultBiomes.Clone(),
+		entityProperties:     make(map[string][]entity.EntityPropertyDef),
+		behaviorPack:         behaviourpack.New(serverName),
+		resourcePack:         resourcepack.New(),
+		playerPropertyValues: make(map[string]any),
 	}
 
 	w.mapUI = NewMapUI(w)

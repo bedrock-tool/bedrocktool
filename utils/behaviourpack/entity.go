@@ -37,7 +37,7 @@ type EntityPropertyJson struct {
 	ClientSync bool   `json:"client_sync"`
 }
 
-func makeEntityProperties(props []entity.EntityProperty) map[string]EntityPropertyJson {
+func makeEntityProperties(props []entity.EntityPropertyDef) map[string]EntityPropertyJson {
 	if len(props) == 0 {
 		return nil
 	}
@@ -67,7 +67,7 @@ func makeEntityProperties(props []entity.EntityProperty) map[string]EntityProper
 	return properties
 }
 
-func (bp *Pack) AddEntity(EntityType string, attr []protocol.AttributeValue, meta protocol.EntityMetadata, props []entity.EntityProperty) {
+func (bp *Pack) AddEntity(EntityType string, attr []protocol.AttributeValue, meta protocol.EntityMetadata, props []entity.EntityPropertyDef) {
 	ns, _ := splitNamespace(EntityType)
 	if ns == "minecraft" {
 		return
@@ -157,7 +157,7 @@ func (bp *Pack) AddEntity(EntityType string, attr []protocol.AttributeValue, met
 //go:embed player.json
 var playerJson []byte
 
-func (bp *Pack) SetPlayerProperties(props []entity.EntityProperty) {
+func (bp *Pack) SetPlayerProperties(props []entity.EntityPropertyDef) {
 	var basePlayer entityBehaviour
 	err := json.Unmarshal(playerJson, &basePlayer)
 	if err != nil {

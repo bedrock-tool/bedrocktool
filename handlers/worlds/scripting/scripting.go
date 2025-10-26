@@ -26,18 +26,36 @@ type VM struct {
 	log     *logrus.Entry
 
 	CB struct {
-		OnEntityAdd        func(entity *entity.Entity, metadata *goja.Object, timeReceived float64) (apply goja.Value)
-		OnChunkData        func(pos world.ChunkPos)
-		OnChunkAdd         func(pos world.ChunkPos, timeReceived float64) (apply goja.Value)
-		OnEntityDataUpdate func(entity *entity.Entity, metadata *goja.Object, timeReceived float64)
-		OnBlockUpdate      func(name string, properties map[string]any, pos protocol.BlockPos, timeReceived float64) (apply goja.Value)
-		OnSpawnParticle    func(name string, pos mgl32.Vec3, timeReceived float64)
-		OnPacket           func(name string, pk packet.Packet, toServer bool, timeReceived float64) (apply goja.Value)
+		OnEntityAdd     func(entity *entity.Entity, metadata *goja.Object, timeReceived float64, isNew bool) (apply goja.Value)
+		OnChunkData     func(pos world.ChunkPos)
+		OnChunkAdd      func(pos world.ChunkPos, timeReceived float64) (apply goja.Value)
+		OnEntityUpdate  func(update *goja.Object, timeReceived float64)
+		OnBlockUpdate   func(name string, properties map[string]any, pos protocol.BlockPos, timeReceived float64) (apply goja.Value)
+		OnSpawnParticle func(name string, pos mgl32.Vec3, timeReceived float64)
+		OnPacket        func(name string, pk packet.Packet, toServer bool, timeReceived float64) (apply goja.Value)
 	}
 
 	GetWorld           func() *worldstate.World
 	DisplayChatMessage func(msg string)
 	SetIngameMap       func(enabled bool)
+}
+
+type LogrusPrinter struct{}
+
+func (p LogrusPrinter) Log(s string) {
+	fmt.Printf("Info: %s\n", s)
+}
+
+func (p LogrusPrinter) Warn(s string) {
+	fmt.Printf("Warn: %s\n", s)
+}
+
+func (p LogrusPrinter) Error(s string) {
+	fmt.Printf("Err : %s\n", s)
+}
+
+func init() {
+	require.RegisterCoreModule(console.ModuleName, console.RequireWithPrinter(LogrusPrinter{}))
 }
 
 func New() *VM {
@@ -55,8 +73,8 @@ func New() *VM {
 		switch name {
 		case "EntityAdd":
 			err = v.runtime.ExportTo(callback, &v.CB.OnEntityAdd)
-		case "EntityDataUpdate":
-			err = v.runtime.ExportTo(callback, &v.CB.OnEntityDataUpdate)
+		case "EntityUpdate":
+			err = v.runtime.ExportTo(callback, &v.CB.OnEntityUpdate)
 		case "ChunkAdd":
 			err = v.runtime.ExportTo(callback, &v.CB.OnChunkAdd)
 		case "ChunkData":

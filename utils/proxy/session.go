@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
@@ -58,6 +59,7 @@ type Session struct {
 	clientAddr       net.Addr
 	spawned          bool
 	disconnectReason string
+	lastPacketTime   atomic.Pointer[time.Time]
 }
 
 func NewSession(ctx context.Context, settings ProxySettings, addedPacks []resource.Pack, connectInfo *connectinfo.ConnectInfo, withClient bool) *Session {
@@ -76,6 +78,10 @@ func NewSession(ctx context.Context, settings ProxySettings, addedPacks []resour
 		disconnectReason: "Connection Lost",
 		commands:         make(map[string]ingameCommand),
 	}
+}
+
+func (s *Session) Now() time.Time {
+	return *s.lastPacketTime.Load()
 }
 
 // AddCommand adds a command to the command handler
@@ -524,6 +530,7 @@ func (s *Session) proxyLoop(ctx context.Context, toServer bool) (err error) {
 			}
 			return err
 		}
+		s.lastPacketTime.Store(&timeReceived)
 
 		pkName := reflect.TypeOf(pk).String()
 

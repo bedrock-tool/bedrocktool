@@ -29,8 +29,9 @@ type Entity struct {
 	Velocity            mgl32.Vec3
 	HasMoved            bool
 
-	Metadata   protocol.EntityMetadata
-	Properties map[string]*EntityProperty
+	Metadata     protocol.EntityMetadata
+	Properties   map[string]any
+	PropertyDefs []EntityPropertyDef
 
 	Inventory  map[byte]map[byte]protocol.ItemInstance
 	Helmet     *protocol.ItemInstance
@@ -42,13 +43,12 @@ type Entity struct {
 	LastTeleport    int
 }
 
-type EntityProperty struct {
-	Type  int32
-	Name  string
-	Min   float32
-	Max   float32
-	Enum  []any
-	Value any
+type EntityPropertyDef struct {
+	Type int32
+	Name string
+	Min  float32
+	Max  float32
+	Enum []any
 }
 
 var flagNames = map[uint8]string{
@@ -258,8 +258,14 @@ func (s *Entity) ToChunkEntity(links []int64) chunk.Entity {
 	s.toNBT(e.Data)
 	if len(s.Properties) > 0 {
 		nbtProperties := map[string]any{}
-		for name, prop := range s.Properties {
-			nbtProperties[name] = prop.Value
+		for name, value := range s.Properties {
+			switch v := value.(type) {
+			case int64:
+				value = int32(v)
+			case float64:
+				value = float32(v)
+			}
+			nbtProperties[name] = value
 		}
 		e.Data["properties"] = nbtProperties
 	}

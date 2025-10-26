@@ -70,18 +70,6 @@ func (w *memoryState) StoreMap(m *packet.ClientBoundMapItemData) {
 	)
 }
 
-func (w *memoryState) cullChunks() {
-chunks:
-	for key, ch := range w.chunks {
-		for _, sub := range ch.Sub() {
-			if !sub.Empty() {
-				continue chunks
-			}
-		}
-		delete(w.chunks, key)
-	}
-}
-
 func cubePosInChunk(pos cube.Pos) (p world.ChunkPos, sp int16) {
 	p[0] = int32(pos.X() >> 4)
 	sp = int16(pos.Y() >> 4)

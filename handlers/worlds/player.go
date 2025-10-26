@@ -199,10 +199,10 @@ func (w *worldsHandler) playerData() (ret map[string]any) {
 		w.session.Player.Yaw,
 	}
 
-	if len(w.serverState.playerProperties) > 0 {
+	if len(w.serverState.playerPropertyValues) > 0 {
 		nbtProperties := map[string]any{}
-		for name, prop := range w.serverState.playerProperties {
-			nbtProperties[name] = prop.Value
+		for name, value := range w.serverState.playerPropertyValues {
+			nbtProperties[name] = value
 		}
 		ret["properties"] = nbtProperties
 	}

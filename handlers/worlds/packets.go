@@ -17,7 +17,6 @@ import (
 	"github.com/df-mc/dragonfly/server/item/inventory"
 	"github.com/df-mc/dragonfly/server/world"
 	"github.com/go-gl/mathgl/mgl32"
-	"github.com/go-gl/mathgl/mgl64"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sirupsen/logrus"
@@ -205,16 +204,17 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 		w.serverState.playerSkins[pk.UUID] = &pk.Skin
 
 	case *packet.SyncActorProperty:
-		w.syncActorProperty(pk)
+		w.handleSyncActorProperty(pk)
 
 	case *packet.AddActor:
 		w.currentWorld(func(world *worldstate.World) {
 			err := world.ActEntity(pk.EntityRuntimeID, true, func(ent *entity.Entity) error {
-				playerPos := w.session.Player.Position
-				dist3d := ent.Position.Sub(playerPos).Len()
+				isNew := ent.EntityType == ""
 
 				// get samples of the entity render distance
 				if ent.DeletedDistance > 0 && len(w.serverState.entityRenderDistances) < 200 {
+					playerPos := w.session.Player.Position
+					dist3d := ent.Position.Sub(playerPos).Len()
 					diff := float32(math.Abs(float64(ent.DeletedDistance - dist3d)))
 					if diff < 10 {
 						w.serverState.entityRenderDistances = append(w.serverState.entityRenderDistances, dist3d)
@@ -223,6 +223,8 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 				ent.DeletedDistance = -1
 				ent.LastTeleport = 0
 
+				prevPosition := ent.Position
+
 				ent.UniqueID = pk.EntityUniqueID
 				ent.EntityType = pk.EntityType
 				ent.Position = pk.Position
@@ -230,20 +232,25 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 				ent.Yaw = pk.Yaw
 				ent.HeadYaw = pk.HeadYaw
 				ent.Velocity = pk.Velocity
-				w.applyEntityData(ent, pk.EntityMetadata, pk.EntityProperties, timeReceived)
+
+				maps.Copy(ent.Metadata, pk.EntityMetadata)
+				properties := w.serverState.entityProperties[ent.EntityType]
+				changes := applyProperties(properties, pk.EntityProperties, ent.Properties)
 
 				if w.scripting != nil {
-					if !w.scripting.OnEntityAdd(ent, timeReceived) {
+					if !w.scripting.OnEntityAdd(ent, isNew, timeReceived) {
 						logrus.Infof("Ignoring Entity: %s %d", ent.EntityType, ent.UniqueID)
 						return worldstate.ErrIgnoreEntity
 					}
 				}
 
+				if !isNew {
+					w.onEntityUpdate(ent, &prevPosition, changes)
+				}
+
 				for _, el := range pk.EntityLinks {
 					world.AddEntityLink(el)
 				}
-
-				properties := w.serverState.entityProperties[ent.EntityType]
 				w.serverState.behaviorPack.AddEntity(pk.EntityType, pk.Attributes, ent.Metadata, properties)
 				return nil
 			})
@@ -267,16 +274,18 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 				playerPos := w.session.Player.Position
 				dist3d := ent.Position.Sub(playerPos).Len()
 
-				player2d := mgl32.Vec2{playerPos.X(), playerPos.Z()}
-				entity2d := mgl32.Vec2{ent.Position.X(), ent.Position.Z()}
-				dist2d := entity2d.Sub(player2d).Len()
+				/*
+					player2d := mgl32.Vec2{playerPos.X(), playerPos.Z()}
+					entity2d := mgl32.Vec2{ent.Position.X(), ent.Position.Z()}
+					dist2d := entity2d.Sub(player2d).Len()
 
-				playerChunk := mgl64.Vec2{math.Floor(float64(playerPos.X() / 16)), math.Floor(float64(playerPos.Z() / 16))}
-				entityChunk := mgl64.Vec2{math.Floor(float64(ent.Position.X() / 16)), math.Floor(float64(ent.Position.Z() / 16))}
-				distch := entityChunk.Sub(playerChunk).Len()
-				if utils.IsDebug() {
-					fmt.Printf("RemoveActor 3d: %.5f 2d: %.5f ch: %.5f\t%s\n", dist3d, dist2d, distch, ent.EntityType)
-				}
+					playerChunk := mgl64.Vec2{math.Floor(float64(playerPos.X() / 16)), math.Floor(float64(playerPos.Z() / 16))}
+					entityChunk := mgl64.Vec2{math.Floor(float64(ent.Position.X() / 16)), math.Floor(float64(ent.Position.Z() / 16))}
+					distch := entityChunk.Sub(playerChunk).Len()
+					if utils.IsDebug() {
+						fmt.Printf("RemoveActor 3d: %.5f 2d: %.5f ch: %.5f\t%s\n", dist3d, dist2d, distch, ent.EntityType)
+					}
+				*/
 
 				// if the player recently was teleported, check if the removed actor was in the view distance previously
 				// if it was, that means it wasnt actually removed,
@@ -289,6 +298,7 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 				} else {
 					ent.DeletedDistance = dist3d
 				}
+				w.onEntityUpdate(ent, nil, nil)
 				return nil
 			})
 		})
@@ -296,53 +306,68 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 	case *packet.SetActorData:
 		w.currentWorld(func(world *worldstate.World) {
 			if pk.EntityRuntimeID == w.session.Player.RuntimeID {
-				w.applyPlayerData(pk.EntityMetadata, pk.EntityProperties, timeReceived)
+				properties := w.serverState.entityProperties["minecraft:player"]
+				changed := applyProperties(properties, pk.EntityProperties, w.serverState.playerPropertyValues)
+				_ = changed
+			} else {
+				world.ActEntity(pk.EntityRuntimeID, false, func(ent *entity.Entity) error {
+					properties := w.serverState.entityProperties[ent.EntityType]
+					maps.Copy(ent.Metadata, pk.EntityMetadata)
+					changedProperties := applyProperties(properties, pk.EntityProperties, ent.Properties)
+					w.serverState.behaviorPack.AddEntity(ent.EntityType, nil, ent.Metadata, properties)
+					w.onEntityUpdate(ent, nil, changedProperties)
+					return nil
+				})
 			}
-			world.ActEntity(pk.EntityRuntimeID, false, func(ent *entity.Entity) error {
-				w.applyEntityData(ent, pk.EntityMetadata, pk.EntityProperties, timeReceived)
-				properties := w.serverState.entityProperties[ent.EntityType]
-				w.serverState.behaviorPack.AddEntity(ent.EntityType, nil, ent.Metadata, properties)
+		})
+
+	case *packet.PlayerUpdateEntityOverrides:
+		w.currentWorld(func(world *worldstate.World) {
+			world.ActEntity(world.GetEntityRuntimeID(pk.EntityUniqueID), false, func(ent *entity.Entity) error {
+				var changes = make(map[string]any)
+				if pk.Type == packet.PlayerUpdateEntityOverridesTypeClearAll {
+					for name := range ent.Properties {
+						ent.Properties[name] = nil
+					}
+				} else {
+					properties := w.serverState.entityProperties[ent.EntityType]
+					propertyName := properties[pk.PropertyIndex].Name
+					prevValue := ent.Properties[propertyName]
+					var value any
+					switch pk.Type {
+					case packet.PlayerUpdateEntityOverridesTypeRemove:
+						delete(ent.Properties, propertyName)
+						value = nil
+					case packet.PlayerUpdateEntityOverridesTypeInt:
+						value = pk.IntValue
+					case packet.PlayerUpdateEntityOverridesTypeFloat:
+						value = pk.FloatValue
+					}
+					if value != nil {
+						ent.Properties[propertyName] = value
+					}
+					changes[propertyName] = prevValue
+				}
+
+				w.onEntityUpdate(ent, nil, changes)
 				return nil
 			})
 		})
-
-		/*
-			case *packet.PlayerUpdateEntityOverrides:
-				w.currentWorld(func(world *worldstate.World) {
-					world.ActEntity(pk.EntityRuntimeID, false, func(ent *entity.Entity) error {
-						if pk.Type == packet.PlayerUpdateEntityOverridesTypeClearAll {
-							for _, prop := range ent.Properties {
-								prop.Value = nil
-							}
-							return nil
-						}
-
-						properties := w.serverState.entityProperties[ent.EntityType]
-						property := ent.Properties[properties[pk.PropertyIndex].Name]
-						switch pk.Type {
-						case packet.PlayerUpdateEntityOverridesTypeRemove:
-							property.Value = nil
-						case packet.PlayerUpdateEntityOverridesTypeInt:
-							property.Value = pk.IntValue
-						case packet.PlayerUpdateEntityOverridesTypeFloat:
-							property.Value = pk.FloatValue
-						}
-						return nil
-					})
-				})
-		*/
 
 	case *packet.SetActorMotion:
 		w.currentWorld(func(world *worldstate.World) {
 			world.ActEntity(pk.EntityRuntimeID, false, func(ent *entity.Entity) error {
 				ent.Velocity = pk.Velocity
+				w.onEntityUpdate(ent, nil, nil)
 				return nil
 			})
+
 		})
 
 	case *packet.MoveActorDelta:
 		w.currentWorld(func(world *worldstate.World) {
 			world.ActEntity(pk.EntityRuntimeID, false, func(ent *entity.Entity) error {
+				prevPosition := ent.Position
 				if pk.Flags&packet.MoveActorDeltaFlagHasX != 0 {
 					ent.Position[0] = pk.Position[0]
 				}
@@ -361,6 +386,7 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 				if !ent.Velocity.ApproxEqual(mgl32.Vec3{}) {
 					ent.HasMoved = true
 				}
+				w.onEntityUpdate(ent, &prevPosition, nil)
 				return nil
 			})
 		})
@@ -368,32 +394,36 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 	case *packet.MoveActorAbsolute:
 		w.currentWorld(func(world *worldstate.World) {
 			world.ActEntity(pk.EntityRuntimeID, false, func(ent *entity.Entity) error {
+				prevPosition := ent.Position
 				ent.Position = pk.Position
 				ent.Pitch = pk.Rotation.X()
 				ent.Yaw = pk.Rotation.Y()
 				if !ent.Velocity.ApproxEqual(mgl32.Vec3{}) {
 					ent.HasMoved = true
 				}
+				w.onEntityUpdate(ent, &prevPosition, nil)
 				return nil
 			})
 		})
 
 	case *packet.MobEquipment:
-		if pk.NewItem.Stack.NBTData["map_uuid"] == int64(ViewMapID) {
-			_pk = nil
-		} else {
-			w.currentWorld(func(world *worldstate.World) {
-				world.ActEntity(pk.EntityRuntimeID, false, func(ent *entity.Entity) error {
-					w, ok := ent.Inventory[pk.WindowID]
-					if !ok {
-						w = make(map[byte]protocol.ItemInstance)
-						ent.Inventory[pk.WindowID] = w
-					}
-					w[pk.HotBarSlot] = pk.NewItem
-					return nil
-				})
-			})
+		if pk.EntityRuntimeID == w.session.Player.RuntimeID {
+			if pk.NewItem.Stack.NBTData["map_uuid"] == int64(ViewMapID) {
+				_pk = nil
+			}
 		}
+		w.currentWorld(func(world *worldstate.World) {
+			world.ActEntity(pk.EntityRuntimeID, false, func(ent *entity.Entity) error {
+				window, ok := ent.Inventory[pk.WindowID]
+				if !ok {
+					window = make(map[byte]protocol.ItemInstance)
+					ent.Inventory[pk.WindowID] = window
+				}
+				window[pk.HotBarSlot] = pk.NewItem
+				w.onEntityUpdate(ent, nil, nil)
+				return nil
+			})
+		})
 
 	case *packet.MobArmourEquipment:
 		w.currentWorld(func(world *worldstate.World) {
@@ -402,6 +432,7 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 				ent.Chestplate = &pk.Chestplate
 				ent.Leggings = &pk.Chestplate
 				ent.Boots = &pk.Boots
+				w.onEntityUpdate(ent, nil, nil)
 				return nil
 			})
 		})
@@ -609,7 +640,7 @@ func (w *worldsHandler) packetHandler(_ *proxy.Session, pk packet.Packet, toServ
 	return w.packetHandlerIngame(pk, toServer, timeReceived)
 }
 
-func (w *worldsHandler) syncActorProperty(pk *packet.SyncActorProperty) {
+func (w *worldsHandler) handleSyncActorProperty(pk *packet.SyncActorProperty) {
 	entityType, ok := pk.PropertyData["type"].(string)
 	if !ok {
 		return
@@ -619,7 +650,7 @@ func (w *worldsHandler) syncActorProperty(pk *packet.SyncActorProperty) {
 		return
 	}
 
-	var propertiesOut = make([]entity.EntityProperty, 0, len(properties))
+	var propertiesOut = make([]entity.EntityPropertyDef, 0, len(properties))
 	for _, property := range properties {
 		property := property.(map[string]any)
 		propertyName, ok := property["name"].(string)
@@ -631,7 +662,7 @@ func (w *worldsHandler) syncActorProperty(pk *packet.SyncActorProperty) {
 			continue
 		}
 
-		var prop entity.EntityProperty
+		var prop entity.EntityPropertyDef
 		prop.Name = propertyName
 		prop.Type = propertyType
 
@@ -672,41 +703,46 @@ func (w *worldsHandler) syncActorProperty(pk *packet.SyncActorProperty) {
 	}
 }
 
-func (w *worldsHandler) applyPlayerData(entityMetadata protocol.EntityMetadata, entityProperties protocol.EntityProperties, timeReceived time.Time) {
-	properties := w.serverState.entityProperties["minecraft:player"]
-	applyProperties(w.log, properties, entityProperties, w.serverState.playerProperties)
-}
+func applyProperties(defs []entity.EntityPropertyDef, props protocol.EntityProperties, out map[string]any) (changed map[string]any) {
+	changed = make(map[string]any)
 
-func (w *worldsHandler) applyEntityData(ent *entity.Entity, entityMetadata protocol.EntityMetadata, entityProperties protocol.EntityProperties, timeReceived time.Time) {
-	maps.Copy(ent.Metadata, entityMetadata)
-	if w.scripting != nil {
-		w.scripting.OnEntityDataUpdate(ent, timeReceived)
+	updateVal := func(name string, value any) {
+		prev := out[name]
+		out[name] = value
+		if prev != out[name] {
+			changed[name] = prev
+		}
 	}
-	properties := w.serverState.entityProperties[ent.EntityType]
-	applyProperties(w.log, properties, entityProperties, ent.Properties)
-}
 
-func applyProperties(log *logrus.Entry, properties []entity.EntityProperty, entityProperties protocol.EntityProperties, out map[string]*entity.EntityProperty) {
-	for _, prop := range entityProperties.IntegerProperties {
-		if int(prop.Index) > len(properties)-1 {
-			log.Errorf("entity property index more than there are properties, BUG %v", prop)
+	for _, prop := range props.IntegerProperties {
+		if int(prop.Index) > len(defs)-1 {
+			logrus.Errorf("entity property index more than there are properties, BUG %v", prop)
 			continue
 		}
-		propType := properties[prop.Index]
+		propType := defs[prop.Index]
+		var value any = prop.Value
 		if propType.Type == entity.PropertyTypeBool {
-			propType.Value = prop.Value == 1
-		} else {
-			propType.Value = prop.Value
+			value = prop.Value == 1
 		}
-		out[propType.Name] = &propType
+		updateVal(propType.Name, value)
 	}
-	for _, prop := range entityProperties.IntegerProperties {
-		if int(prop.Index) > len(properties)-1 {
-			log.Errorf("entity property index more than there are properties, BUG %v", prop)
+	for _, prop := range props.FloatProperties {
+		if int(prop.Index) > len(defs)-1 {
+			logrus.Errorf("entity property index more than there are properties, BUG %v", prop)
 			continue
 		}
-		propType := properties[prop.Index]
-		propType.Value = prop.Value
-		out[propType.Name] = &propType
+		propType := defs[prop.Index]
+		updateVal(propType.Name, prop.Value)
+	}
+	return changed
+}
+
+func (w *worldsHandler) onEntityUpdate(
+	ent *entity.Entity,
+	prevPosition *mgl32.Vec3,
+	changedProperties map[string]any,
+) {
+	if w.scripting != nil {
+		w.scripting.OnEntityUpdate(ent, prevPosition, changedProperties, w.session.Now())
 	}
 }

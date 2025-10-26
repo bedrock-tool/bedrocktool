@@ -9,29 +9,38 @@ function setIngameMap(enabled: boolean);
 /**
  * Names of events that can be registered.
  */
-declare type EventNames = 'EntityAdd' | 'EntityDataUpdate' | 'ChunkAdd' | 'BlockUpdate' | 'SpawnParticle' | 'Packet';
+declare type EventNames = 'EntityAdd' | 'EntityUpdate' | 'ChunkAdd' | 'BlockUpdate' | 'SpawnParticle' | 'Packet';
 
+declare type EntityAdd = {
+	New: boolean; // if the entity was not seen before
+	Entity: Entity;
+}
+
+declare type EntityUpdate = {
+	Entity: Entity;
+	Metadata: EntityMetadata;
+	PreviousPosition?: [number, number, number];
+	ChangedProperties?: {[k: string]: any};
+}
 
 /**
  * Callback for the `EntityAdd` event.
  * 
  * @param entity - The entity being added.
  * @param metadata - Metadata associated with the entity.
- * @param properties - Properties of the entity.
+ * @param isNew - if the entity was not seen before.
  * @param time - The time the entity was added.
  */
-declare type EntityAddCallback = (entity: Entity, metadata: EntityMetadata, time: number) => void;
+declare type EntityAddCallback = (entity: Entity, metadata: EntityMetadata, time: number, isNew: boolean) => void;
 
 
 /**
  * Callback for the `EntityDataUpdate` event.
  * 
- * @param entity - The entity being updated.
- * @param metadata - Metadata associated with the entity.
- * @param properties - Properties of the entity.
+ * @param update - The entity update.
  * @param time - The time the entity's data was updated.
  */
-declare type EntityDataUpdateCallback = (entity: Entity, metadata: EntityMetadata, time: number) => void;
+declare type EntityUpdateCallback = (update: EntityUpdate, time: number) => void;
 
 
 /**
@@ -128,7 +137,7 @@ declare const events: {
      * });
      * 
      */
-    register(name: 'EntityDataUpdate', callback: EntityDataUpdateCallback): void;
+    register(name: 'EntityUpdate', callback: EntityUpdateCallback): void;
     /**
      * Registers a callback function to be executed when a specified event occurs.
      * 
@@ -310,7 +319,7 @@ declare type Entity = {
 	/**
 	 * The current custom properties for this entity.
 	 */
-	Properties: {[k: string]: EntityProperty}
+	Properties: {[k: string]: any}
 }
 
 

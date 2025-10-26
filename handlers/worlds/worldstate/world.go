@@ -347,7 +347,7 @@ func (w *World) ActEntity(id entity.RuntimeID, create bool, fn func(ent *entity.
 			RuntimeID:       id,
 			Inventory:       make(map[byte]map[byte]protocol.ItemInstance),
 			Metadata:        make(map[uint32]any),
-			Properties:      make(map[string]*entity.EntityProperty),
+			Properties:      make(map[string]any),
 			DeletedDistance: -1,
 		}
 		new = true

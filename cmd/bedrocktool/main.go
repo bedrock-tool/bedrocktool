@@ -21,6 +21,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/utils/osabs"
 
 	_ "github.com/bedrock-tool/bedrocktool/subcommands"
+	_ "github.com/bedrock-tool/bedrocktool/subcommands/dump-actors"
 
 	"github.com/sirupsen/logrus"
 )
