@@ -26,13 +26,14 @@ type VM struct {
 	log     *logrus.Entry
 
 	CB struct {
-		OnEntityAdd     func(entity *entity.Entity, metadata *goja.Object, timeReceived float64, isNew bool) (apply goja.Value)
-		OnChunkData     func(pos world.ChunkPos)
-		OnChunkAdd      func(pos world.ChunkPos, timeReceived float64) (apply goja.Value)
-		OnEntityUpdate  func(update *goja.Object, timeReceived float64)
-		OnBlockUpdate   func(name string, properties map[string]any, pos protocol.BlockPos, timeReceived float64) (apply goja.Value)
-		OnSpawnParticle func(name string, pos mgl32.Vec3, timeReceived float64)
-		OnPacket        func(name string, pk packet.Packet, toServer bool, timeReceived float64) (apply goja.Value)
+		OnEntityAdd            func(entity *entity.Entity, metadata *goja.Object, timeReceived float64, isNew bool) (apply goja.Value)
+		OnChunkData            func(pos world.ChunkPos)
+		OnChunkAdd             func(pos world.ChunkPos, timeReceived float64) (apply goja.Value)
+		OnEntityUpdate         func(update *goja.Object, timeReceived float64)
+		OnEntityPropertyChange func(entity *entity.Entity, name string, previous any, newValue any) (apply goja.Value)
+		OnBlockUpdate          func(name string, properties map[string]any, pos protocol.BlockPos, timeReceived float64) (apply goja.Value)
+		OnSpawnParticle        func(name string, pos mgl32.Vec3, timeReceived float64)
+		OnPacket               func(name string, pk packet.Packet, toServer bool, timeReceived float64) (apply goja.Value)
 	}
 
 	GetWorld           func() *worldstate.World
@@ -75,6 +76,8 @@ func New() *VM {
 			err = v.runtime.ExportTo(callback, &v.CB.OnEntityAdd)
 		case "EntityUpdate":
 			err = v.runtime.ExportTo(callback, &v.CB.OnEntityUpdate)
+		case "EntityPropertyChange":
+			err = v.runtime.ExportTo(callback, &v.CB.OnEntityPropertyChange)
 		case "ChunkAdd":
 			err = v.runtime.ExportTo(callback, &v.CB.OnChunkAdd)
 		case "ChunkData":

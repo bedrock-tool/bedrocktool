@@ -235,12 +235,22 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 
 				maps.Copy(ent.Metadata, pk.EntityMetadata)
 				properties := w.serverState.entityProperties[ent.EntityType]
-				changes := applyProperties(properties, pk.EntityProperties, ent.Properties)
+				changes := applyProperties(properties, pk.EntityProperties, ent.Properties, ent.PropertiesOverridden)
 
 				if w.scripting != nil {
 					if !w.scripting.OnEntityAdd(ent, isNew, timeReceived) {
 						logrus.Infof("Ignoring Entity: %s %d", ent.EntityType, ent.UniqueID)
 						return worldstate.ErrIgnoreEntity
+					}
+					for name, previous := range changes {
+						apply := w.scripting.OnEntityPropertyChange(ent, name, previous, ent.Properties[name])
+						if !apply {
+							if previous == nil {
+								delete(ent.Properties, name)
+							} else {
+								ent.Properties[name] = previous
+							}
+						}
 					}
 				}
 
@@ -307,15 +317,28 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 		w.currentWorld(func(world *worldstate.World) {
 			if pk.EntityRuntimeID == w.session.Player.RuntimeID {
 				properties := w.serverState.entityProperties["minecraft:player"]
-				changed := applyProperties(properties, pk.EntityProperties, w.serverState.playerPropertyValues)
+				changed := applyProperties(properties, pk.EntityProperties, w.serverState.playerPropertyValues, nil)
 				_ = changed
 			} else {
 				world.ActEntity(pk.EntityRuntimeID, false, func(ent *entity.Entity) error {
 					properties := w.serverState.entityProperties[ent.EntityType]
-					maps.Copy(ent.Metadata, pk.EntityMetadata)
-					changedProperties := applyProperties(properties, pk.EntityProperties, ent.Properties)
 					w.serverState.behaviorPack.AddEntity(ent.EntityType, nil, ent.Metadata, properties)
-					w.onEntityUpdate(ent, nil, changedProperties)
+
+					maps.Copy(ent.Metadata, pk.EntityMetadata)
+					changes := applyProperties(properties, pk.EntityProperties, ent.Properties, ent.PropertiesOverridden)
+					if w.scripting != nil {
+						for name, previous := range changes {
+							apply := w.scripting.OnEntityPropertyChange(ent, name, previous, ent.Properties[name])
+							if !apply {
+								if previous == nil {
+									delete(ent.Properties, name)
+								} else {
+									ent.Properties[name] = previous
+								}
+							}
+						}
+					}
+					w.onEntityUpdate(ent, nil, changes)
 					return nil
 				})
 			}
@@ -326,27 +349,38 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 			world.ActEntity(world.GetEntityRuntimeID(pk.EntityUniqueID), false, func(ent *entity.Entity) error {
 				var changes = make(map[string]any)
 				if pk.Type == packet.PlayerUpdateEntityOverridesTypeClearAll {
-					for name := range ent.Properties {
-						ent.Properties[name] = nil
-					}
+					// TODO
 				} else {
 					properties := w.serverState.entityProperties[ent.EntityType]
-					propertyName := properties[pk.PropertyIndex].Name
-					prevValue := ent.Properties[propertyName]
+					property := properties[pk.PropertyIndex]
+					prevValue := ent.Properties[property.Name]
 					var value any
 					switch pk.Type {
 					case packet.PlayerUpdateEntityOverridesTypeRemove:
-						delete(ent.Properties, propertyName)
-						value = nil
+						oldValue := ent.PropertiesOverridden[property.Name]
+						delete(ent.PropertiesOverridden, property.Name)
+						value = oldValue
 					case packet.PlayerUpdateEntityOverridesTypeInt:
 						value = pk.IntValue
+						if property.Type == entity.PropertyTypeBool {
+							value = value == 1
+						}
 					case packet.PlayerUpdateEntityOverridesTypeFloat:
 						value = pk.FloatValue
 					}
-					if value != nil {
-						ent.Properties[propertyName] = value
+					if w.scripting != nil {
+						apply := w.scripting.OnEntityPropertyChange(ent, property.Name, prevValue, value)
+						if !apply {
+							return nil
+						}
 					}
-					changes[propertyName] = prevValue
+					if value != nil {
+						if _, ok := ent.PropertiesOverridden[property.Name]; !ok {
+							ent.PropertiesOverridden[property.Name] = prevValue
+						}
+						ent.Properties[property.Name] = value
+					}
+					changes[property.Name] = prevValue
 				}
 
 				w.onEntityUpdate(ent, nil, changes)
@@ -703,12 +737,17 @@ func (w *worldsHandler) handleSyncActorProperty(pk *packet.SyncActorProperty) {
 	}
 }
 
-func applyProperties(defs []entity.EntityPropertyDef, props protocol.EntityProperties, out map[string]any) (changed map[string]any) {
+func applyProperties(defs []entity.EntityPropertyDef, props protocol.EntityProperties, out, overrides map[string]any) (changed map[string]any) {
 	changed = make(map[string]any)
 
 	updateVal := func(name string, value any) {
-		prev := out[name]
-		out[name] = value
+		prev, ok := overrides[name]
+		if !ok {
+			prev = out[name]
+			out[name] = value
+		} else {
+			overrides[name] = value
+		}
 		if prev != out[name] {
 			changed[name] = prev
 		}

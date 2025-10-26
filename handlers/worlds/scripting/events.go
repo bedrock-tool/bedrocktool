@@ -72,6 +72,30 @@ func (v *VM) OnEntityUpdate(
 	}
 }
 
+func (v *VM) OnEntityPropertyChange(
+	entity *entity.Entity,
+	name string,
+	previous any,
+	newValue any,
+) bool {
+	if v.CB.OnEntityUpdate == nil {
+		return true
+	}
+
+	v.lock.Lock()
+	defer v.lock.Unlock()
+	apply := true
+	err := utils.RecoverCall(func() error {
+		applyV := v.CB.OnEntityPropertyChange(entity, name, previous, newValue)
+		apply = goja.IsUndefined(applyV) || applyV.ToBoolean()
+		return nil
+	})
+	if err != nil {
+		v.log.Error(err)
+	}
+	return apply
+}
+
 func (v *VM) OnChunkAdd(pos world.ChunkPos, timeReceived time.Time) (apply bool) {
 	if v.CB.OnChunkAdd == nil {
 		return true

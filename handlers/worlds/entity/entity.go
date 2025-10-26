@@ -29,9 +29,9 @@ type Entity struct {
 	Velocity            mgl32.Vec3
 	HasMoved            bool
 
-	Metadata     protocol.EntityMetadata
-	Properties   map[string]any
-	PropertyDefs []EntityPropertyDef
+	Metadata             protocol.EntityMetadata
+	Properties           map[string]any
+	PropertiesOverridden map[string]any
 
 	Inventory  map[byte]map[byte]protocol.ItemInstance
 	Helmet     *protocol.ItemInstance

@@ -9,12 +9,7 @@ function setIngameMap(enabled: boolean);
 /**
  * Names of events that can be registered.
  */
-declare type EventNames = 'EntityAdd' | 'EntityUpdate' | 'ChunkAdd' | 'BlockUpdate' | 'SpawnParticle' | 'Packet';
-
-declare type EntityAdd = {
-	New: boolean; // if the entity was not seen before
-	Entity: Entity;
-}
+declare type EventNames = 'EntityAdd' | 'EntityUpdate' | 'EntityPropertyChange' | 'ChunkAdd' | 'BlockUpdate' | 'SpawnParticle' | 'Packet';
 
 declare type EntityUpdate = {
 	Entity: Entity;
@@ -31,7 +26,7 @@ declare type EntityUpdate = {
  * @param isNew - if the entity was not seen before.
  * @param time - The time the entity was added.
  */
-declare type EntityAddCallback = (entity: Entity, metadata: EntityMetadata, time: number, isNew: boolean) => void;
+declare type EntityAddCallback = (entity: Entity, metadata: EntityMetadata, time: number, isNew: boolean) => boolean;
 
 
 /**
@@ -42,6 +37,7 @@ declare type EntityAddCallback = (entity: Entity, metadata: EntityMetadata, time
  */
 declare type EntityUpdateCallback = (update: EntityUpdate, time: number) => void;
 
+declare type EntityPropertyChangeCallback = (entity: Entity, name: string, previous: number, newValue: number) => boolean;
 
 /**
  * Callback for the `ChunkAdd` event.
@@ -138,6 +134,9 @@ declare const events: {
      * 
      */
     register(name: 'EntityUpdate', callback: EntityUpdateCallback): void;
+
+	register(name: 'EntityPropertyChange', callback: EntityPropertyChangeCallback): void;
+
     /**
      * Registers a callback function to be executed when a specified event occurs.
      * 
