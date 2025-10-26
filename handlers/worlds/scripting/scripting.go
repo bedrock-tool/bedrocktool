@@ -35,7 +35,8 @@ type VM struct {
 		OnPacket           func(name string, pk packet.Packet, toServer bool, timeReceived float64) (apply goja.Value)
 	}
 
-	GetWorld func() *worldstate.World
+	GetWorld           func() *worldstate.World
+	DisplayChatMessage func(msg string)
 }
 
 func New() *VM {
@@ -99,6 +100,12 @@ func New() *VM {
 	})
 
 	v.runtime.GlobalObject().Set("fs", fs)
+
+	v.runtime.Set("displayChatMessage", func(call goja.FunctionCall) goja.Value {
+		msg := call.Argument(0).ToString().String()
+		v.DisplayChatMessage(msg)
+		return goja.Undefined()
+	})
 
 	chunks := v.runtime.NewObject()
 	chunks.Set("get", func(call goja.FunctionCall) goja.Value {

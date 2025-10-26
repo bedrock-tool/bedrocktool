@@ -174,6 +174,9 @@ func (w *worldsHandler) onSessionStart(session *proxy.Session, serverName string
 		w.scripting.GetWorld = func() *worldstate.World {
 			return w.worldState // locked by calls to the vm
 		}
+		w.scripting.DisplayChatMessage = func(msg string) {
+			w.session.SendMessage(msg)
+		}
 		err := w.scripting.Load(w.settings.Script)
 		if err != nil {
 			return err

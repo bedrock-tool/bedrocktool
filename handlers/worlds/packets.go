@@ -306,6 +306,32 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 			})
 		})
 
+		/*
+			case *packet.PlayerUpdateEntityOverrides:
+				w.currentWorld(func(world *worldstate.World) {
+					world.ActEntity(pk.EntityRuntimeID, false, func(ent *entity.Entity) error {
+						if pk.Type == packet.PlayerUpdateEntityOverridesTypeClearAll {
+							for _, prop := range ent.Properties {
+								prop.Value = nil
+							}
+							return nil
+						}
+
+						properties := w.serverState.entityProperties[ent.EntityType]
+						property := ent.Properties[properties[pk.PropertyIndex].Name]
+						switch pk.Type {
+						case packet.PlayerUpdateEntityOverridesTypeRemove:
+							property.Value = nil
+						case packet.PlayerUpdateEntityOverridesTypeInt:
+							property.Value = pk.IntValue
+						case packet.PlayerUpdateEntityOverridesTypeFloat:
+							property.Value = pk.FloatValue
+						}
+						return nil
+					})
+				})
+		*/
+
 	case *packet.SetActorMotion:
 		w.currentWorld(func(world *worldstate.World) {
 			world.ActEntity(pk.EntityRuntimeID, false, func(ent *entity.Entity) error {

@@ -2,6 +2,8 @@ declare const console: {
     log(data: any);
 };
 
+function displayChatMessage(msg: string);
+
 
 /**
  * Names of events that can be registered.
