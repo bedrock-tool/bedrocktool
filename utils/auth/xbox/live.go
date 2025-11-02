@@ -114,14 +114,18 @@ func pollDeviceAuth(deviceType *DeviceType, deviceCode string) (t *oauth2.Token,
 	if err != nil {
 		return nil, fmt.Errorf("POST https://login.live.com/oauth20_token.srf: %w", err)
 	}
+	defer resp.Body.Close()
+
+	updateServerTimeFromHeaders(resp.Header)
+
 	poll := new(deviceAuthPoll)
 	if err := json.NewDecoder(resp.Body).Decode(poll); err != nil {
 		return nil, fmt.Errorf("POST https://login.live.com/oauth20_token.srf: json decode: %w", err)
 	}
-	_ = resp.Body.Close()
-	if poll.Error == "authorization_pending" {
+	switch poll.Error {
+	case "authorization_pending":
 		return nil, nil
-	} else if poll.Error == "" {
+	case "":
 		return &oauth2.Token{
 			AccessToken:  poll.AccessToken,
 			TokenType:    poll.TokenType,
@@ -146,6 +150,10 @@ func RefreshToken(t *oauth2.Token, deviceType *DeviceType) (*oauth2.Token, error
 	if err != nil {
 		return nil, fmt.Errorf("POST https://login.live.com/oauth20_token.srf: %w", err)
 	}
+	defer resp.Body.Close()
+
+	updateServerTimeFromHeaders(resp.Header)
+
 	poll := new(deviceAuthPoll)
 	if err := json.NewDecoder(resp.Body).Decode(poll); err != nil {
 		return nil, fmt.Errorf("POST https://login.live.com/oauth20_token.srf: json decode: %w", err)

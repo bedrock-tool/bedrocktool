@@ -63,7 +63,8 @@ var (
 // deviceToken is the token obtained by requesting a device token by posting to xblDeviceAuthURL. Its Token
 // field may be used in a request to obtain the XSTS token.
 type deviceToken struct {
-	Token string
+	Token      string
+	DeviceType *DeviceType `json:"-"`
 }
 
 // obtainDeviceToken sends a POST request to the device auth endpoint using the ECDSA private key passed to
@@ -125,5 +126,9 @@ func obtainDeviceToken(ctx context.Context, c *http.Client, key *ecdsa.PrivateKe
 		return nil, fmt.Errorf("POST %v: %v", "https://device.auth.xboxlive.com/device/authenticate", resp.Status)
 	}
 	token = &deviceToken{}
-	return token, json.NewDecoder(resp.Body).Decode(token)
+	if err := json.NewDecoder(resp.Body).Decode(token); err != nil {
+		return nil, err
+	}
+	token.DeviceType = deviceType
+	return token, nil
 }

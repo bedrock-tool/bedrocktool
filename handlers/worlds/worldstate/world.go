@@ -604,7 +604,7 @@ func (w *World) finalizeProvider(
 		State:     "Storing Entities",
 	})
 
-	logrus.Infof("entityRenderDistance: %.5f", entityRenderDistance)
+	logrus.Tracef("entityRenderDistance: %.5f", entityRenderDistance)
 
 	chunkEntities := make(map[world.ChunkPos][]chunk.Entity)
 	for _, ent := range w.memState.entities {
@@ -621,10 +621,17 @@ func (w *World) finalizeProvider(
 		if ignore {
 			continue
 		}
+
 		var diff float32
-		if entityCulling && entityCull(ent, entityRenderDistance, &diff) {
-			logrus.Infof("dropping entity %s, dist: %.5f diff: %.5f", ent.EntityType, ent.DeletedDistance, diff)
-			continue
+		shouldCull := entityCull(ent, entityRenderDistance, &diff)
+
+		if shouldCull {
+			if entityCulling {
+				logrus.Tracef("dropping entity %s, dist: %.5f diff: %.5f", ent.EntityType, ent.DeletedDistance, diff)
+				continue
+			} else {
+				ent.Tags = append(ent.Tags, "removed")
+			}
 		}
 		cp := world.ChunkPos{int32(ent.Position.X()) >> 4, int32(ent.Position.Z()) >> 4}
 		links := maps.Keys(w.memState.entityLinks[ent.UniqueID])

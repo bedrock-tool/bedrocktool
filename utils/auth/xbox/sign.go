@@ -15,7 +15,8 @@ import (
 // sign signs the request passed containing the body passed. It signs the request using the ECDSA private key
 // passed. If the request has a 'ProofKey' field in the Properties field, that key must be passed here.
 func sign(request *http.Request, body []byte, key *ecdsa.PrivateKey) {
-	currentTime := windowsTimestamp()
+	currentServerDate := getCurrentServerTime()
+	currentTime := windowsTimestamp(currentServerDate)
 	hash := sha256.New()
 
 	// Signature policy version (0, 0, 0, 1) + 0 byte.
@@ -63,8 +64,8 @@ func sign(request *http.Request, body []byte, key *ecdsa.PrivateKey) {
 
 // windowsTimestamp returns a Windows specific timestamp. It has a certain offset from Unix time which must be
 // accounted for.
-func windowsTimestamp() int64 {
-	return (time.Now().Unix() + 11644473600) * 10000000
+func windowsTimestamp(t time.Time) int64 {
+	return (t.Unix() + 11644473600) * 10000000
 }
 
 // padTo32Bytes converts a big.Int into a fixed 32-byte, zero-padded slice.

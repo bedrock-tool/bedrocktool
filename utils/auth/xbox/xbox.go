@@ -79,7 +79,10 @@ func RequestXBLToken(ctx context.Context, liveToken *oauth2.Token, relyingParty 
 
 	// We first generate an ECDSA private key which will be used to provide a 'ProofKey' to each of the
 	// requests, and to sign these requests.
-	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return nil, fmt.Errorf("generating ECDSA key: %w", err)
+	}
 	deviceToken, err := obtainDeviceToken(ctx, c, key, deviceType)
 	if err != nil {
 		return nil, err
@@ -94,7 +97,7 @@ func RequestXBLToken(ctx context.Context, liveToken *oauth2.Token, relyingParty 
 		return nil, err
 	}
 
-	return sisuAuthorize(ctx, c, key, liveToken, deviceToken, relyingParty, deviceType, sessionID)
+	return sisuAuthorize(ctx, c, key, liveToken, deviceToken, relyingParty, sessionID)
 }
 
 func sisuAuthenticate(ctx context.Context, c *http.Client, key *ecdsa.PrivateKey, device *deviceToken, deviceType *DeviceType, pkceChallenge, csrf string) (string, error) {
@@ -132,10 +135,10 @@ func sisuAuthenticate(ctx context.Context, c *http.Client, key *ecdsa.PrivateKey
 	return sessionID, nil
 }
 
-func sisuAuthorize(ctx context.Context, c *http.Client, key *ecdsa.PrivateKey, liveToken *oauth2.Token, device *deviceToken, relyingParty string, deviceType *DeviceType, sessionID string) (*XBLToken, error) {
+func sisuAuthorize(ctx context.Context, c *http.Client, key *ecdsa.PrivateKey, liveToken *oauth2.Token, device *deviceToken, relyingParty, sessionID string) (*XBLToken, error) {
 	data, _ := json.Marshal(map[string]any{
 		"AccessToken":       "t=" + liveToken.AccessToken,
-		"AppId":             deviceType.ClientID,
+		"AppId":             device.DeviceType.ClientID,
 		"deviceToken":       device.Token,
 		"Sandbox":           "RETAIL",
 		"UseModernGamertag": true,
@@ -153,7 +156,7 @@ func sisuAuthorize(ctx context.Context, c *http.Client, key *ecdsa.PrivateKey, l
 	})
 	req, _ := http.NewRequestWithContext(ctx, "POST", "https://sisu.xboxlive.com/authorize", bytes.NewReader(data))
 	req.Header.Set("x-xbl-contract-version", "1")
-	req.Header.Set("User-Agent", deviceType.UserAgent)
+	req.Header.Set("User-Agent", device.DeviceType.UserAgent)
 	sign(req, data, key)
 
 	resp, err := c.Do(req)

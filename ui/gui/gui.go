@@ -3,6 +3,7 @@ package gui
 import (
 	"context"
 	"errors"
+	"fmt"
 	"image/color"
 	"net/url"
 	"os"
@@ -29,6 +30,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/utils/auth"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/bedrock-tool/bedrocktool/utils/updater"
+	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sirupsen/logrus"
 
 	"github.com/gioui-plugins/gio-plugins/hyperlink"
@@ -121,7 +123,7 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelCauseFunc) (err er
 	logrus.AddHook(&g.logger)
 
 	settings.AddressInput.SetGuim(g)
-	g.window.Option(app.Title("Bedrocktool " + utils.Version))
+	g.window.Option(app.Title(fmt.Sprintf("Bedrocktool %s (Minecraft %s)", utils.Version, protocol.CurrentVersion)))
 	g.window.Option(app.Size(800, 700))
 	g.window.Option(app.MinSize(600, 700))
 

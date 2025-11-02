@@ -32,6 +32,7 @@ type Entity struct {
 	Metadata             protocol.EntityMetadata
 	Properties           map[string]any
 	PropertiesOverridden map[string]any
+	Tags                 []string
 
 	Inventory  map[byte]map[byte]protocol.ItemInstance
 	Helmet     *protocol.ItemInstance
@@ -76,6 +77,7 @@ func (s *Entity) toNBT(nbt map[string]any) {
 	metadata := s.Metadata
 
 	nbt["Persistent"] = true
+	nbt["Tags"] = s.Tags
 
 	if variant, ok := metadata[protocol.EntityDataKeyVariant]; ok {
 		nbt["Variant"] = variant
