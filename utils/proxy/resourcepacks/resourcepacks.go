@@ -549,12 +549,20 @@ func (r *ResourcePackHandler) OnResourcePackStack(pk *packet.ResourcePackStack) 
 				pk.BehaviourPacks = append(pk.BehaviourPacks[:i], pk.BehaviourPacks[i+1:]...)
 			}
 		}
-		if !r.hasPack(pack.UUID, pack.Version, false) {
+		id, err := uuid.Parse(pack.UUID)
+		if err != nil {
+			continue
+		}
+		if !r.hasPack(id, pack.Version, false) {
 			return fmt.Errorf("texture pack {uuid=%v, version=%v} not downloaded", pack.UUID, pack.Version)
 		}
 	}
 	for _, pack := range pk.BehaviourPacks {
-		if !r.hasPack(pack.UUID, pack.Version, true) {
+		id, err := uuid.Parse(pack.UUID)
+		if err != nil {
+			continue
+		}
+		if !r.hasPack(id, pack.Version, true) {
 			return fmt.Errorf("behaviour pack {uuid=%v, version=%v} not downloaded", pack.UUID, pack.Version)
 		}
 	}
@@ -859,17 +867,24 @@ var exemptedPacks = map[string]bool{
 	"0fba4063-dba1-4281-9b89-ff9390653530_1.0.0": true,
 }
 
-func (r *ResourcePackHandler) hasPack(uuid string, version string, hasBehaviours bool) bool {
-	if exemptedPacks[uuid+"_"+version] {
+func (r *ResourcePackHandler) hasPack(id uuid.UUID, version string, hasBehaviours bool) bool {
+	search := id.String() + "_" + version
+	if exemptedPacks[search] {
 		// The server may send this resource pack on the stack without sending it in the info, as the client
 		// always has it downloaded.
 		return true
 	}
-
-	if uuid == "" {
+	if id == uuid.Max {
 		return true
 	}
 
-	search := uuid + "_" + version
+	// not sent in resourcepacks info, just ignore it from the stack
+	if r.remotePacksInfo != nil {
+		if !slices.ContainsFunc(r.remotePacksInfo.TexturePacks, func(pack protocol.TexturePackInfo) bool {
+			return pack.UUID == id && pack.Version == version
+		}) {
+			return true
+		}
+	}
 	return slices.Contains(r.finishedPacks, search)
 }
