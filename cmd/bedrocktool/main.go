@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime/pprof"
+	"strconv"
 	"syscall"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
@@ -19,6 +20,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/utils/auth/xbox"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/bedrock-tool/bedrocktool/utils/osabs"
+	"github.com/sandertv/gophertunnel/minecraft/protocol"
 
 	_ "github.com/bedrock-tool/bedrocktool/subcommands"
 	_ "github.com/bedrock-tool/bedrocktool/subcommands/dump-actors"
@@ -53,6 +55,23 @@ func main() {
 
 	setupLogging(utils.IsDebug())
 	log := logrus.WithField("part", "main")
+
+	// Allow overriding the Minecraft game version and protocol that this
+	// client reports. This is useful when connecting to servers on older
+	// or newer Bedrock builds. Set MINECRAFT_VERSION (string) and/or
+	// MINECRAFT_PROTOCOL (numeric) in the environment to override.
+	if mv, ok := os.LookupEnv("MINECRAFT_VERSION"); ok && mv != "" {
+		protocol.CurrentVersion = mv
+		logrus.Infof("Overriding protocol.CurrentVersion -> %s", mv)
+	}
+	if mp, ok := os.LookupEnv("MINECRAFT_PROTOCOL"); ok && mp != "" {
+		if v, err := strconv.Atoi(mp); err == nil {
+			protocol.CurrentProtocol = int32(v)
+			logrus.Infof("Overriding protocol.CurrentProtocol -> %d", v)
+		} else {
+			logrus.Warnf("MINECRAFT_PROTOCOL invalid: %s", mp)
+		}
+	}
 	ctx, cancel := context.WithCancelCause(context.Background())
 
 	utils.ErrorHandler = func(err error) {

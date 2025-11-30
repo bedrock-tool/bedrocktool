@@ -463,10 +463,19 @@ func (s *Session) connectClient(ctx context.Context, rpHandler *resourcepacks.Re
 		},
 		EarlyConnHandler: func(c *minecraft.Conn) {
 			if s.Client != nil {
-				s.listener.Disconnect(c, "You are Already connected!")
-				return
+				// If an existing client connection is present but its context is done
+				// (closed), allow the new connection to replace it. Otherwise reject
+				// the new connection as a duplicate.
+				if s.Client.Context() != nil && s.Client.Context().Err() != nil {
+					// previous client is closed, replace
+					s.Client = c
+				} else {
+					s.listener.Disconnect(c, "You are Already connected!")
+					return
+				}
+			} else {
+				s.Client = c
 			}
-			s.Client = c
 			rpHandler.SetClient(c)
 			c.ResourcePackHandler = rpHandler
 			close(s.clientConnecting)
