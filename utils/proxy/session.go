@@ -452,9 +452,11 @@ func (s *Session) connectClient(ctx context.Context, rpHandler *resourcepacks.Re
 	s.listener, err = minecraft.ListenConfig{
 		AuthenticationDisabled: true,
 		AllowUnknownPackets:    true,
-		StatusProvider:         minecraft.NewStatusProvider(fmt.Sprintf("%s Proxy", serverName), "Bedrocktool"),
-		ErrorLog:               slog.Default(),
-		PacketFunc:             clientPacketFunc,
+		// Include the current Minecraft version in the status sub-name so the proxy advertises
+		// the version metadata to clients in the server list.
+		StatusProvider: minecraft.NewStatusProvider(fmt.Sprintf("%s Proxy", serverName), fmt.Sprintf("Bedrocktool %s", protocol.CurrentVersion)),
+		ErrorLog:       slog.Default(),
+		PacketFunc:     clientPacketFunc,
 		OnClientData: func(c *minecraft.Conn) {
 			s.clientData = c.ClientData()
 			ident := c.IdentityData()
