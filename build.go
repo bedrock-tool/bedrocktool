@@ -637,7 +637,36 @@ func main() {
 		log.Fatalf("Failed to check pack support: %v", err)
 	}
 	log.Printf("Pack Support Enabled: %t", buildCfg.PackSupportEnabled)
+	// Detect whether building GUI targets is possible on this host. Building
+	// GUI targets requires the `gogio` tool (gioui.org/cmd/gogio) and native
+	// Vulkan headers/tooling for some platforms. If these are not present we
+	// automatically skip GUI builds to avoid hard failures on developer machines.
+	vulkanAvailable := func() bool {
+		// If gogio is already on PATH, assume it is properly set up.
+		if _, err := exec.LookPath("gogio"); err == nil {
+			return true
+		}
 
+		// Common system include locations for vulkan headers.
+		hdrs := []string{"/usr/include/vulkan/vulkan.h", "/usr/local/include/vulkan/vulkan.h"}
+		for _, h := range hdrs {
+			if _, err := os.Stat(h); err == nil {
+				return true
+			}
+		}
+
+		// Fall back to pkg-config if available.
+		if _, err := exec.LookPath("pkg-config"); err == nil {
+			cmd := exec.Command("pkg-config", "--exists", "vulkan")
+			if cmd.Run() == nil {
+				return true
+			}
+		}
+		return false
+	}()
+	if !vulkanAvailable {
+		log.Println("Vulkan/gogio not detected: GUI builds will be skipped. To enable GUI builds, install gioui's gogio tool and Vulkan dev headers.")
+	}
 	allBuilds := []Build{
 		// Desktop GUI builds
 		{"windows", "amd64", "gui"},
@@ -680,6 +709,10 @@ func main() {
 			return false
 		}
 		if len(selectedTypes) > 0 && !slices.Contains(selectedTypes, build.Type) {
+			return false
+		}
+		// Skip GUI builds if Vulkan/gogio is not available on this host.
+		if build.Type == "gui" && !vulkanAvailable {
 			return false
 		}
 		return true
