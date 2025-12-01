@@ -637,7 +637,76 @@ func main() {
 		log.Fatalf("Failed to check pack support: %v", err)
 	}
 	log.Printf("Pack Support Enabled: %t", buildCfg.PackSupportEnabled)
+	// Ensure GUI targets can be built: try to make `gogio` available and
+	// detect Vulkan headers. If we can install `gogio` automatically we will
+	// use the installed binary for subsequent GUI builds. If Vulkan headers
+	// are not present we will skip GUI builds unless overridden.
+	vulkanAvailable := func() bool {
+		// If gogio is on PATH, great.
+		if p, err := exec.LookPath("gogio"); err == nil {
+			gogioCmd = p
+		} else {
+			// Try to install gogio via `go install`.
+			log.Println("gogio not found on PATH; attempting `go install gioui.org/cmd/gogio@latest`...")
+			installCmd := exec.Command("go", "install", "gioui.org/cmd/gogio@latest")
+			installCmd.Stdout = os.Stdout
+			installCmd.Stderr = os.Stderr
+			installCmd.Env = os.Environ()
+			if err := installCmd.Run(); err != nil {
+				log.Printf("go install gogio failed: %v", err)
+			} else {
+				// Determine where go installed the binary.
+				gobinBytes, _ := exec.Command("go", "env", "GOBIN").Output()
+				gobin := strings.TrimSpace(string(gobinBytes))
+				if gobin == "" {
+					gopathBytes, _ := exec.Command("go", "env", "GOPATH").Output()
+					gopath := strings.TrimSpace(string(gopathBytes))
+					if gopath != "" {
+						gobin = filepath.Join(gopath, "bin")
+					}
+				}
+				if gobin != "" {
+					candidate := filepath.Join(gobin, "gogio")
+					if runtime.GOOS == "windows" {
+						candidate += ".exe"
+					}
+					if _, err := os.Stat(candidate); err == nil {
+						gogioCmd = candidate
+					}
+				}
+			}
+		}
 
+		// Check for Vulkan headers in common locations.
+		hdrs := []string{"/usr/include/vulkan/vulkan.h", "/usr/local/include/vulkan/vulkan.h"}
+		for _, h := range hdrs {
+			if _, err := os.Stat(h); err == nil {
+				return true
+			}
+		}
+
+		// Use pkg-config if available.
+		if _, err := exec.LookPath("pkg-config"); err == nil {
+			cmd := exec.Command("pkg-config", "--exists", "vulkan")
+			if cmd.Run() == nil {
+				return true
+			}
+		}
+
+		// If we have a gogio binary but no Vulkan headers, the user likely
+		// needs to install system Vulkan dev files. We will not attempt to
+		// install system packages automatically; instead we return false so
+		// GUI builds are skipped and a helpful message is shown.
+		return false
+	}()
+	if !vulkanAvailable {
+		log.Println("Vulkan headers or gogio not available: GUI builds will be skipped. To enable GUI builds, install gioui's gogio tool and Vulkan dev headers.")
+	}
+	// Allow forcing GUI builds even when Vulkan headers are not detected
+	if os.Getenv("FORCE_GUI_BUILDS") == "1" {
+		log.Println("FORCE_GUI_BUILDS=1 set: forcing GUI builds despite Vulkan detection.")
+		vulkanAvailable = true
+	}
 	allBuilds := []Build{
 		// Desktop GUI builds
 		{"windows", "amd64", "gui"},
@@ -680,6 +749,10 @@ func main() {
 			return false
 		}
 		if len(selectedTypes) > 0 && !slices.Contains(selectedTypes, build.Type) {
+			return false
+		}
+		// Skip GUI builds if Vulkan/gogio is not available on this host.
+		if build.Type == "gui" && !vulkanAvailable {
 			return false
 		}
 		return true

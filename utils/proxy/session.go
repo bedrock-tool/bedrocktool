@@ -404,8 +404,45 @@ func (s *Session) connectServer(ctx context.Context, rpHandler *resourcepacks.Re
 		},
 	}
 
-	_, err = dialer.DialContext(ctx, "raknet", address, 20*time.Second)
+	// Attempt to dial the remote server. Retry transient "use of closed network
+	// connection" errors a few times with backoff, and log detailed context on
+	// failure so debugging is easier.
+	logrus.Debugf("DialContext: network=raknet address=%s timeout=20s", address)
+
+	attempts := 3
+	for i := 1; i <= attempts; i++ {
+		_, err = dialer.DialContext(ctx, "raknet", address, 20*time.Second)
+		if err == nil {
+			break
+		}
+		// If we got a closed network connection error, treat it as transient and retry.
+		if strings.Contains(err.Error(), "use of closed network connection") {
+			logrus.WithFields(logrus.Fields{
+				"address":  address,
+				"attempt":  i,
+				"attempts": attempts,
+			}).Warn("dialer.DialContext returned closed network connection, retrying")
+			time.Sleep(time.Duration(i) * 250 * time.Millisecond)
+			continue
+		}
+		// Non-transient error: log and return.
+		logrus.WithFields(logrus.Fields{
+			"address":          address,
+			"expectDisconnect": s.expectDisconnect,
+		}).WithError(err).Error("dialer.DialContext failed")
+		if ctx.Err() != nil {
+			logrus.WithError(ctx.Err()).Debug("connect context error")
+		}
+		if s.expectDisconnect {
+			return nil
+		}
+		return err
+	}
 	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"address":  address,
+			"attempts": attempts,
+		}).WithError(err).Error("dialer.DialContext failed after retries")
 		if s.expectDisconnect {
 			return nil
 		}
@@ -452,9 +489,11 @@ func (s *Session) connectClient(ctx context.Context, rpHandler *resourcepacks.Re
 	s.listener, err = minecraft.ListenConfig{
 		AuthenticationDisabled: true,
 		AllowUnknownPackets:    true,
-		StatusProvider:         minecraft.NewStatusProvider(fmt.Sprintf("%s Proxy", serverName), "Bedrocktool"),
-		ErrorLog:               slog.Default(),
-		PacketFunc:             clientPacketFunc,
+		// Include the current Minecraft version in the status sub-name so the proxy advertises
+		// the version metadata to clients in the server list.
+		StatusProvider: minecraft.NewStatusProvider(fmt.Sprintf("%s Proxy", serverName), fmt.Sprintf("Bedrocktool %s", protocol.CurrentVersion)),
+		ErrorLog:       slog.Default(),
+		PacketFunc:     clientPacketFunc,
 		OnClientData: func(c *minecraft.Conn) {
 			s.clientData = c.ClientData()
 			ident := c.IdentityData()
@@ -463,10 +502,19 @@ func (s *Session) connectClient(ctx context.Context, rpHandler *resourcepacks.Re
 		},
 		EarlyConnHandler: func(c *minecraft.Conn) {
 			if s.Client != nil {
-				s.listener.Disconnect(c, "You are Already connected!")
-				return
+				// If an existing client connection is present but its context is done
+				// (closed), allow the new connection to replace it. Otherwise reject
+				// the new connection as a duplicate.
+				if s.Client.Context() != nil && s.Client.Context().Err() != nil {
+					// previous client is closed, replace
+					s.Client = c
+				} else {
+					s.listener.Disconnect(c, "You are Already connected!")
+					return
+				}
+			} else {
+				s.Client = c
 			}
-			s.Client = c
 			rpHandler.SetClient(c)
 			c.ResourcePackHandler = rpHandler
 			close(s.clientConnecting)
