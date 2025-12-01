@@ -404,8 +404,45 @@ func (s *Session) connectServer(ctx context.Context, rpHandler *resourcepacks.Re
 		},
 	}
 
-	_, err = dialer.DialContext(ctx, "raknet", address, 20*time.Second)
+	// Attempt to dial the remote server. Retry transient "use of closed network
+	// connection" errors a few times with backoff, and log detailed context on
+	// failure so debugging is easier.
+	logrus.Debugf("DialContext: network=raknet address=%s timeout=20s", address)
+
+	attempts := 3
+	for i := 1; i <= attempts; i++ {
+		_, err = dialer.DialContext(ctx, "raknet", address, 20*time.Second)
+		if err == nil {
+			break
+		}
+		// If we got a closed network connection error, treat it as transient and retry.
+		if strings.Contains(err.Error(), "use of closed network connection") {
+			logrus.WithFields(logrus.Fields{
+				"address":  address,
+				"attempt":  i,
+				"attempts": attempts,
+			}).Warn("dialer.DialContext returned closed network connection, retrying")
+			time.Sleep(time.Duration(i) * 250 * time.Millisecond)
+			continue
+		}
+		// Non-transient error: log and return.
+		logrus.WithFields(logrus.Fields{
+			"address":          address,
+			"expectDisconnect": s.expectDisconnect,
+		}).WithError(err).Error("dialer.DialContext failed")
+		if ctx.Err() != nil {
+			logrus.WithError(ctx.Err()).Debug("connect context error")
+		}
+		if s.expectDisconnect {
+			return nil
+		}
+		return err
+	}
 	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"address":  address,
+			"attempts": attempts,
+		}).WithError(err).Error("dialer.DialContext failed after retries")
 		if s.expectDisconnect {
 			return nil
 		}
