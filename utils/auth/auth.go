@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"sync/atomic"
@@ -30,6 +31,35 @@ var Auth *authSrv = &authSrv{
 
 func (a *authSrv) SetEnv(env string) {
 	a.env = env
+	// Allow overriding the Xbox device type via env var for CLI troubleshooting.
+	if dt := os.Getenv("XBOX_DEVICE_TYPE"); dt != "" {
+		switch dt {
+		case "Android":
+			defaultDeviceType = &xbox.DeviceTypeAndroid
+		case "iOS":
+			defaultDeviceType = &xbox.DeviceTypeIOS
+		case "Win32":
+			defaultDeviceType = &xbox.DeviceTypeWindows
+		case "Nintendo":
+			defaultDeviceType = &xbox.DeviceTypeNintendo
+		case "Playstation":
+			defaultDeviceType = &xbox.DeviceTypePlaystation
+		}
+	}
+}
+
+// ImportTokenFile reads a token JSON file and writes it to the tool's data directory as
+// `token.json` or `token-<name>.json` so the CLI can use a pre-obtained token.
+func ImportTokenFile(path string, name string) error {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	var t tokenInfo
+	if err := json.Unmarshal(b, &t); err != nil {
+		return err
+	}
+	return writeAuth(tokenFileName(name), t)
 }
 
 // reads token from storage if there is one

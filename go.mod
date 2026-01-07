@@ -13,7 +13,6 @@ require (
 	github.com/chzyer/readline v1.5.1
 	github.com/cloudfoundry/jibber_jabber v0.0.0-20151120183258-bcc4c8345a21
 	github.com/dblezek/tga v0.0.0-20150626111426-80720cbc1017
-	github.com/denisbrodbeck/machineid v1.0.1
 	github.com/df-mc/dragonfly v0.10.9
 	github.com/df-mc/goleveldb v1.1.9
 	github.com/dop251/goja v0.0.0-20251201205617-2bb4c724c0f9
@@ -27,7 +26,6 @@ require (
 	github.com/minio/selfupdate v0.6.0
 	github.com/nicksnyder/go-i18n/v2 v2.6.0
 	github.com/rifflock/lfshook v0.0.0-20180920164130-b9218ef580f5
-	github.com/sandertv/go-raknet v1.14.3-0.20250305181847-6af3e95113d6
 	github.com/sandertv/gophertunnel v1.51.1
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/sirupsen/logrus v1.9.3
@@ -58,6 +56,7 @@ require (
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
+	github.com/sandertv/go-raknet v1.14.3-0.20250305181847-6af3e95113d6 // indirect
 	github.com/segmentio/fasthash v1.0.3 // indirect
 	github.com/tklauser/go-sysconf v0.3.16 // indirect
 	github.com/tklauser/numcpus v0.11.0 // indirect

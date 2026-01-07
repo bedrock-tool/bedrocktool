@@ -1,0 +1,85 @@
+name: iOS Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-framework:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.20'
+
+      - name: Install gomobile
+        run: |
+          set -euo pipefail
+          go install golang.org/x/mobile/cmd/gomobile@latest
+          gomobile init
+
+      - name: Build BedrockTool.framework
+        run: |
+          mkdir -p build
+          ./scripts/gomobile-bind.sh build/BedrockTool.framework
+
+      - name: Upload framework artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BedrockTool.framework
+          path: build/BedrockTool.framework
+
+  build-ipa:
+    needs: build-framework
+    runs-on: macos-latest
+    if: ${{ secrets.APPLE_CERT && secrets.PROVISIONING_PROFILE }} # requires you to set secrets
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Restore framework artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: BedrockTool.framework
+          path: build
+
+      - name: Setup code signing
+        env:
+          P12: ${{ secrets.APPLE_CERT }}
+          P12_PASS: ${{ secrets.APPLE_CERT_PASSWORD }}
+          PROFILE: ${{ secrets.PROVISIONING_PROFILE }}
+        run: |
+          set -euo pipefail
+          echo "$P12" | base64 --decode > cert.p12
+          security create-keychain -p actions ios-builder.keychain
+          security import cert.p12 -k ~/Library/Keychains/ios-builder.keychain -P "$P12_PASS" -T /usr/bin/codesign || true
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo "$PROFILE" | base64 --decode > profile.mobileprovision
+          cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+
+      - name: Build and export IPA
+        run: |
+          set -euo pipefail
+          # You must provide a workspace/scheme in your repo (example: mobile/ios/Example.xcworkspace)
+          # Replace these with your actual values or set them as secrets/inputs
+          WORKSPACE="mobile/ios/Example.xcworkspace"
+          SCHEME="Example"
+          ARCHIVE_PATH="./build/Example.xcarchive"
+          xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -archivePath "$ARCHIVE_PATH" archive
+          # create export options plist or use automatic signing
+          xcodebuild -exportArchive -archivePath "$ARCHIVE_PATH" -exportOptionsPlist exportOptions.plist -exportPath ./build/export || true
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: example-ipa
+          path: build/export
+
+
+# Notes:
+# - Set the following repository secrets: APPLE_CERT (base64 p12), APPLE_CERT_PASSWORD, PROVISIONING_PROFILE (base64)
+# - The workflow uploads the generated framework as an artifact; you can download it and add it to an Xcode project.
+# - Building an IPA requires a real Xcode workspace / scheme and valid signing material.

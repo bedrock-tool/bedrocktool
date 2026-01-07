@@ -1,0 +1,9 @@
+{
+  "Token": {
+    "AccessToken": "TEST_ACCESS_TOKEN",
+    "TokenType": "Bearer",
+    "RefreshToken": "TEST_REFRESH_TOKEN",
+    "Expiry": "2030-01-01T00:00:00Z"
+  },
+  "DeviceType": "Android"
+}
