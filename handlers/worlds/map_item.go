@@ -196,11 +196,16 @@ func (m *MapUI) Start(ctx context.Context) {
 
 	m.ticker = time.NewTicker(33 * time.Millisecond)
 	go func() {
+		defer func() {
+			if errRec := recover(); errRec != nil {
+				m.log.Errorf("ResolveColors panic: %v", errRec)
+			}
+			close(m.haveColors)
+		}()
 		m.ChunkRenderer.ResolveColors(
 			m.w.serverState.customBlocks,
 			m.w.session.Server.ResourcePacks(),
 		)
-		close(m.haveColors)
 	}()
 	go m.mapUpdater(ctx)
 	go m.itemSender()

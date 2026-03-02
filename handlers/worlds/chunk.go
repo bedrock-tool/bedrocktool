@@ -16,6 +16,37 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 )
 
+func blockNBTCoord(v any) (int, bool) {
+	switch n := v.(type) {
+	case int:
+		return n, true
+	case int8:
+		return int(n), true
+	case int16:
+		return int(n), true
+	case int32:
+		return int(n), true
+	case int64:
+		return int(n), true
+	case uint:
+		return int(n), true
+	case uint8:
+		return int(n), true
+	case uint16:
+		return int(n), true
+	case uint32:
+		return int(n), true
+	case uint64:
+		return int(n), true
+	case float32:
+		return int(n), true
+	case float64:
+		return int(n), true
+	default:
+		return 0, false
+	}
+}
+
 func (w *worldsHandler) handleLevelChunk(pk *packet.LevelChunk, timeReceived time.Time) (err error) {
 	if len(pk.RawPayload) == 0 {
 		w.log.Info(locale.Loc("empty_chunk", nil))
@@ -55,9 +86,13 @@ func (w *worldsHandler) handleLevelChunk(pk *packet.LevelChunk, timeReceived tim
 	}
 
 	for _, blockNBT := range blockNBTs {
-		x := int(blockNBT["x"].(int32))
-		y := int(blockNBT["y"].(int32))
-		z := int(blockNBT["z"].(int32))
+		x, okX := blockNBTCoord(blockNBT["x"])
+		y, okY := blockNBTCoord(blockNBT["y"])
+		z, okZ := blockNBTCoord(blockNBT["z"])
+		if !okX || !okY || !okZ {
+			w.log.WithField("nbt", blockNBT).Warn("invalid block entity coordinates in level chunk")
+			continue
+		}
 		ch.BlockEntities[cube.Pos{x, y, z}] = blockNBT
 	}
 
@@ -183,11 +218,14 @@ func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) error {
 					if err := dec.Decode(&blockNBT); err != nil {
 						return err
 					}
-					ch.BlockEntities[cube.Pos{
-						int(blockNBT["x"].(int32)),
-						int(blockNBT["y"].(int32)),
-						int(blockNBT["z"].(int32)),
-					}] = blockNBT
+					x, okX := blockNBTCoord(blockNBT["x"])
+					y, okY := blockNBTCoord(blockNBT["y"])
+					z, okZ := blockNBTCoord(blockNBT["z"])
+					if !okX || !okY || !okZ {
+						w.log.WithField("nbt", blockNBT).Warn("invalid block entity coordinates in sub chunk")
+						continue
+					}
+					ch.BlockEntities[cube.Pos{x, y, z}] = blockNBT
 				}
 			}
 		}
