@@ -166,18 +166,17 @@ func ShowFile(path string) {
 
 func ParseJson(s []byte, out any) error {
 	v, err := hujson.Parse(s)
-	if err != nil {
-		if !strings.Contains(err.Error(), "invalid character") {
-			return err
-		}
+	if err == nil {
+		v.Standardize()
+		s = v.Pack()
 	}
-	v.Standardize()
-	s = v.Pack()
 
 	d := json.NewDecoder(bytes.NewBuffer(s))
-	err = d.Decode(out)
-	if err != nil {
-		return err
+	if decodeErr := d.Decode(out); decodeErr != nil {
+		if err != nil {
+			return fmt.Errorf("parse json: hujson parse failed: %v; json decode failed: %w", err, decodeErr)
+		}
+		return decodeErr
 	}
 	return nil
 }
