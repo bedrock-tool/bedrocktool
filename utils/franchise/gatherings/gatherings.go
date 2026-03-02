@@ -1,4 +1,4 @@
-package discovery
+package gatherings
 
 import (
 	"context"
@@ -7,6 +7,9 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/bedrock-tool/bedrocktool/utils/franchise/authservice"
+	"github.com/bedrock-tool/bedrocktool/utils/franchise/discovery"
+	"github.com/bedrock-tool/bedrocktool/utils/franchise/internal"
 	"github.com/google/uuid"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 )
@@ -49,84 +52,87 @@ type Gathering struct {
 	AdditionalLoc map[string]any `json:"additionalLoc"`
 }
 
-func (g *Gathering) Address(ctx context.Context, mcToken *MCToken) (string, error) {
-	type venueResponse struct {
-		Result struct {
-			Venue struct {
-				ServerIpAddress string `json:"serverIpAddress"`
-				ServerPort      int    `json:"serverPort"`
-			} `json:"venue"`
-		} `json:"result"`
+func (g *Gathering) Address(ctx context.Context, mcToken *authservice.MCToken) (string, error) {
+	type Venue struct {
+		Venue struct {
+			ServerIpAddress string `json:"serverIpAddress"`
+			ServerPort      int    `json:"serverPort"`
+		} `json:"venue"`
 	}
 
-	resp1, err := doRequest[map[string]any](ctx, http.DefaultClient, "GET",
-		fmt.Sprintf("%s/api/v1.0/access?lang=en-US&clientVersion=%s&clientPlatform=Windows10&clientSubPlatform=Windows10", g.client.ServiceURI, protocol.CurrentVersion),
-		nil, mcTokenAuth(mcToken),
+	resp1, err := internal.DoRequest[any](
+		ctx, http.DefaultClient, "GET",
+		g.client.Config.Url("/api/v1.0/access?lang=en-US&clientVersion=%s&clientPlatform=Windows10&clientSubPlatform=Windows10", protocol.CurrentVersion),
+		nil, mcToken.AddHeader,
 	)
 	if err != nil {
 		return "", err
 	}
 	_ = resp1
 
-	resp, err := doRequest[venueResponse](ctx, http.DefaultClient, "GET",
-		fmt.Sprintf("%s/api/v1.0/venue/%s", g.client.ServiceURI, g.GatheringID),
-		nil, mcTokenAuth(mcToken),
+	resp, err := internal.DoRequest[internal.Result[Venue]](
+		ctx, http.DefaultClient, "GET",
+		g.client.Config.Url("/api/v1.0/venue/%s", g.GatheringID),
+		nil, mcToken.AddHeader,
 	)
 	if err != nil {
 		return "", err
 	}
 
-	if resp.Result.Venue.ServerIpAddress == "" {
+	if resp.Data.Venue.ServerIpAddress == "" {
 		return "", errors.New("didnt get a server address")
 	}
 
-	return fmt.Sprintf("%s:%d", resp.Result.Venue.ServerIpAddress, resp.Result.Venue.ServerPort), nil
+	return fmt.Sprintf("%s:%d", resp.Data.Venue.ServerIpAddress, resp.Data.Venue.ServerPort), nil
 }
 
 type GatheringsService struct {
-	Service
+	Config discovery.Service
 }
 
-func (g *GatheringsService) GetGatherings(ctx context.Context, mcToken *MCToken) ([]*Gathering, error) {
-	type gatheringsResponse struct {
-		Result []Gathering `json:"result"`
+func NewGatheringsService(discovery *discovery.Discovery) (*GatheringsService, error) {
+	g := &GatheringsService{}
+	err := discovery.Environment(&g.Config, "gatherings")
+	if err != nil {
+		return nil, err
 	}
+	return g, nil
+}
 
-	resp, err := doRequest[gatheringsResponse](ctx, http.DefaultClient, "GET",
-		fmt.Sprintf("%s/api/v1.0/config/public?lang=en-GB&clientVersion=%s&clientPlatform=Windows10&clientSubPlatform=Windows10", g.ServiceURI, protocol.CurrentVersion),
-		nil, mcTokenAuth(mcToken),
+func (g *GatheringsService) GetGatherings(ctx context.Context, mcToken *authservice.MCToken) ([]*Gathering, error) {
+	resp, err := internal.DoRequest[internal.Result[[]Gathering]](
+		ctx, http.DefaultClient, "GET",
+		g.Config.Url("/api/v1.0/config/public?lang=en-GB&clientVersion=%s&clientPlatform=Windows10&clientSubPlatform=Windows10", protocol.CurrentVersion),
+		nil, mcToken.AddHeader,
 	)
 	if err != nil {
 		return nil, err
 	}
 
 	var gatherings []*Gathering
-	for _, gathering := range resp.Result {
+	for _, gathering := range resp.Data {
 		gathering.client = g
 		gatherings = append(gatherings, &gathering)
 	}
 	return gatherings, nil
 }
 
-func (g *GatheringsService) JoinExperience(ctx context.Context, mcToken *MCToken, id uuid.UUID) (string, error) {
-	type joinExperienceResponse struct {
-		Result struct {
-			NetworkProtocol string `json:"networkProtocol"`
-			IPV4Address     string `json:"ipV4Address"`
-			Port            int    `json:"port"`
-		} `json:"result"`
+func (g *GatheringsService) JoinExperience(ctx context.Context, mcToken *authservice.MCToken, id uuid.UUID) (string, error) {
+	type Join struct {
+		NetworkProtocol string `json:"networkProtocol"`
+		IPV4Address     string `json:"ipV4Address"`
+		Port            int    `json:"port"`
 	}
-	resp, err := doRequest[joinExperienceResponse](ctx, http.DefaultClient, "POST",
-		fmt.Sprintf("%s/api/v2.0/join/experience", g.ServiceURI),
-		map[string]any{
-			"experienceId": id,
-		},
-		mcTokenAuth(mcToken),
+	resp, err := internal.DoRequest[internal.Result[Join]](
+		ctx, http.DefaultClient, "POST",
+		g.Config.Url("/api/v2.0/join/experience"),
+		map[string]any{"experienceId": id},
+		mcToken.AddHeader,
 	)
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("%s:%d", resp.Result.IPV4Address, resp.Result.Port), nil
+	return fmt.Sprintf("%s:%d", resp.Data.IPV4Address, resp.Data.Port), nil
 }
 
 type FeaturedServer struct {
@@ -135,7 +141,7 @@ type FeaturedServer struct {
 	ExperienceId string
 }
 
-func (g *GatheringsService) GetFeaturedServers(ctx context.Context, mcToken *MCToken) ([]FeaturedServer, error) {
+func (g *GatheringsService) GetFeaturedServers(ctx context.Context, mcToken *authservice.MCToken) ([]FeaturedServer, error) {
 	type Translated struct {
 		Neutral string `json:"NEUTRAL"`
 	}
@@ -200,14 +206,11 @@ func (g *GatheringsService) GetFeaturedServers(ctx context.Context, mcToken *MCT
 		Items             []Items `json:"Items"`
 		ConfigurationName string  `json:"ConfigurationName"`
 	}
-	type Response struct {
-		Status string `json:"status"`
-		Code   int    `json:"code"`
-		Data   Data   `json:"data"`
-	}
 
-	resp, err := doRequest[Response](ctx, http.DefaultClient, "POST",
-		fmt.Sprintf("%s/api/v2.0/discovery/blob/client", g.ServiceURI), nil, mcTokenAuth(mcToken))
+	resp, err := internal.DoRequest[internal.Data[Data]](
+		ctx, http.DefaultClient, "POST",
+		g.Config.Url("/api/v2.0/discovery/blob/client"),
+		nil, mcToken.AddHeader)
 	if err != nil {
 		return nil, err
 	}

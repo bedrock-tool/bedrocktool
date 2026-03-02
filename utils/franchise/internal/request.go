@@ -1,4 +1,4 @@
-package discovery
+package internal
 
 import (
 	"bytes"
@@ -8,11 +8,7 @@ import (
 	"net/http"
 )
 
-func mcTokenAuth(mcToken *MCToken) func(req *http.Request) {
-	return func(req *http.Request) {
-		req.Header.Set("Authorization", mcToken.AuthorizationHeader)
-	}
-}
+const minecraftUserAgent = "libhttpclient/1.0.0.0"
 
 type JsonResponseError struct {
 	Status string
@@ -27,17 +23,23 @@ func (e JsonResponseError) Error() string {
 	return e.Status
 }
 
-func doRequest[T any](ctx context.Context, client *http.Client, method, url string, payload any, extraHeaders func(*http.Request)) (*T, error) {
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return nil, err
+func DoRequest[T any](ctx context.Context, client *http.Client, method, url string, payload any, extraHeaders func(*http.Request)) (*T, error) {
+	var body io.Reader = nil
+	if payload != nil {
+		bodyData, err := json.Marshal(payload)
+		if err != nil {
+			return nil, err
+		}
+		body = bytes.NewReader(bodyData)
 	}
-	req, err := http.NewRequestWithContext(ctx, method, url, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Accept", "*/*")
-	req.Header.Set("Content-Type", "application/json")
+	if payload != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
 	req.Header.Set("User-Agent", minecraftUserAgent)
 	req.Header.Set("Accept-Language", "en-US,en;q=0.5")
 	req.Header.Set("Cache-Control", "no-cache")
@@ -67,8 +69,13 @@ func doRequest[T any](ctx context.Context, client *http.Client, method, url stri
 		}
 	}
 
+	bodyResp, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+
 	var resp T
-	err = json.NewDecoder(res.Body).Decode(&resp)
+	err = json.Unmarshal(bodyResp, &resp)
 	if err != nil {
 		return nil, err
 	}

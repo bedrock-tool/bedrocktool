@@ -11,7 +11,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui/gui/popups"
 	"github.com/bedrock-tool/bedrocktool/utils/auth"
 	"github.com/bedrock-tool/bedrocktool/utils/connectinfo"
-	"github.com/bedrock-tool/bedrocktool/utils/discovery"
+	"github.com/bedrock-tool/bedrocktool/utils/franchise/gatherings"
 	"github.com/sandertv/gophertunnel/minecraft/realms"
 )
 
@@ -56,14 +56,14 @@ func (a *addressInput) Layout(gtx C, th *material.Theme) D {
 	}
 
 	if a.showGatherings.Clicked(gtx) {
-		a.g.ShowPopup(popups.NewGatherings(a.g, func(gathering *discovery.Gathering) {
+		a.g.ShowPopup(popups.NewGatherings(a.g, func(gathering *gatherings.Gathering) {
 			a.connectInfo.SetGathering(gathering)
 			a.editor.SetText(a.connectInfo.Value)
 		}))
 	}
 
 	if a.showFeatured.Clicked(gtx) {
-		a.g.ShowPopup(popups.NewFeaturedServers(a.g, func(server *discovery.FeaturedServer) {
+		a.g.ShowPopup(popups.NewFeaturedServers(a.g, func(server *gatherings.FeaturedServer) {
 			a.connectInfo.SetFeaturedServer(server)
 			a.editor.SetText(a.connectInfo.Value)
 		}))

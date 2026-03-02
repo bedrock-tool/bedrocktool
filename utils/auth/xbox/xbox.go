@@ -15,6 +15,8 @@ import (
 	"net/http"
 
 	"golang.org/x/oauth2"
+
+	"github.com/sandertv/gophertunnel/minecraft/auth"
 )
 
 func generatePkce() (verifier, challenge string) {
@@ -38,32 +40,8 @@ func generateCsrf() string {
 	return base64.RawURLEncoding.EncodeToString(b)
 }
 
-// XBLToken holds info on the authorization token used for authenticating with XBOX Live.
-type XBLToken struct {
-	AuthorizationToken struct {
-		DisplayClaims struct {
-			UserInfo []struct {
-				GamerTag string `json:"gtg"`
-				XUID     string `json:"xid"`
-				UserHash string `json:"uhs"`
-			} `json:"xui"`
-		}
-		Token string
-	}
-}
-
-// SetAuthHeader returns a string that may be used for the 'Authorization' header used for Minecraft
-// related endpoints that need an XBOX Live authenticated caller.
-func (t XBLToken) SetAuthHeader(r *http.Request) {
-	r.Header.Set("Authorization", t.XBL())
-}
-
-func (t XBLToken) XBL() string {
-	return fmt.Sprintf("XBL3.0 x=%v;%v", t.AuthorizationToken.DisplayClaims.UserInfo[0].UserHash, t.AuthorizationToken.Token)
-}
-
 // RequestXBLToken requests an XBOX Live auth token using the passed Live token pair.
-func RequestXBLToken(ctx context.Context, liveToken *oauth2.Token, relyingParty string, deviceType *DeviceType) (*XBLToken, error) {
+func RequestXBLToken(ctx context.Context, liveToken *oauth2.Token, relyingParty string, deviceType *DeviceType) (*auth.XBLToken, error) {
 	if !liveToken.Valid() {
 		return nil, fmt.Errorf("live token is no longer valid")
 	}
@@ -135,7 +113,7 @@ func sisuAuthenticate(ctx context.Context, c *http.Client, key *ecdsa.PrivateKey
 	return sessionID, nil
 }
 
-func sisuAuthorize(ctx context.Context, c *http.Client, key *ecdsa.PrivateKey, liveToken *oauth2.Token, device *deviceToken, relyingParty, sessionID string) (*XBLToken, error) {
+func sisuAuthorize(ctx context.Context, c *http.Client, key *ecdsa.PrivateKey, liveToken *oauth2.Token, device *deviceToken, relyingParty, sessionID string) (*auth.XBLToken, error) {
 	data, _ := json.Marshal(map[string]any{
 		"AccessToken":       "t=" + liveToken.AccessToken,
 		"AppId":             device.DeviceType.ClientID,
@@ -173,7 +151,7 @@ func sisuAuthorize(ctx context.Context, c *http.Client, key *ecdsa.PrivateKey, l
 		}
 		return nil, fmt.Errorf("POST %v: %v", "https://sisu.xboxlive.com/authorize", resp.Status)
 	}
-	info := new(XBLToken)
+	info := new(auth.XBLToken)
 	return info, json.NewDecoder(resp.Body).Decode(info)
 }
 

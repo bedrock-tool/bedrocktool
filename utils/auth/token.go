@@ -2,14 +2,14 @@ package auth
 
 import (
 	"github.com/bedrock-tool/bedrocktool/utils/auth/xbox"
-	"github.com/bedrock-tool/bedrocktool/utils/discovery"
+	"github.com/bedrock-tool/bedrocktool/utils/franchise/authservice"
 	"golang.org/x/oauth2"
 )
 
 type tokenInfo struct {
 	*oauth2.Token
 	DeviceType string
-	MCToken    *discovery.MCToken
+	MCToken    *authservice.MCToken
 }
 
 func (t *tokenInfo) LiveToken() *oauth2.Token {

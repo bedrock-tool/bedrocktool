@@ -17,6 +17,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/connectinfo"
+	"github.com/bedrock-tool/bedrocktool/utils/franchise/signaling"
 	"github.com/bedrock-tool/bedrocktool/utils/proxy/blobcache"
 	"github.com/bedrock-tool/bedrocktool/utils/proxy/pcap2"
 	"github.com/bedrock-tool/bedrocktool/utils/proxy/resourcepacks"
@@ -87,7 +88,7 @@ func (s *Session) Now() time.Time {
 // AddCommand adds a command to the command handler
 func (s *Session) AddCommand(exec func([]string) bool, cmd protocol.Command) {
 	cmd.AliasesOffset = 0xffffffff
-	cmd.PermissionLevel = "ANY"
+	cmd.PermissionLevel = protocol.CommandPermissionLevelAny
 	s.commands[cmd.Name] = ingameCommand{exec, cmd}
 }
 
@@ -382,6 +383,30 @@ func (s *Session) connectServer(ctx context.Context, rpHandler *resourcepacks.Re
 	}
 
 	logrus.Info(locale.Loc("connecting", locale.Strmap{"Address": address}))
+
+	isNetherNet := strings.HasPrefix(address, "nethernet:")
+	if isNetherNet {
+		service, err := s.connectInfo.Account.Signaling(s.ctx)
+		if err != nil {
+			return err
+		}
+		mcToken, err := s.connectInfo.Account.MCToken(ctx)
+		if err != nil {
+			return err
+		}
+		signals, err := signaling.Dialer{
+			Service: service,
+		}.DialContext(ctx, mcToken)
+		if err != nil {
+			return fmt.Errorf("error dialing signaling: %s", err)
+		}
+		minecraft.RegisterNetwork("nethernet", func(l *slog.Logger) minecraft.Network {
+			return NetherNet{
+				Signaling: signals,
+			}
+		})
+	}
+
 	dialer := minecraft.Dialer{
 		AuthSource:                 s.connectInfo.Account,
 		DisconnectOnUnknownPackets: false,
@@ -405,7 +430,12 @@ func (s *Session) connectServer(ctx context.Context, rpHandler *resourcepacks.Re
 		},
 	}
 
-	_, err = dialer.DialContext(ctx, "raknet", address, 20*time.Second)
+	if isNetherNet {
+		_, err = dialer.DialContext(ctx, "nethernet", address)
+	} else {
+		_, err = dialer.DialContext(ctx, "raknet", address)
+	}
+
 	if err != nil {
 		if s.expectDisconnect {
 			return nil

@@ -6,10 +6,11 @@ import (
 	"fmt"
 	"net"
 	"path"
+	"strconv"
 	"strings"
 
 	"github.com/bedrock-tool/bedrocktool/utils/auth"
-	"github.com/bedrock-tool/bedrocktool/utils/discovery"
+	"github.com/bedrock-tool/bedrocktool/utils/franchise/gatherings"
 	"github.com/google/uuid"
 	"github.com/sandertv/gophertunnel/minecraft/realms"
 )
@@ -26,12 +27,12 @@ type ConnectInfo struct {
 	Value   string
 	Account *auth.Account
 
-	gathering  *discovery.Gathering
+	gathering  *gatherings.Gathering
 	realm      *realms.Realm
-	experience *discovery.FeaturedServer
+	experience *gatherings.FeaturedServer
 }
 
-func (c *ConnectInfo) getGathering(ctx context.Context, name string) (*discovery.Gathering, error) {
+func (c *ConnectInfo) getGathering(ctx context.Context, name string) (*gatherings.Gathering, error) {
 	if c.gathering != nil && c.gathering.Title == name {
 		return c.gathering, nil
 	}
@@ -57,7 +58,7 @@ func (c *ConnectInfo) getGathering(ctx context.Context, name string) (*discovery
 	return nil, &ErrNotFound{Name: name}
 }
 
-func (c *ConnectInfo) getExperience(ctx context.Context, name string) (*discovery.FeaturedServer, error) {
+func (c *ConnectInfo) getExperience(ctx context.Context, name string) (*gatherings.FeaturedServer, error) {
 	if c.experience != nil {
 		if c.experience.ExperienceId == name {
 			return c.experience, nil
@@ -88,7 +89,8 @@ func (c *ConnectInfo) getExperience(ctx context.Context, name string) (*discover
 }
 
 func (c *ConnectInfo) getRealm(ctx context.Context, name string) (*realms.Realm, error) {
-	if c.realm != nil && c.realm.Name == name {
+	name = strings.ToLower(name)
+	if c.realm != nil && strings.EqualFold(c.realm.Name, name) || strconv.Itoa(c.realm.ID) == name {
 		return c.realm, nil
 	}
 	realms, err := c.Account.Realms().Realms(ctx)
@@ -96,7 +98,8 @@ func (c *ConnectInfo) getRealm(ctx context.Context, name string) (*realms.Realm,
 		return nil, err
 	}
 	for _, realm := range realms {
-		if strings.HasPrefix(strings.ToLower(realm.Name), strings.ToLower(name)) {
+		lowerName := strings.ToLower(realm.Name)
+		if strings.HasPrefix(lowerName, name) || strconv.Itoa(c.realm.ID) == name {
 			return &realm, nil
 		}
 	}
@@ -107,6 +110,9 @@ func (c *ConnectInfo) Name(ctx context.Context) (string, error) {
 	info, err := parseConnectInfo(c.Value)
 	if err != nil {
 		return "", nil
+	}
+	if info.netherNet != "" {
+		return info.netherNet, nil
 	}
 	if info.serverAddress != "" {
 		host, port, err := net.SplitHostPort(info.serverAddress)
@@ -153,6 +159,9 @@ func (c *ConnectInfo) Address(ctx context.Context) (string, error) {
 	info, err := parseConnectInfo(c.Value)
 	if err != nil {
 		return "", err
+	}
+	if info.netherNet != "" {
+		return "nethernet:" + info.netherNet, nil
 	}
 	if info.serverAddress != "" {
 		return info.serverAddress, nil
@@ -217,12 +226,12 @@ func (c *ConnectInfo) SetRealm(realm *realms.Realm) {
 	c.realm = realm
 }
 
-func (c *ConnectInfo) SetGathering(gathering *discovery.Gathering) {
+func (c *ConnectInfo) SetGathering(gathering *gatherings.Gathering) {
 	c.Value = "gathering:" + gathering.Title
 	c.gathering = gathering
 }
 
-func (c *ConnectInfo) SetFeaturedServer(server *discovery.FeaturedServer) {
+func (c *ConnectInfo) SetFeaturedServer(server *gatherings.FeaturedServer) {
 	if server.ExperienceId != "" {
 		c.Value = "experience:" + server.Name
 		c.experience = server
@@ -237,6 +246,7 @@ type parsedConnectInfo struct {
 	replayName    string
 	experience    string
 	serverAddress string
+	netherNet     string
 }
 
 func parseConnectInfo(value string) (*parsedConnectInfo, error) {
@@ -263,6 +273,16 @@ func parseConnectInfo(value string) (*parsedConnectInfo, error) {
 		p := regexGetParams(pcapRegex, value)
 		input := p["Filename"]
 		return &parsedConnectInfo{replayName: input}, nil
+	}
+
+	// nethernet id
+	if strings.HasPrefix(value, "nethernet:") {
+		id := strings.Split(value, ":")[1]
+		_, err := uuid.Parse(id)
+		if err != nil {
+			return nil, fmt.Errorf("nethernet: %s", err)
+		}
+		return &parsedConnectInfo{netherNet: id}, nil
 	}
 
 	// normal server dns or ip

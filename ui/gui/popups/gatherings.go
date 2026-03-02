@@ -12,13 +12,13 @@ import (
 	"gioui.org/x/component"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/guim"
 	"github.com/bedrock-tool/bedrocktool/utils/auth"
-	"github.com/bedrock-tool/bedrocktool/utils/discovery"
+	"github.com/bedrock-tool/bedrocktool/utils/franchise/gatherings"
 )
 
 type Gatherings struct {
 	g guim.Guim
 
-	setGathering func(*discovery.Gathering)
+	setGathering func(*gatherings.Gathering)
 
 	ticker     *time.Ticker
 	close      widget.Clickable
@@ -29,11 +29,11 @@ type Gatherings struct {
 }
 
 type gatheringButton struct {
-	*discovery.Gathering
+	*gatherings.Gathering
 	widget.Clickable
 }
 
-func NewGatherings(g guim.Guim, setGathering func(*discovery.Gathering)) Popup {
+func NewGatherings(g guim.Guim, setGathering func(*gatherings.Gathering)) Popup {
 	return &Gatherings{
 		g: g,
 

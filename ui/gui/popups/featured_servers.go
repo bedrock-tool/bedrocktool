@@ -10,7 +10,7 @@ import (
 	"gioui.org/x/component"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/guim"
 	"github.com/bedrock-tool/bedrocktool/utils/auth"
-	"github.com/bedrock-tool/bedrocktool/utils/discovery"
+	"github.com/bedrock-tool/bedrocktool/utils/franchise/gatherings"
 )
 
 type loadState int
@@ -22,7 +22,7 @@ const (
 )
 
 type serverButton struct {
-	*discovery.FeaturedServer
+	*gatherings.FeaturedServer
 	widget.Clickable
 }
 
@@ -32,11 +32,11 @@ type FeaturedServers struct {
 	list  widget.List
 	state loadState
 
-	setAddress func(server *discovery.FeaturedServer)
+	setAddress func(server *gatherings.FeaturedServer)
 	servers    []*serverButton
 }
 
-func NewFeaturedServers(g guim.Guim, setAddress func(server *discovery.FeaturedServer)) Popup {
+func NewFeaturedServers(g guim.Guim, setAddress func(server *gatherings.FeaturedServer)) Popup {
 	return &FeaturedServers{
 		g:          g,
 		state:      loadStateInitial,

@@ -12,7 +12,11 @@ import (
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/utils/auth/xbox"
-	"github.com/bedrock-tool/bedrocktool/utils/discovery"
+	"github.com/bedrock-tool/bedrocktool/utils/franchise/authservice"
+	"github.com/bedrock-tool/bedrocktool/utils/franchise/discovery"
+	"github.com/bedrock-tool/bedrocktool/utils/franchise/gatherings"
+	"github.com/bedrock-tool/bedrocktool/utils/franchise/signaling"
+	"github.com/df-mc/go-xsapi"
 	"github.com/sandertv/gophertunnel/minecraft/auth"
 	"github.com/sandertv/gophertunnel/minecraft/realms"
 	"github.com/sirupsen/logrus"
@@ -25,22 +29,53 @@ type Account struct {
 	token      *tokenInfo
 	discovery  *discovery.Discovery
 	realms     *realms.Client
-	gatherings *discovery.GatheringsService
+	gatherings *gatherings.GatheringsService
+	signaling  *signaling.SignalingService
 }
 
-type accountTokenSource struct {
+type liveTokenSource struct {
 	account *Account
 }
 
-func (a *accountTokenSource) Token() (t *oauth2.Token, err error) {
-	return a.account.Token(context.Background())
+func (a liveTokenSource) Token() (t *oauth2.Token, err error) {
+	return a.account.LiveToken(context.Background())
+}
+
+type xsapiTokenSource struct {
+	account *Account
+}
+
+var _ xsapi.TokenSource = xsapiTokenSource{}
+
+type xsapiToken struct {
+	*auth.XBLToken
+}
+
+func (x xsapiToken) DisplayClaims() xsapi.DisplayClaims {
+	return xsapi.DisplayClaims{
+		GamerTag: x.XBLToken.AuthorizationToken.DisplayClaims.UserInfo[0].GamerTag,
+		XUID:     x.XBLToken.AuthorizationToken.DisplayClaims.UserInfo[0].XUID,
+		UserHash: x.XBLToken.AuthorizationToken.DisplayClaims.UserInfo[0].UserHash,
+	}
+}
+
+func (x xsapiToken) String() string {
+	return x.AuthorizationToken.Token
+}
+
+func (x xsapiTokenSource) Token() (xsapi.Token, error) {
+	token, err := x.account.XBLToken(context.Background(), "https://multiplayer.minecraft.net/")
+	if err != nil {
+		return nil, err
+	}
+	return xsapiToken{token}, nil
 }
 
 func (a *Account) Name() string {
 	return a.name
 }
 
-func (a *Account) Token(ctx context.Context) (t *oauth2.Token, err error) {
+func (a *Account) LiveToken(ctx context.Context) (t *oauth2.Token, err error) {
 	if a.token == nil {
 		return nil, ErrNotLoggedIn
 	}
@@ -58,9 +93,9 @@ func (a *Account) Token(ctx context.Context) (t *oauth2.Token, err error) {
 	return a.token.LiveToken(), nil
 }
 
-func (a *Account) Discovery() (d *discovery.Discovery, err error) {
+func (a *Account) Discovery(ctx context.Context) (d *discovery.Discovery, err error) {
 	if a.discovery == nil {
-		a.discovery, err = discovery.GetDiscovery(a.env)
+		a.discovery, err = discovery.GetDiscovery(ctx, a.env)
 		if err != nil {
 			return nil, err
 		}
@@ -68,29 +103,22 @@ func (a *Account) Discovery() (d *discovery.Discovery, err error) {
 	return a.discovery, nil
 }
 
-func (a *Account) PlayfabXblToken(ctx context.Context) (*xbox.XBLToken, error) {
-	liveToken, err := a.Token(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return xbox.RequestXBLToken(ctx, liveToken, "rp://playfabapi.com/", a.token.XboxDeviceType())
-}
-
-func (a *Account) MCToken(ctx context.Context) (*discovery.MCToken, error) {
+func (a *Account) MCToken(ctx context.Context) (*authservice.MCToken, error) {
 	if a.token.MCToken == nil || a.token.MCToken.ValidUntil.Before(time.Now()) {
-		discovery, err := a.Discovery()
+		discovery, err := a.Discovery(ctx)
 		if err != nil {
 			return nil, err
 		}
-		authService, err := discovery.AuthService()
+		authService, err := authservice.NewAuthService(discovery)
 		if err != nil {
 			return nil, err
 		}
-		pfXblToken, err := a.PlayfabXblToken(ctx)
+		pfXblToken, err := a.XBLToken(ctx, "rp://playfabapi.com/")
 		if err != nil {
 			return nil, err
 		}
-		res, err := authService.StartSession(ctx, pfXblToken.XBL(), authService.PlayfabTitleID)
+
+		res, err := authService.StartSession(ctx, pfXblToken.Token(), authService.Config.PlayfabTitleID)
 		if err != nil {
 			return nil, err
 		}
@@ -102,24 +130,39 @@ func (a *Account) MCToken(ctx context.Context) (*discovery.MCToken, error) {
 	return a.token.MCToken, nil
 }
 
-func (a *Account) Gatherings(ctx context.Context) (*discovery.GatheringsService, error) {
+func (a *Account) Gatherings(ctx context.Context) (*gatherings.GatheringsService, error) {
 	if a.gatherings == nil {
-		discovery, err := a.Discovery()
+		discovery, err := a.Discovery(ctx)
 		if err != nil {
 			return nil, err
 		}
-		gatheringService, err := discovery.GatheringsService()
+		gatheringsService, err := gatherings.NewGatheringsService(discovery)
 		if err != nil {
 			return nil, err
 		}
-		a.gatherings = gatheringService
+		a.gatherings = gatheringsService
 	}
 	return a.gatherings, nil
 }
 
+func (a *Account) Signaling(ctx context.Context) (*signaling.SignalingService, error) {
+	if a.gatherings == nil {
+		discovery, err := a.Discovery(ctx)
+		if err != nil {
+			return nil, err
+		}
+		signalingService, err := signaling.NewSignalingService(discovery)
+		if err != nil {
+			return nil, err
+		}
+		a.signaling = signalingService
+	}
+	return a.signaling, nil
+}
+
 func (a *Account) Realms() *realms.Client {
 	if a.realms == nil {
-		a.realms = realms.NewClient(&accountTokenSource{account: a}, nil, "")
+		a.realms = realms.NewClient(liveTokenSource{account: a}, nil, "")
 	}
 	return a.realms
 }
@@ -152,12 +195,12 @@ func (a *Account) Chain(ctx context.Context) (ChainKey *ecdsa.PrivateKey, ChainD
 	return ch.ChainKey, ch.ChainData, nil
 }
 
-func (a *Account) PfToken(ctx context.Context, publicKey *ecdsa.PublicKey) (string, error) {
-	discovery, err := a.Discovery()
+func (a *Account) MultiplayerSessionToken(ctx context.Context, publicKey *ecdsa.PublicKey) (string, error) {
+	discovery, err := a.Discovery(ctx)
 	if err != nil {
 		return "", err
 	}
-	authService, err := discovery.AuthService()
+	authService, err := authservice.NewAuthService(discovery)
 	if err != nil {
 		return "", err
 	}
@@ -171,12 +214,12 @@ func (a *Account) PfToken(ctx context.Context, publicKey *ecdsa.PublicKey) (stri
 	return signedToken, err
 }
 
-func (a *Account) XBLToken(ctx context.Context) (*auth.XBLToken, error) {
-	liveToken, err := a.Token(ctx)
+func (a *Account) XBLToken(ctx context.Context, relyingParty string) (*auth.XBLToken, error) {
+	liveToken, err := a.LiveToken(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("request Live Connect token: %w", err)
 	}
-	xsts, err := xbox.RequestXBLToken(ctx, liveToken, "https://multiplayer.minecraft.net/", a.token.XboxDeviceType())
+	xsts, err := xbox.RequestXBLToken(ctx, liveToken, relyingParty, a.token.XboxDeviceType())
 	if err != nil {
 		return nil, fmt.Errorf("request XBOX Live token: %w", err)
 	}
@@ -187,7 +230,7 @@ func (a *Account) XBLToken(ctx context.Context) (*auth.XBLToken, error) {
 
 func (a *Account) authChain(ctx context.Context) (key *ecdsa.PrivateKey, chain string, err error) {
 	key, _ = ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
-	xstsa, err := a.XBLToken(ctx)
+	xstsa, err := a.XBLToken(ctx, "https://multiplayer.minecraft.net/")
 	if err != nil {
 		return nil, "", err
 	}
