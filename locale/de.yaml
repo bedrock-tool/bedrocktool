@@ -1,9 +1,9 @@
 bedrocktool_version:
-  other: "Bedrocktool Version {{.Version}}"
+  other: "C7 CLIENT Version {{.Version}}"
 available_commands:
   other: "Verfügbare Befehle:"
 use_to_run_command:
-  other: "Verwenden Sie 'bedrocktool <Befehl>', um einen Befehl auszuführen"
+  other: "Verwenden Sie 'c7client <Befehl>', um einen Befehl auszuführen"
 input_command:
   other: "Eingabeaufforderung: "
 fatal_error:

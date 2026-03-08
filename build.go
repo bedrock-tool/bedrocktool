@@ -305,7 +305,7 @@ func cleanSyso() {
 }
 
 func libBuildCmd(buildTag string, build Build, ldflags, tags []string) (string, []string) {
-	outputFilename := fmt.Sprintf("libbedrocktool-%s-%s-%s", build.OS, build.Arch, buildTag)
+	outputFilename := fmt.Sprintf("libc7client-%s-%s-%s", build.OS, build.Arch, buildTag)
 	outputFilename += build.LibExt()
 	outputPath := filepath.Join("builds", outputFilename)
 
@@ -322,7 +322,7 @@ func libBuildCmd(buildTag string, build Build, ldflags, tags []string) (string, 
 }
 
 func cliBuildCmd(buildTag string, build Build, ldflags, tags []string) (string, []string) {
-	outputFilename := fmt.Sprintf("bedrocktool-%s-%s-%s", build.OS, build.Arch, buildTag)
+	outputFilename := fmt.Sprintf("c7client-%s-%s-%s", build.OS, build.Arch, buildTag)
 	outputFilename += build.ExeExt()
 	outputPath := filepath.Join("builds", outputFilename)
 
@@ -338,7 +338,7 @@ func cliBuildCmd(buildTag string, build Build, ldflags, tags []string) (string, 
 }
 
 func guiBuildCmd(buildTag string, build Build, ldflags, tags []string) (string, []string) {
-	outputFilename := fmt.Sprintf("bedrocktool-gui-%s-%s-%s", build.OS, build.Arch, buildTag)
+	outputFilename := fmt.Sprintf("c7client-gui-%s-%s-%s", build.OS, build.Arch, buildTag)
 	outputFilename += build.ExeExt()
 	outputPath := filepath.Join("builds", outputFilename)
 

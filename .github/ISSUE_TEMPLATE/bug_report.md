@@ -35,5 +35,5 @@ Add any other context about the problem here.
 
 **attach packets.log.gpg (not always necessary)**
 this file can be helpful for debugging without having to connect to the server.
-it can be created by running with -extra-debug [e.g. bedrocktool.exe -extra-debug worlds -address play.mojang.com ]
+it can be created by running with -extra-debug [e.g. c7client.exe -extra-debug worlds -address play.mojang.com ]
 be sure to only attach the .gpg file which is not publicly readable.

@@ -12,8 +12,8 @@ token*.json
 *.syso
 *.pprof
 
-/bedrocktool
-/bedrocktool-*
+/c7client
+/c7client-*
 __debug_bin*
 
 .vscode/*
@@ -37,8 +37,8 @@ gathering.py
 entityflags.py
 *.ignore
 
-/libbedrocktool.h
-/libbedrocktool.so
+/libc7client.h
+/libc7client.so
 /tex.png
 /packcache/*
 /blobcache

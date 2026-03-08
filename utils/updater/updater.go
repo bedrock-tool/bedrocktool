@@ -41,7 +41,7 @@ func (p *progressWriter) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
-const updateFilename = "bedrocktool-update.bin"
+const updateFilename = "c7client-update.bin"
 
 const UpdateServer = "https://updates.yuv.pink/"
 

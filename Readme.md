@@ -1,4 +1,4 @@
-# bedrocktool
+# C7 CLIENT
 a minecraft bedrock proxy that can among other things save worlds from servers
 
 <br/>
@@ -15,7 +15,7 @@ if you find an issue or a crash, please report it by opening a github issue with
 <br/>
 
 ```
-Usage: bedrocktool <flags> <subcommand> <subcommand args>
+Usage: c7client <flags> <subcommand> <subcommand args>
 
 Subcommands:
         capture          capture packets in a pcap file
@@ -29,7 +29,7 @@ Subcommands:
         worlds           download a world from a server
 
 
-Top-level flags (use "bedrocktool flags" for a full list):
+Top-level flags (use "c7client flags" for a full list):
   -debug=false: debug mode (enables extra logging useful for finding bugs)
   -dns=false: enable dns server for consoles (use this if you need to connect on a console)
 ```
