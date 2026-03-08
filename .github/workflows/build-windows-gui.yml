@@ -4,8 +4,13 @@ name: Build Windows GUI
 on:
   push:
     tags:
-      - 'v*.*.*'  # Trigger on version tags like v1.0.0
-  workflow_dispatch:  # Allow manual trigger
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Existing tag to rebuild (for example: v0.5.0-beta)'
+        required: true
+        type: string
 
 jobs:
   build-windows-gui:
@@ -15,8 +20,58 @@ jobs:
       contents: write  # Permission to create releases
 
     steps:
-      - name: Checkout Repository
+      - name: Resolve Build Metadata
+        id: meta
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            TAG="${{ inputs.release_tag }}"
+          else
+            TAG="${GITHUB_REF#refs/tags/}"
+          fi
+
+          if [[ -z "$TAG" ]]; then
+            echo "ERROR: Could not determine release tag"
+            exit 1
+          fi
+
+          # Gogio expects numeric semantic version: major.minor.patch.versioncode
+          BASE_VERSION=$(echo "$TAG" | sed -E 's/^v//; s/-.*$//')
+          if [[ ! "$BASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            BASE_VERSION="0.0.0"
+          fi
+          GOGIO_VERSION="${BASE_VERSION}.${GITHUB_RUN_NUMBER}"
+
+          PRERELEASE=false
+          if echo "$TAG" | grep -Eiq 'alpha|beta|rc'; then
+            PRERELEASE=true
+          fi
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "gogio_version=$GOGIO_VERSION" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
+
+          echo "Release tag: $TAG"
+          echo "Gogio version: $GOGIO_VERSION"
+          echo "Prerelease: $PRERELEASE"
+
+      - name: Checkout Repository (Manual Tag Rebuild)
+        if: github.event_name == 'workflow_dispatch'
         uses: actions/checkout@v4
+        with:
+          ref: refs/tags/${{ steps.meta.outputs.tag }}
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Checkout Repository (Tag Push)
+        if: github.event_name != 'workflow_dispatch'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Validate Tag Exists
+        run: |
+          git rev-parse "refs/tags/${{ steps.meta.outputs.tag }}" >/dev/null
 
       - name: Set up Go
         uses: actions/setup-go@v4
@@ -27,22 +82,19 @@ jobs:
       - name: Install gogio
         run: |
           go install gioui.org/cmd/gogio@latest
-          gogio -version
+          export PATH="$(go env GOPATH)/bin:$PATH"
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+          command -v gogio
+          gogio -h >/dev/null
         
-      - name: Prepare Version
-        id: version
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/}
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Building version: $VERSION"
-
       - name: Build Windows GUI (64-bit)
         run: |
+          export PATH="$(go env GOPATH)/bin:$PATH"
           mkdir -p builds
           gogio \
             -arch amd64 \
             -target windows \
-            -version "${{ steps.version.outputs.version }}" \
+            -version "${{ steps.meta.outputs.gogio_version }}" \
             -icon icon.png \
             -o "builds/c7client-gui-windows-amd64.exe" \
             ./cmd/bedrocktool
@@ -64,8 +116,8 @@ jobs:
       - name: Create Release Notes
         id: release_notes
         run: |
-          cat > release_notes.md << 'EOF'
-          # C7 CLIENT Windows GUI v${{ steps.version.outputs.version }}
+          cat > release_notes.md << EOF
+          # C7 CLIENT Windows GUI ${{ steps.meta.outputs.tag }}
 
           ## Installation
 
@@ -111,29 +163,36 @@ jobs:
           **Need to build yourself?**
           - See [WINDOWS_GUI_BUILD.md](../../WINDOWS_GUI_BUILD.md) for instructions
 
+          ## Build Metadata
+
+          - Release tag: ${{ steps.meta.outputs.tag }}
+          - Build version (gogio): ${{ steps.meta.outputs.gogio_version }}
+
           ---
-          Built with ❤️ using Go and Gio
+          Built with Go and Gio
           EOF
           
           cat release_notes.md
 
       - name: Upload to Release
         uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
         with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          name: ${{ steps.meta.outputs.tag }}
           files: |
             builds/c7client-gui-windows-amd64.exe
             builds/checksums.txt
           body_path: release_notes.md
           draft: false
-          prerelease: false
+          prerelease: ${{ steps.meta.outputs.prerelease }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Summary
         run: |
           echo "=== Build Complete ==="
-          echo "Version: ${{ steps.version.outputs.version }}"
+          echo "Release tag: ${{ steps.meta.outputs.tag }}"
+          echo "Build version: ${{ steps.meta.outputs.gogio_version }}"
           echo "Executable: builds/c7client-gui-windows-amd64.exe"
           ls -lh builds/
           echo ""
