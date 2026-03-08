@@ -1,0 +1,140 @@
+# Build Windows GUI executable on release
+name: Build Windows GUI
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # Trigger on version tags like v1.0.0
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  build-windows-gui:
+    name: Build Windows GUI Executable
+    runs-on: ubuntu-latest  # Build on Linux using cross-compilation
+    permissions:
+      contents: write  # Permission to create releases
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Install gogio
+        run: |
+          go install gioui.org/cmd/gogio@latest
+          gogio -version
+        
+      - name: Prepare Version
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
+
+      - name: Build Windows GUI (64-bit)
+        run: |
+          mkdir -p builds
+          gogio \
+            -arch amd64 \
+            -target windows \
+            -version "${{ steps.version.outputs.version }}" \
+            -icon icon.png \
+            -o "builds/c7client-gui-windows-amd64.exe" \
+            ./cmd/bedrocktool
+          
+          # Verify build output
+          if [ ! -f "builds/c7client-gui-windows-amd64.exe" ]; then
+            echo "ERROR: Executable file not created!"
+            exit 1
+          fi
+          
+          ls -lh builds/c7client-gui-windows-amd64.exe
+
+      - name: Create Checksums
+        run: |
+          cd builds
+          sha256sum c7client-gui-windows-amd64.exe > checksums.txt
+          cat checksums.txt
+
+      - name: Create Release Notes
+        id: release_notes
+        run: |
+          cat > release_notes.md << 'EOF'
+          # C7 CLIENT Windows GUI v${{ steps.version.outputs.version }}
+
+          ## Installation
+
+          1. Download `c7client-gui-windows-amd64.exe`
+          2. Double-click to run (no installation needed)
+          3. Configure your Bedrock server connection
+
+          ## System Requirements
+
+          - Windows 7 SP1 or later
+          - RAM: 512 MB minimum (1 GB recommended)
+          - Internet connection for server connectivity
+
+          ## Features
+
+          ✅ Modern graphical interface  
+          ✅ Player tracking with compass  
+          ✅ Real-time server status  
+          ✅ Module-based extensibility  
+          ✅ No external dependencies  
+
+          ## SHA-256 Checksum
+
+          For verification:
+          \`\`\`
+          $(cat checksums.txt)
+          \`\`\`
+
+          ## Documentation
+
+          - [Quick Start Guide](../../QUICKSTART_WINDOWS.md)
+          - [Full Build Guide](../../WINDOWS_GUI_BUILD.md)
+          - [Framework Documentation](../../C7_FRAMEWORK.md)
+          - [Player Tracking](../../PLAYER_TRACKING.md)
+
+          ## Troubleshooting
+
+          **Won't open?**
+          - Ensure Windows Defender/antivirus allows execution
+          - Run as Administrator if needed
+          - Check internet connectivity
+
+          **Need to build yourself?**
+          - See [WINDOWS_GUI_BUILD.md](../../WINDOWS_GUI_BUILD.md) for instructions
+
+          ---
+          Built with ❤️ using Go and Gio
+          EOF
+          
+          cat release_notes.md
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            builds/c7client-gui-windows-amd64.exe
+            builds/checksums.txt
+          body_path: release_notes.md
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Summary
+        run: |
+          echo "=== Build Complete ==="
+          echo "Version: ${{ steps.version.outputs.version }}"
+          echo "Executable: builds/c7client-gui-windows-amd64.exe"
+          ls -lh builds/
+          echo ""
+          echo "The executable has been uploaded to the GitHub release."

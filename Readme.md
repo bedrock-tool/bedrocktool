@@ -7,7 +7,25 @@ a minecraft bedrock proxy that can among other things save worlds from servers
 
 ## 🚀 Quick Start
 
-### Windows GUI (Easiest - No Command Line!)
+### ⚡ Windows GUI - Pre-Compiled Executable (Easiest!)
+
+**Skip building entirely - download and run!**
+
+👉 [**→ Download Latest Release**](releases/latest)
+
+1. Download `c7client-gui-windows-amd64.exe`
+2. Double-click to run
+3. Enjoy! 🎮
+
+**No installation, no dependencies, no setup required.** Just download and play!
+
+[More download options and verification instructions →](RELEASES.md)
+
+---
+
+### Windows GUI - Build Locally (Alternative)
+
+If you prefer to build the executable yourself:
 
 ```powershell
 # PowerShell (Recommended)
@@ -33,6 +51,7 @@ c7client worlds -address play.example.com
 
 | Guide | Purpose |
 |-------|---------|
+| [Download Pre-Built Release](RELEASES.md) | Get the .exe directly (easiest!) |
 | [Quick Start Windows](QUICKSTART_WINDOWS.md) | Get running in 5 minutes |
 | [Windows Build Guide](WINDOWS_GUI_BUILD.md) | Detailed build instructions |
 | [Build & Distribution](BUILD_AND_DISTRIBUTION.md) | Building and sharing |
