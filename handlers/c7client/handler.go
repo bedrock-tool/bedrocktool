@@ -35,6 +35,9 @@ func NewC7Handler(ctx context.Context, moduleSettings ModuleSettings) func() *pr
 		if moduleSettings.PlayerTracking {
 			handler.RegisterModule(NewPlayerTrackingModule())
 		}
+		if moduleSettings.InventorySecurity {
+			handler.RegisterModule(NewInventorySecurityModule())
+		}
 
 		return &proxy.Handler{
 			Name:           "C7 Client",

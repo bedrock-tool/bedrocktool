@@ -55,8 +55,7 @@ c7client worlds -address play.example.com
 | [Quick Start Windows](QUICKSTART_WINDOWS.md) | Get running in 5 minutes |
 | [Windows Build Guide](WINDOWS_GUI_BUILD.md) | Detailed build instructions |
 | [Build & Distribution](BUILD_AND_DISTRIBUTION.md) | Building and sharing |
-| [Player Tracking](PLAYER_TRACKING.md) | Track players feature |
-| [C7 Framework](C7_FRAMEWORK.md) | Developer framework |
+| [Player Tracking](PLAYER_TRACKING.md) | Track players feature || [Inventory Security](INVENTORY_SECURITY.md) | Security audit module || [C7 Framework](C7_FRAMEWORK.md) | Developer framework |
 
 <br/>
 
@@ -75,6 +74,13 @@ c7client worlds -address play.example.com
   - Real-time player positions
   - Distance information
   - Cardinal direction display
+
+✅ **Inventory Security Monitor** 🔒
+  - Audit inventory transactions
+  - Detect potential vulnerabilities
+  - Server security testing
+  - Exploit pattern detection
+  - ⚠️ For security research only
   
 ✅ **Extensible Framework**
   - Easy to add new modules
