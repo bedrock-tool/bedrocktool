@@ -33,9 +33,8 @@ type InventorySecurityModule struct {
 type TransactionRecord struct {
 	Timestamp     time.Time
 	TransactionID int32
-	Type          packet.InventoryTransactionType
+	Type          uint32
 	Actions       []protocol.InventoryAction
-	PlayerPos     protocol.Vec3
 	RequestID     int32
 }
 
@@ -153,13 +152,14 @@ func (m *InventorySecurityModule) handleInventoryTransaction(pk *packet.Inventor
 	record := TransactionRecord{
 		Timestamp:     time.Now(),
 		TransactionID: int32(len(m.transactions)),
-		Type:          pk.TransactionType,
+		Type:          inventoryTransactionType(pk.TransactionData),
 		Actions:       pk.Actions,
+		RequestID:     pk.LegacyRequestID,
 	}
 
 	if m.config.LogAllTransactions {
 		m.log(fmt.Sprintf("📦 Transaction #%d: Type=%d, Actions=%d",
-			record.TransactionID, pk.TransactionType, len(pk.Actions)))
+			record.TransactionID, record.Type, len(pk.Actions)))
 	}
 
 	// Analyze transaction
@@ -257,8 +257,7 @@ func (m *InventorySecurityModule) detectInvalidActions(actions []protocol.Invent
 	for _, action := range actions {
 		// Check for item creation (air -> item)
 		if action.OldItem.Stack.ItemType.NetworkID == 0 && action.NewItem.Stack.ItemType.NetworkID != 0 {
-			if action.SourceType != protocol.InventoryActionSourceCreative &&
-				action.SourceType != protocol.InventoryActionSourceCraft {
+			if action.SourceType != protocol.InventoryActionSourceCreative {
 				m.logSecurityEvent(SecurityEvent{
 					Timestamp:   time.Now(),
 					Severity:    "CRITICAL",
@@ -322,7 +321,7 @@ func (m *InventorySecurityModule) detectDesyncPatterns(pk *packet.InventoryTrans
 						"action1NewItem":  action1.NewItem.Stack.ItemType.NetworkID,
 						"action2OldItem":  action2.OldItem.Stack.ItemType.NetworkID,
 						"action2NewItem":  action2.NewItem.Stack.ItemType.NetworkID,
-						"transactionType": pk.TransactionType,
+						"transactionType": inventoryTransactionType(pk.TransactionData),
 					},
 					Exploitable: true,
 				})
@@ -334,7 +333,12 @@ func (m *InventorySecurityModule) detectDesyncPatterns(pk *packet.InventoryTrans
 // handleItemStackRequest processes item stack requests
 func (m *InventorySecurityModule) handleItemStackRequest(pk *packet.ItemStackRequest) {
 	if m.config.LogAllTransactions {
-		m.log(fmt.Sprintf("📋 ItemStackRequest: RequestID=%d, Actions=%d", pk.RequestID, len(pk.Requests)))
+		count := len(pk.Requests)
+		firstRequestID := int32(0)
+		if count > 0 {
+			firstRequestID = pk.Requests[0].RequestID
+		}
+		m.log(fmt.Sprintf("📋 ItemStackRequest: FirstRequestID=%d, Requests=%d", firstRequestID, count))
 	}
 }
 
@@ -499,4 +503,21 @@ func (m *InventorySecurityModule) Cleanup() {
 // log outputs a message to the console
 func (m *InventorySecurityModule) log(message string) {
 	fmt.Printf("[Inventory Security] %s\n", message)
+}
+
+func inventoryTransactionType(data protocol.InventoryTransactionData) uint32 {
+	switch data.(type) {
+	case *protocol.NormalTransactionData:
+		return protocol.InventoryTransactionTypeNormal
+	case *protocol.MismatchTransactionData:
+		return protocol.InventoryTransactionTypeMismatch
+	case *protocol.UseItemTransactionData:
+		return protocol.InventoryTransactionTypeUseItem
+	case *protocol.UseItemOnEntityTransactionData:
+		return protocol.InventoryTransactionTypeUseItemOnEntity
+	case *protocol.ReleaseItemTransactionData:
+		return protocol.InventoryTransactionTypeReleaseItem
+	default:
+		return protocol.InventoryTransactionTypeNormal
+	}
 }

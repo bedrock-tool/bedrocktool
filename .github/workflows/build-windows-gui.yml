@@ -60,28 +60,31 @@ jobs:
         with:
           ref: refs/tags/${{ steps.meta.outputs.tag }}
           fetch-depth: 0
-          submodules: recursive
 
       - name: Checkout Repository (Tag Push)
         if: github.event_name != 'workflow_dispatch'
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          submodules: recursive
 
       - name: Validate Tag Exists
         run: |
           git rev-parse "refs/tags/${{ steps.meta.outputs.tag }}" >/dev/null
 
+      - name: Initialize Submodules
+        run: |
+          git config --global url."https://github.com/".insteadOf git@github.com:
+          git submodule sync --recursive
+          git submodule update --init --recursive
+
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.24'
+          go-version: '1.25'
           cache: true
 
       - name: Install gogio
         run: |
-          export GOWORK=off
           go install gioui.org/cmd/gogio@latest
           export PATH="$(go env GOPATH)/bin:$PATH"
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
@@ -90,7 +93,6 @@ jobs:
         
       - name: Build Windows GUI (64-bit)
         run: |
-          export GOWORK=off
           export PATH="$(go env GOPATH)/bin:$PATH"
           mkdir -p builds
           gogio \

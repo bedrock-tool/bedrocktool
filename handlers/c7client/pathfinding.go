@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/utils/proxy"
-	"github.com/sandertv/gophertunnel/minecraft/protocol"
+	"github.com/go-gl/mathgl/mgl32"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 )
 
@@ -23,16 +23,16 @@ type PathfindingModule struct {
 	session *proxy.Session
 
 	// Player state
-	playerPos      protocol.Vec3
+	playerPos      mgl32.Vec3
 	playerYaw      float32
 	playerPitch    float32
 	onGround       bool
 	lastUpdateTime time.Time
 
 	// Pathfinding state
-	targetPos     *protocol.Vec3
+	targetPos     *mgl32.Vec3
 	isNavigating  bool
-	currentPath   []protocol.Vec3
+	currentPath   []mgl32.Vec3
 	pathIndex     int
 	navigationMu  sync.Mutex
 
@@ -56,7 +56,7 @@ type PathfindingConfig struct {
 
 // PathNode represents a node in the pathfinding grid
 type PathNode struct {
-	pos      protocol.Vec3
+	pos      mgl32.Vec3
 	gCost    float64 // Cost from start
 	hCost    float64 // Heuristic cost to end
 	fCost    float64 // Total cost
@@ -79,7 +79,7 @@ func NewPathfindingModule() *PathfindingModule {
 			StuckThreshold:  0.1,   // 0.1 blocks
 			MaxPathLength:   0,     // Unlimited
 		},
-		currentPath: make([]protocol.Vec3, 0),
+		currentPath: make([]mgl32.Vec3, 0),
 	}
 }
 
@@ -147,7 +147,7 @@ func (m *PathfindingModule) isOwnPlayer(entityID uint64) bool {
 }
 
 // updatePlayerPosition updates the tracked player position
-func (m *PathfindingModule) updatePlayerPosition(pos protocol.Vec3, yaw, pitch float32, onGround bool) {
+func (m *PathfindingModule) updatePlayerPosition(pos mgl32.Vec3, yaw, pitch float32, onGround bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -175,7 +175,7 @@ func (m *PathfindingModule) HandleCommand(cmd string, args []string) bool {
 		fmt.Sscanf(args[0], "%f", &x)
 		fmt.Sscanf(args[1], "%f", &y)
 		fmt.Sscanf(args[2], "%f", &z)
-		m.navigateTo(protocol.Vec3{float32(x), float32(y), float32(z)})
+		m.navigateTo(mgl32.Vec3{float32(x), float32(y), float32(z)})
 		return true
 
 	case "stop":
@@ -190,7 +190,7 @@ func (m *PathfindingModule) HandleCommand(cmd string, args []string) bool {
 }
 
 // navigateTo starts navigation to target coordinates
-func (m *PathfindingModule) navigateTo(target protocol.Vec3) {
+func (m *PathfindingModule) navigateTo(target mgl32.Vec3) {
 	m.navigationMu.Lock()
 	defer m.navigationMu.Unlock()
 
@@ -263,7 +263,7 @@ func (m *PathfindingModule) navigationLoop() {
 }
 
 // moveTowards moves the player towards a specific position
-func (m *PathfindingModule) moveTowards(target protocol.Vec3) {
+func (m *PathfindingModule) moveTowards(target mgl32.Vec3) {
 	m.mu.RLock()
 	currentPos := m.playerPos
 	m.mu.RUnlock()
@@ -313,7 +313,7 @@ func (m *PathfindingModule) moveTowards(target protocol.Vec3) {
 		dz = dz / distance * moveDistance
 	}
 
-	newPos := protocol.Vec3{
+	newPos := mgl32.Vec3{
 		currentPos[0] + float32(dx),
 		currentPos[1] + float32(dy),
 		currentPos[2] + float32(dz),
@@ -329,7 +329,7 @@ func (m *PathfindingModule) moveTowards(target protocol.Vec3) {
 }
 
 // shouldJump determines if a jump is needed
-func (m *PathfindingModule) shouldJump(current, target protocol.Vec3) bool {
+func (m *PathfindingModule) shouldJump(current, target mgl32.Vec3) bool {
 	if !m.config.EnableJumping {
 		return false
 	}
@@ -351,8 +351,8 @@ func (m *PathfindingModule) shouldJump(current, target protocol.Vec3) bool {
 }
 
 // sendMovementPacket sends a movement packet to the server
-func (m *PathfindingModule) sendMovementPacket(pos protocol.Vec3, yaw, pitch float32, jump bool) {
-	if m.session == nil {
+func (m *PathfindingModule) sendMovementPacket(pos mgl32.Vec3, yaw, pitch float32, jump bool) {
+	if m.session == nil || m.session.Server == nil {
 		return
 	}
 
@@ -363,17 +363,17 @@ func (m *PathfindingModule) sendMovementPacket(pos protocol.Vec3, yaw, pitch flo
 		Pitch:           pitch,
 		Yaw:             yaw,
 		HeadYaw:         yaw,
-		Mode:            packet.MoveModePitch, // Normal movement
+		Mode:            packet.MoveModeNormal,
 		OnGround:        !jump,
 		Tick:            uint64(time.Now().UnixNano() / 1e6),
 	}
 
 	// Send packet to server
-	_ = m.session.WritePacket(pk)
+	_ = m.session.Server.WritePacket(pk)
 }
 
 // calculatePath uses A* pathfinding to find a path
-func (m *PathfindingModule) calculatePath(start, end protocol.Vec3) []protocol.Vec3 {
+func (m *PathfindingModule) calculatePath(start, end mgl32.Vec3) []mgl32.Vec3 {
 	// Simplified A* implementation
 	// In a full implementation, you would:
 	// 1. Use world data to check block solidity
@@ -381,7 +381,7 @@ func (m *PathfindingModule) calculatePath(start, end protocol.Vec3) []protocol.V
 	// 3. Handle complex obstacles
 
 	// For now, return a direct path with waypoints
-	path := make([]protocol.Vec3, 0)
+	path := make([]mgl32.Vec3, 0)
 
 	// Calculate total distance
 	dx := end[0] - start[0]
@@ -397,7 +397,7 @@ func (m *PathfindingModule) calculatePath(start, end protocol.Vec3) []protocol.V
 
 	for i := 1; i <= numWaypoints; i++ {
 		ratio := float32(i) / float32(numWaypoints)
-		waypoint := protocol.Vec3{
+		waypoint := mgl32.Vec3{
 			start[0] + dx*ratio,
 			start[1] + dy*ratio,
 			start[2] + dz*ratio,

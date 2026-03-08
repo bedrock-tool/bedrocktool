@@ -89,27 +89,29 @@ func (h *C7Handler) onSessionStart(session *proxy.Session, serverName string) er
 	return nil
 }
 
-func (h *C7Handler) onConnect(session *proxy.Session) error {
+func (h *C7Handler) onConnect(session *proxy.Session) bool {
 	h.log.Info("Connected to server, starting modules")
 	
 	for _, module := range h.modules {
 		if err := module.OnConnect(session); err != nil {
 			h.log.Errorf("Module %s connection failed: %v", module.Name(), err)
-			return err
+			return true
 		}
 	}
 	
-	return nil
+	return false
 }
 
-func (h *C7Handler) packetCallback(pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
+func (h *C7Handler) packetCallback(session *proxy.Session, pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
+	h.session = session
+
 	if preLogin {
 		return pk, nil
 	}
 	
 	var err error
 	for _, module := range h.modules {
-		pk, err = module.PacketCallback(pk, toServer, h.session)
+		pk, err = module.PacketCallback(pk, toServer, session)
 		if err != nil {
 			return pk, err
 		}

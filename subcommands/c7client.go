@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/bedrock-tool/bedrocktool/handlers/c7client"
-	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/bedrock-tool/bedrocktool/utils/proxy"
@@ -44,11 +43,11 @@ func (C7ClientCMD) Run(ctx context.Context, settings any) error {
 	p.AddHandler(func() *proxy.Handler {
 		return &proxy.Handler{
 			Name: "C7 UI State",
-			OnConnect: func(_ *proxy.Session) error {
+			OnConnect: func(_ *proxy.Session) bool {
 				messages.SendEvent(&messages.EventSetUIState{
 					State: messages.UIStateMain,
 				})
-				return nil
+				return false
 			},
 		}
 	})

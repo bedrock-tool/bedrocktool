@@ -231,7 +231,7 @@ func (m *PlayerTrackingModule) PacketCallback(pk packet.Packet, toServer bool, s
 		// Check if it's a player entity
 		m.mu.Lock()
 		for id, p := range m.players {
-			if p.EntityID == pk.EntityUniqueID {
+			if p.EntityID == uint64(pk.EntityUniqueID) {
 				delete(m.players, id)
 				if id == m.trackedPlayerID {
 					m.trackingEnabled = false
