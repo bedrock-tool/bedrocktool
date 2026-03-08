@@ -18,6 +18,7 @@ if you find an issue or a crash, please report it by opening a github issue with
 Usage: c7client <flags> <subcommand> <subcommand args>
 
 Subcommands:
+        c7               C7 CLIENT modular utilities (player tracking, etc.)
         capture          capture packets in a pcap file
         help             describe subcommands and their syntax
         list-realms      prints all realms you have access to
@@ -32,4 +33,11 @@ Subcommands:
 Top-level flags (use "c7client flags" for a full list):
   -debug=false: debug mode (enables extra logging useful for finding bugs)
   -dns=false: enable dns server for consoles (use this if you need to connect on a console)
+
+C7 Client Features:
+  The 'c7' subcommand provides modular utility features:
+    - Player Tracking: Track other players with distance and direction info
+    - More modules coming soon...
+  
+  Example: c7client c7 -address play.server.com -player-tracking=true
 ```
