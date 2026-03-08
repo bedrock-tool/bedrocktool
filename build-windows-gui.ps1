@@ -88,9 +88,9 @@ function Build-GUI {
     )
     
     Write-Host "Building C7 CLIENT GUI for Windows ($Arch)..."
-    Write-Host "Command: gogio -arch $Arch -target windows -version 1.0.0 -icon icon.png -o `"$OutputFile`" ./cmd/bedrocktool`n"
+    Write-Host "Command: gogio -arch $Arch -target windows -tags gui -version 1.0.0 -icon icon.png -o `"$OutputFile`" ./cmd/bedrocktool`n"
     
-    & gogio -arch $Arch -target windows -version 1.0.0 -icon icon.png -o $OutputFile ./cmd/bedrocktool
+    & gogio -arch $Arch -target windows -tags gui -version 1.0.0 -icon icon.png -o $OutputFile ./cmd/bedrocktool
     
     if ($LASTEXITCODE -eq 0) {
         Write-Success "Build successful: $OutputFile"

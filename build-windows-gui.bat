@@ -61,10 +61,10 @@ if "!BUILDTAG!"=="" (
 REM Build GUI for Windows (64-bit)
 echo.
 echo Building C7 CLIENT GUI for Windows (64-bit)...
-echo Command: gogio -arch amd64 -target windows -version 1.0.0 -icon icon.png -o builds/c7client-gui-windows-amd64.exe ./cmd/bedrocktool
+echo Command: gogio -arch amd64 -target windows -tags gui -version 1.0.0 -icon icon.png -o builds/c7client-gui-windows-amd64.exe ./cmd/bedrocktool
 echo.
 
-gogio -arch amd64 -target windows -version 1.0.0 -icon icon.png -o "builds/c7client-gui-windows-amd64.exe" ./cmd/bedrocktool
+gogio -arch amd64 -target windows -tags gui -version 1.0.0 -icon icon.png -o "builds/c7client-gui-windows-amd64.exe" ./cmd/bedrocktool
 if errorlevel 1 (
     echo Error: Build failed
     exit /b 1
@@ -88,7 +88,7 @@ set /p BUILD32="Build 32-bit version as well? (y/n): "
 if /i "!BUILD32!"=="y" (
     echo.
     echo Building C7 CLIENT GUI for Windows (32-bit)...
-    gogio -arch 386 -target windows -version 1.0.0 -icon icon.png -o "builds/c7client-gui-windows-386.exe" ./cmd/bedrocktool
+    gogio -arch 386 -target windows -tags gui -version 1.0.0 -icon icon.png -o "builds/c7client-gui-windows-386.exe" ./cmd/bedrocktool
     if errorlevel 1 (
         echo Warning: 32-bit build failed
     ) else (

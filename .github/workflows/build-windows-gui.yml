@@ -98,6 +98,7 @@ jobs:
           gogio \
             -arch amd64 \
             -target windows \
+            -tags gui \
             -version "${{ steps.meta.outputs.gogio_version }}" \
             -icon icon.png \
             -o "builds/c7client-gui-windows-amd64.exe" \
