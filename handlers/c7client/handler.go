@@ -38,7 +38,7 @@ func NewC7Handler(ctx context.Context, moduleSettings ModuleSettings) func() *pr
 		if moduleSettings.InventorySecurity {
 			handler.RegisterModule(NewInventorySecurityModule())
 		}
-		if moduleSettings.Pathfinding {
+		if moduleSettings.Baritone {
 			handler.RegisterModule(NewPathfindingModule())
 		}
 

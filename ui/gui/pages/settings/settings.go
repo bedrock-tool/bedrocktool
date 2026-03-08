@@ -4,7 +4,6 @@ import (
 	"image"
 	"runtime"
 	"slices"
-	"sort"
 	"time"
 
 	"gioui.org/io/key"
@@ -64,26 +63,46 @@ func New(g guim.Guim) pages.Page {
 		},
 	}
 
+	modeOrder := []string{"worlds", "skins", "packs", "c7"}
 	for k, cmd := range commands.Registered {
-		if !slices.Contains([]string{"worlds", "skins", "packs"}, k) {
+		if !slices.Contains(modeOrder, k) {
 			continue
 		}
 		settingUI := &settingsPage{cmd: cmd, g: g}
 		settingUI.Init()
 		p.settings[k] = settingUI
-		p.cmdMenu.names = append(p.cmdMenu.names, k)
 	}
-	sort.Strings(p.cmdMenu.names)
+
+	for _, mode := range modeOrder {
+		if _, ok := p.settings[mode]; ok {
+			p.cmdMenu.names = append(p.cmdMenu.names, mode)
+		}
+	}
 
 	p.cmdMenu.clickables = make(map[string]cmdItem, len(commands.Registered))
 	for _, name := range p.cmdMenu.names {
 		p.cmdMenu.clickables[name] = cmdItem{
 			Clickable: &widget.Clickable{},
-			Text:      name,
+			Text:      modeLabel(name),
 		}
 	}
 
 	return p
+}
+
+func modeLabel(name string) string {
+	switch name {
+	case "worlds":
+		return "Worlds"
+	case "skins":
+		return "Skins"
+	case "packs":
+		return "Packs"
+	case "c7":
+		return "C7 Client"
+	default:
+		return name
+	}
 }
 
 var _ pages.Page = &Page{}

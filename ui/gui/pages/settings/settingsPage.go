@@ -26,6 +26,7 @@ type settingsArg struct {
 	widget  any
 	tooltip component.TipArea
 	usage   string
+	label   string
 }
 
 type settingsPage struct {
@@ -67,6 +68,7 @@ func (s *settingsPage) Init() {
 						SingleLine: true,
 					},
 				}, Hint: arg.Name, Ext: ext},
+				label: arg.Name,
 			}
 			s.flagsNamesOrdered = append(s.flagsNamesOrdered, arg.Flag)
 			continue
@@ -76,6 +78,7 @@ func (s *settingsPage) Init() {
 			s.widgets[arg.Flag] = &settingsArg{
 				widget: AddressInput,
 				usage:  "target server address",
+				label: arg.Name,
 			}
 			hasAddress = true
 			continue
@@ -83,7 +86,7 @@ func (s *settingsPage) Init() {
 		case "bool":
 			e := &widget.Bool{}
 			e.Value = arg.Default == "true"
-			s.widgets[arg.Flag] = &settingsArg{widget: e, usage: arg.Desc}
+			s.widgets[arg.Flag] = &settingsArg{widget: e, usage: arg.Desc, label: arg.Name}
 
 		default:
 			e := &component.TextField{
@@ -93,7 +96,7 @@ func (s *settingsPage) Init() {
 				},
 			}
 			e.SetText(arg.Default)
-			s.widgets[arg.Flag] = &settingsArg{widget: e, usage: arg.Desc}
+			s.widgets[arg.Flag] = &settingsArg{widget: e, usage: arg.Desc, label: arg.Name}
 		}
 		s.flagsNamesOrdered = append(s.flagsNamesOrdered, arg.Flag)
 	}
@@ -253,9 +256,13 @@ func (s *settingsPage) Layout(gtx C, th *material.Theme) D {
 						w := s.widgets[name]
 						if ww, ok := w.widget.(*widget.Bool); ok {
 							widgets = append(widgets, func(gtx C) D {
+								label := w.label
+								if label == "" {
+									label = name
+								}
 								return w.tooltip.Layout(gtx,
 									component.PlatformTooltip(th, w.usage),
-									material.CheckBox(th, ww, name).Layout,
+									material.CheckBox(th, ww, label).Layout,
 								)
 							})
 						}
