@@ -81,6 +81,7 @@ jobs:
 
       - name: Install gogio
         run: |
+          export GOWORK=off
           go install gioui.org/cmd/gogio@latest
           export PATH="$(go env GOPATH)/bin:$PATH"
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
@@ -89,6 +90,7 @@ jobs:
         
       - name: Build Windows GUI (64-bit)
         run: |
+          export GOWORK=off
           export PATH="$(go env GOPATH)/bin:$PATH"
           mkdir -p builds
           gogio \
