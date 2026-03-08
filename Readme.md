@@ -55,7 +55,10 @@ c7client worlds -address play.example.com
 | [Quick Start Windows](QUICKSTART_WINDOWS.md) | Get running in 5 minutes |
 | [Windows Build Guide](WINDOWS_GUI_BUILD.md) | Detailed build instructions |
 | [Build & Distribution](BUILD_AND_DISTRIBUTION.md) | Building and sharing |
-| [Player Tracking](PLAYER_TRACKING.md) | Track players feature || [Inventory Security](INVENTORY_SECURITY.md) | Security audit module || [C7 Framework](C7_FRAMEWORK.md) | Developer framework |
+| [Pathfinding & Navigation](PATHFINDING.md) | Automated movement module |
+| [Player Tracking](PLAYER_TRACKING.md) | Track players feature |
+| [Inventory Security](INVENTORY_SECURITY.md) | Security audit module |
+| [C7 Framework](C7_FRAMEWORK.md) | Developer framework |
 
 <br/>
 
@@ -81,6 +84,14 @@ c7client worlds -address play.example.com
   - Server security testing
   - Exploit pattern detection
   - ⚠️ For security research only
+
+✅ **Pathfinding & Navigation** 🧭
+  - Automated coordinate-based movement
+  - Obstacle detection and avoidance
+  - Parkour capabilities (jumping, sprinting)
+  - A* pathfinding algorithm
+  - Commands: `/goto`, `/stop`, `/path-status`
+  - ⚠️ For testing and educational use only
   
 ✅ **Extensible Framework**
   - Easy to add new modules

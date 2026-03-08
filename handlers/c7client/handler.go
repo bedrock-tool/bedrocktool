@@ -38,6 +38,9 @@ func NewC7Handler(ctx context.Context, moduleSettings ModuleSettings) func() *pr
 		if moduleSettings.InventorySecurity {
 			handler.RegisterModule(NewInventorySecurityModule())
 		}
+		if moduleSettings.Pathfinding {
+			handler.RegisterModule(NewPathfindingModule())
+		}
 
 		return &proxy.Handler{
 			Name:           "C7 Client",

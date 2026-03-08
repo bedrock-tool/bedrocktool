@@ -63,5 +63,6 @@ func (b *BaseModule) Cleanup() {
 type ModuleSettings struct {
 	PlayerTracking     bool `opt:"Player Tracking" flag:"player-tracking" default:"true" desc:"Enable player tracking compass"`
 	InventorySecurity  bool `opt:"Inventory Security" flag:"inventory-security" default:"false" desc:"Enable inventory transaction security monitoring"`
+	Pathfinding        bool `opt:"Pathfinding" flag:"pathfinding" default:"false" desc:"Enable automated pathfinding and navigation"`
 	// Future modules can add their settings here
 }
