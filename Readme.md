@@ -1,9 +1,79 @@
 # C7 CLIENT
 a minecraft bedrock proxy that can among other things save worlds from servers
 
+**Now with Windows GUI Support!** 🎉
+
 <br/>
 
-## downloads:
+## 🚀 Quick Start
+
+### Windows GUI (Easiest - No Command Line!)
+
+```powershell
+# PowerShell (Recommended)
+.\build-windows-gui.ps1
+
+# Or Command Prompt
+build-windows-gui.bat
+```
+
+Your executable: `builds/c7client-gui-windows-amd64.exe`
+
+👉 [**→ 5 Minute Windows GUI Guide**](QUICKSTART_WINDOWS.md)
+
+### Command Line (Advanced)
+
+```bash
+c7client worlds -address play.example.com
+```
+
+<br/>
+
+## 📚 Documentation
+
+| Guide | Purpose |
+|-------|---------|
+| [Quick Start Windows](QUICKSTART_WINDOWS.md) | Get running in 5 minutes |
+| [Windows Build Guide](WINDOWS_GUI_BUILD.md) | Detailed build instructions |
+| [Build & Distribution](BUILD_AND_DISTRIBUTION.md) | Building and sharing |
+| [Player Tracking](PLAYER_TRACKING.md) | Track players feature |
+| [C7 Framework](C7_FRAMEWORK.md) | Developer framework |
+
+<br/>
+
+## ✨ Features
+
+### Windows GUI Application
+✅ Modern graphical interface  
+✅ Easy server connection setup  
+✅ Real-time status updates  
+✅ All utilities accessible  
+✅ Standalone executable (no installation)  
+✅ Runs on Windows 7+
+
+### C7 CLIENT - Modular Utilities
+✅ **Player Tracking**
+  - Real-time player positions
+  - Distance information
+  - Cardinal direction display
+  
+✅ **Extensible Framework**
+  - Easy to add new modules
+  - Enable/disable modules
+  - Clean architecture
+
+### Other Features
+✅ **Worlds** - Download and save worlds  
+✅ **Skins** - Download player skins  
+✅ **Packs** - Download resource packs  
+✅ **Chat Logging** - Log server chat  
+✅ **Packet Capture** - Analyze network traffic  
+✅ **And more...**
+
+<br/>
+
+## 📥 Downloads
+
 ### [here](https://github.com/bedrock-tool/bedrocktool/releases)
 
 <br/>
@@ -41,3 +111,79 @@ C7 Client Features:
   
   Example: c7client c7 -address play.server.com -player-tracking=true
 ```
+
+## 🎮 Running the App
+
+### Windows GUI
+
+1. Download the executable from **Releases** or build it yourself
+2. Double-click `c7client-gui-windows-amd64.exe`
+3. Select a utility feature
+4. Enter server address
+5. Click Connect!
+
+### Command Line
+
+```bash
+# Player Tracking
+c7client c7 -address play.yourserver.com -player-tracking=true
+
+# Download World
+c7client worlds -address play.yourserver.com
+
+# Download Skins
+c7client skins -address play.yourserver.com
+```
+
+## 🔧 Commands (In-Game)
+
+After connecting to a server:
+
+```
+/list-players         # See all online players
+/track <name>         # Track a specific player
+/track-info           # Show tracked player info
+/untrack              # Stop tracking
+```
+
+## 📖 Getting Help
+
+- **[Windows Build Issues?](WINDOWS_GUI_BUILD.md#troubleshooting)** - Common solutions
+- **[Player Tracking Questions?](PLAYER_TRACKING.md)** - Feature guide
+- **[Want to Extend?](C7_FRAMEWORK.md)** - Developer guide
+- **[Report a Bug](https://github.com/bedrock-tool/bedrocktool/issues)** - GitHub Issues
+
+## ⭐ System Requirements
+
+| Component | Minimum | Recommended |
+|-----------|---------|-------------|
+| OS | Windows 7 SP1 | Windows 10/11 |
+| RAM | 512 MB | 2 GB |
+| Storage | 100 MB | 500 MB |
+| Display | VGA | Full HD |
+| Internet | Required | Broadband |
+
+## ⚖️ License
+
+See [LICENSE](LICENSE) file for details.
+
+## 🤝 Contributing
+
+Contributions welcome! Please:
+- Fork the repository
+- Create a feature branch
+- Test your changes
+- Submit a pull request
+
+## 📝 Notes
+
+- This is a proxy tool - it connects you to game servers
+- Requires valid Xbox/Microsoft account for some features
+- Respects Minecraft EULA and server terms of service
+- No affiliation with Mojang Studios or Microsoft
+
+---
+
+**Made with ❤️ for the Minecraft Community**
+
+*Last Updated: March 8, 2026*
