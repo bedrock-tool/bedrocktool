@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/utils/proxy"
 	"github.com/go-gl/mathgl/mgl32"
+	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 )
 
@@ -120,6 +122,23 @@ func (m *PathfindingModule) OnConnect(session *proxy.Session) error {
 	m.log("  /goto <x> <y> <z> - Navigate to coordinates")
 	m.log("  /stop - Stop navigation")
 	m.log("  /path-status - Show navigation status")
+
+	session.AddCommand(func(args []string) bool {
+		return m.HandleCommand("goto", args)
+	}, protocol.Command{
+		Name:        "goto",
+		Description: "Navigate to coordinates",
+		Overloads: []protocol.CommandOverload{
+			{
+				Parameters: []protocol.CommandParameter{
+					{Name: "x", Type: protocol.CommandArgTypeFloat},
+					{Name: "y", Type: protocol.CommandArgTypeFloat},
+					{Name: "z", Type: protocol.CommandArgTypeFloat},
+				},
+			},
+		},
+	})
+
 	return nil
 }
 
@@ -169,13 +188,25 @@ func (m *PathfindingModule) HandleCommand(cmd string, args []string) bool {
 	case "goto":
 		if len(args) < 3 {
 			m.log("Usage: /goto <x> <y> <z>")
+			if m.session != nil {
+				m.session.SendMessage("§eUsage: /goto <x> <y> <z>")
+			}
 			return true
 		}
-		var x, y, z float64
-		fmt.Sscanf(args[0], "%f", &x)
-		fmt.Sscanf(args[1], "%f", &y)
-		fmt.Sscanf(args[2], "%f", &z)
+		x, errX := strconv.ParseFloat(args[0], 64)
+		y, errY := strconv.ParseFloat(args[1], 64)
+		z, errZ := strconv.ParseFloat(args[2], 64)
+		if errX != nil || errY != nil || errZ != nil {
+			m.log("Usage: /goto <x> <y> <z>")
+			if m.session != nil {
+				m.session.SendMessage("§cInvalid coordinates. Usage: /goto <x> <y> <z>")
+			}
+			return true
+		}
 		m.navigateTo(mgl32.Vec3{float32(x), float32(y), float32(z)})
+		if m.session != nil {
+			m.session.SendMessage(fmt.Sprintf("§aNavigating to: §f%.1f %.1f %.1f", x, y, z))
+		}
 		return true
 
 	case "stop":
