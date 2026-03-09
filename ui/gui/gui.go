@@ -204,6 +204,7 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelCauseFunc) (err er
 	g.window.Option(app.Size(800, 700))
 	g.window.Option(app.MinSize(600, 700))
 
+	go updater.UpdateCheck(g)
 	if !utils.IsDebug() {
 		go updater.AutoUpdateOnLaunch(g)
 	}

@@ -35,6 +35,7 @@ func printCommands() {
 
 func (c *CLI) Start(ctx context.Context, cancel context.CancelCauseFunc) error {
 	auth.Auth.SetHandler(nil)
+	go updater.UpdateCheck(c)
 	if !utils.IsDebug() {
 		go updater.AutoUpdateOnLaunch(c)
 	}

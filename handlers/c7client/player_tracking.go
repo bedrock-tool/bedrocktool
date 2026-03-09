@@ -1,13 +1,19 @@
 package c7client
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"image"
 	"image/color"
+	"io"
 	"math"
+	"net/http"
+	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/bedrock-tool/bedrocktool/utils/proxy"
 	"github.com/go-gl/mathgl/mgl32"
@@ -24,6 +30,7 @@ type PlayerTrackingModule struct {
 	ctx     context.Context
 	handler *C7Handler
 	log     *logrus.Entry
+	session *proxy.Session
 
 	// Player tracking
 	mu              sync.RWMutex
@@ -34,6 +41,13 @@ type PlayerTrackingModule struct {
 
 	// Map overlay
 	mapOverlay *MapOverlay
+
+	// Discord webhook reporting
+	webhookURL  string
+	httpClient  *http.Client
+	webhookMu   sync.Mutex
+	webhookStop chan struct{}
+	webhookWG   sync.WaitGroup
 }
 
 // TrackedPlayer represents a player being tracked
@@ -44,10 +58,12 @@ type TrackedPlayer struct {
 	EntityID uint64
 }
 
-func NewPlayerTrackingModule() *PlayerTrackingModule {
+func NewPlayerTrackingModule(webhookURL string) *PlayerTrackingModule {
 	return &PlayerTrackingModule{
-		players: make(map[uuid.UUID]*TrackedPlayer),
-		log:     logrus.WithField("module", "PlayerTracking"),
+		players:    make(map[uuid.UUID]*TrackedPlayer),
+		log:        logrus.WithField("module", "PlayerTracking"),
+		webhookURL: strings.TrimSpace(webhookURL),
+		httpClient: &http.Client{Timeout: 10 * time.Second},
 	}
 }
 
@@ -68,12 +84,15 @@ func (m *PlayerTrackingModule) Init(ctx context.Context, handler *C7Handler) err
 }
 
 func (m *PlayerTrackingModule) OnSessionStart(session *proxy.Session) error {
+	m.session = session
 	m.log.Info("Player tracking session started")
 	return nil
 }
 
 func (m *PlayerTrackingModule) OnConnect(session *proxy.Session) error {
 	m.log.Info("Player tracking connected")
+	m.session = session
+	m.startWebhookReporter()
 
 	// Register commands
 	session.AddCommand(func(args []string) bool {
@@ -208,6 +227,141 @@ func (m *PlayerTrackingModule) OnConnect(session *proxy.Session) error {
 	return nil
 }
 
+type discordWebhookPayload struct {
+	Content string `json:"content"`
+}
+
+func (m *PlayerTrackingModule) startWebhookReporter() {
+	if m.webhookURL == "" {
+		return
+	}
+
+	m.webhookMu.Lock()
+	defer m.webhookMu.Unlock()
+
+	if m.webhookStop != nil {
+		return
+	}
+
+	stop := make(chan struct{})
+	m.webhookStop = stop
+	m.webhookWG.Add(1)
+
+	go func() {
+		defer m.webhookWG.Done()
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+
+		m.log.Info("Discord webhook reporting enabled (30s)")
+		for {
+			select {
+			case <-m.ctx.Done():
+				return
+			case <-stop:
+				return
+			case <-ticker.C:
+				if err := m.sendWebhookSnapshot(); err != nil {
+					m.log.Warnf("webhook send failed: %v", err)
+				}
+			}
+		}
+	}()
+}
+
+func (m *PlayerTrackingModule) stopWebhookReporter() {
+	m.webhookMu.Lock()
+	stop := m.webhookStop
+	if stop == nil {
+		m.webhookMu.Unlock()
+		return
+	}
+	m.webhookStop = nil
+	close(stop)
+	m.webhookMu.Unlock()
+
+	m.webhookWG.Wait()
+}
+
+func (m *PlayerTrackingModule) sendWebhookSnapshot() error {
+	content := m.buildPlayerCoordinateLog()
+	payload, err := json.Marshal(discordWebhookPayload{Content: content})
+	if err != nil {
+		return fmt.Errorf("marshal payload: %w", err)
+	}
+
+	req, err := http.NewRequest(http.MethodPost, m.webhookURL, bytes.NewReader(payload))
+	if err != nil {
+		return fmt.Errorf("build request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := m.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("post webhook: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		return fmt.Errorf("discord webhook status %d: %s", resp.StatusCode, strings.TrimSpace(string(respBody)))
+	}
+
+	return nil
+}
+
+func (m *PlayerTrackingModule) buildPlayerCoordinateLog() string {
+	type playerSnapshot struct {
+		Username string
+		Position mgl32.Vec3
+	}
+
+	localRuntimeID := uint64(0)
+	if m.session != nil {
+		localRuntimeID = m.session.Player.RuntimeID
+	}
+
+	m.mu.RLock()
+	snapshots := make([]playerSnapshot, 0, len(m.players))
+	for _, p := range m.players {
+		if p == nil {
+			continue
+		}
+		if localRuntimeID != 0 && p.EntityID == localRuntimeID {
+			continue
+		}
+		if strings.TrimSpace(p.Username) == "" {
+			continue
+		}
+		snapshots = append(snapshots, playerSnapshot{
+			Username: p.Username,
+			Position: p.Position,
+		})
+	}
+	m.mu.RUnlock()
+
+	sort.Slice(snapshots, func(i, j int) bool {
+		return strings.ToLower(snapshots[i].Username) < strings.ToLower(snapshots[j].Username)
+	})
+
+	if len(snapshots) == 0 {
+		return "Player tracker update: no other players online."
+	}
+
+	var b strings.Builder
+	b.WriteString("Player tracker update (other players):\n")
+
+	for _, p := range snapshots {
+		line := fmt.Sprintf("- %s: x=%.1f y=%.1f z=%.1f\n", p.Username, p.Position.X(), p.Position.Y(), p.Position.Z())
+		if b.Len()+len(line) > 1900 {
+			b.WriteString("- ...truncated (too many players)")
+			break
+		}
+		b.WriteString(line)
+	}
+
+	return strings.TrimSpace(b.String())
+}
+
 func (m *PlayerTrackingModule) PacketCallback(pk packet.Packet, toServer bool, session *proxy.Session) (packet.Packet, error) {
 	switch pk := pk.(type) {
 	case *packet.AddPlayer:
@@ -300,10 +454,13 @@ func (m *PlayerTrackingModule) removePlayer(playerID uuid.UUID) {
 }
 
 func (m *PlayerTrackingModule) OnSessionEnd(session *proxy.Session) {
+	m.stopWebhookReporter()
 	m.log.Info("Player tracking session ended")
 }
 
 func (m *PlayerTrackingModule) Cleanup() {
+	m.stopWebhookReporter()
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
