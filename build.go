@@ -643,30 +643,9 @@ func main() {
 	log.Printf("Pack Support Enabled: %t", buildCfg.PackSupportEnabled)
 
 	allBuilds := []Build{
-		// Desktop GUI builds
+		// Windows desktop builds (Windows PC only)
 		{"windows", "amd64", "gui"},
-		{"linux", "amd64", "gui"},
-		//{"android", "arm64", "gui"},
-		{"darwin", "amd64", "gui"},
-		{"darwin", "arm64", "gui"},
-
-		// Desktop CLI builds
 		{"windows", "amd64", "cli"},
-		{"linux", "amd64", "cli"},
-		{"linux", "arm64", "cli"},
-		{"linux", "arm", "cli"},
-		{"darwin", "amd64", "cli"},
-		{"darwin", "arm64", "cli"},
-
-		// Desktop LIB builds
-		//{"windows", "amd64", "lib"},
-		//{"linux", "amd64", "lib"},
-
-		// Android Library builds
-		//{"android", "arm64", "lib"},
-		//{"android", "arm", "lib"},
-
-		// {"wasm", "wasm", true},
 	}
 
 	buildsToRun := allBuilds

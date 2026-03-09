@@ -21,7 +21,7 @@ jobs:
 
       - uses: awalsh128/cache-apt-pkgs-action@latest
         with:
-          packages: git-crypt xxd gcc pkg-config libwayland-dev libx11-dev libx11-xcb-dev libxkbcommon-dev libxkbcommon-x11-dev libgles2-mesa-dev libegl1-mesa-dev libffi-dev libxcursor-dev libvulkan-dev
+          packages: git-crypt xxd
           version: 1.0
 
       - name: Setup Golang with cache
@@ -55,7 +55,7 @@ jobs:
       - name: build
         id: build
         run: |
-          go run ./build.go windows,linux gui,cli
+          go run ./build.go windows gui,cli
 
       - name: Deploy with rsync
         if: ${{ env.SSH_HOST != '' }}
