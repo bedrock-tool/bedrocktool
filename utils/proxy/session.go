@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net"
 	"reflect"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -751,11 +752,31 @@ func (s *Session) blobPacketsFromClient(pk packet.Packet) (forward bool, err err
 func (s *Session) commandHandlerPacketCB(pk packet.Packet, _ bool, _ time.Time, _ bool) (packet.Packet, error) {
 	switch _pk := pk.(type) {
 	case *packet.CommandRequest:
-		cmd := strings.Split(_pk.CommandLine, " ")
-		name := cmd[0][1:]
+		line := strings.TrimSpace(_pk.CommandLine)
+		if line == "" {
+			return pk, nil
+		}
+		cmd := strings.Fields(line)
+		if len(cmd) == 0 {
+			return pk, nil
+		}
+
+		name := strings.TrimPrefix(cmd[0], "/")
+		if name == "" {
+			return pk, nil
+		}
+
 		if h, ok := s.commands[name]; ok {
 			pk = nil
-			h.Exec(cmd[1:])
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						logrus.Errorf("panic while executing command '%s': %v\n%s", name, r, string(debug.Stack()))
+						s.SendMessage("§cCommand crashed internally. Please try again.")
+					}
+				}()
+				h.Exec(cmd[1:])
+			}()
 		}
 	case *packet.AvailableCommands:
 		cmds := make([]protocol.Command, 0, len(s.commands))

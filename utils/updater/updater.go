@@ -184,6 +184,7 @@ type Update struct {
 
 var updateAvailable *Update
 var updateAvailableMutex sync.Mutex
+var autoUpdateOnce sync.Once
 
 func UpdateAvailable() (*Update, error) {
 	updateAvailableMutex.Lock()
@@ -239,4 +240,28 @@ func UpdateCheck(ui ui.UI) {
 			Version: update.Version,
 		})
 	}
+}
+
+func AutoUpdateOnLaunch(ui ui.UI) {
+	autoUpdateOnce.Do(func() {
+		update, err := UpdateAvailable()
+		if err != nil {
+			logrus.Warn(err)
+			return
+		}
+
+		if update.Version == utils.Version {
+			return
+		}
+
+		logrus.Info(locale.Loc("updating", locale.Strmap{"Version": update.Version}))
+		if err := DoUpdate(); err != nil {
+			logrus.Warnf("automatic update failed: %v", err)
+			// Keep the existing manual update path available if auto-update fails.
+			messages.SendEvent(&messages.EventUpdateAvailable{Version: update.Version})
+			return
+		}
+
+		logrus.Info(locale.Loc("updated", nil))
+	})
 }

@@ -20,18 +20,18 @@ import (
 // PlayerTrackingModule tracks other players and displays a compass
 type PlayerTrackingModule struct {
 	BaseModule
-	
+
 	ctx     context.Context
 	handler *C7Handler
 	log     *logrus.Entry
-	
+
 	// Player tracking
 	mu              sync.RWMutex
 	players         map[uuid.UUID]*TrackedPlayer
 	trackedPlayerID uuid.UUID
 	trackedUsername string
 	trackingEnabled bool
-	
+
 	// Map overlay
 	mapOverlay *MapOverlay
 }
@@ -74,16 +74,19 @@ func (m *PlayerTrackingModule) OnSessionStart(session *proxy.Session) error {
 
 func (m *PlayerTrackingModule) OnConnect(session *proxy.Session) error {
 	m.log.Info("Player tracking connected")
-	
+
 	// Register commands
 	session.AddCommand(func(args []string) bool {
 		var playersList []string
 		m.mu.RLock()
 		for _, p := range m.players {
+			if p == nil {
+				continue
+			}
 			playersList = append(playersList, p.Username)
 		}
 		m.mu.RUnlock()
-		
+
 		if len(playersList) == 0 {
 			session.SendMessage("§cNo other players online")
 		} else {
@@ -94,18 +97,25 @@ func (m *PlayerTrackingModule) OnConnect(session *proxy.Session) error {
 		Name:        "list-players",
 		Description: "List all players on the server",
 	})
-	
+
 	session.AddCommand(func(args []string) bool {
 		if len(args) == 0 {
 			session.SendMessage("§eUsage: /track <player_name>")
 			return true
 		}
-		
-		targetName := strings.Join(args, " ")
+
+		targetName := strings.TrimSpace(strings.Join(args, " "))
+		if targetName == "" {
+			session.SendMessage("§eUsage: /track <player_name>")
+			return true
+		}
 		found := false
-		
+
 		m.mu.Lock()
 		for id, p := range m.players {
+			if p == nil {
+				continue
+			}
 			if strings.EqualFold(p.Username, targetName) {
 				m.trackedPlayerID = id
 				m.trackedUsername = p.Username
@@ -118,7 +128,7 @@ func (m *PlayerTrackingModule) OnConnect(session *proxy.Session) error {
 			}
 		}
 		m.mu.Unlock()
-		
+
 		if !found {
 			session.SendMessage(fmt.Sprintf("§cPlayer '%s' not found. Use /list-players to see available players.", targetName))
 		}
@@ -138,7 +148,7 @@ func (m *PlayerTrackingModule) OnConnect(session *proxy.Session) error {
 			},
 		},
 	})
-	
+
 	session.AddCommand(func(args []string) bool {
 		m.mu.Lock()
 		wasTracking := m.trackingEnabled
@@ -147,7 +157,7 @@ func (m *PlayerTrackingModule) OnConnect(session *proxy.Session) error {
 		m.trackedPlayerID = uuid.Nil
 		m.trackedUsername = ""
 		m.mu.Unlock()
-		
+
 		if wasTracking {
 			session.SendMessage(fmt.Sprintf("§aStopped tracking §f%s", trackedName))
 			m.log.Infof("Stopped tracking %s", trackedName)
@@ -159,32 +169,32 @@ func (m *PlayerTrackingModule) OnConnect(session *proxy.Session) error {
 		Name:        "untrack",
 		Description: "Stop tracking the current player",
 	})
-	
+
 	session.AddCommand(func(args []string) bool {
 		m.mu.RLock()
 		defer m.mu.RUnlock()
-		
+
 		if !m.trackingEnabled {
 			session.SendMessage("§cNot tracking anyone")
 			return true
 		}
-		
+
 		if tracked, ok := m.players[m.trackedPlayerID]; ok {
 			playerPos := session.Player.Position
 			dx := tracked.Position.X() - playerPos.X()
 			dz := tracked.Position.Z() - playerPos.Z()
 			distance := math.Sqrt(float64(dx*dx + dz*dz))
-			
+
 			// Calculate direction
 			angle := math.Atan2(float64(dx), float64(-dz))
 			degrees := angle * 180 / math.Pi
 			if degrees < 0 {
 				degrees += 360
 			}
-			
+
 			direction := getDirection(degrees)
-			
-			session.SendMessage(fmt.Sprintf("§aTracking: §f%s §7| §aDistance: §f%.1fm §7| §aDirection: §f%s", 
+
+			session.SendMessage(fmt.Sprintf("§aTracking: §f%s §7| §aDistance: §f%.1fm §7| §aDirection: §f%s",
 				tracked.Username, distance, direction))
 		} else {
 			session.SendMessage("§cTracked player not found")
@@ -194,7 +204,7 @@ func (m *PlayerTrackingModule) OnConnect(session *proxy.Session) error {
 		Name:        "track-info",
 		Description: "Show information about tracked player",
 	})
-	
+
 	return nil
 }
 
@@ -202,10 +212,10 @@ func (m *PlayerTrackingModule) PacketCallback(pk packet.Packet, toServer bool, s
 	switch pk := pk.(type) {
 	case *packet.AddPlayer:
 		m.addPlayer(pk)
-		
+
 	case *packet.MovePlayer:
 		m.updatePlayerPosition(pk.EntityRuntimeID, pk.Position)
-		
+
 	case *packet.PlayerList:
 		if pk.ActionType == packet.PlayerListActionAdd {
 			for _, entry := range pk.Entries {
@@ -226,7 +236,7 @@ func (m *PlayerTrackingModule) PacketCallback(pk packet.Packet, toServer bool, s
 				m.removePlayer(entry.UUID)
 			}
 		}
-		
+
 	case *packet.RemoveActor:
 		// Check if it's a player entity
 		m.mu.Lock()
@@ -243,14 +253,14 @@ func (m *PlayerTrackingModule) PacketCallback(pk packet.Packet, toServer bool, s
 		}
 		m.mu.Unlock()
 	}
-	
+
 	return pk, nil
 }
 
 func (m *PlayerTrackingModule) addPlayer(pk *packet.AddPlayer) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	player := &TrackedPlayer{
 		UUID:     pk.UUID,
 		Username: pk.Username,
@@ -264,7 +274,7 @@ func (m *PlayerTrackingModule) addPlayer(pk *packet.AddPlayer) {
 func (m *PlayerTrackingModule) updatePlayerPosition(entityID uint64, position mgl32.Vec3) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	for _, p := range m.players {
 		if p.EntityID == entityID {
 			p.Position = position
@@ -276,11 +286,11 @@ func (m *PlayerTrackingModule) updatePlayerPosition(entityID uint64, position mg
 func (m *PlayerTrackingModule) removePlayer(playerID uuid.UUID) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	if player, ok := m.players[playerID]; ok {
 		m.log.Debugf("Removed player: %s", player.Username)
 		delete(m.players, playerID)
-		
+
 		if playerID == m.trackedPlayerID {
 			m.trackingEnabled = false
 			m.trackedPlayerID = uuid.Nil
@@ -296,7 +306,7 @@ func (m *PlayerTrackingModule) OnSessionEnd(session *proxy.Session) {
 func (m *PlayerTrackingModule) Cleanup() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	m.players = make(map[uuid.UUID]*TrackedPlayer)
 	m.trackingEnabled = false
 	m.log.Info("Player tracking cleaned up")
@@ -305,7 +315,7 @@ func (m *PlayerTrackingModule) Cleanup() {
 // Helper function to get cardinal direction from degrees
 func getDirection(degrees float64) string {
 	directions := []string{"N", "NE", "E", "SE", "S", "SW", "W", "NW"}
-	index := int((degrees + 22.5) / 45) % 8
+	index := int((degrees+22.5)/45) % 8
 	return directions[index]
 }
 
@@ -322,32 +332,32 @@ func NewMapOverlay() *MapOverlay {
 func (o *MapOverlay) DrawCompass(img *image.RGBA, playerPos, targetPos mgl32.Vec3, playerName string) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
-	
+
 	// Calculate direction vector
 	dx := float64(targetPos.X() - playerPos.X())
 	dz := float64(targetPos.Z() - playerPos.Z())
 	distance := math.Sqrt(dx*dx + dz*dz)
-	
+
 	// Draw compass in the top right corner
 	centerX := img.Bounds().Max.X - 20
 	centerY := 20
-	
+
 	// Calculate angle
 	angle := math.Atan2(dx, -dz)
-	
+
 	// Draw compass circle
 	drawCircle(img, centerX, centerY, 15, color.RGBA{50, 50, 50, 200})
-	
+
 	// Draw cardinal directions
 	drawLine(img, centerX, centerY-12, centerX, centerY-15, color.RGBA{200, 200, 200, 255})
-	
+
 	// Draw arrow pointing to target
 	arrowLength := 10.0
 	arrowX := centerX + int(arrowLength*math.Sin(angle))
 	arrowY := centerY - int(arrowLength*math.Cos(angle))
-	
+
 	drawLine(img, centerX, centerY, arrowX, arrowY, color.RGBA{255, 50, 50, 255})
-	
+
 	// Draw distance text
 	distText := fmt.Sprintf("%s: %.0fm", playerName, distance)
 	drawText(img, distText, img.Bounds().Max.X-len(distText)*6-5, img.Bounds().Max.Y-10, color.RGBA{255, 255, 255, 255})
@@ -380,16 +390,16 @@ func drawLine(img *image.RGBA, x0, y0, x1, y1 int, col color.RGBA) {
 		sy = 1
 	}
 	err := dx - dy
-	
+
 	for {
 		if x0 >= 0 && x0 < img.Bounds().Max.X && y0 >= 0 && y0 < img.Bounds().Max.Y {
 			img.SetRGBA(x0, y0, col)
 		}
-		
+
 		if x0 == x1 && y0 == y1 {
 			break
 		}
-		
+
 		e2 := 2 * err
 		if e2 > -dy {
 			err -= dy
