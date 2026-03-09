@@ -103,7 +103,8 @@ function Build-GUI {
 
 # Main build
 Write-Host "Building C7 CLIENT GUI for Windows ($Architecture)...`n"
-$Success = Build-GUI $Architecture "builds/c7client-gui-windows-$Architecture.exe"
+$OutputFile = if ($Architecture -eq "amd64") { "builds/C7 Proxy Client.exe" } else { "builds/c7client-gui-windows-$Architecture.exe" }
+$Success = Build-GUI $Architecture $OutputFile
 
 if (-not $Success) {
     exit 1
@@ -126,6 +127,10 @@ Get-ChildItem "builds/c7client-gui-windows-*.exe" -ErrorAction SilentlyContinue 
     $Size = [math]::Round($_.Length / 1MB, 2)
     Write-Host "  • $($_.Name) ($Size MB)" -ForegroundColor Green
 }
+if (Test-Path "builds/C7 Proxy Client.exe") {
+    $MainSize = [math]::Round((Get-Item "builds/C7 Proxy Client.exe").Length / 1MB, 2)
+    Write-Host "  • C7 Proxy Client.exe ($MainSize MB)" -ForegroundColor Green
+}
 
 Write-Host "`nBuild Information:`n"
 Write-Host "  • Platform: Windows"
@@ -140,7 +145,7 @@ Write-Host "  • Real-time position updates"
 Write-Host "  • Distance and direction display"
 
 Write-Host "`nNext Steps:`n"
-Write-Host "  1. Run the executable: .\builds\c7client-gui-windows-amd64.exe" -ForegroundColor Cyan
+Write-Host "  1. Run the executable: .\builds\C7 Proxy Client.exe" -ForegroundColor Cyan
 Write-Host "  2. Select a utility feature from the menu" -ForegroundColor Cyan
 Write-Host "  3. Configure server connection" -ForegroundColor Cyan
 Write-Host "  4. Connect and enjoy!" -ForegroundColor Cyan

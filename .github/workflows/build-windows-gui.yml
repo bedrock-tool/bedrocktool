@@ -95,27 +95,28 @@ jobs:
         run: |
           export PATH="$(go env GOPATH)/bin:$PATH"
           mkdir -p builds
+          OUTPUT_EXE="builds/C7 Proxy Client.exe"
           gogio \
             -arch amd64 \
             -target windows \
             -tags gui \
             -version "${{ steps.meta.outputs.gogio_version }}" \
             -icon icon.png \
-            -o "builds/c7client-gui-windows-amd64.exe" \
+            -o "$OUTPUT_EXE" \
             ./cmd/bedrocktool
           
           # Verify build output
-          if [ ! -f "builds/c7client-gui-windows-amd64.exe" ]; then
+          if [ ! -f "$OUTPUT_EXE" ]; then
             echo "ERROR: Executable file not created!"
             exit 1
           fi
           
-          ls -lh builds/c7client-gui-windows-amd64.exe
+          ls -lh "$OUTPUT_EXE"
 
       - name: Create Checksums
         run: |
           cd builds
-          sha256sum c7client-gui-windows-amd64.exe > checksums.txt
+          sha256sum "C7 Proxy Client.exe" > checksums.txt
           cat checksums.txt
 
       - name: Create Release Notes
@@ -126,7 +127,7 @@ jobs:
 
           ## Installation
 
-          1. Download `c7client-gui-windows-amd64.exe`
+          1. Download `C7 Proxy Client.exe`
           2. Double-click to run (no installation needed)
           3. Configure your Bedrock server connection
 
@@ -185,7 +186,7 @@ jobs:
           tag_name: ${{ steps.meta.outputs.tag }}
           name: ${{ steps.meta.outputs.tag }}
           files: |
-            builds/c7client-gui-windows-amd64.exe
+            builds/C7 Proxy Client.exe
             builds/checksums.txt
           body_path: release_notes.md
           draft: false
@@ -198,7 +199,7 @@ jobs:
           echo "=== Build Complete ==="
           echo "Release tag: ${{ steps.meta.outputs.tag }}"
           echo "Build version: ${{ steps.meta.outputs.gogio_version }}"
-          echo "Executable: builds/c7client-gui-windows-amd64.exe"
+          echo "Executable: builds/C7 Proxy Client.exe"
           ls -lh builds/
           echo ""
           echo "The executable has been uploaded to the GitHub release."

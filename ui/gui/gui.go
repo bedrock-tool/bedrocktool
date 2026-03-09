@@ -4,15 +4,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"image"
 	"image/color"
+	"image/png"
 	"net/url"
 	"os"
+	"path/filepath"
 	"time"
 
 	"gioui.org/app"
+	"gioui.org/f32"
 	"gioui.org/font/gofont"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -44,12 +50,14 @@ type GUI struct {
 
 	accountName string
 
-	router    *pages.Router
-	logger    logger
-	theme     *material.Theme
-	window    app.Window
-	explorer  *explorer.Explorer
-	hyperlink *hyperlink.Hyperlink
+	router     *pages.Router
+	logger     logger
+	theme      *material.Theme
+	bgImageOp  paint.ImageOp
+	hasBgImage bool
+	window     app.Window
+	explorer   *explorer.Explorer
+	hyperlink  *hyperlink.Hyperlink
 }
 
 var _ guim.Guim = &GUI{}
@@ -90,21 +98,90 @@ func (g *GUI) Init() error {
 	}
 	g.theme = th
 
+	if err := g.loadBackgroundImage(); err != nil {
+		logrus.Warnf("failed to load icon background: %v", err)
+	}
+
 	return nil
 }
 
 var paletteLight = material.Palette{
 	Bg:         color.NRGBA{0xff, 0xff, 0xff, 0xff},
 	Fg:         color.NRGBA{0x12, 0x12, 0x12, 0xff},
-	ContrastBg: color.NRGBA{142, 49, 235, 0xff},
-	ContrastFg: color.NRGBA{0x00, 0x00, 0x00, 0xff},
+	ContrastBg: color.NRGBA{0x00, 0x00, 0x00, 0xff},
+	ContrastFg: color.NRGBA{0xff, 0xff, 0xff, 0xff},
 }
 
 var paletteDark = material.Palette{
 	Bg:         color.NRGBA{0x12, 0x12, 0x12, 0xff},
 	Fg:         color.NRGBA{227, 227, 227, 0xff},
-	ContrastBg: color.NRGBA{142, 49, 235, 0xff},
-	ContrastFg: color.NRGBA{227, 227, 227, 0xff},
+	ContrastBg: color.NRGBA{0x00, 0x00, 0x00, 0xff},
+	ContrastFg: color.NRGBA{0xff, 0xff, 0xff, 0xff},
+}
+
+func (g *GUI) loadBackgroundImage() error {
+	paths := []string{"icon.png"}
+	if exePath, err := os.Executable(); err == nil {
+		paths = append(paths, filepath.Join(filepath.Dir(exePath), "icon.png"))
+	}
+
+	var loadErr error
+	for _, path := range paths {
+		f, err := os.Open(path)
+		if err != nil {
+			loadErr = err
+			continue
+		}
+		img, err := png.Decode(f)
+		_ = f.Close()
+		if err != nil {
+			loadErr = err
+			continue
+		}
+		op := paint.NewImageOp(img)
+		op.Filter = paint.FilterLinear
+		g.bgImageOp = op
+		g.hasBgImage = true
+		return nil
+	}
+
+	if loadErr == nil {
+		return errors.New("icon.png not found")
+	}
+	return loadErr
+}
+
+func (g *GUI) drawBackground(gtx layout.Context) layout.Dimensions {
+	size := gtx.Constraints.Max
+	if size.X <= 0 || size.Y <= 0 {
+		return layout.Dimensions{}
+	}
+
+	rect := image.Rectangle{Max: size}
+	if g.hasBgImage {
+		clipRect := clip.Rect(rect).Push(gtx.Ops)
+		imgSize := g.bgImageOp.Size()
+		if imgSize.X > 0 && imgSize.Y > 0 {
+			scaleX := float32(size.X) / float32(imgSize.X)
+			scaleY := float32(size.Y) / float32(imgSize.Y)
+			scale := scaleX
+			if scaleY > scale {
+				scale = scaleY
+			}
+
+			scaledW := float32(imgSize.X) * scale
+			scaledH := float32(imgSize.Y) * scale
+			offset := f32.Pt((float32(size.X)-scaledW)/2, (float32(size.Y)-scaledH)/2)
+
+			defer op.Affine(f32.Affine2D{}.Offset(offset).Scale(f32.Pt(0, 0), f32.Pt(scale, scale))).Push(gtx.Ops).Pop()
+			g.bgImageOp.Add(gtx.Ops)
+			paint.PaintOp{}.Add(gtx.Ops)
+		}
+		clipRect.Pop()
+	}
+
+	paint.FillShape(gtx.Ops, color.NRGBA{0x00, 0x00, 0x00, 0xb0}, clip.Rect(rect).Op())
+	return layout.Dimensions{Size: size}
 }
 
 func (g *GUI) Start(ctx context.Context, cancel context.CancelCauseFunc) (err error) {
@@ -123,7 +200,7 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelCauseFunc) (err er
 	logrus.AddHook(&g.logger)
 
 	settings.AddressInput.SetGuim(g)
-	g.window.Option(app.Title(fmt.Sprintf("Bedrocktool %s (Minecraft %s)", utils.Version, protocol.CurrentVersion)))
+	g.window.Option(app.Title(fmt.Sprintf("%s %s (Minecraft %s)", utils.DisplayName, utils.Version, protocol.CurrentVersion)))
 	g.window.Option(app.Size(800, 700))
 	g.window.Option(app.MinSize(600, 700))
 
@@ -182,7 +259,14 @@ func (g *GUI) loop() error {
 			//event.Metric = unit.Metric{PxPerDp: 2.625, PxPerSp: 2.625}
 			gtx := app.NewContext(&ops, event)
 			g.router.Tick(gtx.Now)
-			g.router.Layout(gtx, g.theme)
+			layout.Stack{}.Layout(gtx,
+				layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+					return g.drawBackground(gtx)
+				}),
+				layout.Expanded(func(gtx layout.Context) layout.Dimensions {
+					return g.router.Layout(gtx, g.theme)
+				}),
+			)
 			event.Frame(gtx.Ops)
 
 		case app.ViewEvent:

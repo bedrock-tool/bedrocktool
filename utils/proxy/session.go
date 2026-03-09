@@ -104,7 +104,7 @@ func (s *Session) ClientWritePacket(pk packet.Packet) error {
 func (s *Session) SendMessage(text string) {
 	_ = s.ClientWritePacket(&packet.Text{
 		TextType: packet.TextTypeSystem,
-		Message:  "§8[§bBedrocktool§8]§r " + text,
+		Message:  "§8[§b" + utils.DisplayName + "§8]§r " + text,
 	})
 }
 
@@ -483,7 +483,7 @@ func (s *Session) connectClient(ctx context.Context, rpHandler *resourcepacks.Re
 	s.listener, err = minecraft.ListenConfig{
 		AuthenticationDisabled: true,
 		AllowUnknownPackets:    true,
-		StatusProvider:         minecraft.NewStatusProvider(fmt.Sprintf("%s Proxy", serverName), "Bedrocktool"),
+		StatusProvider:         minecraft.NewStatusProvider(fmt.Sprintf("%s Proxy", serverName), utils.DisplayName),
 		ErrorLog:               slog.Default(),
 		PacketFunc:             clientPacketFunc,
 		OnClientData: func(c *minecraft.Conn) {

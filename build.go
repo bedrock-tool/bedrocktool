@@ -339,7 +339,11 @@ func cliBuildCmd(buildTag string, build Build, ldflags, tags []string) (string, 
 
 func guiBuildCmd(buildTag string, build Build, ldflags, tags []string) (string, []string) {
 	outputFilename := fmt.Sprintf("c7client-gui-%s-%s-%s", build.OS, build.Arch, buildTag)
-	outputFilename += build.ExeExt()
+	if build.OS == "windows" {
+		outputFilename = "C7 Proxy Client.exe"
+	} else {
+		outputFilename += build.ExeExt()
+	}
 	outputPath := filepath.Join("builds", outputFilename)
 
 	if build.OS == "linux" {

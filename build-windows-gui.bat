@@ -61,10 +61,10 @@ if "!BUILDTAG!"=="" (
 REM Build GUI for Windows (64-bit)
 echo.
 echo Building C7 CLIENT GUI for Windows (64-bit)...
-echo Command: gogio -arch amd64 -target windows -tags gui -version 1.0.0 -icon icon.png -o builds/c7client-gui-windows-amd64.exe ./cmd/bedrocktool
+echo Command: gogio -arch amd64 -target windows -tags gui -version 1.0.0 -icon icon.png -o "builds/C7 Proxy Client.exe" ./cmd/bedrocktool
 echo.
 
-gogio -arch amd64 -target windows -tags gui -version 1.0.0 -icon icon.png -o "builds/c7client-gui-windows-amd64.exe" ./cmd/bedrocktool
+gogio -arch amd64 -target windows -tags gui -version 1.0.0 -icon icon.png -o "builds/C7 Proxy Client.exe" ./cmd/bedrocktool
 if errorlevel 1 (
     echo Error: Build failed
     exit /b 1
@@ -75,7 +75,7 @@ echo ============================================
 echo [SUCCESS] Build Complete!
 echo ============================================
 echo.
-echo Output: builds/c7client-gui-windows-amd64.exe
+echo Output: builds/C7 Proxy Client.exe
 echo.
 echo Build Information:
 echo   - Platform: Windows 64-bit
