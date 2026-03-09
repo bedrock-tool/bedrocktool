@@ -181,18 +181,23 @@ jobs:
           cat release_notes.md
 
       - name: Upload to Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ steps.meta.outputs.tag }}
-          name: ${{ steps.meta.outputs.tag }}
-          files: |
-            builds/C7 Proxy Client.exe
-            builds/checksums.txt
-          body_path: release_notes.md
-          draft: false
-          prerelease: ${{ steps.meta.outputs.prerelease }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.meta.outputs.tag }}"
+          PRERELEASE="${{ steps.meta.outputs.prerelease }}"
+
+          PRE_ARGS=()
+          if [[ "$PRERELEASE" == "true" ]]; then
+            PRE_ARGS=(--prerelease)
+          fi
+
+          if gh release view "$TAG" -R "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release upload "$TAG" "builds/C7 Proxy Client.exe" "builds/checksums.txt" -R "${{ github.repository }}" --clobber
+            gh release edit "$TAG" -R "${{ github.repository }}" --title "$TAG" --notes-file release_notes.md "${PRE_ARGS[@]}"
+          else
+            gh release create "$TAG" "builds/C7 Proxy Client.exe" "builds/checksums.txt" -R "${{ github.repository }}" --title "$TAG" --notes-file release_notes.md "${PRE_ARGS[@]}"
+          fi
 
       - name: Build Summary
         run: |
