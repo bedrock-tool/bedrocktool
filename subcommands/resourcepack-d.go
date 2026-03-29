@@ -3,12 +3,15 @@ package subcommands
 import (
 	"archive/zip"
 	"context"
+	"encoding/json"
+	"fmt"
 	"image"
 	"image/draw"
 	"image/png"
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -31,6 +34,7 @@ type ResourcePacksSettings struct {
 	SaveEncrypted bool `opt:"Save Encrypted" flag:"save-encrypted"`
 	OnlyKeys      bool `opt:"Only save keys" flag:"only-keys"`
 	Folders       bool `opt:"Write Folders" flag:"folders"`
+	NhanAZ        bool `opt:"Decrypt & extract (NhanAZ)" flag:"nhanaz"`
 }
 
 type ResourcePackCMD struct{}
@@ -45,6 +49,112 @@ func (ResourcePackCMD) Description() string {
 
 func (ResourcePackCMD) Settings() any {
 	return new(ResourcePacksSettings)
+}
+
+type packContent struct {
+	Content []struct {
+		Path string  `json:"path"`
+		Key  *string `json:"key"`
+	} `json:"content"`
+}
+
+// decryptPackToDir replicates the decryption flow:
+// 1) contents.json is AES-256-CFB8 encrypted after a 0x100-byte header using the pack content key.
+// 2) Each entry may have its own key; if absent the file is copied verbatim (JSON prettified when possible).
+// Non-encrypted files (or missing keys) are still copied, so the output folder is always complete.
+func decryptPackToDir(pack resource.Pack, outputDir string) error {
+	key := []byte(pack.ContentKey())
+	if len(key) != 32 {
+		return fmt.Errorf("content key must be 32 bytes, got %d", len(key))
+	}
+
+	f, err := pack.Open("contents.json")
+	if err != nil {
+		return fmt.Errorf("open contents.json: %w", err)
+	}
+	defer f.Close()
+
+	raw, err := io.ReadAll(f)
+	if err != nil {
+		return fmt.Errorf("read contents.json: %w", err)
+	}
+	if len(raw) <= 0x100 {
+		return fmt.Errorf("contents.json too small (%d bytes)", len(raw))
+	}
+
+	manifestBytes := append([]byte(nil), raw[0x100:]...)
+	utils.CfbDecrypt(manifestBytes, key)
+
+	var manifest packContent
+	if err := json.Unmarshal(manifestBytes, &manifest); err != nil {
+		return fmt.Errorf("parse contents.json: %w", err)
+	}
+
+	// Write decrypted contents.json back to output folder (prettified).
+	var prettyManifest []byte
+	if pm, err := json.MarshalIndent(manifest, "", "  "); err == nil {
+		prettyManifest = pm
+	} else {
+		prettyManifest = manifestBytes
+	}
+	if err := os.MkdirAll(outputDir, 0o775); err == nil {
+		_ = os.WriteFile(filepath.Join(outputDir, "contents.json"), prettyManifest, 0o664)
+	}
+
+	// sort and dedup paths
+	sort.Slice(manifest.Content, func(i, j int) bool { return manifest.Content[i].Path < manifest.Content[j].Path })
+	dedup := manifest.Content[:0]
+	for _, entry := range manifest.Content {
+		if len(dedup) > 0 && dedup[len(dedup)-1].Path == entry.Path {
+			continue
+		}
+		dedup = append(dedup, entry)
+	}
+	manifest.Content = dedup
+
+	for _, entry := range manifest.Content {
+		inputFile, err := pack.Open(entry.Path)
+		if err != nil {
+			continue // missing file, skip
+		}
+
+		data, err := io.ReadAll(inputFile)
+		inputFile.Close()
+		if err != nil {
+			return fmt.Errorf("read %s: %w", entry.Path, err)
+		}
+
+		if entry.Key != nil {
+			entryKey := []byte(*entry.Key)
+			if len(entryKey) != 32 {
+				logrus.Warnf("Expected key length 32, got %d for %s, skipping decrypt", len(entryKey), entry.Path)
+				continue
+			}
+			buf := append([]byte(nil), data...)
+			utils.CfbDecrypt(buf, entryKey)
+			data = buf
+		}
+
+		// pretty-print JSON when possible
+		if strings.HasSuffix(strings.ToLower(entry.Path), ".json") {
+			var v any
+			if err := json.Unmarshal(data, &v); err == nil {
+				data, _ = json.MarshalIndent(v, "", "  ")
+			}
+		}
+
+		outPath := filepath.Join(outputDir, entry.Path)
+		if err := os.MkdirAll(filepath.Dir(outPath), 0o775); err != nil {
+			return fmt.Errorf("mkdir %s: %w", filepath.Dir(outPath), err)
+		}
+		if err := os.WriteFile(outPath, data, 0o664); err != nil {
+			return fmt.Errorf("write %s: %w", outPath, err)
+		}
+		logrus.Infof("Decrypted %s", entry.Path)
+	}
+
+	logrus.Info("Decryption finished")
+	return nil
 }
 
 func processPack(outputDir string, packNameCounts map[string]int, pack resource.Pack, packSettings *ResourcePacksSettings) error {
@@ -75,7 +185,21 @@ func processPack(outputDir string, packNameCounts map[string]int, pack resource.
 	}
 
 	var packPath string
-	if packSettings.Folders {
+
+	// NhanAZ mode: always extract to folder, decrypt if possible, copy otherwise.
+	if packSettings.NhanAZ {
+		packPath = filepath.Join(outputDir, packFilename)
+		// Always copy full pack first so files not listed in contents.json are preserved.
+		if err := utils.CopyFS(pack, utils.OSWriter{Base: packPath}); err != nil {
+			return err
+		}
+		// Then decrypt/overwrite entries that have keys.
+		if pack.Encrypted() && pack.ContentKey() != "" {
+			if err := decryptPackToDir(pack, packPath); err != nil {
+				logrus.Warnf("Failed to decrypt pack %s: %v (kept raw copy)", packName, err)
+			}
+		}
+	} else if packSettings.Folders {
 		packPath = filepath.Join(outputDir, packFilename)
 		if err := utils.CopyFS(pack, utils.OSWriter{Base: packPath}); err != nil {
 			return err
@@ -229,7 +353,12 @@ func (r *resourcePackHandler) Handler() *proxy.Handler {
 	return &proxy.Handler{
 		Name: "Resourcepacks",
 		SessionStart: func(s *proxy.Session, hostname string) error {
+			// Default output dir is hostname; NhanAZ mode overrides with dated hostname.
 			outputDir := utils.PathData("packs", hostname)
+			if r.packSettings.NhanAZ {
+				today := time.Now().Format("02-01-2006")
+				outputDir = utils.PathData("packs", today+"-"+hostname)
+			}
 			os.MkdirAll(outputDir, 0o777)
 			packNameCounts := make(map[string]int)
 
@@ -276,6 +405,12 @@ func (r *resourcePackHandler) Handler() *proxy.Handler {
 
 func (ResourcePackCMD) Run(ctx context.Context, settings any) error {
 	packSettings := settings.(*ResourcePacksSettings)
+
+	// NhanAZ mode also enables extra diagnostics and preserves encrypted blobs.
+	if packSettings.NhanAZ {
+		packSettings.ProxySettings.ExtraDebug = true
+	}
+
 	var handler = resourcePackHandler{packSettings: packSettings}
 
 	p, err := proxy.New(ctx, packSettings.ProxySettings)
