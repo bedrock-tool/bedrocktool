@@ -174,7 +174,11 @@ func (c *ConnectInfo) Address(ctx context.Context) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		return realm.Address(ctx)
+		address, err := realm.Address(ctx)
+		if err != nil {
+			return "", err
+		}
+		return address.Address, nil
 	}
 	if info.gatheringName != "" {
 		gathering, err := c.getGathering(ctx, info.gatheringName)

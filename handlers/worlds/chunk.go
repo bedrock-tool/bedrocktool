@@ -55,6 +55,10 @@ func (w *worldsHandler) handleLevelChunk(pk *packet.LevelChunk, timeReceived tim
 	}
 
 	for _, blockNBT := range blockNBTs {
+		if _, ok := blockNBT["x"]; !ok {
+			w.log.Warnf("The server sent invalid block data %#+v\n", blockNBT)
+			continue
+		}
 		x := int(blockNBT["x"].(int32))
 		y := int(blockNBT["y"].(int32))
 		z := int(blockNBT["z"].(int32))

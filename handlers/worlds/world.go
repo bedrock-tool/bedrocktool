@@ -304,6 +304,9 @@ func (w *worldsHandler) SaveAndReset(end bool, dim world.Dimension) {
 	if dim == nil {
 		dim = w.worldState.Dimension()
 	}
+	if w.session.Server == nil {
+		return
+	}
 
 	// if empty just reset and dont save anything
 	worldState := w.worldState
