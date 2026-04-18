@@ -15,11 +15,7 @@ import (
 
 type ProxySettings struct {
 	ConnectInfo *connectinfo.ConnectInfo `opt:"Address" flag:"address" desc:"locale.remote_address"`
-
-	Debug         bool   `opt:"Debug" flag:"debug" desc:"locale.debug_mode"`
-	ExtraDebug    bool   `opt:"Extra Debug" flag:"extra-debug" desc:"extra debug info (packet.log)"`
-	Capture       bool   `opt:"Packet Capture" flag:"capture" desc:"Capture pcap2 file"`
-	ClientCache   bool   `opt:"Client Cache" flag:"client-cache" default:"true" desc:"Enable Client Cache"`
+	ClientCache bool   `opt:"Client Cache" flag:"client-cache" default:"true" desc:"Enable Client Cache"`
 	ListenAddress string `opt:"Listen Address" flag:"listen" default:"0.0.0.0:19132" desc:"example :19132 or 127.0.0.1:19132"`
 }
 

@@ -100,9 +100,6 @@ func (p *Context) Run(ctx context.Context, withClient bool) (err error) {
 		p.settings.ConnectInfo.Account = auth.Auth.Account()
 	}
 
-	if p.settings.Capture {
-		p.AddHandler(NewPacketCapturer)
-	}
 	p.addedPacks, err = loadForcedPacks()
 	if err != nil {
 		return err

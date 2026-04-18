@@ -63,7 +63,7 @@ func New(g guim.Guim) pages.Page {
 		},
 	}
 
-	modeOrder := []string{"worlds", "skins", "packs", "c7"}
+	modeOrder := []string{"worlds"}
 	for k, cmd := range commands.Registered {
 		if !slices.Contains(modeOrder, k) {
 			continue
@@ -94,12 +94,6 @@ func modeLabel(name string) string {
 	switch name {
 	case "worlds":
 		return "Worlds"
-	case "skins":
-		return "Skins"
-	case "packs":
-		return "Packs"
-	case "c7":
-		return "C7 Client"
 	default:
 		return name
 	}

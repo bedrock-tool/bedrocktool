@@ -43,9 +43,6 @@ type Session struct {
 	handlers    Handlers
 	connectInfo *connectinfo.ConnectInfo
 
-	packetLogger       *packetLogger
-	packetLoggerClient *packetLogger
-
 	listener  *minecraft.Listener
 	blobCache *blobcache.Blobcache
 
@@ -179,20 +176,6 @@ func (s *Session) Run() error {
 		return err
 	}
 	defer s.blobCache.Close()
-
-	if s.settings.Debug || s.settings.ExtraDebug {
-		s.packetLogger, err = NewPacketLogger(s.settings.ExtraDebug, false)
-		if err != nil {
-			return err
-		}
-		defer s.packetLogger.Close()
-
-		s.packetLoggerClient, err = NewPacketLogger(s.settings.ExtraDebug, true)
-		if err != nil {
-			return err
-		}
-		defer s.packetLoggerClient.Close()
-	}
 
 	if s.connectInfo.IsReplay() {
 		replayName, err := s.connectInfo.Address(s.ctx)
@@ -463,17 +446,6 @@ func (s *Session) connectClient(ctx context.Context, rpHandler *resourcepacks.Re
 			return
 		}
 		_ = drop
-		if s.packetLoggerClient != nil {
-			if src == s.listener.Addr() {
-				err = s.packetLoggerClient.PacketSend(pk, timeReceived)
-			} else {
-				err = s.packetLoggerClient.PacketReceive(pk, timeReceived)
-			}
-		}
-		if err != nil {
-			logrus.Error(err)
-			return
-		}
 	}
 
 	serverName, err := s.connectInfo.Name(ctx)
@@ -672,14 +644,6 @@ func (s *Session) packetFunc(header packet.Header, payload []byte, src, dst net.
 	pk, ok := DecodePacket(header, payload, s.Server.ShieldID())
 	if !ok {
 		return
-	}
-
-	if s.packetLogger != nil {
-		if s.IsClient(src) {
-			s.packetLogger.PacketSend(pk, timeReceived)
-		} else {
-			s.packetLogger.PacketReceive(pk, timeReceived)
-		}
 	}
 
 	if !s.spawned {

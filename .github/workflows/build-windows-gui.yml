@@ -123,13 +123,14 @@ jobs:
         id: release_notes
         run: |
           cat > release_notes.md << EOF
-          # C7 CLIENT Windows GUI ${{ steps.meta.outputs.tag }}
+          # Bedrock Tool Windows GUI ${{ steps.meta.outputs.tag }}
 
           ## Installation
 
           1. Download `C7 Proxy Client.exe`
           2. Double-click to run (no installation needed)
-          3. Configure your Bedrock server connection
+          3. Choose Worlds mode
+          4. Configure your Bedrock server connection
 
           ## System Requirements
 
@@ -140,9 +141,9 @@ jobs:
           ## Features
 
           ✅ Modern graphical interface  
-          ✅ Player tracking with compass  
+          ✅ Worlds-focused workflow  
+          ✅ In-game world capture controls (/setname, /void, /save-world)  
           ✅ Real-time server status  
-          ✅ Module-based extensibility  
           ✅ No external dependencies  
 
           ## SHA-256 Checksum
@@ -156,8 +157,8 @@ jobs:
 
           - [Quick Start Guide](../../QUICKSTART_WINDOWS.md)
           - [Full Build Guide](../../WINDOWS_GUI_BUILD.md)
-          - [Framework Documentation](../../C7_FRAMEWORK.md)
-          - [Player Tracking](../../PLAYER_TRACKING.md)
+          - [Release Downloads](../../RELEASES.md)
+          - [Release Process](../../RELEASE_PROCESS.md)
 
           ## Troubleshooting
 
