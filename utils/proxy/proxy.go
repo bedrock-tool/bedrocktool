@@ -7,6 +7,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/connectinfo"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
@@ -53,6 +54,9 @@ func DecodePacket(header packet.Header, payload []byte, shieldID int32) (pk pack
 			logrus.Errorf("%T: %s", pk, recoveredErr.(error))
 			logrus.Debugf("payload: %s", hex.EncodeToString(payload))
 			ok = false
+			if utils.IsDebug() {
+				panic(recoveredErr)
+			}
 		}
 	}()
 	pk.Marshal(protocol.NewReader(bytes.NewBuffer(payload), shieldID, false))
