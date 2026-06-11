@@ -28,8 +28,7 @@ func (cr *ChunkRenderer) blockColorAt(c *chunk.Chunk, x uint8, y int16, z uint8)
 	}
 	rid := c.Block(x, y, z, 0)
 
-	br := c.BlockRegistry.(world.BlockRegistry)
-	b, found := br.BlockByRuntimeID(rid)
+	b, found := cr.br.BlockByRuntimeID(rid)
 	if !found {
 		return notFoundColor
 	}
@@ -83,7 +82,6 @@ haveColor:
 }
 
 func (cr *ChunkRenderer) chunkGetColorAt(c *chunk.Chunk, x uint8, y int16, z uint8) color.RGBA {
-	br := c.BlockRegistry.(world.BlockRegistry)
 	haveUp := false
 	cube.Pos{int(x), int(y), int(z)}.
 		Side(cube.FaceUp).
@@ -93,7 +91,7 @@ func (cr *ChunkRenderer) chunkGetColorAt(c *chunk.Chunk, x uint8, y int16, z uin
 			}
 			blockRid := c.Block(uint8(neighbour[0]), int16(neighbour[1]), uint8(neighbour[2]), 0)
 			if blockRid > 0 {
-				b, found := br.BlockByRuntimeID(blockRid)
+				b, found := cr.br.BlockByRuntimeID(blockRid)
 				if found {
 					if isBlockLightblocking(b) {
 						haveUp = true
@@ -119,6 +117,13 @@ func (cr *ChunkRenderer) chunkGetColorAt(c *chunk.Chunk, x uint8, y int16, z uin
 
 type ChunkRenderer struct {
 	customBlockColors map[string]color.RGBA
+	br                world.BlockRegistry
+}
+
+func NewChunkRenderer(br world.BlockRegistry) *ChunkRenderer {
+	return &ChunkRenderer{
+		br: br,
+	}
 }
 
 func (cr *ChunkRenderer) ResolveColors(entries []protocol.BlockEntry, packs []resource.Pack) {

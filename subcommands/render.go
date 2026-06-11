@@ -145,7 +145,7 @@ func (RenderCMD) Run(ctx context.Context, settings any) error {
 		}
 	}
 
-	var renderer utils.ChunkRenderer
+	renderer := utils.NewChunkRenderer(blockReg)
 	renderer.ResolveColors(entries, resourcePacks)
 
 	boundsMin := world.ChunkPos{math.MaxInt32, math.MaxInt32}

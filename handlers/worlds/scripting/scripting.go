@@ -142,7 +142,8 @@ func New() *VM {
 
 		obj := v.runtime.NewObject()
 
-		ch, ok, err := v.GetWorld().LoadChunk(world.ChunkPos{int32(x), int32(z)})
+		w := v.GetWorld()
+		ch, ok, err := w.LoadChunk(world.ChunkPos{int32(x), int32(z)})
 		if err != nil {
 			v.log.Error("loadChunk", err)
 		}
@@ -156,7 +157,7 @@ func New() *VM {
 			by := int(call.Argument(1).ToInteger())
 			bz := int(call.Argument(2).ToInteger())
 
-			name, state, ok := ch.BlockRegistry.RuntimeIDToState(ch.Block(uint8(bx), int16(by), uint8(bz), 0))
+			name, state, ok := w.BlockRegistry.RuntimeIDToState(ch.Block(uint8(bx), int16(by), uint8(bz), 0))
 			if !ok {
 				return goja.Null()
 			}

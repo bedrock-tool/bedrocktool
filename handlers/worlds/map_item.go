@@ -90,7 +90,7 @@ func NewMapUI(w *worldsHandler) *MapUI {
 		needRedraw:     true,
 		w:              w,
 		haveColors:     make(chan struct{}),
-		ChunkRenderer:  &utils.ChunkRenderer{},
+		ChunkRenderer:  nil,
 	}
 	return m
 }
@@ -195,6 +195,7 @@ func (m *MapUI) Start(ctx context.Context) {
 	}
 
 	m.ticker = time.NewTicker(33 * time.Millisecond)
+	m.ChunkRenderer = utils.NewChunkRenderer(m.w.serverState.blocks)
 	go func() {
 		m.ChunkRenderer.ResolveColors(
 			m.w.serverState.customBlocks,

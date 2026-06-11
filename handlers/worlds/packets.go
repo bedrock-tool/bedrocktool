@@ -63,19 +63,20 @@ func (w *worldsHandler) packetHandlerPreLogin(_pk packet.Packet, timeReceived ti
 				})
 			}
 
-			w.serverState.blocks = world.DefaultBlockRegistry.Clone().(*world.BlockRegistryImpl)
+			br := world.NewBlockRegistry()
 			if len(pk.Blocks) > 0 {
 				w.log.Info(locale.Loc("using_customblocks", nil))
 				for _, be := range pk.Blocks {
 					w.serverState.behaviorPack.AddBlock(be)
 				}
-				err := world.AddCustomBlocks(w.serverState.blocks, pk.Blocks)
+				err := AddCustomBlocks(br, pk.Blocks)
 				if err != nil {
 					return nil, err
 				}
 				w.serverState.customBlocks = pk.Blocks
 			}
-			w.serverState.blocks.Finalize()
+			br.Finalize()
+			w.serverState.blocks = br
 			w.serverState.worldName = pk.WorldName
 
 			dim, _ := world.DimensionByID(int(pk.Dimension))
