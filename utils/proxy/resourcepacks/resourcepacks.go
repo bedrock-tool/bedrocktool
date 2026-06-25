@@ -383,7 +383,7 @@ func (r *ResourcePackHandler) downloadResourcePack(pk *packet.ResourcePackDataIn
 	for chunkIndex := range chunkCount {
 		err = r.Server.WritePacket(&packet.ResourcePackChunkRequest{
 			UUID:       pk.UUID,
-			ChunkIndex: chunkIndex,
+			ChunkIndex: int32(chunkIndex),
 		})
 		if err != nil {
 			return err
@@ -574,7 +574,7 @@ func (r *ResourcePackHandler) OnResourcePackChunkRequest(pk *packet.ResourcePack
 	}
 	response := &packet.ResourcePackChunkData{
 		UUID:       pk.UUID,
-		ChunkIndex: pk.ChunkIndex,
+		ChunkIndex: uint32(pk.ChunkIndex),
 		DataOffset: upload.currentOffset,
 		Data:       make([]byte, packChunkSize),
 	}

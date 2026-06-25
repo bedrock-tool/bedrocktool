@@ -35,8 +35,6 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/dblezek/tga v0.0.0-20150626111426-80720cbc1017 h1:awJfkE1xXsPK+yOi1JfFBYCrSBkZXWbOgEFL6dmYeUA=
 github.com/dblezek/tga v0.0.0-20150626111426-80720cbc1017/go.mod h1:47yJHzYP/+2SCHY45B0eyR1QaecoOhkTTpS7UasE0DY=
-github.com/denisbrodbeck/machineid v1.0.1 h1:geKr9qtkB876mXguW2X6TU4ZynleN6ezuMSRhl4D7AQ=
-github.com/denisbrodbeck/machineid v1.0.1/go.mod h1:dJUwb7PTidGDeYyUBmXZ2GphQBbjJCrnectwCyxcUSI=
 github.com/df-mc/dragonfly v0.10.9 h1:LEja8+EdU753W0eNbaQGyfntTWyL/Nz7blOUTZysW4k=
 github.com/df-mc/dragonfly v0.10.9/go.mod h1:pL3nqPtOGVdExu3+LkqWRaa89Trdpf22EjCGexqMus8=
 github.com/df-mc/go-nethernet v0.0.0-20260106140245-e6a86cbce687 h1:42vIWJ1jmdeEJMkKT2bffP329VdDfY1M5fguxD45fsk=
@@ -180,6 +178,8 @@ github.com/wlynxg/anet v0.0.5 h1:J3VJGi1gvo0JwZ/P1/Yc/8p63SoW98B5dHkYDmpgvvU=
 github.com/wlynxg/anet v0.0.5/go.mod h1:eay5PRQr7fIVAMbTbchTnO9gG65Hg/uYGdc7mguHxoA=
 github.com/yusufpapurcu/wmi v1.2.4 h1:zFUKzehAFReQwLys1b/iSMl+JQGSCSjtVqQn9bBrPo0=
 github.com/yusufpapurcu/wmi v1.2.4/go.mod h1:SBZ9tNy3G9/m5Oi98Zks0QjeHVDvuK0qfxQmPyzfmi0=
+github.com/zaataylor/cartesian v0.0.0-20221028053253-3b3244d82727 h1:eP/MDnwQtFR2hwUv84a5kD5bKgjx3wir69Nhy33Pl4I=
+github.com/zaataylor/cartesian v0.0.0-20221028053253-3b3244d82727/go.mod h1:gEXybXQbaNi8PEDSaJ/a9AEG8tiqtnEaPtKFugCAjwU=
 golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=
 golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83/go.mod h1:jdWPYTVW3xRLrWPugEBEK3UY2ZEsg3UU495nc5E+M+I=
 golang.org/x/crypto v0.0.0-20211209193657-4570a0811e8b/go.mod h1:IxCIyHEi3zRg3s0A5j5BB6A9Jmi73HwBIUl50j+osU4=
