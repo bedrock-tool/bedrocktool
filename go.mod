@@ -14,7 +14,6 @@ require (
 	github.com/cloudfoundry/jibber_jabber v0.0.0-20151120183258-bcc4c8345a21
 	github.com/coder/websocket v1.8.14
 	github.com/dblezek/tga v0.0.0-20150626111426-80720cbc1017
-	github.com/denisbrodbeck/machineid v1.0.1
 	github.com/df-mc/dragonfly v0.10.9
 	github.com/df-mc/go-nethernet v0.0.0-20260106140245-e6a86cbce687
 	github.com/df-mc/go-xsapi v1.0.1
@@ -30,11 +29,11 @@ require (
 	github.com/minio/selfupdate v0.6.0
 	github.com/nicksnyder/go-i18n/v2 v2.6.0
 	github.com/rifflock/lfshook v0.0.0-20180920164130-b9218ef580f5
-	github.com/sandertv/go-raknet v1.14.3-0.20250305181847-6af3e95113d6
 	github.com/sandertv/gophertunnel v1.51.1
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/sirupsen/logrus v1.9.3
 	github.com/tailscale/hujson v0.0.0-20250605163823-992244df8c5a
+	github.com/zaataylor/cartesian v0.0.0-20221028053253-3b3244d82727
 	golang.org/x/exp v0.0.0-20251209150349-8475f28825e9
 	golang.org/x/exp/shiny v0.0.0-20251209150349-8475f28825e9
 	golang.org/x/oauth2 v0.34.0
@@ -79,6 +78,7 @@ require (
 	github.com/pion/webrtc/v4 v4.0.14 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
+	github.com/sandertv/go-raknet v1.14.3-0.20250305181847-6af3e95113d6 // indirect
 	github.com/segmentio/fasthash v1.0.3 // indirect
 	github.com/tklauser/go-sysconf v0.3.16 // indirect
 	github.com/tklauser/numcpus v0.11.0 // indirect
