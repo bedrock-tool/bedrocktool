@@ -110,12 +110,13 @@ func processPack(outputDir string, packNameCounts map[string]int, pack resource.
 		iconDec, err := png.Decode(f)
 		if err != nil {
 			logrus.Warnf("Failed to Parse pack_icon.png %s", pack.Name())
-		}
-		var ok bool
-		icon, ok = iconDec.(*image.RGBA)
-		if !ok {
-			icon = image.NewRGBA(iconDec.Bounds())
-			draw.Draw(icon, iconDec.Bounds(), iconDec, iconDec.Bounds().Min, draw.Src)
+		} else {
+			var ok bool
+			icon, ok = iconDec.(*image.RGBA)
+			if !ok {
+				icon = image.NewRGBA(iconDec.Bounds())
+				draw.Draw(icon, iconDec.Bounds(), iconDec, iconDec.Bounds().Min, draw.Src)
+			}
 		}
 	}
 
