@@ -343,7 +343,17 @@ func (r *ResourcePackHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) 
 func (r *ResourcePackHandler) downloadResourcePack(pk *packet.ResourcePackDataInfo) error {
 	packID, err := uuid.Parse(pk.UUID)
 	if err != nil {
-		return err
+		// Some server implementations put "<uuid>_<version>" in the
+		// ResourcePackDataInfo.UUID field, even though it is documented as a
+		// bare UUID. Strip the trailing version suffix and retry so that
+		// packs from such servers can still be matched against the entries
+		// from ResourcePacksInfo.
+		if idx := strings.LastIndexByte(pk.UUID, '_'); idx > 0 {
+			packID, err = uuid.Parse(pk.UUID[:idx])
+		}
+		if err != nil {
+			return fmt.Errorf("invalid resource pack UUID %q: %w", pk.UUID, err)
+		}
 	}
 
 	pack, ok := r.downloadingPacks[packID]
