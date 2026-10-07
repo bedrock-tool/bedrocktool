@@ -1,6 +1,8 @@
 package behaviourpack
 
 import (
+	"fmt"
+
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 )
 
@@ -10,6 +12,13 @@ type BlockBehaviour struct {
 }
 
 func (bp *Pack) AddBlock(block protocol.BlockEntry) {
+	// Keep unsupported server data fatal rather than silently exporting an
+	// incomplete world, but identify the failing stage and block in the report.
+	defer func() {
+		if reason := recover(); reason != nil {
+			panic(fmt.Sprintf("custom-block-export block=%q: %v", block.Name, reason))
+		}
+	}()
 	ns, _ := splitNamespace(block.Name)
 	if ns == "minecraft" {
 		return

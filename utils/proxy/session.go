@@ -62,6 +62,7 @@ type Session struct {
 	expectDisconnect bool
 	dimensionData    *packet.DimensionData
 	clientConnecting chan struct{}
+	clientMu         sync.Mutex
 	haveClientData   chan struct{}
 	clientData       login.ClientData
 	clientAddr       net.Addr
@@ -173,6 +174,29 @@ func (s *Session) newBlobCache() (*blobcache.Blobcache, error) {
 
 func (s *Session) Run() (err error) {
 	defer s.cancelCtx(errors.New("done"))
+	// Register before connect: partially established resources also need cleanup.
+	defer func() {
+		s.cancelCtx(err)
+		if s.listener != nil {
+			if c, ok := s.Client.(*minecraft.Conn); ok {
+				reason := "Disconnected"
+				if r := s.disconnectReason.Load(); r != nil {
+					reason = *r
+				}
+				_ = s.listener.Disconnect(c, reason)
+			}
+			_ = s.listener.Close()
+		}
+		if s.Server != nil {
+			_ = s.Server.Close()
+		}
+		if s.signaling != nil {
+			_ = s.signaling.Close()
+		}
+		if s.p2pSession != nil {
+			_ = s.p2pSession.Close()
+		}
+	}()
 
 	messages.SendEvent(&messages.EventConnectStateUpdate{
 		State:      messages.ConnectStateBegin,
@@ -218,27 +242,6 @@ func (s *Session) Run() (err error) {
 		if err = s.connect(); err != nil {
 			return err
 		}
-	}
-	if s.Server != nil {
-		defer s.Server.Close()
-	}
-	if s.listener != nil {
-		defer func() {
-			if s.Client != nil {
-				var reason = "Disconnected"
-				if disconnectReason := s.disconnectReason.Load(); disconnectReason != nil {
-					reason = *disconnectReason
-				}
-				_ = s.listener.Disconnect(s.Client.(*minecraft.Conn), reason)
-			}
-			_ = s.listener.Close()
-		}()
-	}
-	if s.signaling != nil {
-		defer s.signaling.Close()
-	}
-	if s.p2pSession != nil {
-		defer s.p2pSession.Close()
 	}
 
 	if s.ctx.Err() != nil {
@@ -378,8 +381,8 @@ func (s *Session) connectServer(ctx context.Context, rpHandler *resourcepacks.Re
 	if s.withClient {
 		select {
 		case <-s.clientConnecting:
-		case <-s.ctx.Done():
-			return s.ctx.Err()
+		case <-ctx.Done():
+			return context.Cause(ctx)
 		}
 	}
 
@@ -387,19 +390,20 @@ func (s *Session) connectServer(ctx context.Context, rpHandler *resourcepacks.Re
 		State: messages.ConnectStateServerConnecting,
 	})
 
-	address, err := s.connectInfo.Address(s.ctx)
+	target, err := connectStage(ctx, s.log, "resolve-target", connectServiceTimeout, s.connectInfo.Resolve)
 	if err != nil {
 		return err
 	}
+	address := target.Address
 
 	logrus.Info(locale.Loc("connecting", locale.Strmap{"Address": address}))
 
-	xblClient, err := s.connectInfo.Account.XBLClient(ctx)
+	xblClient, err := connectStage(ctx, s.log, "xbox-client", connectServiceTimeout, s.connectInfo.Account.XBLClient)
 	if err != nil {
 		return err
 	}
 
-	playfabClient, err := s.connectInfo.Account.PlayFabClient(ctx)
+	playfabClient, err := connectStage(ctx, s.log, "playfab-client", connectServiceTimeout, s.connectInfo.Account.PlayFabClient)
 	if err != nil {
 		return err
 	}
@@ -415,12 +419,6 @@ func (s *Session) connectServer(ctx context.Context, rpHandler *resourcepacks.Re
 		PacketFunc:                 s.packetFunc,
 		EnableClientCache:          s.settings.ClientCache,
 		GetClientData: func() login.ClientData {
-			if s.withClient {
-				select {
-				case <-s.haveClientData:
-				case <-ctx.Done():
-				}
-			}
 			clientData := s.clientData
 			clientData.Nonce = clientNonce
 			return clientData
@@ -434,22 +432,24 @@ func (s *Session) connectServer(ctx context.Context, rpHandler *resourcepacks.Re
 	}
 
 	var dialErr error
-	isNetherNet := strings.HasPrefix(address, "nethernet:")
-	if isNetherNet {
-		id, err := uuid.Parse(strings.Split(address, ":")[1])
+	if target.Transport != connectinfo.TransportRakNet {
+		route, err := connectStage(ctx, s.log, "nethernet-route", connectServiceTimeout, func(ctx context.Context) (netherNetRoute, error) {
+			return resolveNetherNet(ctx, target, func(ctx context.Context, id uuid.UUID) (netherNetRoute, error) {
+				p2pClient := p2p.NewClient(xblClient)
+				session, err := p2pClient.Join(ctx, id)
+				if err != nil {
+					return netherNetRoute{}, fmt.Errorf("joining session: %w", err)
+				}
+				s.p2pSession = session
+				return netherNetRoute{Address: session.Connection().Address(), Nonce: session.Nonce(), Type: session.Connection().Type}, nil
+			})
+		})
 		if err != nil {
-			return fmt.Errorf("parsing nethernet address: %s", err)
+			return err
 		}
+		clientNonce = route.Nonce
 
-		p2pClient := p2p.NewClient(xblClient)
-		session, err := p2pClient.Join(ctx, id)
-		if err != nil {
-			return fmt.Errorf("joining session: %s", err)
-		}
-		s.p2pSession = session
-		clientNonce = session.Nonce()
-
-		tokenSource, err := s.connectInfo.Account.TokenSource(ctx)
+		tokenSource, err := connectStage(ctx, s.log, "service-token-source", connectServiceTimeout, s.connectInfo.Account.TokenSource)
 		if err != nil {
 			return fmt.Errorf("creating TokenSource: %s", err)
 		}
@@ -458,24 +458,41 @@ func (s *Session) connectServer(ctx context.Context, rpHandler *resourcepacks.Re
 			nethernet.Signaling
 			io.Closer
 		}
-		switch session.Connection().Type {
-		case p2p.ConnectionTypeSignalingOverJSONRPC:
-			var d messaging.Dialer
-			signalingConn, err = d.DialContext(ctx, tokenSource)
-		case p2p.ConnectionTypeSignalingOverWebSocket:
-			var d signaling.Dialer
-			signalingConn, err = d.DialContext(ctx, tokenSource)
-		default:
-			return fmt.Errorf("unimplemented signaling type %d", session.Connection().Type)
-		}
+		_, err = connectStage(ctx, s.log, "signaling-connect", connectServiceTimeout, func(ctx context.Context) (struct{}, error) {
+			switch route.Type {
+			case p2p.ConnectionTypeSignalingOverJSONRPC:
+				env, envErr := realmSignalingEnvironment(route.Region)
+				if envErr != nil {
+					return struct{}{}, envErr
+				}
+				d := messaging.Dialer{Environment: env}
+				signalingConn, err = d.DialContext(ctx, tokenSource)
+			case p2p.ConnectionTypeSignalingOverWebSocket:
+				var d signaling.Dialer
+				signalingConn, err = d.DialContext(ctx, tokenSource)
+			default:
+				return struct{}{}, fmt.Errorf("unimplemented signaling type %d", route.Type)
+			}
+			return struct{}{}, err
+		})
 		if err != nil {
 			return fmt.Errorf("error dialing messaging conn: %s", err)
 		}
 		s.signaling = signalingConn
 
-		_, dialErr = dialer.DialContextNetwork(ctx, minecraft.NetherNet{Signaling: signalingConn}, session.Connection().Address())
+		if err := s.waitClientData(ctx); err != nil {
+			return err
+		}
+		_, dialErr = connectStage(ctx, s.log, "upstream-nethernet-login", connectLoginTimeout, func(ctx context.Context) (*minecraft.Conn, error) {
+			return dialer.DialContextNetwork(ctx, minecraft.NetherNet{Signaling: signalingConn}, route.Address)
+		})
 	} else {
-		_, dialErr = dialer.DialContext(ctx, "raknet", address)
+		if err := s.waitClientData(ctx); err != nil {
+			return err
+		}
+		_, dialErr = connectStage(ctx, s.log, "upstream-raknet-login", connectLoginTimeout, func(ctx context.Context) (*minecraft.Conn, error) {
+			return dialer.DialContext(ctx, "raknet", address)
+		})
 	}
 	if dialErr != nil {
 		if s.expectDisconnect {
@@ -528,17 +545,22 @@ func (s *Session) connectClient(ctx context.Context, rpHandler *resourcepacks.Re
 		ErrorLog:               slog.Default(),
 		PacketFunc:             clientPacketFunc,
 		OnClientData: func(c *minecraft.Conn) {
+			s.log.Info("Local client login data received")
 			s.clientData = c.ClientData()
 			ident := c.IdentityData()
 			s.handlers.PlayerDataModifier(s, &ident, &s.clientData)
 			close(s.haveClientData)
 		},
 		EarlyConnHandler: func(c *minecraft.Conn) {
+			s.clientMu.Lock()
+			defer s.clientMu.Unlock()
 			if s.Client != nil {
 				s.listener.Disconnect(c, "You are Already connected!")
 				return
 			}
 			s.Client = c
+			s.log.Info("Local client transport connected")
+			s.watchClient(ctx, c)
 			rpHandler.SetClient(c)
 			c.ResourcePackHandler = rpHandler
 			close(s.clientConnecting)
@@ -554,10 +576,12 @@ func (s *Session) connectClient(ctx context.Context, rpHandler *resourcepacks.Re
 	logrus.Info(locale.Loc("listening_on", locale.Strmap{"Address": s.listener.Addr()}))
 	logrus.Info(locale.Loc("help_connect", nil))
 
-	var accepted = false
+	acceptDone := make(chan struct{})
+	defer close(acceptDone)
 	go func() {
-		<-ctx.Done()
-		if !accepted {
+		select {
+		case <-acceptDone:
+		case <-ctx.Done():
 			_ = s.listener.Close()
 		}
 	}()
@@ -566,7 +590,7 @@ func (s *Session) connectClient(ctx context.Context, rpHandler *resourcepacks.Re
 	if err != nil {
 		return err
 	}
-	accepted = true
+
 	logrus.Info("Client Connected")
 	return nil
 }

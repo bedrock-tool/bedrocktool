@@ -1,6 +1,7 @@
 module github.com/bedrock-tool/bedrocktool
 
-go 1.25.0
+// Go >=1.26.2 fixes Windows overlapped UDP stack corruption (golang/go#77975).
+go 1.26.8
 
 // that repo has a bad go.mod so need to force the old version
 replace github.com/brentp/intintmap => github.com/brentp/intintmap v0.0.0-20190211203843-30dc0ade9af9

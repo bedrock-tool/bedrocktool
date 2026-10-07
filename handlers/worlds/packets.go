@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"maps"
 	"math"
-	"strings"
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds/entity"
@@ -63,7 +62,10 @@ func (w *worldsHandler) packetHandlerPreLogin(_pk packet.Packet, timeReceived ti
 				})
 			}
 
-			br := world.NewBlockRegistry()
+			br, err := newNetworkBlockRegistry(pk.UseBlockNetworkIDHashes)
+			if err != nil {
+				return nil, err
+			}
 			if len(pk.Blocks) > 0 {
 				w.log.Info(locale.Loc("using_customblocks", nil))
 				for _, be := range pk.Blocks {
@@ -105,20 +107,8 @@ func (w *worldsHandler) packetHandlerPreLogin(_pk packet.Packet, timeReceived ti
 		w.serverState.behaviorPack.ApplyComponentEntries(pk.Items)
 
 	case *packet.BiomeDefinitionList:
-		for _, biome := range pk.BiomeDefinitions {
-			biomeName := pk.StringList[biome.NameIndex]
-			sp := strings.SplitN(biomeName, ":", 2)
-			if len(sp) > 1 {
-				ns := sp[0]
-				if ns == "minecraft" {
-					biomeName = sp[1]
-				}
-			}
-			_, ok := w.serverState.biomes.BiomeByName(biomeName)
-			if !ok {
-				w.serverState.biomes.Register(&customBiome{name: biomeName, biome: biome, pk: pk})
-				w.serverState.behaviorPack.AddBiome(biomeName, biome)
-			}
+		if err := w.registerBiomes(pk); err != nil {
+			return nil, err
 		}
 
 	}
@@ -653,6 +643,15 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 }
 
 func (w *worldsHandler) packetHandler(_ *proxy.Session, pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
+	// Check every StartGame before phase dispatch or scripting filters: legacy
+	// local indices must never be interpreted as wire indices or exported.
+	if startGame, ok := pk.(*packet.StartGame); ok && !startGame.UseBlockNetworkIDHashes {
+		_, err := newNetworkBlockRegistry(false)
+		w.worldStateMu.Lock()
+		w.worldState.MarkIncomplete(err)
+		w.worldStateMu.Unlock()
+		return nil, err
+	}
 	if w.scripting != nil {
 		if !w.scripting.OnPacket(pk, toServer, timeReceived) {
 			return nil, nil

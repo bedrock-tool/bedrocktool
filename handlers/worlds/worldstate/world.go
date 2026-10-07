@@ -75,6 +75,8 @@ type World struct {
 	Name     string
 	Folder   string
 
+	integrityMu      sync.Mutex
+	integrityErr     error
 	UseHashedRids    bool
 	blockUpdatesLock sync.Mutex
 	blockUpdates     map[world.ChunkPos][]blockUpdate
@@ -199,7 +201,7 @@ func (w *World) SetDimension(dim world.Dimension) {
 	id, _ := world.DimensionID(dim)
 	if d, ok := w.dimensionDefinitions[id]; ok {
 		w.dimRange = cube.Range{
-			int(d.Range[1]), int(d.Range[0]) - 1,
+			int(d.MinimumY), int(d.MinimumY) + int(d.HeightRange) - 1,
 		}
 	}
 }
@@ -307,7 +309,13 @@ func (w *World) SetBlockNBT(pos cube.Pos, nbt map[string]any, merge bool) error 
 		return nil
 	}
 
+	if ch.BlockEntities == nil {
+		ch.BlockEntities = make(map[cube.Pos]map[string]any)
+	}
 	if merge {
+		if ch.BlockEntities[pos] == nil {
+			ch.BlockEntities[pos] = make(map[string]any, len(nbt))
+		}
 		maps.Copy(ch.BlockEntities[pos], nbt)
 	} else {
 		ch.BlockEntities[pos] = nbt
@@ -410,12 +418,31 @@ func blockPosInChunk(bp protocol.BlockPos) (x uint8, y int16, z uint8) {
 	return uint8(bp.X() % 16), int16(bp.Y()), uint8(bp.Z() % 16)
 }
 
+// MarkIncomplete blocks the final mcworld claim without discarding received data.
+func (w *World) MarkIncomplete(err error) {
+	if err == nil {
+		return
+	}
+	w.integrityMu.Lock()
+	defer w.integrityMu.Unlock()
+	if w.integrityErr == nil {
+		w.integrityErr = fmt.Errorf("correct world export blocked: %w; raw capture must be retained for replay", err)
+	}
+}
+
+func (w *World) ExportError() error {
+	w.integrityMu.Lock()
+	defer w.integrityMu.Unlock()
+	return w.integrityErr
+}
+
 func (w *World) BlockByID(rid uint32) (runtimeID uint32, name string, properties map[string]any, found bool) {
 	if w.UseHashedRids {
 		var ok bool
 		rid, ok = w.BlockRegistry.HashToRuntimeID(rid)
 		if !ok {
-			w.log.Warn("couldnt find block hash for block update")
+			w.MarkIncomplete(fmt.Errorf("unknown network block hash for block update"))
+			return 0, "", nil, false
 		}
 	}
 	name, properties, found = w.BlockRegistry.RuntimeIDToState(rid)
@@ -569,7 +596,7 @@ func (w *World) Save(
 		return err
 	}
 
-	return nil
+	return w.ExportError()
 }
 
 func (w *World) finalizeProvider(
