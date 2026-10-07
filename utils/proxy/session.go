@@ -461,12 +461,10 @@ func (s *Session) connectServer(ctx context.Context, rpHandler *resourcepacks.Re
 		_, err = connectStage(ctx, s.log, "signaling-connect", connectServiceTimeout, func(ctx context.Context) (struct{}, error) {
 			switch route.Type {
 			case p2p.ConnectionTypeSignalingOverJSONRPC:
-				env, envErr := realmSignalingEnvironment(route.Region)
-				if envErr != nil {
-					return struct{}{}, envErr
-				}
-				d := messaging.Dialer{Environment: env}
-				signalingConn, err = d.DialContext(ctx, tokenSource)
+				signalingConn, err = dialRealmSignaling(ctx, route.Region, func(ctx context.Context, env *signaling.Environment) (*messaging.Conn, error) {
+					d := messaging.Dialer{Environment: env}
+					return d.DialContext(ctx, tokenSource)
+				})
 			case p2p.ConnectionTypeSignalingOverWebSocket:
 				var d signaling.Dialer
 				signalingConn, err = d.DialContext(ctx, tokenSource)

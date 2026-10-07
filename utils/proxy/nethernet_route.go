@@ -2,7 +2,9 @@ package proxy
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"regexp"
 	"strings"
@@ -11,7 +13,24 @@ import (
 	"github.com/google/uuid"
 	"github.com/sandertv/gophertunnel/minecraft/p2p"
 	"github.com/sandertv/gophertunnel/minecraft/service/signaling"
+	"github.com/sandertv/gophertunnel/minecraft/service/signaling/messaging"
 )
+
+func dialRealmSignaling(ctx context.Context, region string, dial func(context.Context, *signaling.Environment) (*messaging.Conn, error)) (*messaging.Conn, error) {
+	env, err := realmSignalingEnvironment(region)
+	if err != nil {
+		return nil, err
+	}
+	conn, err := dial(ctx, env)
+	var dnsErr *net.DNSError
+	// Only a missing regional signaling host is eligible. Token-service DNS,
+	// authentication and transient failures must not change credential origins.
+	if err != nil && env != nil && ctx.Err() == nil && errors.As(err, &dnsErr) &&
+		dnsErr.IsNotFound && !dnsErr.IsTimeout && !dnsErr.IsTemporary && dnsErr.Name == env.ServiceURI.Hostname() {
+		return dial(ctx, nil) // The messaging dialer discovers the default service.
+	}
+	return conn, err
+}
 
 type netherNetRoute struct {
 	Address string
