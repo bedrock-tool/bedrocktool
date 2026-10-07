@@ -73,9 +73,10 @@ type MapUI struct {
 	mu         sync.Mutex
 	haveColors chan struct{}
 
-	zoomLevel  int  // pixels per chunk
-	needRedraw bool // when the map has updated this is true
-	isDisabled bool
+	zoomLevel    int  // pixels per chunk
+	needRedraw   bool // when the map has updated this is true
+	isDisabled   bool
+	renderFailed bool
 
 	offHandItem protocol.ItemInstance
 }
@@ -235,7 +236,18 @@ func (m *MapUI) SchedRedraw() {
 	m.needRedraw = true
 }
 
-func (m *MapUI) processQueue() []protocol.ChunkPos {
+func (m *MapUI) processQueue() (updated []protocol.ChunkPos) {
+	if m.renderFailed {
+		return nil
+	}
+	defer func() {
+		if reason := recover(); reason != nil {
+			m.renderFailed = true
+			m.renderQueue = nil
+			m.log.Errorf("Optional map rendering disabled after panic: %v; chunk recording continues (export integrity is checked separately)", reason)
+			updated = nil
+		}
+	}()
 	<-m.haveColors
 
 	updatedChunks := make([]protocol.ChunkPos, 0, len(m.renderQueue))
@@ -261,6 +273,9 @@ func (m *MapUI) redraw() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	updatedChunks := m.processQueue()
+	if m.renderFailed {
+		return
+	}
 
 	// draw ingame map
 	middle := protocol.ChunkPos{
@@ -327,6 +342,9 @@ func (m *MapUI) ToImage() *image.RGBA {
 func (m *MapUI) SetChunk(pos world.ChunkPos, ch *chunk.Chunk) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.renderFailed {
+		return
+	}
 	m.renderQueue = append(m.renderQueue, &renderElem{
 		ch:  ch,
 		pos: (protocol.ChunkPos)(pos),

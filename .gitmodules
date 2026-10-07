@@ -1,9 +1,9 @@
 [submodule "gophertunnel"]
 	path = gophertunnel
-	url = https://github.com/olebeck/gophertunnel.git
+	url = https://github.com/Zwerrie4lyfe/gophertunnel.git
 [submodule "dragonfly"]
 	path = dragonfly
-	url = https://github.com/olebeck/dragonfly.git
+	url = https://github.com/Zwerrie4lyfe/dragonfly.git
 [submodule "go-raknet"]
 	path = go-raknet
-	url = git@github.com:olebeck/go-raknet
+	url = https://github.com/olebeck/go-raknet.git

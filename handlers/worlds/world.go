@@ -51,8 +51,9 @@ type serverState struct {
 	worldName       string
 	realChunkRadius int32
 
-	biomes *world.BiomeRegistry
-	blocks world.BlockRegistry
+	biomes             *world.BiomeRegistry
+	exportedBiomeNames map[string]bool
+	blocks             world.BlockRegistry
 
 	behaviorPack *behaviourpack.Pack
 	resourcePack *resourcepack.Pack
@@ -92,6 +93,8 @@ type worldsHandler struct {
 	// lock used for when the worldState gets swapped
 	worldStateMu sync.Mutex
 	worldState   *worldstate.World
+	// Optional storage override; nil uses the current world state.
+	chunkStore func(world.ChunkPos, *worldstate.Chunk) error
 
 	serverState serverState
 	settings    WorldSettings
@@ -342,6 +345,9 @@ func (w *worldsHandler) SaveAndReset(end bool, dim world.Dimension) {
 }
 
 func (w *worldsHandler) saveWorldState(worldState *worldstate.World, player proxy.Player, behaviorPack *behaviourpack.Pack) error {
+	if err := worldState.ExportError(); err != nil {
+		return err
+	}
 	text := locale.Loc("saving_world", locale.Strmap{"Name": worldState.Name, "Count": len(worldState.StoredChunks)})
 	w.log.Info(text)
 	w.session.SendMessage(text)

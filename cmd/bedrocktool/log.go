@@ -40,7 +40,7 @@ func setupLogging(isDebug bool) {
 	}()
 
 	os.Stdout = wOut
-	redirectStderr(wOut)
+	redirectStderr(logFile) // Preserve runtime crash output before process exit.
 
 	logrus.SetLevel(logrus.DebugLevel)
 	if isDebug {

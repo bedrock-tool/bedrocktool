@@ -516,7 +516,11 @@ func (r *ResourcePackHandler) OnResourcePackStack(pk *packet.ResourcePackStack) 
 
 	if r.clientDone != nil {
 		r.log.Debug("waiting for client to finish downloading")
-		<-r.clientDone
+		select {
+		case <-r.clientDone:
+		case <-r.ctx.Done():
+			return context.Cause(r.ctx)
+		}
 	}
 
 	r.log.Debug("starting game")

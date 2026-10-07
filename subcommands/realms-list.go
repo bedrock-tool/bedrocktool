@@ -2,7 +2,7 @@ package subcommands
 
 import (
 	"context"
-	"fmt"
+	"github.com/sirupsen/logrus"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils/auth"
@@ -38,8 +38,9 @@ func (RealmListCMD) Run(ctx context.Context, settings any) error {
 	if err != nil {
 		return err
 	}
+	logrus.Infof("Available Realms: %d", len(realms))
 	for _, realm := range realms {
-		fmt.Println(locale.Loc("realm_list_line", locale.Strmap{"Name": realm.Name, "Id": realm.ID}))
+		logrus.Infof("Realm name=%q ID=%d", realm.Name, realm.ID)
 	}
 	return nil
 }

@@ -92,7 +92,7 @@ func (c *ConnectInfo) getExperience(ctx context.Context, name string) (*gatherin
 
 func (c *ConnectInfo) getRealm(ctx context.Context, name string) (*realms.Realm, error) {
 	name = strings.ToLower(name)
-	if c.realm != nil && strings.EqualFold(c.realm.Name, name) || strconv.Itoa(c.realm.ID) == name {
+	if c.realm != nil && (strings.EqualFold(c.realm.Name, name) || strconv.Itoa(c.realm.ID) == name) {
 		return c.realm, nil
 	}
 	realmsClient, err := c.Account.Realms(ctx)
@@ -105,7 +105,7 @@ func (c *ConnectInfo) getRealm(ctx context.Context, name string) (*realms.Realm,
 	}
 	for _, realm := range realms {
 		lowerName := strings.ToLower(realm.Name)
-		if strings.HasPrefix(lowerName, name) || strconv.Itoa(c.realm.ID) == name {
+		if strings.HasPrefix(lowerName, name) || strconv.Itoa(realm.ID) == name {
 			return &realm, nil
 		}
 	}
@@ -161,7 +161,19 @@ func (c *ConnectInfo) Name(ctx context.Context) (string, error) {
 	return "invalid", nil
 }
 
+// Address is the legacy string interface. Transport-aware callers must use Resolve.
 func (c *ConnectInfo) Address(ctx context.Context) (string, error) {
+	target, err := c.Resolve(ctx)
+	if err != nil {
+		return "", err
+	}
+	if target.Transport == TransportXboxFriend {
+		return "nethernet:" + target.Address, nil
+	}
+	return target.Address, nil
+}
+
+func (c *ConnectInfo) resolveAddress(ctx context.Context) (string, error) {
 	info, err := parseConnectInfo(c.Value)
 	if err != nil {
 		return "", err
@@ -174,17 +186,6 @@ func (c *ConnectInfo) Address(ctx context.Context) (string, error) {
 	}
 	if info.replayName != "" {
 		return info.replayName, nil
-	}
-	if info.realmName != "" {
-		realm, err := c.getRealm(ctx, info.realmName)
-		if err != nil {
-			return "", err
-		}
-		address, err := realm.Address(ctx)
-		if err != nil {
-			return "", err
-		}
-		return address.Address, nil
 	}
 	if info.gatheringName != "" {
 		gathering, err := c.getGathering(ctx, info.gatheringName)

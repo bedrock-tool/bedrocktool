@@ -16,6 +16,13 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 )
 
+func (w *worldsHandler) storeReceivedChunk(pos world.ChunkPos, ch *worldstate.Chunk) error {
+	if w.chunkStore != nil {
+		return w.chunkStore(pos, ch)
+	}
+	return w.worldState.StoreChunk(pos, ch)
+}
+
 func (w *worldsHandler) handleLevelChunk(pk *packet.LevelChunk, timeReceived time.Time) (err error) {
 	if len(pk.RawPayload) == 0 {
 		w.log.Info(locale.Loc("empty_chunk", nil))
@@ -39,7 +46,7 @@ func (w *worldsHandler) handleLevelChunk(pk *packet.LevelChunk, timeReceived tim
 	w.worldStateMu.Lock()
 	defer w.worldStateMu.Unlock()
 
-	//os.WriteFile("chunk.bin", pk.RawPayload, 0777)
+	defer func() { w.worldState.MarkIncomplete(err) }()
 
 	levelChunk, blockNBTs, err := chunk.NetworkDecode(
 		w.serverState.blocks,
@@ -99,9 +106,8 @@ func (w *worldsHandler) handleLevelChunk(pk *packet.LevelChunk, timeReceived tim
 		})
 	}
 
-	err = w.worldState.StoreChunk(pos, ch)
-	if err != nil {
-		w.log.Error(err)
+	if err = w.storeReceivedChunk(pos, ch); err != nil {
+		return fmt.Errorf("store level chunk %v: %w", pos, err)
 	}
 
 	if w.scripting != nil {
@@ -118,10 +124,11 @@ func (w *worldsHandler) handleLevelChunk(pk *packet.LevelChunk, timeReceived tim
 	return nil
 }
 
-func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) error {
+func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) (err error) {
 	w.worldStateMu.Lock()
 	defer w.worldStateMu.Unlock()
 
+	defer func() { w.worldState.MarkIncomplete(err) }()
 	var chunks = make(map[world.ChunkPos]*worldstate.Chunk)
 	for _, ent := range pk.SubChunkEntries {
 		if ent.Result != protocol.SubChunkResultSuccess {
@@ -183,6 +190,9 @@ func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) error {
 			if err != nil {
 				return err
 			}
+			if int(index) >= len(ch.Chunk.Sub()) {
+				return fmt.Errorf("invalid sub-chunk index %d", index)
+			}
 			ch.Chunk.Sub()[index] = sub
 
 			if buf.Len() > 0 {
@@ -203,7 +213,9 @@ func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) error {
 	}
 
 	for pos, ch := range chunks {
-		w.worldState.StoreChunk(pos, ch)
+		if err = w.storeReceivedChunk(pos, ch); err != nil {
+			return fmt.Errorf("store sub-chunk column %v: %w", pos, err)
+		}
 	}
 	if w.scripting != nil {
 		for pos := range chunks {

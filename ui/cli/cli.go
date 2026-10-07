@@ -15,6 +15,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/bedrock-tool/bedrocktool/utils/updater"
 	"github.com/sirupsen/logrus"
+	minecraftauth "github.com/sandertv/gophertunnel/minecraft/auth"
 )
 
 type CLI struct {
@@ -34,7 +35,7 @@ func printCommands() {
 }
 
 func (c *CLI) Start(ctx context.Context, cancel context.CancelCauseFunc) error {
-	auth.Auth.SetHandler(nil)
+	auth.Auth.SetHandler(&minecraftauth.CliAuthCodeHandler{Writer: os.Stdout})
 	if !utils.IsDebug() {
 		go updater.CheckUpdate()
 	}

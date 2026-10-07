@@ -35,11 +35,19 @@ func (p *packetCapturer) dumpPacket(toServer bool, payload []byte, timeReceived 
 	buf = binary.LittleEndian.AppendUint64(buf, uint64(timeReceived.UnixMilli()))
 	buf = append(buf, payloadCompressed...)
 	buf = append(buf, []byte{0xBB, 0xBB, 0xBB, 0xBB}...)
-	p.wPacket.Write(buf)
+	if _, err := p.wPacket.Write(buf); err != nil {
+		p.log.Errorf("packet capture write failed: %v", err)
+	}
+	if p.rawFile != nil {
+		if _, err := p.rawFile.Write(buf); err != nil {
+			p.log.Errorf("raw capture write failed: %v", err)
+		}
+	}
 	p.dumpLock.Unlock()
 }
 
 type packetCapturer struct {
+	rawFile  *os.File
 	file     *os.File
 	wPacket  io.Writer
 	tempBuf  *bytes.Buffer
@@ -53,14 +61,50 @@ func (p *packetCapturer) onServerName(hostname string) (err error) {
 	// temporary buffer
 	p.tempBuf = bytes.NewBuffer(nil)
 	p.wPacket = p.tempBuf
+	// Open a replayable raw journal BEFORE login/decode. Resource packs are
+	// retained separately by the normal capture created on successful join.
+	if err := prepareCaptureDirectory(utils.PathData("captures")); err != nil {
+		return err
+	}
+	name := fmt.Sprintf("%s-%s.raw.pcap2", utils.MakeValidFilename(hostname), time.Now().Format("2006-01-02_15-04-05.000000000"))
+	p.rawFile, err = createPrivateCapture(utils.PathData("captures", name))
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			p.rawFile.Close()
+			p.rawFile = nil
+		}
+	}()
+	if _, err = p.rawFile.WriteString("BTCP"); err != nil {
+		return err
+	}
+	if err = binary.Write(p.rawFile, binary.LittleEndian, uint32(5)); err != nil {
+		return err
+	}
+	// An empty ZIP is 22 bytes; pcap2 packets follow it immediately.
+	if err = binary.Write(p.rawFile, binary.LittleEndian, uint64(22)); err != nil {
+		return err
+	}
+	if err = zip.NewWriter(p.rawFile).Close(); err != nil {
+		return err
+	}
+	if err = p.rawFile.Sync(); err != nil {
+		return err
+	}
+	absolute, _ := filepath.Abs(p.rawFile.Name())
+	p.log.Infof("Raw packet journal (before decode): %s", absolute)
 	return nil
 }
 
 func (p *packetCapturer) OnServerConnect(s *proxy.Session) (disconnect bool, err error) {
-	os.Mkdir(utils.PathData("captures"), 0o775)
-	captureName := fmt.Sprintf("%s-%s.pcap2", p.hostname, time.Now().Format("2006-01-02_15-04-05"))
+	if err := prepareCaptureDirectory(utils.PathData("captures")); err != nil {
+		return false, err
+	}
+	captureName := fmt.Sprintf("%s-%s.pcap2", utils.MakeValidFilename(p.hostname), time.Now().Format("2006-01-02_15-04-05.000000000"))
 	capturePath := utils.PathData("captures", captureName)
-	p.file, err = os.Create(capturePath)
+	p.file, err = createPrivateCapture(capturePath)
 	if err != nil {
 		return false, err
 	}
@@ -105,13 +149,13 @@ func (p *packetCapturer) OnServerConnect(s *proxy.Session) (disconnect bool, err
 	p.file.Seek(endZip, 0)
 
 	p.dumpLock.Lock()
+	defer p.dumpLock.Unlock()
 	_, err = p.tempBuf.WriteTo(p.file)
 	if err != nil {
 		return false, err
 	}
 	p.tempBuf = nil
 	p.wPacket = p.file
-	p.dumpLock.Unlock()
 	return false, nil
 }
 
@@ -124,6 +168,15 @@ func (p *packetCapturer) PacketFunc(s *proxy.Session, header packet.Header, payl
 	header.Write(buf)
 	buf.Write(payload)
 	p.dumpPacket(s.IsClient(src), buf.Bytes(), timeReceived)
+	if header.PacketID == packet.IDLevelChunk || header.PacketID == packet.IDSubChunk || header.PacketID == packet.IDClientCacheMissResponse {
+		p.dumpLock.Lock()
+		if p.rawFile != nil {
+			if err := p.rawFile.Sync(); err != nil {
+				p.log.Errorf("raw chunk journal sync failed: %v", err)
+			}
+		}
+		p.dumpLock.Unlock()
+	}
 }
 
 func NewPacketCapturer() *proxy.Handler {
@@ -140,6 +193,9 @@ func NewPacketCapturer() *proxy.Handler {
 		OnSessionEnd: func(s *proxy.Session, wg *sync.WaitGroup) {
 			p.dumpLock.Lock()
 			defer p.dumpLock.Unlock()
+			if p.rawFile != nil {
+				p.rawFile.Close()
+			}
 			if p.file != nil {
 				p.file.Close()
 			}

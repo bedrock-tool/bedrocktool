@@ -500,6 +500,9 @@ func parseBlock(block protocol.BlockEntry) (MinecraftBlock, string) {
 		}
 	}
 	if len(minecraftTags) > 0 {
+		if entry.Components == nil {
+			entry.Components = make(map[string]any)
+		}
 		entry.Components["minecraft:tags"] = minecraftTags
 	}
 
