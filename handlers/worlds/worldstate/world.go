@@ -199,7 +199,7 @@ func (w *World) SetDimension(dim world.Dimension) {
 	id, _ := world.DimensionID(dim)
 	if d, ok := w.dimensionDefinitions[id]; ok {
 		w.dimRange = cube.Range{
-			int(d.Range[1]), int(d.Range[0]) - 1,
+			int(d.MinimumY), int(d.HeightRange) - 1,
 		}
 	}
 }
