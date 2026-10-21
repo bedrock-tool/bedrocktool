@@ -30,13 +30,13 @@ const packChunkSize = 1024 * 128
 // downloadingPack is a resource pack that is being downloaded by a client connection.
 type downloadingPack struct {
 	chunkSize     uint32
-	size          uint64
 	expectedIndex uint32
 	newFrag       chan *packet.ResourcePackChunkData
 	contentKey    string
 
 	ID      uuid.UUID
 	Version string
+	Size    uint64
 }
 
 type uploadingPack struct {
@@ -278,11 +278,11 @@ func (r *ResourcePackHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) 
 
 		packsToDownload = append(packsToDownload, packID)
 		r.downloadingPacks[pack.UUID] = downloadingPack{
-			size:       pack.Size,
 			newFrag:    make(chan *packet.ResourcePackChunkData),
 			contentKey: pack.ContentKey,
 			ID:         pack.UUID,
 			Version:    pack.Version,
+			Size:       pack.Size,
 		}
 		r.packsDownloading.Add(1)
 	}
@@ -341,7 +341,8 @@ func (r *ResourcePackHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) 
 }
 
 func (r *ResourcePackHandler) downloadResourcePack(pk *packet.ResourcePackDataInfo) error {
-	packID, err := uuid.Parse(pk.UUID)
+	uuid_ver := strings.Split(pk.UUID, "_")
+	packID, err := uuid.Parse(uuid_ver[0])
 	if err != nil {
 		return err
 	}
@@ -353,11 +354,11 @@ func (r *ResourcePackHandler) downloadResourcePack(pk *packet.ResourcePackDataIn
 		return fmt.Errorf("unknown pack to download with UUID %v", pk.UUID)
 	}
 
-	if pack.size != pk.Size {
+	if pack.Size != pk.Size {
 		// Size mismatch: The ResourcePacksInfo packet had a size for the pack that did not match with the
 		// size sent here.
 		r.log.Infof("pack %v had a different size in the ResourcePacksInfo packet than the ResourcePackDataInfo packet", pk.UUID)
-		pack.size = pk.Size
+		pack.Size = pk.Size
 	}
 
 	// Remove the resource pack from the downloading packs and add it to the awaiting packets.
@@ -401,7 +402,7 @@ func (r *ResourcePackHandler) downloadResourcePack(pk *packet.ResourcePackDataIn
 		}
 
 		// Write the fragment to the full buffer of the downloading resource pack.
-		lastData := dataWritten+int(pack.chunkSize) >= int(pack.size)
+		lastData := dataWritten+int(pack.chunkSize) >= int(pack.Size)
 		if !lastData && uint32(len(frag.Data)) != pack.chunkSize {
 			// The chunk data didn't have the full size and wasn't the last data to be sent for the resource pack,
 			// meaning we got too little data.
@@ -423,8 +424,8 @@ func (r *ResourcePackHandler) downloadResourcePack(pk *packet.ResourcePackDataIn
 		}
 	}
 
-	if dataWritten != int(pack.size) {
-		return fmt.Errorf("incorrect resource pack size: expected %v, but got %v", pack.size, dataWritten)
+	if dataWritten != int(pack.Size) {
+		return fmt.Errorf("incorrect resource pack size: expected %v, but got %v", pack.Size, dataWritten)
 	}
 
 	// check for hash to match
@@ -439,7 +440,7 @@ func (r *ResourcePackHandler) downloadResourcePack(pk *packet.ResourcePackDataIn
 		return err
 	}
 
-	newPack, err := resource.FromReaderAt(f, int64(pack.size))
+	newPack, err := resource.FromReaderAt(f, int64(pack.Size))
 	if err != nil {
 		return fmt.Errorf("invalid full resource pack data for UUID %v: %v", pk.UUID, err)
 	}
