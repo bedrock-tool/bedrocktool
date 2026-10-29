@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"net/http"
 	"net/url"
 	"path/filepath"
 	"reflect"
@@ -693,6 +694,14 @@ func (s *Session) connectClient(ctx context.Context, rpHandler *resourcepacks.Re
 
 	serverName := s.ServerName
 
+	epl, err := net.Listen("tcp", s.settings.ListenAddress)
+	if err != nil {
+		return err
+	}
+	defer epl.Close()
+	ep := endpoint.NewHandler()
+	go http.Serve(epl, ep)
+
 	s.listener, err = minecraft.ListenConfig{
 		AuthenticationDisabled: true,
 		AllowUnknownPackets:    true,
@@ -716,7 +725,7 @@ func (s *Session) connectClient(ctx context.Context, rpHandler *resourcepacks.Re
 			close(s.clientConnecting)
 		},
 	}.ListenNetwork(minecraft.NetherNet{
-		Signaling: endpoint.NewHandler(),
+		Signaling: ep,
 		Log:       slog.Default(),
 		Dialer: nethernet.Dialer{
 			Log: slog.Default(),
@@ -729,7 +738,7 @@ func (s *Session) connectClient(ctx context.Context, rpHandler *resourcepacks.Re
 	messages.SendEvent(&messages.EventConnectStateUpdate{
 		State: messages.ConnectStateListening,
 	})
-	logrus.Info(locale.Loc("listening_on", locale.Strmap{"Address": s.listener.Addr()}))
+	logrus.Info(locale.Loc("listening_on", locale.Strmap{"Address": epl.Addr()}))
 	logrus.Info(locale.Loc("help_connect", nil))
 
 	var accepted = false
@@ -744,6 +753,7 @@ func (s *Session) connectClient(ctx context.Context, rpHandler *resourcepacks.Re
 	if err != nil {
 		return err
 	}
+	ep.Close()
 	accepted = true
 	logrus.Info("Client Connected")
 	return nil
