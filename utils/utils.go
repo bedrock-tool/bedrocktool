@@ -237,7 +237,7 @@ func (w *CountingWriter) BytesWritten() int64 {
 	return w.bytesWritten
 }
 
-var filenameReservedRegex = regexp.MustCompile(`[<>:"/\\|?*\x00-\x1F]`)
+var filenameReservedRegex = regexp.MustCompile(`[<>:"/\\|?*\x00-\x1F]|(?:§.)`)
 
 func MakeValidFilename(name string) string {
 	return filenameReservedRegex.ReplaceAllString(name, "_")

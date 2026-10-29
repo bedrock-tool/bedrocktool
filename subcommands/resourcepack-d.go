@@ -224,7 +224,7 @@ func (r *resourcePackHandler) Handler() *proxy.Handler {
 	return &proxy.Handler{
 		Name: "Resourcepacks",
 		SessionStart: func(s *proxy.Session, hostname string) error {
-			outputDir := utils.PathData("packs", hostname)
+			outputDir := utils.PathData("packs", utils.MakeValidFilename(hostname))
 			os.MkdirAll(outputDir, 0o777)
 			packNameCounts := make(map[string]int)
 

@@ -49,7 +49,7 @@ func NewSkinSaver(skinCallback func(SkinAdd), PlayerNameFilter *regexp.Regexp, T
 			Name: "Skin Saver",
 			SessionStart: func(session *proxy.Session, hostname string) error {
 				s.session = session
-				basePath := utils.PathData("skins", hostname)
+				basePath := utils.PathData("skins", utils.MakeValidFilename(hostname))
 				if Timestamped {
 					ts := time.Now().Format("2006-01-02_15-04-05")
 					basePath = path.Join(basePath, ts)

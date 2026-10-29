@@ -10,18 +10,18 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui/gui/popups"
 	"github.com/bedrock-tool/bedrocktool/utils/auth"
 	"github.com/bedrock-tool/bedrocktool/utils/connectinfo"
-	"github.com/bedrock-tool/bedrocktool/utils/franchise/gatherings"
 	"github.com/sandertv/gophertunnel/minecraft/p2p"
 	"github.com/sandertv/gophertunnel/minecraft/realms"
+	"github.com/sandertv/gophertunnel/minecraft/service/gatherings"
 )
 
 type addressInput struct {
-	g              guim.Guim
-	editor         widget.Editor
-	showRealmsList widget.Clickable
-	showGatherings widget.Clickable
-	showFeatured   widget.Clickable
-	showWorlds     widget.Clickable
+	g               guim.Guim
+	editor          widget.Editor
+	showRealmsList  widget.Clickable
+	showExperiences widget.Clickable
+	showFeatured    widget.Clickable
+	showWorlds      widget.Clickable
 
 	connectInfo *connectinfo.ConnectInfo
 }
@@ -56,9 +56,9 @@ func (a *addressInput) Layout(gtx C, th *material.Theme) D {
 		}))
 	}
 
-	if a.showGatherings.Clicked(gtx) {
-		a.g.ShowPopup(popups.NewGatherings(a.g, func(gathering *gatherings.Gathering) {
-			a.connectInfo.SetGathering(gathering)
+	if a.showExperiences.Clicked(gtx) {
+		a.g.ShowPopup(popups.NewExperiences(a.g, func(experience *gatherings.Experience) {
+			a.connectInfo.SetExperience(experience)
 			a.editor.SetText(a.connectInfo.Value)
 		}))
 	}
@@ -117,7 +117,7 @@ func (a *addressInput) Layout(gtx C, th *material.Theme) D {
 							Bottom: 5,
 							Left:   0,
 							Right:  5,
-						}.Layout(gtx, material.Button(th, &a.showGatherings, "Events").Layout)
+						}.Layout(gtx, material.Button(th, &a.showExperiences, "Experiences").Layout)
 					}),
 					layout.Flexed(1, func(gtx C) D {
 						return layout.Inset{

@@ -65,7 +65,6 @@ func (skin *Skin) writeMetadataJson(fs utils.WriterFS, filename string) error {
 	e.SetIndent("", "  ")
 	return e.Encode(SkinMeta{
 		skin.SkinID,
-		skin.PlayFabID,
 		skin.PremiumSkin,
 		skin.PersonaSkin,
 		skin.CapeID,

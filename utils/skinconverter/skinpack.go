@@ -19,7 +19,6 @@ import (
 
 type SkinMeta struct {
 	SkinID        string
-	PlayFabID     string
 	PremiumSkin   bool
 	PersonaSkin   bool
 	CapeID        string

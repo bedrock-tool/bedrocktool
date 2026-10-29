@@ -58,12 +58,6 @@ func (p *Context) connect(connectInfo *connectinfo.ConnectInfo, withClient bool)
 		session.handlers = append(session.handlers, handlerFunc())
 	}
 
-	serverName, err := connectInfo.Name(p.ctx)
-	if err != nil {
-		return err
-	}
-
-	session.handlers.SessionStart(session, serverName)
 	err = session.Run()
 	session.handlers.OnSessionEnd(session, &p.wg)
 

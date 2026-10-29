@@ -9,12 +9,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/bedrock-tool/bedrocktool/utils/franchise/gatherings"
 	"github.com/df-mc/go-playfab/v2"
 	"github.com/df-mc/go-xsapi/v2"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/realms"
 	"github.com/sandertv/gophertunnel/minecraft/service"
+	"github.com/sandertv/gophertunnel/minecraft/service/gatherings"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/oauth2"
 )
@@ -27,7 +27,7 @@ type Account struct {
 	xblClient  atomic.Pointer[xsapi.Client]
 	mcToken    atomic.Pointer[service.Token]
 	realms     atomic.Pointer[realms.Client]
-	gatherings atomic.Pointer[gatherings.Service]
+	gatherings atomic.Pointer[gatherings.Client]
 }
 
 func (account *Account) Name() string {
@@ -123,21 +123,17 @@ func (account *Account) MCToken(ctx context.Context) (*service.Token, error) {
 	return mcToken, nil
 }
 
-func (account *Account) Gatherings(ctx context.Context) (*gatherings.Service, error) {
-	if gatheringsService := account.gatherings.Load(); gatheringsService != nil {
-		return gatheringsService, nil
+func (account *Account) Gatherings(ctx context.Context) (*gatherings.Client, error) {
+	if gatheringsClient := account.gatherings.Load(); gatheringsClient != nil {
+		return gatheringsClient, nil
 	}
-	discovery, err := service.Default(ctx)
+	tokenSource, err := account.TokenSource(ctx)
 	if err != nil {
 		return nil, err
 	}
-	var gatheringsService gatherings.Service
-	err = discovery.Environment(&gatheringsService)
-	if err != nil {
-		return nil, err
-	}
-	account.gatherings.Store(&gatheringsService)
-	return &gatheringsService, nil
+	gatheringsClient := gatherings.NewClient(tokenSource)
+	account.gatherings.Store(gatheringsClient)
+	return gatheringsClient, nil
 }
 
 func (account *Account) Realms(ctx context.Context) (*realms.Client, error) {

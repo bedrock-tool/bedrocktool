@@ -3,6 +3,5 @@ go 1.26.0
 use (
 	.
 	./dragonfly
-	./go-raknet
 	./gophertunnel
 )

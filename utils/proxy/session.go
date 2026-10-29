@@ -7,6 +7,8 @@ import (
 	"io"
 	"log/slog"
 	"net"
+	"net/url"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -22,6 +24,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/utils/proxy/pcap2"
 	"github.com/bedrock-tool/bedrocktool/utils/proxy/resourcepacks"
 	"github.com/df-mc/go-nethernet"
+	"github.com/df-mc/go-nethernet/endpoint"
 	"github.com/google/uuid"
 	"github.com/sandertv/gophertunnel/minecraft"
 	"github.com/sandertv/gophertunnel/minecraft/p2p"
@@ -50,7 +53,7 @@ type Session struct {
 	packetLogger       *packetLogger
 	packetLoggerClient *packetLogger
 
-	signaling  io.Closer
+	signaling  signalingCloser
 	p2pSession *p2p.Session
 	listener   *minecraft.Listener
 	blobCache  *blobcache.Blobcache
@@ -58,6 +61,8 @@ type Session struct {
 	Server minecraft.IConn
 	Client minecraft.IConn
 	Player Player
+
+	ServerName string
 
 	expectDisconnect bool
 	dimensionData    *packet.DimensionData
@@ -68,6 +73,11 @@ type Session struct {
 	spawned          bool
 	disconnectReason atomic.Pointer[string]
 	lastPacketTime   atomic.Pointer[time.Time]
+}
+
+type signalingCloser interface {
+	nethernet.Signaling
+	io.Closer
 }
 
 func NewSession(ctx context.Context, settings ProxySettings, addedPacks []resource.Pack, connectInfo *connectinfo.ConnectInfo, withClient bool) *Session {
@@ -89,6 +99,96 @@ func NewSession(ctx context.Context, settings ProxySettings, addedPacks []resour
 
 func (s *Session) Now() time.Time {
 	return *s.lastPacketTime.Load()
+}
+
+func (s *Session) resolveServerName(ctx context.Context) error {
+	if s.connectInfo == nil {
+		return errors.New("no connect info")
+	}
+	parsed, err := s.connectInfo.Parsed()
+	if err != nil {
+		return err
+	}
+
+	switch parsed.Kind {
+	case connectinfo.KindReplay:
+		s.ServerName = filepath.Base(parsed.Replay)
+	case connectinfo.KindXbox:
+		id, err := uuid.Parse(parsed.Xbox)
+		if err != nil {
+			return fmt.Errorf("xbox: %w", err)
+		}
+		p2pSession, err := s.joinP2P(ctx, id)
+		if err != nil {
+			return err
+		}
+		world := p2pSession.World()
+		switch {
+		case world.WorldName != "":
+			s.ServerName = world.WorldName
+		case world.HostName != "":
+			s.ServerName = world.HostName
+		default:
+			s.ServerName = id.String()
+		}
+	case connectinfo.KindRealm:
+		realm, err := s.connectInfo.Realm(ctx)
+		if err != nil {
+			return err
+		}
+		if realm == nil {
+			return fmt.Errorf("realm %q not found", parsed.RealmName)
+		}
+		s.ServerName = realm.Name
+	case connectinfo.KindExperience:
+		s.ServerName = parsed.Experience
+	case connectinfo.KindServer:
+		if name, err := s.pingName(ctx, parsed.Address); err == nil && name != "" {
+			s.ServerName = name
+		} else {
+			s.ServerName = addressHost(parsed.Address)
+		}
+	default:
+		return fmt.Errorf("invalid connect info kind %q", parsed.Kind)
+	}
+	return nil
+}
+
+func (s *Session) joinP2P(ctx context.Context, id uuid.UUID) (*p2p.Session, error) {
+	if s.p2pSession != nil {
+		return s.p2pSession, nil
+	}
+	xblClient, err := s.connectInfo.Account.XBLClient(ctx)
+	if err != nil {
+		return nil, err
+	}
+	session, err := p2p.NewClient(xblClient).Join(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("joining session: %w", err)
+	}
+	s.p2pSession = session
+	return session, nil
+}
+
+func (s *Session) pingName(ctx context.Context, address string) (string, error) {
+	pong, err := (minecraft.NetherNet{Log: slog.Default()}).PingContext(ctx, address)
+	if err != nil {
+		return "", err
+	}
+	return minecraft.ParsePongData(pong).ServerName, nil
+}
+
+func addressHost(address string) string {
+	u, err := url.Parse(address)
+	if err != nil || u.Hostname() == "" {
+		return address
+	}
+	switch port := u.Port(); port {
+	case "", "80", "443", "19132":
+		return u.Hostname()
+	default:
+		return u.Hostname() + "_" + port
+	}
 }
 
 // AddCommand adds a command to the command handler
@@ -173,6 +273,25 @@ func (s *Session) newBlobCache() (*blobcache.Blobcache, error) {
 
 func (s *Session) Run() (err error) {
 	defer s.cancelCtx(errors.New("done"))
+	defer func() {
+		if s.signaling != nil {
+			_ = s.signaling.Close()
+		}
+	}()
+	defer func() {
+		if s.p2pSession != nil {
+			_ = s.p2pSession.Close()
+		}
+	}()
+
+	if s.connectInfo.IsReplay() {
+		if err := s.resolveServerName(s.ctx); err != nil {
+			return err
+		}
+		if err := s.handlers.SessionStart(s, s.ServerName); err != nil {
+			return err
+		}
+	}
 
 	messages.SendEvent(&messages.EventConnectStateUpdate{
 		State:      messages.ConnectStateBegin,
@@ -200,12 +319,12 @@ func (s *Session) Run() (err error) {
 	}
 
 	if s.connectInfo.IsReplay() {
-		replayName, err := s.connectInfo.Address(s.ctx)
+		parsed, err := s.connectInfo.Parsed()
 		if err != nil {
 			return err
 		}
 		rpHandler := s.newResourcePackHandler(s.ctx)
-		replay, err := pcap2.CreateReplayConnector(s.ctx, utils.PathData(replayName), s.packetFunc, rpHandler)
+		replay, err := pcap2.CreateReplayConnector(s.ctx, utils.PathData(parsed.Replay), s.packetFunc, rpHandler)
 		if err != nil {
 			return err
 		}
@@ -233,12 +352,6 @@ func (s *Session) Run() (err error) {
 			}
 			_ = s.listener.Close()
 		}()
-	}
-	if s.signaling != nil {
-		defer s.signaling.Close()
-	}
-	if s.p2pSession != nil {
-		defer s.p2pSession.Close()
 	}
 
 	if s.ctx.Err() != nil {
@@ -348,6 +461,13 @@ func (s *Session) Run() (err error) {
 }
 
 func (s *Session) connect() error {
+	if err := s.resolveServerName(s.ctx); err != nil {
+		return err
+	}
+	if err := s.handlers.SessionStart(s, s.ServerName); err != nil {
+		return err
+	}
+
 	var wg sync.WaitGroup
 	ctx, cancelCause := context.WithCancelCause(s.ctx)
 	defer cancelCause(nil)
@@ -387,7 +507,7 @@ func (s *Session) connectServer(ctx context.Context, rpHandler *resourcepacks.Re
 		State: messages.ConnectStateServerConnecting,
 	})
 
-	address, err := s.connectInfo.Address(s.ctx)
+	address, err := s.connectInfo.Address(ctx)
 	if err != nil {
 		return err
 	}
@@ -433,20 +553,12 @@ func (s *Session) connectServer(ctx context.Context, rpHandler *resourcepacks.Re
 		},
 	}
 
-	var dialErr error
-	isNetherNet := strings.HasPrefix(address, "nethernet:")
-	if isNetherNet {
-		id, err := uuid.Parse(strings.Split(address, ":")[1])
+	// A UUID address refers to a friend's Xbox Live session.
+	if id, err := uuid.Parse(address); err == nil {
+		session, err := s.joinP2P(ctx, id)
 		if err != nil {
-			return fmt.Errorf("parsing nethernet address: %s", err)
+			return err
 		}
-
-		p2pClient := p2p.NewClient(xblClient)
-		session, err := p2pClient.Join(ctx, id)
-		if err != nil {
-			return fmt.Errorf("joining session: %s", err)
-		}
-		s.p2pSession = session
 		clientNonce = session.Nonce()
 
 		tokenSource, err := s.connectInfo.Account.TokenSource(ctx)
@@ -454,10 +566,7 @@ func (s *Session) connectServer(ctx context.Context, rpHandler *resourcepacks.Re
 			return fmt.Errorf("creating TokenSource: %s", err)
 		}
 
-		var signalingConn interface {
-			nethernet.Signaling
-			io.Closer
-		}
+		var signalingConn signalingCloser
 		switch session.Connection().Type {
 		case p2p.ConnectionTypeSignalingOverJSONRPC:
 			var d messaging.Dialer
@@ -472,16 +581,17 @@ func (s *Session) connectServer(ctx context.Context, rpHandler *resourcepacks.Re
 			return fmt.Errorf("error dialing messaging conn: %s", err)
 		}
 		s.signaling = signalingConn
-
-		_, dialErr = dialer.DialContextNetwork(ctx, minecraft.NetherNet{Signaling: signalingConn}, session.Connection().Address())
-	} else {
-		_, dialErr = dialer.DialContext(ctx, "raknet", address)
+		address = session.Connection().Address()
 	}
-	if dialErr != nil {
+
+	if _, err := dialer.DialContextNetwork(ctx, minecraft.NetherNet{
+		Signaling: s.signaling,
+		Log:       slog.Default(),
+	}, address); err != nil {
 		if s.expectDisconnect {
 			return nil
 		}
-		return dialErr
+		return err
 	}
 
 	messages.SendEvent(&messages.EventConnectStateUpdate{
@@ -516,10 +626,7 @@ func (s *Session) connectClient(ctx context.Context, rpHandler *resourcepacks.Re
 		}
 	}
 
-	serverName, err := s.connectInfo.Name(ctx)
-	if err != nil {
-		return err
-	}
+	serverName := s.ServerName
 
 	s.listener, err = minecraft.ListenConfig{
 		AuthenticationDisabled: true,
@@ -543,7 +650,13 @@ func (s *Session) connectClient(ctx context.Context, rpHandler *resourcepacks.Re
 			c.ResourcePackHandler = rpHandler
 			close(s.clientConnecting)
 		},
-	}.Listen("raknet", s.settings.ListenAddress)
+	}.ListenNetwork(minecraft.NetherNet{
+		Signaling: endpoint.NewHandler(),
+		Log:       slog.Default(),
+		Dialer: nethernet.Dialer{
+			Log: slog.Default(),
+		},
+	}, s.settings.ListenAddress)
 	if err != nil {
 		return err
 	}

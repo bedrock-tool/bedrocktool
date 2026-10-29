@@ -10,7 +10,7 @@ import (
 	"gioui.org/x/component"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/guim"
 	"github.com/bedrock-tool/bedrocktool/utils/auth"
-	"github.com/bedrock-tool/bedrocktool/utils/franchise/gatherings"
+	"github.com/sandertv/gophertunnel/minecraft/service/gatherings"
 )
 
 type loadState int
@@ -73,18 +73,14 @@ func (fs *FeaturedServers) Load() error {
 	if err != nil {
 		return err
 	}
-	mcToken, err := account.MCToken(ctx)
-	if err != nil {
-		return err
-	}
-	servers, err := gatheringsClient.GetFeaturedServers(ctx, mcToken)
+	servers, err := gatheringsClient.FeaturedServers(ctx)
 	if err != nil {
 		return err
 	}
 	fs.servers = nil
 	for _, server := range servers {
 		fs.servers = append(fs.servers, &serverButton{
-			FeaturedServer: &server,
+			FeaturedServer: server,
 		})
 	}
 	fs.state = loadStateLoaded
@@ -101,14 +97,14 @@ func layoutFeaturedServer(gtx layout.Context, th *material.Theme, server *server
 		return layout.UniformInset(8).Layout(gtx, func(gtx C) D {
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 				layout.Rigid(func(gtx C) D {
-					return material.Label(th, th.TextSize, server.Name).Layout(gtx)
+					name := server.Item.Title.Neutral()
+					if name == "" {
+						name = server.Host
+					}
+					return material.Label(th, th.TextSize, name).Layout(gtx)
 				}),
 				layout.Rigid(func(gtx C) D {
-					address := server.Address
-					if server.ExperienceId != "" {
-						address = "id: " + server.ExperienceId
-					}
-					return material.Label(th, th.TextSize*0.8, address).Layout(gtx)
+					return material.Label(th, th.TextSize*0.8, server.Address()).Layout(gtx)
 				}),
 			)
 		})

@@ -49,7 +49,7 @@ type packetCapturer struct {
 }
 
 func (p *packetCapturer) onServerName(hostname string) (err error) {
-	p.hostname = hostname
+	p.hostname = utils.MakeValidFilename(hostname)
 	// temporary buffer
 	p.tempBuf = bytes.NewBuffer(nil)
 	p.wPacket = p.tempBuf
