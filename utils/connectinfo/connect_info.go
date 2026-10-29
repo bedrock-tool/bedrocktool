@@ -147,46 +147,15 @@ func (c *ConnectInfo) Realm(ctx context.Context) (*realms.Realm, error) {
 	return c.getRealm(ctx, parsed.RealmName)
 }
 
-func (c *ConnectInfo) Address(ctx context.Context) (string, error) {
+func (c *ConnectInfo) Experience(ctx context.Context) (*gatherings.Experience, error) {
 	parsed, err := c.Parsed()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	switch parsed.Kind {
-	case KindXbox:
-		return parsed.Xbox, nil
-	case KindServer:
-		return parsed.Address, nil
-	case KindReplay:
-		return parsed.Replay, nil
-	case KindExperience:
-		experience, err := c.getExperience(ctx, parsed.Experience)
-		if err != nil {
-			return "", err
-		}
-		address, err := experience.Join(ctx)
-		if err != nil {
-			return "", fmt.Errorf("JoinExperience: %w", err)
-		}
-		return normalizeAddress(address.String())
-	case KindRealm:
-		realm, err := c.getRealm(ctx, parsed.RealmName)
-		if err != nil {
-			return "", err
-		}
-		address, err := realm.Address(ctx)
-		if err != nil {
-			return "", err
-		}
-		return normalizeAddress(address.Address)
-	default:
-		return "", errors.New("invalid address")
+	if parsed.Kind != KindExperience {
+		return nil, nil
 	}
-}
-
-func (c *ConnectInfo) IsReplay() bool {
-	parsed, err := c.Parsed()
-	return err == nil && parsed.Kind == KindReplay
+	return c.getExperience(ctx, parsed.Experience)
 }
 
 func (c *ConnectInfo) SetRealm(realm *realms.Realm) {
@@ -251,7 +220,7 @@ func parseConnectInfo(value string) (*ParsedConnectInfo, error) {
 	}
 
 	// normal server dns, ip or url
-	address, err := normalizeAddress(value)
+	address, err := NormalizeAddress(value)
 	if err != nil {
 		return nil, err
 	}

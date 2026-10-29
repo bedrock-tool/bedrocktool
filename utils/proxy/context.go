@@ -17,11 +17,11 @@ import (
 )
 
 type errTransfer struct {
-	transfer *packet.Transfer
+	*packet.Transfer
 }
 
 func (e *errTransfer) Error() string {
-	return fmt.Sprintf("transfer to %s:%d", e.transfer.Address, e.transfer.Port)
+	return fmt.Sprintf("transfer to %s:%d", e.Address, e.Port)
 }
 
 type Context struct {
@@ -61,11 +61,15 @@ func (p *Context) connect(connectInfo *connectinfo.ConnectInfo, withClient bool)
 	err = session.Run()
 	session.handlers.OnSessionEnd(session, &p.wg)
 
-	if err, ok := err.(*errTransfer); ok {
-		if connectInfo.IsReplay() {
+	if terr, ok := err.(*errTransfer); ok {
+		parsed, err := connectInfo.Parsed()
+		if err != nil {
+			return err
+		}
+		if parsed.Kind == connectinfo.KindReplay {
 			return nil
 		}
-		address := fmt.Sprintf("%s:%d", err.transfer.Address, err.transfer.Port)
+		address := fmt.Sprintf("%s:%d", terr.Address, terr.Port)
 		logrus.Infof("transferring to %s", address)
 		return p.connect(&connectinfo.ConnectInfo{Value: address, Account: connectInfo.Account}, withClient)
 	}
@@ -83,7 +87,13 @@ func (p *Context) Run(ctx context.Context, withClient bool) (err error) {
 		return fmt.Errorf("no address")
 	}
 
-	if !p.settings.ConnectInfo.IsReplay() && p.settings.ConnectInfo.Account == nil {
+	parsed, err := p.settings.ConnectInfo.Parsed()
+	if err != nil {
+		return err
+	}
+	isReplay := parsed.Kind == connectinfo.KindReplay
+
+	if !isReplay && p.settings.ConnectInfo.Account == nil {
 		if !auth.Auth.LoggedIn() {
 			err := auth.Auth.Login(ctx, nil, "")
 			if err != nil {
@@ -93,7 +103,7 @@ func (p *Context) Run(ctx context.Context, withClient bool) (err error) {
 		p.settings.ConnectInfo.Account = auth.Auth.Account()
 	}
 
-	if p.settings.Capture && !p.settings.ConnectInfo.IsReplay() {
+	if p.settings.Capture && !isReplay {
 		p.AddHandler(NewPacketCapturer)
 	}
 	p.addedPacks, err = loadForcedPacks()

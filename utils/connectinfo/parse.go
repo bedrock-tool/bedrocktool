@@ -28,7 +28,7 @@ func regexGetParams(r *regexp.Regexp, s string) (params map[string]string) {
 
 // normalizeAddress converts a server address to the URL format used by NetherNet.
 // If no scheme is specified, https is assumed.
-func normalizeAddress(address string) (string, error) {
+func NormalizeAddress(address string) (string, error) {
 	address = strings.TrimSpace(address)
 	if address == "" {
 		return "", fmt.Errorf("empty address")
@@ -92,7 +92,7 @@ func ValidateServerInput(server string) bool {
 		return true
 	}
 
-	address, err := normalizeAddress(server)
+	address, err := NormalizeAddress(server)
 	if err != nil {
 		return false
 	}

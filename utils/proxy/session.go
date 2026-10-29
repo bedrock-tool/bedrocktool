@@ -31,6 +31,7 @@ import (
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/login"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
+	"github.com/sandertv/gophertunnel/minecraft/realms"
 	"github.com/sandertv/gophertunnel/minecraft/resource"
 	"github.com/sandertv/gophertunnel/minecraft/service/signaling"
 	"github.com/sandertv/gophertunnel/minecraft/service/signaling/messaging"
@@ -258,7 +259,7 @@ func (s *Session) newResourcePackHandler(ctx context.Context) *resourcepacks.Res
 	return rpHandler
 }
 
-func (s *Session) newBlobCache() (*blobcache.Blobcache, error) {
+func (s *Session) newBlobCache(isReplay bool) (*blobcache.Blobcache, error) {
 	return blobcache.NewBlobCache(s.log, func(pk packet.Packet) error {
 		return s.Server.WritePacket(pk)
 	}, func() minecraft.IConn {
@@ -268,7 +269,7 @@ func (s *Session) newBlobCache() (*blobcache.Blobcache, error) {
 		return err
 	}, func(blobs []protocol.CacheBlob) {
 		s.handlers.OnBlobs(s, blobs)
-	}, s.connectInfo.IsReplay())
+	}, isReplay)
 }
 
 func (s *Session) Run() (err error) {
@@ -284,7 +285,13 @@ func (s *Session) Run() (err error) {
 		}
 	}()
 
-	if s.connectInfo.IsReplay() {
+	parsed, err := s.connectInfo.Parsed()
+	if err != nil {
+		return err
+	}
+	isReplay := parsed.Kind == connectinfo.KindReplay
+
+	if isReplay {
 		if err := s.resolveServerName(s.ctx); err != nil {
 			return err
 		}
@@ -298,7 +305,7 @@ func (s *Session) Run() (err error) {
 		ListenAddr: s.settings.ListenAddress,
 	})
 
-	s.blobCache, err = s.newBlobCache()
+	s.blobCache, err = s.newBlobCache(isReplay)
 	if err != nil {
 		return err
 	}
@@ -318,11 +325,7 @@ func (s *Session) Run() (err error) {
 		defer s.packetLoggerClient.Close()
 	}
 
-	if s.connectInfo.IsReplay() {
-		parsed, err := s.connectInfo.Parsed()
-		if err != nil {
-			return err
-		}
+	if isReplay {
 		rpHandler := s.newResourcePackHandler(s.ctx)
 		replay, err := pcap2.CreateReplayConnector(s.ctx, utils.PathData(parsed.Replay), s.packetFunc, rpHandler)
 		if err != nil {
@@ -494,6 +497,92 @@ func (s *Session) connect() error {
 	return nil
 }
 
+func (s *Session) resolveServerAddress(ctx context.Context, parsed *connectinfo.ParsedConnectInfo) (address, clientNonce string, signalingConn signalingCloser, err error) {
+	switch parsed.Kind {
+	case connectinfo.KindServer:
+		return parsed.Address, "", nil, nil
+
+	case connectinfo.KindRealm:
+		realm, err := s.connectInfo.Realm(ctx)
+		if err != nil {
+			return "", "", nil, err
+		}
+		addr, err := realm.Address(ctx)
+		if err != nil {
+			return "", "", nil, err
+		}
+
+		tokenSource, err := s.connectInfo.Account.TokenSource(ctx)
+		if err != nil {
+			return "", "", nil, fmt.Errorf("creating TokenSource: %s", err)
+		}
+
+		networkProto := realms.ParseNetworkProtocol(string(addr.NetworkProtocol))
+		var signalingConn signalingCloser
+		switch networkProto {
+		case realms.NetworkProtocolNetherNetJSONRPC:
+			var d messaging.Dialer
+			signalingConn, err = d.DialContext(ctx, tokenSource)
+		case realms.NetworkProtocolNetherNet:
+			var d signaling.Dialer
+			signalingConn, err = d.DialContext(ctx, tokenSource)
+		default:
+			return "", "", nil, fmt.Errorf("unimplemented signaling type %q", networkProto)
+		}
+		return addr.Address, "", signalingConn, nil
+
+	case connectinfo.KindExperience:
+		experience, err := s.connectInfo.Experience(ctx)
+		if err != nil {
+			return "", "", nil, err
+		}
+		addr, err := experience.Join(ctx)
+		if err != nil {
+			return "", "", nil, err
+		}
+		address, err = connectinfo.NormalizeAddress(addr.String())
+		if err != nil {
+			return "", "", nil, err
+		}
+		return address, "", nil, nil
+
+	case connectinfo.KindReplay:
+		panic("invalid")
+
+	case connectinfo.KindXbox:
+		id, err := uuid.Parse(parsed.Xbox)
+		if err != nil {
+			return "", "", nil, err
+		}
+		session, err := s.joinP2P(ctx, id)
+		if err != nil {
+			return "", "", nil, err
+		}
+		tokenSource, err := s.connectInfo.Account.TokenSource(ctx)
+		if err != nil {
+			return "", "", nil, fmt.Errorf("creating TokenSource: %s", err)
+		}
+		var signalingConn signalingCloser
+		switch session.Connection().Type {
+		case p2p.ConnectionTypeSignalingOverJSONRPC:
+			var d messaging.Dialer
+			signalingConn, err = d.DialContext(ctx, tokenSource)
+		case p2p.ConnectionTypeSignalingOverWebSocket:
+			var d signaling.Dialer
+			signalingConn, err = d.DialContext(ctx, tokenSource)
+		default:
+			return "", "", nil, fmt.Errorf("unimplemented signaling type %d", session.Connection().Type)
+		}
+		if err != nil {
+			return "", "", nil, fmt.Errorf("error dialing messaging conn: %s", err)
+		}
+		return session.Connection().Address(), session.Nonce(), signalingConn, nil
+
+	default:
+		panic("unhandled connection type: " + parsed.Kind)
+	}
+}
+
 func (s *Session) connectServer(ctx context.Context, rpHandler *resourcepacks.ResourcePackHandler) (err error) {
 	if s.withClient {
 		select {
@@ -506,13 +595,6 @@ func (s *Session) connectServer(ctx context.Context, rpHandler *resourcepacks.Re
 	messages.SendEvent(&messages.EventConnectStateUpdate{
 		State: messages.ConnectStateServerConnecting,
 	})
-
-	address, err := s.connectInfo.Address(ctx)
-	if err != nil {
-		return err
-	}
-
-	logrus.Info(locale.Loc("connecting", locale.Strmap{"Address": address}))
 
 	xblClient, err := s.connectInfo.Account.XBLClient(ctx)
 	if err != nil {
@@ -553,36 +635,19 @@ func (s *Session) connectServer(ctx context.Context, rpHandler *resourcepacks.Re
 		},
 	}
 
-	// A UUID address refers to a friend's Xbox Live session.
-	if id, err := uuid.Parse(address); err == nil {
-		session, err := s.joinP2P(ctx, id)
-		if err != nil {
-			return err
-		}
-		clientNonce = session.Nonce()
-
-		tokenSource, err := s.connectInfo.Account.TokenSource(ctx)
-		if err != nil {
-			return fmt.Errorf("creating TokenSource: %s", err)
-		}
-
-		var signalingConn signalingCloser
-		switch session.Connection().Type {
-		case p2p.ConnectionTypeSignalingOverJSONRPC:
-			var d messaging.Dialer
-			signalingConn, err = d.DialContext(ctx, tokenSource)
-		case p2p.ConnectionTypeSignalingOverWebSocket:
-			var d signaling.Dialer
-			signalingConn, err = d.DialContext(ctx, tokenSource)
-		default:
-			return fmt.Errorf("unimplemented signaling type %d", session.Connection().Type)
-		}
-		if err != nil {
-			return fmt.Errorf("error dialing messaging conn: %s", err)
-		}
-		s.signaling = signalingConn
-		address = session.Connection().Address()
+	parsed, err := s.connectInfo.Parsed()
+	if err != nil {
+		return err
 	}
+	var address string
+	var signalingConn signalingCloser
+	address, clientNonce, signalingConn, err = s.resolveServerAddress(ctx, parsed)
+	if err != nil {
+		return err
+	}
+	s.signaling = signalingConn
+
+	logrus.Info(locale.Loc("connecting", locale.Strmap{"Address": address}))
 
 	if _, err := dialer.DialContextNetwork(ctx, minecraft.NetherNet{
 		Signaling: s.signaling,
@@ -796,7 +861,7 @@ func (s *Session) proxyLoop(ctx context.Context, toServer bool) (err error) {
 		}
 
 		if transfer != nil {
-			return &errTransfer{transfer: transfer}
+			return &errTransfer{Transfer: transfer}
 		}
 	}
 }
