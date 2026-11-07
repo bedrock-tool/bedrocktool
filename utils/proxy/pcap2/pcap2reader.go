@@ -153,7 +153,7 @@ func (r *Pcap2Reader) ReadPacket(skip bool) (pk packet.Packet, toServer bool, re
 		if err != nil {
 			return nil, toServer, receivedTime, err
 		}
-		r.PacketFunc(*pkData.Header, pkData.Payload.Bytes(), src, dst, receivedTime)
+		r.PacketFunc(*pkData.Header, pkData.Payload(), src, dst, receivedTime)
 
 		pks, err := pkData.Decode(r.pool, r.protocol, nil, false, false, r.shieldID.Load())
 		if err != nil {

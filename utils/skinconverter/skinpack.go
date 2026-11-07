@@ -106,6 +106,10 @@ func (sp *SkinPack) Save(fs utils.WriterFS) error {
 		if i > 0 {
 			skinName += "-" + strconv.Itoa(i)
 		}
+		if skin.SkinImageWidth == 0 {
+			logrus.Warnf("skin %s-%d empty texture", sp.Name, i)
+			continue
+		}
 		err := WriteSkinTexture(fs, skinName, skin)
 		if err != nil {
 			return err
