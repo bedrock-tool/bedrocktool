@@ -65,7 +65,7 @@ func (a *authSrv) LoggedIn() bool {
 // performs microsoft login using the handler passed
 func (a *authSrv) SetHandler(handler auth.AuthCodeHandler) (err error) {
 	if handler == nil {
-		handler = auth.CliAuthCodeHandler{}
+		handler = auth.CliAuthCodeHandler{Writer: os.Stdout}
 	}
 	a.handler = handler
 	return nil
