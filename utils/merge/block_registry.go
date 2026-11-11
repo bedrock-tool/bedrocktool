@@ -18,7 +18,7 @@ type Block struct {
 }
 
 //go:linkname networkBlockHash github.com/df-mc/dragonfly/server/world.networkBlockHash
-func networkBlockHash(name string, properties map[string]any) uint32
+func networkBlockHash(name string, properties map[string]any, scratch []byte) (uint32, []byte)
 
 func (b *BlockRegistry) RuntimeIDToState(runtimeID uint32) (name string, properties map[string]any, found bool) {
 	name, properties, found = b.BlockRegistry.RuntimeIDToState(runtimeID)
@@ -34,7 +34,7 @@ func (b *BlockRegistry) StateToRuntimeID(name string, properties map[string]any)
 	if found {
 		return
 	}
-	runtimeID = networkBlockHash(name, properties)
+	runtimeID, _ = networkBlockHash(name, properties, nil)
 	b.Rids[runtimeID] = Block{name, properties}
 	return runtimeID, true
 }
@@ -54,7 +54,8 @@ func (b *BlockRegistry) BlockByRuntimeID(rid uint32) (world.Block, bool) {
 }
 func (b *BlockRegistry) BlockRuntimeID(block world.Block) (rid uint32) {
 	name, properties := block.EncodeBlock()
-	return networkBlockHash(name, properties)
+	rid, _ = networkBlockHash(name, properties, nil)
+	return rid
 }
 
 func (b *BlockRegistry) BlockCount() int {

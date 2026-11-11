@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/bedrock-tool/bedrocktool/utils/auth"
 	"github.com/google/uuid"
@@ -100,7 +101,22 @@ func (c *ConnectInfo) getExperience(ctx context.Context, name string) (*gatherin
 	if err != nil {
 		return nil, err
 	}
-	experiences, err := gatheringsClient.Experiences(ctx)
+	// The gatherings service occasionally returns an empty listing, so retry
+	// rather than failing the whole session.
+	var experiences []*gatherings.Experience
+	for attempt := range 3 {
+		if attempt > 0 {
+			select {
+			case <-time.After(time.Second):
+			case <-ctx.Done():
+				return nil, context.Cause(ctx)
+			}
+		}
+		experiences, err = gatheringsClient.Experiences(ctx)
+		if err == nil {
+			break
+		}
+	}
 	if err != nil {
 		return nil, err
 	}

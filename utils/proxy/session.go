@@ -335,6 +335,10 @@ func (s *Session) Run() (err error) {
 		s.Server = replay
 		err = replay.ReadUntilLogin()
 		if err != nil {
+			// A capture may end before the player spawned, e.g. one made by packs.
+			if s.expectDisconnect || errors.Is(err, net.ErrClosed) {
+				return nil
+			}
 			return err
 		}
 	} else {
@@ -540,6 +544,31 @@ func (s *Session) resolveServerAddress(ctx context.Context, parsed *connectinfo.
 		addr, err := experience.Join(ctx)
 		if err != nil {
 			return "", "", nil, err
+		}
+		switch networkProto := realms.ParseNetworkProtocol(addr.NetworkProtocol); networkProto {
+		case realms.NetworkProtocolNetherNetJSONRPC, realms.NetworkProtocolNetherNet:
+			if addr.NetherNetID == "" {
+				return "", "", nil, fmt.Errorf("experience %q: join response has no NetherNet ID (network protocol %q)", parsed.Experience, addr.NetworkProtocol)
+			}
+			tokenSource, err := s.connectInfo.Account.TokenSource(ctx)
+			if err != nil {
+				return "", "", nil, fmt.Errorf("creating TokenSource: %s", err)
+			}
+			var signalingConn signalingCloser
+			if networkProto == realms.NetworkProtocolNetherNetJSONRPC {
+				var d messaging.Dialer
+				signalingConn, err = d.DialContext(ctx, tokenSource)
+			} else {
+				var d signaling.Dialer
+				signalingConn, err = d.DialContext(ctx, tokenSource)
+			}
+			if err != nil {
+				return "", "", nil, fmt.Errorf("error dialing signaling conn: %s", err)
+			}
+			return addr.NetherNetID, "", signalingConn, nil
+		}
+		if addr.IPv4Address == "" || addr.Port == 0 {
+			return "", "", nil, fmt.Errorf("experience %q: join response has no server address (network protocol %q)", parsed.Experience, addr.NetworkProtocol)
 		}
 		address, err = connectinfo.NormalizeAddress(addr.String())
 		if err != nil {

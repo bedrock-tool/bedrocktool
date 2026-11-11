@@ -79,15 +79,15 @@ func (c *CLI) Start(ctx context.Context, cancel context.CancelCauseFunc) error {
 		subcommandIndex = i
 		break
 	}
-	if subcommandIndex == -1 {
-		return fmt.Errorf("no command selected")
-	}
-
 	for _, arg := range os.Args {
 		if arg == "-h" || arg == "-help" || arg == "help" {
 			printCommands()
 			return nil
 		}
+	}
+
+	if subcommandIndex == -1 {
+		return fmt.Errorf("no command selected")
 	}
 
 	var args []string

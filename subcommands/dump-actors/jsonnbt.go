@@ -19,8 +19,8 @@ type jsonNbtValueInternal struct {
 	Float32 *float32                        `json:"float32,omitempty"`
 	Float64 *float64                        `json:"float64,omitempty"`
 	String  *string                         `json:"string,omitempty"`
-	Map     map[string]jsonNbtValueInternal `json:"map,omitempty"`
-	Slice   []jsonNbtValueInternal          `json:"slice,omitempty"`
+	Map     map[string]jsonNbtValueInternal `json:"map,omitzero"`
+	Slice   []jsonNbtValueInternal          `json:"slice,omitzero"`
 }
 
 func (internal *jsonNbtValueInternal) Value() (any, error) {
@@ -69,7 +69,8 @@ func (internal *jsonNbtValueInternal) Value() (any, error) {
 		}
 		return sl.Interface(), nil
 	} else {
-		return nil, nil // Or handle default case if needed
+		// Older exports wrote empty lists as {}. NBT cannot encode a nil value.
+		return make([]any, 0), nil
 	}
 }
 
