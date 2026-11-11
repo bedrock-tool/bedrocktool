@@ -1,6 +1,6 @@
 [submodule "gophertunnel"]
 	path = gophertunnel
-	url = https://github.com/olebeck/gophertunnel.git
+	url = https://github.com/bedrock-tool/gophertunnel.git
 [submodule "dragonfly"]
 	path = dragonfly
-	url = https://github.com/olebeck/dragonfly.git
+	url = https://github.com/bedrock-tool/dragonfly.git
