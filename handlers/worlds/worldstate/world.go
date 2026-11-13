@@ -69,6 +69,13 @@ type World struct {
 
 	players map[uuid.UUID]*player
 
+	// maps held by item frames and containers, per chunk
+	mapRefs  map[world.ChunkPos]*chunkMaps
+	seenMaps map[int64]struct{}
+	// OnMapSeen is called (with the world locked) the first time a chunk
+	// shows a map in an item frame or container.
+	OnMapSeen func(id int64)
+
 	VoidGen  bool
 	timeSync time.Time
 	time     int
@@ -116,6 +123,8 @@ func New(ctx context.Context, dimensionDefinitions map[int]protocol.DimensionDef
 		dimensionDefinitions: dimensionDefinitions,
 		memState:             newWorldState(),
 		players:              make(map[uuid.UUID]*player),
+		mapRefs:              make(map[world.ChunkPos]*chunkMaps),
+		seenMaps:             make(map[int64]struct{}),
 		blockUpdates:         make(map[world.ChunkPos][]blockUpdate),
 		onChunkUpdate:        onChunkUpdate,
 		IgnoredChunks:        make(map[world.ChunkPos]bool),
@@ -249,6 +258,7 @@ func (w *World) storeChunkLocked(pos world.ChunkPos, ch *Chunk) (err error) {
 		})
 	}
 	w.memState.StoreChunk(pos, ch)
+	w.scanMapsLocked(pos, ch)
 	return nil
 }
 
@@ -495,26 +505,64 @@ func (w *World) Rename(name, folder string) error {
 
 var errFinished = errors.New("finished")
 
+// SaveOptions are the extras a save can do.
+type SaveOptions struct {
+	// KeepPlayer says which other players are saved (as entities drawn with
+	// their skins); nil saves none.
+	KeepPlayer  func(uuid.UUID) bool
+	PlayerSkins map[uuid.UUID]*protocol.Skin
+	// Hive turns sheep into hive:text, as Hive's pack does.
+	Hive bool
+	// KnownMaps are maps received while earlier worlds were captured, added
+	// when this world's item frames or containers hold them.
+	KnownMaps map[int64]*Map
+}
+
+// playerNPCComponents keep a saved player standing where it was.
+var playerNPCComponents = map[string]any{
+	"minecraft:damage_sensor": map[string]any{"triggers": map[string]any{"deals_damage": false}},
+	"minecraft:pushable":      map[string]any{"is_pushable": false, "is_pushable_by_piston": false},
+	"minecraft:persistent":    map[string]any{},
+}
+
 func (w *World) Save(
 	player proxy.Player, playerData map[string]any,
 	behaviorPack *behaviourpack.Pack,
 	excludedMobs []string,
-	withPlayers bool, playerSkins map[uuid.UUID]*protocol.Skin,
+	opts SaveOptions,
 	gameData minecraft.GameData, serverName string,
 	entityCulling bool, entityRenderDistance float32,
 ) error {
 	spawnPos := cube.Pos{int(player.Position.X()), int(player.Position.Y()), int(player.Position.Z())}
 
-	var playerResourcePack *resourcepack.Pack
-	if withPlayers {
-		playerEntities := w.playersToEntities()
+	w.stateLock.Lock()
+	players := w.preparePlayers(func(id uuid.UUID) bool {
+		return opts.KeepPlayer != nil && opts.PlayerSkins[id] != nil && opts.KeepPlayer(id)
+	})
+	var sheep int
+	if opts.Hive {
+		sheep = w.convertHiveSheep()
+	}
+	w.importMapsLocked(opts.KnownMaps)
+	w.stateLock.Unlock()
 
-		for _, player := range playerEntities {
-			behaviorPack.AddEntity(player.Identifier, nil, protocol.EntityMetadata{}, nil)
+	if sheep > 0 {
+		w.log.Infof("Hive: %d sheep saved as %s", sheep, HiveTextEntity)
+		behaviorPack.AddEntityDefinition(HiveTextEntity, HiveTextComponents)
+	}
+
+	var playerResourcePack *resourcepack.Pack
+	if len(players) > 0 {
+		var playerEntities []resourcepack.EntityPlayer
+		for _, p := range players {
+			behaviorPack.AddEntity(p.Identifier, nil, p.Metadata, nil)
+			behaviorPack.AddComponents(p.Identifier, playerNPCComponents)
+			playerEntities = append(playerEntities, p.EntityPlayer)
 		}
+		w.log.Infof("saving %d players", len(players))
 
 		playerResourcePack = resourcepack.New()
-		err := playerResourcePack.MakePlayers(playerEntities, playerSkins)
+		err := playerResourcePack.MakePlayers(playerEntities, opts.PlayerSkins)
 		if err != nil {
 			return err
 		}
@@ -523,7 +571,6 @@ func (w *World) Save(
 	err := w.finalizeProvider(
 		playerData,
 		excludedMobs,
-		withPlayers,
 		spawnPos,
 		gameData,
 		behaviorPack.HasContent(),
@@ -575,7 +622,6 @@ func (w *World) Save(
 func (w *World) finalizeProvider(
 	playerData map[string]any,
 	excludedMobs []string,
-	withPlayers bool,
 	spawn cube.Pos,
 	gd minecraft.GameData,
 	experimental bool,

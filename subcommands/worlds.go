@@ -15,7 +15,8 @@ type WorldSettings struct {
 	Void          bool     `opt:"Void Generator" flag:"void" default:"true" desc:"locale.enable_void"`
 	Image         bool     `opt:"Image" flag:"image" desc:"locale.save_image"`
 	Entities      bool     `opt:"Entities" flag:"save-entities" default:"true" desc:"Save Entities"`
-	Players       bool     `opt:"Players" flag:"save-players" default:"false" desc:"save players as entities"`
+	Players       bool     `opt:"Players" flag:"save-players" default:"false" desc:"Save players as entities with their skins (on The Hive, its NPC/advert players are saved either way)"`
+	MapArt        bool     `opt:"Map Art PNGs" flag:"map-art" default:"false" desc:"Export maps in item frames as PNG images next to the saved world"`
 	Inventories   bool     `opt:"Inventories" flag:"save-inventories" default:"true" desc:"Save Inventories"`
 	BlockUpdates  bool     `opt:"Block Updates" flag:"block-updates" desc:"Block updates"`
 	EntityCulling bool     `opt:"Entity Culling" flag:"entity-culling" desc:"Remove Entities which died or are deleted (experimental)"`
@@ -66,6 +67,7 @@ func (WorldCMD) Run(ctx context.Context, settings any) error {
 		BlockUpdates:    worldSettings.BlockUpdates,
 		EntityCulling:   worldSettings.EntityCulling,
 		Players:         worldSettings.Players,
+		MapArt:          worldSettings.MapArt,
 	}))
 
 	err = p.Run(ctx, true)

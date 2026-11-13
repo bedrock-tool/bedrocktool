@@ -150,6 +150,36 @@ func (bp *Pack) AddEntity(EntityType string, attr []protocol.AttributeValue, met
 	bp.entities[EntityType] = entry
 }
 
+// AddComponents sets components on an entity added with AddEntity.
+func (bp *Pack) AddComponents(identifier string, components map[string]any) {
+	entry, ok := bp.entities[identifier]
+	if !ok {
+		return
+	}
+	for k, v := range components {
+		entry.MinecraftEntity.Components[k] = v
+	}
+}
+
+// AddEntityDefinition defines a custom entity the server never sent: it can
+// be summoned but doesn't spawn on its own.
+func (bp *Pack) AddEntityDefinition(identifier string, components map[string]any) {
+	comps := make(map[string]any, len(components))
+	for k, v := range components {
+		comps[k] = v
+	}
+	bp.entities[identifier] = &entityBehaviour{
+		FormatVersion: "1.26.30",
+		MinecraftEntity: &MinecraftEntity{
+			Description: &EntityDescription{
+				Identifier: identifier,
+				Summonable: true,
+			},
+			Components: comps,
+		},
+	}
+}
+
 //go:embed player.json
 var playerJson []byte
 

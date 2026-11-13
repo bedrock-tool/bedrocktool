@@ -89,6 +89,10 @@ type EntityPlayer struct {
 
 func (p *Pack) MakePlayers(players []EntityPlayer, playerSkins map[uuid.UUID]*protocol.Skin) error {
 	for _, player := range players {
+		if playerSkins[player.UUID] == nil {
+			logrus.Warnf("no skin for player %s", player.UUID)
+			continue
+		}
 		skin := skinconverter.Skin{Skin: playerSkins[player.UUID]}
 
 		skinTexture := image.NewNRGBA(image.Rect(0, 0, int(skin.SkinImageWidth), int(skin.SkinImageHeight)))
@@ -110,7 +114,7 @@ func (p *Pack) MakePlayers(players []EntityPlayer, playerSkins map[uuid.UUID]*pr
 		if capeTexture != nil {
 			capeTextureName = path.Join("textures", "player", "cape_"+player.UUID.String())
 			textureData := bytes.NewBuffer(nil)
-			png.Encode(textureData, skinTexture)
+			png.Encode(textureData, capeTexture)
 			p.Files[capeTextureName+".png"] = textureData.Bytes()
 		}
 

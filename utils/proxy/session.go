@@ -156,6 +156,19 @@ func (s *Session) resolveServerName(ctx context.Context) error {
 	return nil
 }
 
+// ServerAddress is the address given to connect to a server, or "" when
+// connecting some other way (realm, replay...).
+func (s *Session) ServerAddress() string {
+	if s.connectInfo == nil {
+		return ""
+	}
+	parsed, err := s.connectInfo.Parsed()
+	if err != nil || parsed.Kind != connectinfo.KindServer {
+		return ""
+	}
+	return parsed.Address
+}
+
 func (s *Session) joinP2P(ctx context.Context, id uuid.UUID) (*p2p.Session, error) {
 	if s.p2pSession != nil {
 		return s.p2pSession, nil

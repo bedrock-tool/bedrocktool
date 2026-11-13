@@ -169,9 +169,12 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 		})
 
 	case *packet.ClientBoundMapItemData:
-		w.currentWorld(func(world *worldstate.World) {
-			world.StoreMap(pk)
-		})
+		if pk.MapID != ViewMapID {
+			w.storeKnownMap(pk)
+			w.currentWorld(func(world *worldstate.World) {
+				world.StoreMap(pk)
+			})
+		}
 
 	case *packet.MapInfoRequest:
 		if pk.MapID == ViewMapID {
@@ -196,7 +199,11 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 
 	case *packet.PlayerList:
 		for _, player := range pk.Entries {
+			if player.ActionType != protocol.PlayerListActionAdd {
+				continue // a removal carries no skin or XUID
+			}
 			w.serverState.playerSkins[player.UUID] = &player.Skin
+			w.serverState.playerXUIDs[player.UUID] = player.XUID
 		}
 
 	case *packet.PlayerSkin:
@@ -270,9 +277,24 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 
 	case *packet.MovePlayer:
 		entityRenderDistance := w.serverState.getEntityRenderDistance()
-		if pk.EntityRuntimeID == w.session.Player.RuntimeID && pk.Mode == packet.MoveModeTeleport {
+		if pk.EntityRuntimeID == w.session.Player.RuntimeID {
+			if pk.Mode == packet.MoveModeTeleport {
+				w.currentWorld(func(world *worldstate.World) {
+					world.PlayerMove(w.session.Player.TeleportLocation, entityRenderDistance, w.session.Player.Teleports)
+				})
+			}
+		} else {
+			// another player: MovePlayer has its eyes, the entity its feet
 			w.currentWorld(func(world *worldstate.World) {
-				world.PlayerMove(w.session.Player.TeleportLocation, entityRenderDistance, w.session.Player.Teleports)
+				world.ActEntity(pk.EntityRuntimeID, false, func(ent *entity.Entity) error {
+					prevPosition := ent.Position
+					ent.Position = pk.Position.Sub(mgl32.Vec3{0, worldstate.PlayerEyeHeight, 0})
+					ent.Pitch = pk.Pitch
+					ent.Yaw = pk.Yaw
+					ent.HeadYaw = pk.HeadYaw
+					w.onEntityUpdate(ent, &prevPosition, nil)
+					return nil
+				})
 			})
 		}
 
@@ -405,10 +427,13 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 					ent.Position[0] = posX
 				}
 				if posY, ok := pk.PositionY.Value(); ok {
-					ent.Position[0] = posY
+					if ent.EntityType == worldstate.PlayerEntityType {
+						posY -= worldstate.PlayerEyeHeight
+					}
+					ent.Position[1] = posY
 				}
 				if posZ, ok := pk.PositionZ.Value(); ok {
-					ent.Position[0] = posZ
+					ent.Position[2] = posZ
 				}
 
 				if rotationX, ok := pk.RotationX.Value(); ok {
@@ -433,6 +458,9 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 			world.ActEntity(pk.EntityRuntimeID, false, func(ent *entity.Entity) error {
 				prevPosition := ent.Position
 				ent.Position = pk.Position
+				if ent.EntityType == worldstate.PlayerEntityType {
+					ent.Position[1] -= worldstate.PlayerEyeHeight
+				}
 				ent.Pitch = pk.Rotation.X()
 				ent.Yaw = pk.Rotation.Y()
 				if !ent.Velocity.ApproxEqual(mgl32.Vec3{}) {
@@ -467,7 +495,7 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 			world.ActEntity(pk.EntityRuntimeID, false, func(ent *entity.Entity) error {
 				ent.Helmet = &pk.Helmet
 				ent.Chestplate = &pk.Chestplate
-				ent.Leggings = &pk.Chestplate
+				ent.Leggings = &pk.Leggings
 				ent.Boots = &pk.Boots
 				w.onEntityUpdate(ent, nil, nil)
 				return nil
