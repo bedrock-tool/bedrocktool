@@ -3,6 +3,7 @@ package behaviourpack
 import (
 	_ "embed"
 	"encoding/json"
+	"maps"
 
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds/entity"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
@@ -148,6 +149,35 @@ func (bp *Pack) AddEntity(EntityType string, attr []protocol.AttributeValue, met
 
 	entry.MinecraftEntity.Description.Properties = makeEntityProperties(props)
 	bp.entities[EntityType] = entry
+}
+
+// AddComponents sets components on an entity added with AddEntity.
+func (bp *Pack) AddComponents(identifier string, components map[string]any) {
+	entry, ok := bp.entities[identifier]
+	if !ok {
+		return
+	}
+	for k, v := range components {
+		entry.MinecraftEntity.Components[k] = v
+	}
+}
+
+// AddEntityDefinition defines a custom entity the server never sent, as
+// given (its format version decides which components are valid): it can be
+// summoned but doesn't spawn on its own.
+func (bp *Pack) AddEntityDefinition(identifier, formatVersion string, components, componentGroups, events map[string]any) {
+	bp.entities[identifier] = &entityBehaviour{
+		FormatVersion: formatVersion,
+		MinecraftEntity: &MinecraftEntity{
+			Description: &EntityDescription{
+				Identifier: identifier,
+				Summonable: true,
+			},
+			Components:      maps.Clone(components),
+			ComponentGroups: maps.Clone(componentGroups),
+			Events:          maps.Clone(events),
+		},
+	}
 }
 
 //go:embed player.json

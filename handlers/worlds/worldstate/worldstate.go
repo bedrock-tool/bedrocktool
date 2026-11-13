@@ -39,7 +39,7 @@ func (w *memoryState) StoreChunk(pos world.ChunkPos, ch *Chunk) {
 }
 
 func (w *memoryState) StoreMap(m *packet.ClientBoundMapItemData) {
-	return
+	w.maps[m.MapID] = ApplyMapPacket(w.maps[m.MapID], m)
 }
 
 func cubePosInChunk(pos cube.Pos) (p world.ChunkPos, sp int16) {

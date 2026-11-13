@@ -39,6 +39,7 @@ type WorldSettings struct {
 	ChunkRadius     int32
 	Script          string
 	Players         bool
+	MapArt          bool
 	BlockUpdates    bool
 	EntityCulling   bool
 }
@@ -62,10 +63,16 @@ type serverState struct {
 	playerInventory      []protocol.ItemInstance
 	dimensions           map[int]protocol.DimensionDefinition
 	playerSkins          map[uuid.UUID]*protocol.Skin
+	playerXUIDs          map[uuid.UUID]string
+	isHive               bool
 	entityProperties     map[string][]entity.EntityPropertyDef
 	playerPropertyValues map[string]any
 
 	entityRenderDistances []float32
+
+	mapsMu        sync.Mutex
+	knownMaps     map[int64]*worldstate.Map
+	requestedMaps map[int64]struct{}
 }
 
 func (s *serverState) getEntityRenderDistance() float32 {
@@ -157,6 +164,10 @@ func (w *worldsHandler) onSessionStart(session *proxy.Session, serverName string
 		openItemContainers:   make(map[byte]*itemContainer),
 		dimensions:           make(map[int]protocol.DimensionDefinition),
 		playerSkins:          make(map[uuid.UUID]*protocol.Skin),
+		playerXUIDs:          make(map[uuid.UUID]string),
+		isHive:               isHiveServer(session.ServerAddress(), serverName),
+		knownMaps:            make(map[int64]*worldstate.Map),
+		requestedMaps:        make(map[int64]struct{}),
 		biomes:               world.DefaultBiomes.Clone(),
 		entityProperties:     make(map[string][]entity.EntityPropertyDef),
 		behaviorPack:         behaviourpack.New(serverName),
@@ -165,6 +176,9 @@ func (w *worldsHandler) onSessionStart(session *proxy.Session, serverName string
 	}
 
 	w.mapUI = NewMapUI(w)
+	if w.serverState.isHive {
+		w.log.Info("The Hive: sheep are saved as hive:text, and its NPC players are kept")
+	}
 
 	w.scripting = nil
 	if w.settings.Script != "" {
@@ -319,10 +333,15 @@ func (w *worldsHandler) SaveAndReset(end bool, dim world.Dimension) {
 		w.serverState.worldCounter += 1
 		w.mapUI.Reset()
 
+		// taken now: the packet loop keeps changing these while it saves
+		keepPlayer := w.keepPlayer()
+		playerSkins := make(map[uuid.UUID]*protocol.Skin)
+		maps.Copy(playerSkins, w.serverState.playerSkins)
+
 		w.wg.Add(1)
 		go func() {
 			defer w.wg.Done()
-			err := w.saveWorldState(worldState, w.session.Player, w.serverState.behaviorPack)
+			err := w.saveWorldState(worldState, w.session.Player, w.serverState.behaviorPack, keepPlayer, playerSkins)
 			if err != nil {
 				w.log.Error(err)
 			}
@@ -341,7 +360,7 @@ func (w *worldsHandler) SaveAndReset(end bool, dim world.Dimension) {
 	}
 }
 
-func (w *worldsHandler) saveWorldState(worldState *worldstate.World, player proxy.Player, behaviorPack *behaviourpack.Pack) error {
+func (w *worldsHandler) saveWorldState(worldState *worldstate.World, player proxy.Player, behaviorPack *behaviourpack.Pack, keepPlayer func(uuid.UUID) bool, playerSkins map[uuid.UUID]*protocol.Skin) error {
 	text := locale.Loc("saving_world", locale.Strmap{"Name": worldState.Name, "Count": len(worldState.StoredChunks)})
 	w.log.Info(text)
 	w.session.SendMessage(text)
@@ -351,14 +370,16 @@ func (w *worldsHandler) saveWorldState(worldState *worldstate.World, player prox
 		State:     "Saving",
 	})
 
-	var playerSkins = make(map[uuid.UUID]*protocol.Skin)
-	maps.Copy(playerSkins, w.serverState.playerSkins)
-
 	err := worldState.Save(
 		player, w.playerData(),
 		w.serverState.behaviorPack,
 		w.settings.ExcludedMobs,
-		w.settings.Players, playerSkins,
+		worldstate.SaveOptions{
+			KeepPlayer:  keepPlayer,
+			PlayerSkins: playerSkins,
+			Hive:        w.serverState.isHive,
+			KnownMaps:   w.knownMapsSnapshot(),
+		},
 		w.session.Server.GameData(), w.serverState.serverName,
 		w.settings.EntityCulling,
 		w.serverState.getEntityRenderDistance(),
@@ -388,6 +409,16 @@ func (w *worldsHandler) saveWorldState(worldState *worldstate.World, player prox
 	if err != nil {
 		return err
 	}
+	if w.settings.MapArt {
+		dir := worldState.Folder + "_mapart"
+		grids, tiles, err := worldState.ExportMapArt(dir)
+		if err != nil {
+			w.log.Errorf("map art: %s", err)
+		} else if tiles > 0 {
+			w.log.Infof("map art: %d maps, %d walls saved to %s", tiles, grids, dir)
+		}
+	}
+
 	total, active := worldState.EntityCounts(w.serverState.getEntityRenderDistance())
 	w.log.WithFields(logrus.Fields{
 		"Entities": fmt.Sprintf("%d (%d)", total, active),
@@ -421,6 +452,11 @@ func (w *worldsHandler) openWorldState() {
 	w.worldState.BlockRegistry = w.serverState.blocks
 	w.worldState.ResourcePacks = w.session.Server.ResourcePacks()
 	w.worldState.UseHashedRids = w.serverState.useHashedRids
+	w.worldState.OnMapSeen = w.onMapSeen
+	if !w.serverState.isHive && hasHivePacks(w.worldState.ResourcePacks) {
+		w.serverState.isHive = true
+		w.log.Info("The Hive (by its resource packs): sheep are saved as hive:text, and its NPC players are kept")
+	}
 	w.worldState.Open(w.defaultWorldName(), folder)
 }
 
