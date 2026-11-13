@@ -8,6 +8,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds/worldstate"
 	"github.com/google/uuid"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
+	"github.com/sandertv/gophertunnel/minecraft/resource"
 	"github.com/sirupsen/logrus"
 )
 
@@ -23,6 +24,19 @@ func isHiveServer(address, serverName string) bool {
 	}
 	name := strings.ToLower(colorCodes.ReplaceAllString(serverName, ""))
 	return strings.Contains(name, "the hive") || strings.Contains(name, "hivebedrock")
+}
+
+// hasHivePacks says whether the server sent Hive's own resource packs
+// ("HiveCommon", "The Hive: Hub", "Hive UI"...). It finds Hive in replays,
+// which have no address, and behind proxies with their own.
+func hasHivePacks(packs []resource.Pack) bool {
+	for _, p := range packs {
+		name := strings.ToLower(strings.TrimSpace(colorCodes.ReplaceAllString(p.Name(), "")))
+		if strings.HasPrefix(name, "hive") || strings.HasPrefix(name, "the hive") {
+			return true
+		}
+	}
+	return false
 }
 
 // isNPCPlayer says whether a listed player is one the server made up (Hive's

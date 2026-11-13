@@ -3,6 +3,7 @@ package behaviourpack
 import (
 	_ "embed"
 	"encoding/json"
+	"maps"
 
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds/entity"
 	"github.com/sandertv/gophertunnel/minecraft/protocol"
@@ -161,21 +162,20 @@ func (bp *Pack) AddComponents(identifier string, components map[string]any) {
 	}
 }
 
-// AddEntityDefinition defines a custom entity the server never sent: it can
-// be summoned but doesn't spawn on its own.
-func (bp *Pack) AddEntityDefinition(identifier string, components map[string]any) {
-	comps := make(map[string]any, len(components))
-	for k, v := range components {
-		comps[k] = v
-	}
+// AddEntityDefinition defines a custom entity the server never sent, as
+// given (its format version decides which components are valid): it can be
+// summoned but doesn't spawn on its own.
+func (bp *Pack) AddEntityDefinition(identifier, formatVersion string, components, componentGroups, events map[string]any) {
 	bp.entities[identifier] = &entityBehaviour{
-		FormatVersion: "1.26.30",
+		FormatVersion: formatVersion,
 		MinecraftEntity: &MinecraftEntity{
 			Description: &EntityDescription{
 				Identifier: identifier,
 				Summonable: true,
 			},
-			Components: comps,
+			Components:      maps.Clone(components),
+			ComponentGroups: maps.Clone(componentGroups),
+			Events:          maps.Clone(events),
 		},
 	}
 }

@@ -453,6 +453,10 @@ func (w *worldsHandler) openWorldState() {
 	w.worldState.ResourcePacks = w.session.Server.ResourcePacks()
 	w.worldState.UseHashedRids = w.serverState.useHashedRids
 	w.worldState.OnMapSeen = w.onMapSeen
+	if !w.serverState.isHive && hasHivePacks(w.worldState.ResourcePacks) {
+		w.serverState.isHive = true
+		w.log.Info("The Hive (by its resource packs): sheep are saved as hive:text, and its NPC players are kept")
+	}
 	w.worldState.Open(w.defaultWorldName(), folder)
 }
 

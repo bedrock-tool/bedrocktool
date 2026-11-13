@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"image"
 	"image/png"
+	"maps"
 	"path"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -72,6 +74,7 @@ type ClientEntityDescription struct {
 	Scripts           map[string]any    `json:"scripts,omitempty"`
 	Animations        map[string]string `json:"animations,omitempty"`
 	RenderControllers []string          `json:"render_controllers"`
+	EnableAttachables bool              `json:"enable_attachables,omitempty"`
 }
 
 func New() *Pack {
@@ -98,151 +101,82 @@ func (p *Pack) MakePlayers(players []EntityPlayer, playerSkins map[uuid.UUID]*pr
 		skinTexture := image.NewNRGBA(image.Rect(0, 0, int(skin.SkinImageWidth), int(skin.SkinImageHeight)))
 		copy(skinTexture.Pix, skin.SkinData)
 
-		var capeTexture *image.NRGBA
-		if skin.CapeID != "" {
-			capeTexture = image.NewNRGBA(image.Rect(0, 0, int(skin.CapeImageWidth), int(skin.CapeImageHeight)))
-			copy(capeTexture.Pix, skin.CapeData)
-		}
-
 		var skinTextureName = path.Join("textures", "player", player.UUID.String())
-		var capeTextureName = "textures/entity/cape_invisible"
 
 		textureData := bytes.NewBuffer(nil)
 		png.Encode(textureData, skinTexture)
 		p.Files[skinTextureName+".png"] = textureData.Bytes()
 
-		if capeTexture != nil {
+		// The cape, when the skin has one with a picture (an ID alone
+		// would give an empty png).
+		var capeTextureName string
+		if w, h := int(skin.CapeImageWidth), int(skin.CapeImageHeight); skin.CapeID != "" && w > 0 && h > 0 && len(skin.CapeData) >= w*h*4 {
+			capeTexture := image.NewNRGBA(image.Rect(0, 0, w, h))
+			copy(capeTexture.Pix, skin.CapeData)
 			capeTextureName = path.Join("textures", "player", "cape_"+player.UUID.String())
-			textureData := bytes.NewBuffer(nil)
-			png.Encode(textureData, capeTexture)
-			p.Files[capeTextureName+".png"] = textureData.Bytes()
+			capeData := bytes.NewBuffer(nil)
+			png.Encode(capeData, capeTexture)
+			p.Files[capeTextureName+".png"] = capeData.Bytes()
 		}
 
-		geometryIdentifier, formatVersion, geometry, err := skin.ParseGeometry()
+		geometryIdentifier, _, geometry, err := skin.ParseGeometry()
 		if err != nil {
-			logrus.Error(err)
-			continue
+			logrus.Warnf("player %s: %s, drawing it with the default model", player.UUID, err)
+			geometry = nil
 		}
 
-		repl := strings.NewReplacer("-", "_", "+", "_")
-		geometryIdentifier = repl.Replace(geometryIdentifier)
+		if geometry != nil {
+			// Each player's model gets a name of its own: skins share
+			// names ("geometry.humanoid.custom...") for different models.
+			geometryIdentifier = "geometry.bedrocktool_player." + strings.ReplaceAll(player.UUID.String(), "-", "_")
+		} else {
+			// The skin names a model it doesn't include (or none): draw it
+			// with the game's own player model, as the game would.
+			// (ArmSize isn't trusted: unset it reads as slim.)
+			if !strings.Contains(strings.ToLower(geometryIdentifier), "slim") {
+				geometryIdentifier = "geometry.humanoid.custom"
+			} else {
+				geometryIdentifier = "geometry.humanoid.customSlim"
+			}
+		}
 
 		if geometry != nil {
 			geometry.Description.Identifier = geometryIdentifier
-			p.Files[path.Join("models", "player", geometryIdentifier+".json")], _ = json.Marshal(skinconverter.SkinGeometryFile{
-				FormatVersion: formatVersion,
+			p.Files[path.Join("models", "entity", "bedrocktool_player", geometryIdentifier+".geo.json")], _ = json.Marshal(skinconverter.SkinGeometryFile{
+				// ParseGeometry gives 1.8.0 models in the 1.12 layout too
+				FormatVersion: "1.12.0",
 				Geometry:      []skinconverter.SkinGeometry{*geometry},
 			})
 		}
 
+		// Drawn like a mob, not a player: the player's own render and
+		// animation controllers ask for variables only a real player has
+		// (is_first_person, ...), and fail on everything else.
 		var clientEntity = ClientEntityFile{
 			FormatVersion: "1.10.0",
 			ClientEntity: &ClientEntity{
 				Description: &ClientEntityDescription{
-					Identifier: player.Identifier,
-					Materials: map[string]string{
-						"default": "entity_alphatest",
-						"cape":    "entity_alphatest",
-					},
-					Textures: map[string]string{
-						"default": skinTextureName,
-						"cape":    capeTextureName,
-					},
-					Geometry: map[string]string{
-						"default": geometryIdentifier,
-						"cape":    "geometry.cape",
-					},
-					RenderControllers: []string{"controller.render.player.third_person"},
-					Scripts: map[string]any{
-						"initialize": []string{
-							"variable.is_holding_right = 0.0;",
-							"variable.is_blinking = 0.0;",
-							"variable.last_blink_time = 0.0;",
-							"variable.hand_bob = 0.0;",
-						},
-						"pre_animation": []string{
-							"variable.helmet_layer_visible = !query.has_head_gear;",
-							"variable.leg_layer_visible = 1.0;",
-							"variable.boot_layer_visible = 1.0;",
-							"variable.chest_layer_visible = 1.0;",
-							"variable.attack_body_rot_y = Math.sin(360*Math.sqrt(variable.attack_time)) * 5.0;",
-							"variable.tcos0 = (math.cos(query.modified_distance_moved * 38.17) * query.modified_move_speed / variable.gliding_speed_value) * 57.3;",
-							"variable.first_person_rotation_factor = math.sin((1 - variable.attack_time) * 180.0);",
-							"variable.hand_bob = query.life_time < 0.01 ? 0.0 : variable.hand_bob + ((query.is_on_ground && query.is_alive ? math.clamp(math.sqrt(math.pow(query.position_delta(0), 2.0) + math.pow(query.position_delta(2), 2.0)), 0.0, 0.1) : 0.0) - variable.hand_bob) * 0.02;",
-							"variable.map_angle = math.clamp(1 - variable.player_x_rotation / 45.1, 0.0, 1.0);",
-							"variable.item_use_normalized = query.main_hand_item_use_duration / query.main_hand_item_max_duration;",
-						},
-						"animate": []string{
-							"root",
-						},
-					},
-					Animations: map[string]string{
-						"root":                              "controller.animation.player.root",
-						"base_controller":                   "controller.animation.player.base",
-						"hudplayer":                         "controller.animation.player.hudplayer",
-						"humanoid_base_pose":                "animation.humanoid.base_pose",
-						"look_at_target":                    "controller.animation.humanoid.look_at_target",
-						"look_at_target_ui":                 "animation.player.look_at_target.ui",
-						"look_at_target_default":            "animation.humanoid.look_at_target.default",
-						"look_at_target_gliding":            "animation.humanoid.look_at_target.gliding",
-						"look_at_target_swimming":           "animation.humanoid.look_at_target.swimming",
-						"look_at_target_inverted":           "animation.player.look_at_target.inverted",
-						"cape":                              "animation.player.cape",
-						"move.arms":                         "animation.player.move.arms",
-						"move.legs":                         "animation.player.move.legs",
-						"swimming":                          "animation.player.swim",
-						"swimming.legs":                     "animation.player.swim.legs",
-						"riding.arms":                       "animation.player.riding.arms",
-						"riding.legs":                       "animation.player.riding.legs",
-						"holding":                           "animation.player.holding",
-						"brandish_spear":                    "animation.humanoid.brandish_spear",
-						"charging":                          "animation.humanoid.charging",
-						"attack.positions":                  "animation.player.attack.positions",
-						"attack.rotations":                  "animation.player.attack.rotations",
-						"sneaking":                          "animation.player.sneaking",
-						"bob":                               "animation.player.bob",
-						"damage_nearby_mobs":                "animation.humanoid.damage_nearby_mobs",
-						"bow_and_arrow":                     "animation.humanoid.bow_and_arrow",
-						"use_item_progress":                 "animation.humanoid.use_item_progress",
-						"skeleton_attack":                   "animation.skeleton.attack",
-						"sleeping":                          "animation.player.sleeping",
-						"first_person_base_pose":            "animation.player.first_person.base_pose",
-						"first_person_empty_hand":           "animation.player.first_person.empty_hand",
-						"first_person_swap_item":            "animation.player.first_person.swap_item",
-						"first_person_attack_controller":    "controller.animation.player.first_person_attack",
-						"first_person_attack_rotation":      "animation.player.first_person.attack_rotation",
-						"first_person_attack_rotation_item": "animation.player.first_person.attack_rotation_item",
-						"first_person_vr_attack_rotation":   "animation.player.first_person.vr_attack_rotation",
-						"first_person_walk":                 "animation.player.first_person.walk",
-						"first_person_map_controller":       "controller.animation.player.first_person_map",
-						"first_person_map_hold":             "animation.player.first_person.map_hold",
-						"first_person_map_hold_attack":      "animation.player.first_person.map_hold_attack",
-						"first_person_map_hold_off_hand":    "animation.player.first_person.map_hold_off_hand",
-						"first_person_map_hold_main_hand":   "animation.player.first_person.map_hold_main_hand",
-						"first_person_crossbow_equipped":    "animation.player.first_person.crossbow_equipped",
-						"first_person_crossbow_hold":        "animation.player.first_person.crossbow_hold",
-						"first_person_breathing_bob":        "animation.player.first_person.breathing_bob",
-						"third_person_crossbow_equipped":    "animation.player.crossbow_equipped",
-						"third_person_bow_equipped":         "animation.player.bow_equipped",
-						"crossbow_hold":                     "animation.player.crossbow_hold",
-						"crossbow_controller":               "controller.animation.player.crossbow",
-						"shield_block_main_hand":            "animation.player.shield_block_main_hand",
-						"shield_block_off_hand":             "animation.player.shield_block_off_hand",
-						"blink":                             "controller.animation.persona.blink",
-						"fishing_rod":                       "animation.humanoid.fishing_rod",
-						"holding_spyglass":                  "animation.humanoid.holding_spyglass",
-						"first_person_shield_block":         "animation.player.first_person.shield_block",
-						"tooting_goat_horn":                 "animation.humanoid.tooting_goat_horn",
-						"holding_brush":                     "animation.humanoid.holding_brush",
-						"brushing":                          "animation.humanoid.brushing",
-						"crawling":                          "animation.player.crawl",
-						"crawling.legs":                     "animation.player.crawl.legs",
-						"holding_heavy_core":                "animation.player.holding_heavy_core",
-					},
+					Identifier:        player.Identifier,
+					Materials:         map[string]string{"default": "entity_alphatest"},
+					Textures:          map[string]string{"default": skinTextureName},
+					Geometry:          map[string]string{"default": geometryIdentifier},
+					RenderControllers: []string{"controller.render.default"},
+					// draws what they wear and hold (Hive's cosmetics are attachables)
+					EnableAttachables: true,
+					Scripts:           playerScripts,
+					Animations:        playerAnimations,
 				},
 			},
 		}
-
+		if capeTextureName != "" {
+			d := clientEntity.ClientEntity.Description
+			d.Materials["cape"] = "entity_alphatest"
+			d.Textures["cape"] = capeTextureName
+			d.Geometry["cape"] = capeGeometryID
+			d.RenderControllers = append(d.RenderControllers, capeRenderController)
+			d.Scripts, d.Animations = withCape(d.Scripts, d.Animations)
+			p.addCapeFiles()
+		}
 		clientEntityData, err := json.Marshal(&clientEntity)
 		if err != nil {
 			return err
@@ -270,4 +204,160 @@ func (p *Pack) WriteToFS(fs utils.WriterFS) error {
 		f.Close()
 	}
 	return nil
+}
+
+// playerAnimations are the game's own third person player animations. The
+// player's root controller isn't used: it also runs the first person,
+// paperdoll and map states, which read variables only a real player has.
+var playerAnimations = map[string]string{
+	"humanoid_base_pose":     "animation.humanoid.base_pose",
+	"look_at_target_default": "animation.humanoid.look_at_target.default",
+	"move.arms":              "animation.player.move.arms",
+	"move.legs":              "animation.player.move.legs",
+	"riding.arms":            "animation.player.riding.arms",
+	"riding.legs":            "animation.player.riding.legs",
+	"riding.root":            "animation.player.riding.root",
+	"holding":                "animation.player.holding",
+	"sneaking":               "animation.player.sneaking",
+	"bob":                    "animation.player.bob",
+	"swimming":               "animation.player.swim",
+	"swimming.legs":          "animation.player.swim.legs",
+}
+
+// playerScripts sets every variable those animations (and the player's
+// scripts they were written for) read, so none is unknown, and picks which
+// play: walking, bobbing and holding normally, riding while mounted,
+// sneaking and swimming when the entity does.
+var playerScripts = map[string]any{
+	// players are drawn at 0.9375 of their size, as the game's player is
+	"scale": "0.9375",
+	"initialize": []string{
+		"variable.swim_amount = 0.0;",
+		"variable.riding_y_offset = 0.0;",
+		"variable.is_first_person = 0.0;",
+		"variable.is_paperdoll = 0.0;",
+		"variable.map_face_icon = 0.0;",
+		"variable.bob_animation = 0.0;",
+		"variable.is_holding_right = 0.0;",
+		"variable.is_holding_left = 0.0;",
+		"variable.is_brandishing_spear = 0.0;",
+		"variable.is_holding_spyglass = 0.0;",
+		"variable.is_using_vr = 0.0;",
+		"variable.is_blinking = 0.0;",
+		"variable.last_blink_time = 0.0;",
+		"variable.hand_bob = 0.0;",
+		"variable.attack_time = 0.0;",
+		"variable.attack_body_rot_y = 0.0;",
+		"variable.player_x_rotation = 0.0;",
+		"variable.gliding_speed_value = 1.0;",
+		"variable.short_arm_offset_right = 0.0;",
+		"variable.short_arm_offset_left = 0.0;",
+		"variable.helmet_layer_visible = 1.0;",
+		"variable.leg_layer_visible = 1.0;",
+		"variable.boot_layer_visible = 1.0;",
+		"variable.chest_layer_visible = 1.0;",
+		"variable.tcos0 = 0.0;",
+	},
+	"pre_animation": []string{
+		"variable.tcos0 = (math.cos(query.modified_distance_moved * 38.17) * query.modified_move_speed / variable.gliding_speed_value) * 57.3;",
+		// sits lower in boats and minecarts, as the game's player does
+		"variable.riding_y_offset = query.is_riding_any_entity_of_type('minecraft:minecart', 'minecraft:boat', 'minecraft:chest_boat', 'minecraft:strider') ? -3.0 : 0.0;",
+	},
+	"animate": []any{
+		"humanoid_base_pose",
+		"look_at_target_default",
+		map[string]string{"move.arms": "!query.is_riding && !query.is_swimming"},
+		map[string]string{"move.legs": "!query.is_riding && !query.is_swimming"},
+		map[string]string{"riding.arms": "query.is_riding"},
+		map[string]string{"riding.legs": "query.is_riding"},
+		map[string]string{"riding.root": "query.is_riding"},
+		map[string]string{"bob": "!query.is_riding"},
+		"holding",
+		map[string]string{"sneaking": "query.is_sneaking && !query.is_swimming"},
+		map[string]string{"swimming": "query.is_swimming"},
+		map[string]string{"swimming.legs": "query.is_swimming"},
+	},
+}
+
+// A cape is drawn by its own model and render controller, shipped in the
+// pack: the player's cape controller only draws for real players.
+const (
+	capeGeometryID       = "geometry.bedrocktool_player.cape"
+	capeRenderController = "controller.render.bedrocktool_player.cape"
+)
+
+// capeGeometry is the game's cape: a 10x16x1 panel hanging from the
+// shoulders, flat against the back, on a 64x32 cape texture.
+var capeGeometry = map[string]any{
+	"format_version": "1.12.0",
+	"minecraft:geometry": []any{map[string]any{
+		"description": map[string]any{
+			"identifier":     capeGeometryID,
+			"texture_width":  64,
+			"texture_height": 32,
+		},
+		// the game's geometry.cape: body moves with the body animations
+		"bones": []any{
+			map[string]any{"name": "root", "pivot": []float32{0, 0, 0}},
+			map[string]any{"name": "waist", "parent": "root", "pivot": []float32{0, 12, 0}},
+			map[string]any{"name": "body", "parent": "waist", "pivot": []float32{0, 24, 0}},
+			map[string]any{
+				"name": "cape", "parent": "body",
+				"pivot":              []float32{0, 24, 3},
+				"bind_pose_rotation": []float32{0, 180, 0},
+				"rotation":           []float32{0, 180, 0},
+				"cubes": []any{map[string]any{
+					"origin": []float32{-5, 8, 3},
+					"size":   []float32{10, 16, 1},
+					"uv":     []float32{0, 0},
+				}},
+			},
+		},
+	}},
+}
+
+var capeRenderControllers = map[string]any{
+	"format_version": "1.8.0",
+	"render_controllers": map[string]any{
+		capeRenderController: map[string]any{
+			"geometry":  "Geometry.cape",
+			"materials": []any{map[string]string{"*": "Material.cape"}},
+			"textures":  []string{"Texture.cape"},
+		},
+	},
+}
+
+// capeAnimation holds the cape at the game's resting angle (6 degrees out
+// from the back); the game's own cape animation flaps it with player-only
+// queries.
+const capeAnimation = "animation.bedrocktool_player.cape"
+
+var capeAnimations = map[string]any{
+	"format_version": "1.8.0",
+	"animations": map[string]any{
+		capeAnimation: map[string]any{
+			"loop":  true,
+			"bones": map[string]any{"cape": map[string]any{"rotation": []float32{-6, 0, 0}}},
+		},
+	},
+}
+
+// addCapeFiles adds the cape's model, render controller and animation, once.
+func (p *Pack) addCapeFiles() {
+	const model = "models/entity/bedrocktool_player/cape.geo.json"
+	if _, ok := p.Files[model]; ok {
+		return
+	}
+	p.Files[model], _ = json.Marshal(capeGeometry)
+	p.Files["render_controllers/bedrocktool_player.render_controllers.json"], _ = json.Marshal(capeRenderControllers)
+	p.Files["animations/bedrocktool_player.animation.json"], _ = json.Marshal(capeAnimations)
+}
+
+// withCape is the player scripts and animations plus the cape's tilt.
+func withCape(scripts map[string]any, animations map[string]string) (map[string]any, map[string]string) {
+	s := maps.Clone(scripts)
+	s["animate"] = append(slices.Clone(scripts["animate"].([]any)), "cape")
+	a := maps.Clone(animations)
+	a["cape"] = capeAnimation
+	return s, a
 }

@@ -39,6 +39,9 @@ type Entity struct {
 	Chestplate *protocol.ItemInstance
 	Leggings   *protocol.ItemInstance
 	Boots      *protocol.ItemInstance
+	Body       *protocol.ItemInstance
+	MainHand   *protocol.ItemInstance
+	OffHand    *protocol.ItemInstance
 
 	DeletedDistance float32 // distance to player when it was removed
 	LastTeleport    int
@@ -73,6 +76,29 @@ var flagNames = map[uint8]string{
 	protocol.EntityDataFlagRoaring:      "IsRoaring",
 }
 
+// nonZero says whether a metadata number isn't 0, whatever its type
+// (comparing the interface to 0 compares types too, so a byte 1 and a byte
+// 0 both differ from the int 0).
+func nonZero(v any) bool {
+	switch n := v.(type) {
+	case byte:
+		return n != 0
+	case int8:
+		return n != 0
+	case int16:
+		return n != 0
+	case int32:
+		return n != 0
+	case int64:
+		return n != 0
+	case int:
+		return n != 0
+	case bool:
+		return n
+	}
+	return false
+}
+
 func (s *Entity) toNBT(nbt map[string]any) {
 	metadata := s.Metadata
 
@@ -104,11 +130,7 @@ func (s *Entity) toNBT(nbt map[string]any) {
 	}
 
 	if ShowNameTag, ok := metadata[protocol.EntityDataKeyAlwaysShowNameTag]; ok {
-		if ShowNameTag != 0 {
-			nbt["CustomNameVisible"] = true
-		} else {
-			nbt["CustomNameVisible"] = false
-		}
+		nbt["CustomNameVisible"] = nonZero(ShowNameTag)
 	}
 
 	speed := 0.25

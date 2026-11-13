@@ -1,8 +1,8 @@
 package worldstate
 
 import (
-	"fmt"
 	"maps"
+	"strings"
 
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds/entity"
 	"github.com/bedrock-tool/bedrocktool/utils/resourcepack"
@@ -62,7 +62,22 @@ func (w *World) AddPlayer(pk *packet.AddPlayer) {
 	ent.DeletedDistance = -1
 	ent.LastTeleport = 0
 	maps.Copy(ent.Metadata, pk.EntityMetadata)
+	// what the player rides (Hive's mounts, chairs...)
+	for _, el := range pk.EntityLinks {
+		w.memState.AddEntityLink(el)
+	}
+	if pk.HeldItem.Stack.NetworkID != 0 {
+		held := pk.HeldItem
+		ent.MainHand = &held
+	}
 	w.memState.StoreEntity(pk.EntityRuntimeID, ent)
+}
+
+// PlayerEntityID is the entity type a saved player gets. The name after the
+// colon can't start with a digit (the game rejects the definition), so the
+// UUID follows "p_", with underscores for its dashes.
+func PlayerEntityID(id uuid.UUID) string {
+	return "bedrocktool_player:p_" + strings.ReplaceAll(id.String(), "-", "_")
 }
 
 // SavedPlayer is a player kept by preparePlayers, with what its entity
@@ -88,7 +103,7 @@ func (w *World) preparePlayers(keep func(uuid.UUID) bool) (out []SavedPlayer) {
 			delete(w.memState.entities, rid)
 			continue
 		}
-		identifier := fmt.Sprintf("bedrocktool_player:%s", p.UUID)
+		identifier := PlayerEntityID(p.UUID)
 		ent.EntityType = identifier
 		if _, ok := ent.Metadata[protocol.EntityDataKeyName]; !ok {
 			ent.Metadata[protocol.EntityDataKeyName] = p.Username

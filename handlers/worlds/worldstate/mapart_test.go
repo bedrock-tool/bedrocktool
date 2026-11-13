@@ -164,19 +164,36 @@ func TestConvertHiveSheep(t *testing.T) {
 	meta.SetFlag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagSheared)
 	w.StoreEntity(1, &entity.Entity{RuntimeID: 1, UniqueID: 1, EntityType: "minecraft:sheep", Metadata: meta})
 	w.StoreEntity(2, &entity.Entity{RuntimeID: 2, UniqueID: 2, EntityType: "minecraft:cow", Metadata: protocol.NewEntityMetadata()})
-	// sheep with no name, or only colour codes, are hitboxes: left out
-	w.StoreEntity(3, &entity.Entity{RuntimeID: 3, UniqueID: 3, EntityType: "minecraft:sheep", Metadata: protocol.NewEntityMetadata()})
-	blank := protocol.NewEntityMetadata()
-	blank[protocol.EntityDataKeyName] = "§r "
-	w.StoreEntity(4, &entity.Entity{RuntimeID: 4, UniqueID: 4, EntityType: "minecraft:sheep", Metadata: blank})
-	if n, dropped := w.convertHiveSheep(); n != 1 || dropped != 2 {
-		t.Fatalf("converted %d dropped %d", n, dropped)
+	// sheep with no name are converted too, and one Hive removed in front
+	// of us comes back alive
+	// sent invisible and scaled to 0, as Hive does
+	hidden := protocol.NewEntityMetadata()
+	hidden.SetFlag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagInvisible)
+	hidden[protocol.EntityDataKeyScale] = float32(0)
+	w.StoreEntity(3, &entity.Entity{RuntimeID: 3, UniqueID: 3, EntityType: "minecraft:sheep", Metadata: hidden, DeletedDistance: 2})
+	// one Hive spawned as hive:text itself, invisible
+	native := protocol.NewEntityMetadata()
+	native[protocol.EntityDataKeyName] = "Weekly Offers"
+	native.SetFlag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagInvisible)
+	w.StoreEntity(5, &entity.Entity{RuntimeID: 5, UniqueID: 5, EntityType: HiveTextEntity, Metadata: native})
+	if sheep, tags := w.convertHiveSheep(); sheep != 2 || tags != 3 {
+		t.Fatalf("converted %d sheep, %d tags; want 2 and 3", sheep, tags)
 	}
-	if _, ok := w.memState.entities[3]; ok {
-		t.Fatal("unnamed sheep kept")
+	if ce := w.memState.entities[5].ToChunkEntity(nil); ce.Data["ActiveEffects"] != nil || ce.Data["CustomNameVisible"] != true {
+		t.Fatalf("Hive's own hive:text saved hidden: effects %v, name visible %v", ce.Data["ActiveEffects"], ce.Data["CustomNameVisible"])
 	}
-	if _, ok := w.memState.entities[4]; ok {
-		t.Fatal("blank-named sheep kept")
+	unnamed := w.memState.entities[3]
+	if unnamed == nil || unnamed.EntityType != HiveTextEntity {
+		t.Fatal("unnamed sheep not converted")
+	}
+	if entityCull(unnamed, 30, nil) {
+		t.Fatal("converted name tag would be culled")
+	}
+	if ce := unnamed.ToChunkEntity(nil); ce.Data["CustomNameVisible"] != true {
+		t.Fatalf("name tag saved with CustomNameVisible %v", ce.Data["CustomNameVisible"])
+	}
+	if ce := unnamed.ToChunkEntity(nil); ce.Data["ActiveEffects"] != nil {
+		t.Fatalf("name tag saved with effects %v (invisibility hides the name)", ce.Data["ActiveEffects"])
 	}
 	e := w.memState.entities[1]
 	if e.EntityType != HiveTextEntity || e.Metadata[protocol.EntityDataKeyName] != "§aPlay" {
@@ -203,7 +220,7 @@ func TestPreparePlayers(t *testing.T) {
 		t.Fatal("real player still in the world")
 	}
 	e := w.memState.entities[10]
-	if e.EntityType != "bedrocktool_player:"+npc.String() || e.Metadata[protocol.EntityDataKeyName] != "NPC" {
+	if e.EntityType != PlayerEntityID(npc) || e.Metadata[protocol.EntityDataKeyName] != "NPC" {
 		t.Fatalf("npc saved as %s %v", e.EntityType, e.Metadata[protocol.EntityDataKeyName])
 	}
 	// nil keeps no one

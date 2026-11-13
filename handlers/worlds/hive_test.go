@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/sandertv/gophertunnel/minecraft/resource"
 )
 
 func TestIsHiveServer(t *testing.T) {
@@ -21,6 +22,25 @@ func TestIsHiveServer(t *testing.T) {
 		if got := isHiveServer(c.addr, c.name); got != c.want {
 			t.Errorf("isHiveServer(%q, %q) = %v", c.addr, c.name, got)
 		}
+	}
+}
+
+type namedPack struct {
+	resource.Pack
+	name string
+}
+
+func (p namedPack) Name() string { return p.name }
+
+func TestHasHivePacks(t *testing.T) {
+	if !hasHivePacks([]resource.Pack{namedPack{name: "Some Pack"}, namedPack{name: "§eThe Hive: Hub"}}) {
+		t.Error("The Hive: Hub not recognised")
+	}
+	if !hasHivePacks([]resource.Pack{namedPack{name: "HiveCommon"}}) {
+		t.Error("HiveCommon not recognised")
+	}
+	if hasHivePacks([]resource.Pack{namedPack{name: "Beehive Builders"}, namedPack{name: "CubeCraft"}}) {
+		t.Error("non-Hive packs taken for Hive")
 	}
 }
 

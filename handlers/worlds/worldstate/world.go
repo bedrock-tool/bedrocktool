@@ -2,6 +2,7 @@ package worldstate
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -518,11 +519,17 @@ type SaveOptions struct {
 	KnownMaps map[int64]*Map
 }
 
-// playerNPCComponents keep a saved player standing where it was.
+// playerNPCComponents make a saved player like the game's player, without
+// moving on its own: its family (so player-only seats and filters take
+// it), its name always shown, hidden when invisible, gravity and collision,
+// and 20 health it can lose.
 var playerNPCComponents = map[string]any{
-	"minecraft:damage_sensor": map[string]any{"triggers": map[string]any{"deals_damage": false}},
-	"minecraft:pushable":      map[string]any{"is_pushable": false, "is_pushable_by_piston": false},
-	"minecraft:persistent":    map[string]any{},
+	"minecraft:type_family":              map[string]any{"family": []string{"player", "bedrocktool_player"}},
+	"minecraft:nameable":                 map[string]any{"always_show": true, "allow_name_tag_renaming": false},
+	"minecraft:is_hidden_when_invisible": map[string]any{},
+	"minecraft:physics":                  map[string]any{"has_gravity": true, "has_collision": true},
+	"minecraft:health":                   map[string]any{"value": 20, "max": 20},
+	"minecraft:persistent":               map[string]any{},
 }
 
 func (w *World) Save(
@@ -539,21 +546,30 @@ func (w *World) Save(
 	players := w.preparePlayers(func(id uuid.UUID) bool {
 		return opts.KeepPlayer != nil && opts.PlayerSkins[id] != nil && opts.KeepPlayer(id)
 	})
-	var sheep, unnamedSheep int
+	var sheep, tags int
 	if opts.Hive {
-		sheep, unnamedSheep = w.convertHiveSheep()
+		sheep, tags = w.convertHiveSheep()
 	}
 	w.importMapsLocked(opts.KnownMaps)
+	mounts := w.mountSeatsLocked()
 	w.stateLock.Unlock()
 
-	if sheep+unnamedSheep > 0 {
-		w.log.Infof("Hive: %d named sheep saved as %s, %d unnamed sheep left out", sheep, HiveTextEntity, unnamedSheep)
-	}
-	if sheep > 0 {
-		behaviorPack.AddEntityDefinition(HiveTextEntity, HiveTextComponents)
+	// Custom entities something rides need seats, or the game can't put
+	// the rider back on when the world loads.
+	for id, seats := range mounts {
+		behaviorPack.AddComponents(id, map[string]any{"minecraft:rideable": rideable(seats)})
 	}
 
+	// The world's own resource pack: saved players, and hive:text's client
+	// entity (Hive's packs are encrypted and left out).
 	var playerResourcePack *resourcepack.Pack
+	if tags > 0 {
+		w.log.Infof("Hive: %d name tags (%s), %d of them sheep", tags, HiveTextEntity, sheep)
+		behaviorPack.AddEntityDefinition(HiveTextEntity, HiveTextFormatVersion, HiveTextComponents, HiveTextGroups, HiveTextEvents)
+		playerResourcePack = resourcepack.New()
+		playerResourcePack.Files["entity/hive_text.entity.json"], _ = json.Marshal(HiveTextClientEntity)
+	}
+
 	if len(players) > 0 {
 		var playerEntities []resourcepack.EntityPlayer
 		for _, p := range players {
@@ -563,7 +579,9 @@ func (w *World) Save(
 		}
 		w.log.Infof("saving %d players", len(players))
 
-		playerResourcePack = resourcepack.New()
+		if playerResourcePack == nil {
+			playerResourcePack = resourcepack.New()
+		}
 		err := playerResourcePack.MakePlayers(playerEntities, opts.PlayerSkins)
 		if err != nil {
 			return err
@@ -601,7 +619,9 @@ func (w *World) Save(
 		}
 
 		if playerResourcePack != nil {
-			packFolder := path.Join("resource_packs", "bedrocktool_players")
+			// Named after its ID, so a world copied over an older one gets
+			// this pack beside the old one, not mixed into it.
+			packFolder := path.Join("resource_packs", "bedrocktool_players_"+playerResourcePack.Manifest.Header.UUID.String()[:8])
 			if err := playerResourcePack.WriteToFS(utils.SubFS(fs, packFolder)); err != nil {
 				return nil, err
 			}
@@ -669,7 +689,8 @@ func (w *World) finalizeProvider(
 		}
 
 		var diff float32
-		shouldCull := entityCull(ent, entityRenderDistance, &diff)
+		// Hive's name tags stay, even ones Hive took away in front of us
+		shouldCull := ent.EntityType != HiveTextEntity && entityCull(ent, entityRenderDistance, &diff)
 
 		if shouldCull {
 			if entityCulling {
@@ -681,7 +702,9 @@ func (w *World) finalizeProvider(
 		}
 		cp := world.ChunkPos{int32(ent.Position.X()) >> 4, int32(ent.Position.Z()) >> 4}
 		links := maps.Keys(w.memState.entityLinks[ent.UniqueID])
-		chunkEntities[cp] = append(chunkEntities[cp], ent.ToChunkEntity(links))
+		ce := ent.ToChunkEntity(links)
+		w.writeEquipment(ent, ce.Data)
+		chunkEntities[cp] = append(chunkEntities[cp], ce)
 	}
 
 	for cp, v := range chunkEntities {
@@ -813,6 +836,9 @@ func (w *World) finalizeProvider(
 		s.Time += ticksSince
 		s.TimeCycle = true
 	}
+
+	// No mobs spawning into a saved map, whatever the server had.
+	ld.DoMobSpawning = false
 
 	if experimental {
 		if ld.Experiments == nil {
