@@ -539,15 +539,17 @@ func (w *World) Save(
 	players := w.preparePlayers(func(id uuid.UUID) bool {
 		return opts.KeepPlayer != nil && opts.PlayerSkins[id] != nil && opts.KeepPlayer(id)
 	})
-	var sheep int
+	var sheep, unnamedSheep int
 	if opts.Hive {
-		sheep = w.convertHiveSheep()
+		sheep, unnamedSheep = w.convertHiveSheep()
 	}
 	w.importMapsLocked(opts.KnownMaps)
 	w.stateLock.Unlock()
 
+	if sheep+unnamedSheep > 0 {
+		w.log.Infof("Hive: %d named sheep saved as %s, %d unnamed sheep left out", sheep, HiveTextEntity, unnamedSheep)
+	}
 	if sheep > 0 {
-		w.log.Infof("Hive: %d sheep saved as %s", sheep, HiveTextEntity)
 		behaviorPack.AddEntityDefinition(HiveTextEntity, HiveTextComponents)
 	}
 

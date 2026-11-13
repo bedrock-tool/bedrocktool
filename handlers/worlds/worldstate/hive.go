@@ -1,6 +1,24 @@
 package worldstate
 
-import "github.com/sandertv/gophertunnel/minecraft/protocol"
+import (
+	"regexp"
+	"strings"
+
+	"github.com/sandertv/gophertunnel/minecraft/protocol"
+)
+
+var formatCodes = regexp.MustCompile("§.")
+
+// hasVisibleName says whether an entity shows a name: a name tag (or raw
+// text name) with something left once colour codes and spaces are gone.
+func hasVisibleName(meta protocol.EntityMetadata) bool {
+	for _, k := range []uint32{protocol.EntityDataKeyName, protocol.EntityDataKeyNameRawText} {
+		if n, ok := meta[k].(string); ok && strings.TrimSpace(formatCodes.ReplaceAllString(n, "")) != "" {
+			return true
+		}
+	}
+	return false
+}
 
 // HiveTextEntity is Hive's floating name tag. Hive spawns sheep only as
 // hitboxes and floating name tags, and its own pack turns each sheep into
@@ -22,12 +40,18 @@ var HiveTextComponents = map[string]any{
 	"minecraft:is_stackable":  map[string]any{},
 }
 
-// convertHiveSheep turns every sheep into hive:text, dropping what only a
-// sheep has (wool colour, sheared, baby). Returns how many it converted.
-// Called with stateLock held.
-func (w *World) convertHiveSheep() (n int) {
-	for _, ent := range w.memState.entities {
+// convertHiveSheep turns every named sheep into hive:text, dropping what
+// only a sheep has (wool colour, sheared, baby). A sheep with no name is
+// only a hitbox, invisible on Hive, so it isn't saved. Returns how many it
+// converted and dropped. Called with stateLock held.
+func (w *World) convertHiveSheep() (n, dropped int) {
+	for rid, ent := range w.memState.entities {
 		if ent.EntityType != "minecraft:sheep" {
+			continue
+		}
+		if !hasVisibleName(ent.Metadata) {
+			delete(w.memState.entities, rid)
+			dropped++
 			continue
 		}
 		ent.EntityType = HiveTextEntity
@@ -46,5 +70,5 @@ func (w *World) convertHiveSheep() (n int) {
 		ent.HasMoved = false
 		n++
 	}
-	return n
+	return n, dropped
 }

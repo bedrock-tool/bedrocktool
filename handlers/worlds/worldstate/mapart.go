@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/df-mc/dragonfly/server/block/cube"
 	"github.com/df-mc/dragonfly/server/world"
@@ -102,8 +103,11 @@ func mapUUID(v any) (int64, bool) {
 	if !ok {
 		return 0, false
 	}
-	if name, ok := item["Name"].(string); ok && name != "minecraft:filled_map" && name != "minecraft:map" {
-		return 0, false
+	// Hive writes the name without its namespace ("filled_map").
+	if name, ok := item["Name"].(string); ok {
+		if name = strings.TrimPrefix(name, "minecraft:"); name != "filled_map" && name != "map" {
+			return 0, false
+		}
 	}
 	tag, ok := item["tag"].(map[string]any)
 	if !ok {

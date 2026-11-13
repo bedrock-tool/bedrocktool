@@ -92,6 +92,8 @@ func TestMapFramesAndExport(t *testing.T) {
 	for i, p := range []cube.Pos{{1, 70, 5}, {2, 70, 5}, {8, 64, 8}} {
 		ch.BlockEntities[p] = frameNBT(p, int64(100+i))
 	}
+	// Hive leaves the namespace off
+	ch.BlockEntities[cube.Pos{8, 64, 8}]["Item"].(map[string]any)["Name"] = "filled_map"
 	ch.BlockEntities[cube.Pos{3, 64, 3}] = map[string]any{"id": "Chest", "Items": []any{
 		map[string]any{"Name": "minecraft:filled_map", "tag": map[string]any{"map_uuid": int64(200)}},
 		map[string]any{"Name": "minecraft:stone"},
@@ -162,8 +164,19 @@ func TestConvertHiveSheep(t *testing.T) {
 	meta.SetFlag(protocol.EntityDataKeyFlags, protocol.EntityDataFlagSheared)
 	w.StoreEntity(1, &entity.Entity{RuntimeID: 1, UniqueID: 1, EntityType: "minecraft:sheep", Metadata: meta})
 	w.StoreEntity(2, &entity.Entity{RuntimeID: 2, UniqueID: 2, EntityType: "minecraft:cow", Metadata: protocol.NewEntityMetadata()})
-	if n := w.convertHiveSheep(); n != 1 {
-		t.Fatalf("converted %d", n)
+	// sheep with no name, or only colour codes, are hitboxes: left out
+	w.StoreEntity(3, &entity.Entity{RuntimeID: 3, UniqueID: 3, EntityType: "minecraft:sheep", Metadata: protocol.NewEntityMetadata()})
+	blank := protocol.NewEntityMetadata()
+	blank[protocol.EntityDataKeyName] = "§r "
+	w.StoreEntity(4, &entity.Entity{RuntimeID: 4, UniqueID: 4, EntityType: "minecraft:sheep", Metadata: blank})
+	if n, dropped := w.convertHiveSheep(); n != 1 || dropped != 2 {
+		t.Fatalf("converted %d dropped %d", n, dropped)
+	}
+	if _, ok := w.memState.entities[3]; ok {
+		t.Fatal("unnamed sheep kept")
+	}
+	if _, ok := w.memState.entities[4]; ok {
+		t.Fatal("blank-named sheep kept")
 	}
 	e := w.memState.entities[1]
 	if e.EntityType != HiveTextEntity || e.Metadata[protocol.EntityDataKeyName] != "§aPlay" {
