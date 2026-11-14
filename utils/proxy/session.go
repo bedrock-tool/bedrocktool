@@ -257,10 +257,12 @@ func (s *Session) SendMessage(text string) {
 	})
 }
 
-// SendPopup sends a toolbar popup to the client
+// SendPopup shows text above the client's hotbar. It is sent as a tip: the
+// game draws a popup under a line kept for a tip, so a popup showed a blank
+// line above the text (the world downloader's chunk counter).
 func (s *Session) SendPopup(text string) {
 	_ = s.ClientWritePacket(&packet.Text{
-		TextType: packet.TextTypePopup,
+		TextType: packet.TextTypeTip,
 		Message:  text,
 	})
 }
