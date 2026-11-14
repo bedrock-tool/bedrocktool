@@ -186,8 +186,6 @@ gui_address_experiences:
   other: "エクスペリエンス"
 gui_address_featured:
   other: "おすすめ"
-gui_address_worlds:
-  other: "ワールド"
 gui_browse:
   other: "参照"
 
@@ -288,10 +286,6 @@ gui_featured_title:
   other: "おすすめサーバー"
 gui_featured_none:
   other: "おすすめサーバーが見つかりませんでした"
-gui_world_list_title:
-  other: "ワールド"
-gui_world_list_none:
-  other: "ワールドが見つかりませんでした"
 gui_realms_title:
   other: "Realm"
 gui_realms_none:
@@ -707,3 +701,41 @@ recent_kind_friend:
   other: "フレンドのワールド"
 recent_kind_server:
   other: "サーバー"
+
+# GUI: friends' worlds
+gui_address_friends:
+  other: "フレンド ({{.Count}})"
+gui_friends_title:
+  other: "フレンドのワールド"
+gui_friends_select:
+  other: "選択"
+gui_friends_players:
+  other: "プレイヤー: {{.Count}}/{{.Max}}"
+gui_friends_players_count:
+  other: "プレイヤー: {{.Count}}"
+gui_friends_none:
+  other: "今参加できるワールドをプレイしているフレンドはいません。"
+gui_friends_none_hint:
+  other: "フレンドがマルチプレイをフレンドに公開してプレイしている間、そのワールドがここに表示されます。"
+gui_friends_error:
+  other: "フレンドのワールドを確認できませんでした: {{.Err}}"
+gui_friends_signed_out:
+  other: "サインインすると、フレンドがプレイ中のワールドが表示されます。"
+gui_refresh:
+  other: "更新"
+friend_status_full:
+  other: "満員"
+friend_status_invite_only:
+  other: "招待のみ"
+friend_status_closed:
+  other: "新しいプレイヤーを受け付けていません"
+friend_status_version:
+  other: "Minecraft {{.Version}} で動作中です。bedrocktool が対応しているのは {{.Supported}} です"
+friend_status_no_connection:
+  other: "bedrocktool からは参加できません"
+friend_world_gone:
+  other: "このフレンドのワールドはもう開いていません。再び開いたら「フレンド」から選び直してください。"
+friend_world_unjoinable:
+  other: "{{.Host}} のワールド {{.Name}} に参加できません: {{.Reason}}"
+friend_world_timeout:
+  other: "フレンドのワールドに {{.Seconds}} 秒以内に入れませんでした。ワールドが閉じられたか、フレンドの参加が止められた可能性があります。"

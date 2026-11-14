@@ -187,8 +187,6 @@ gui_address_experiences:
   other: "Experiências"
 gui_address_featured:
   other: "Em destaque"
-gui_address_worlds:
-  other: "Mundos"
 gui_browse:
   other: "Procurar"
 
@@ -289,10 +287,6 @@ gui_featured_title:
   other: "Servidores em destaque"
 gui_featured_none:
   other: "Nenhum servidor em destaque encontrado"
-gui_world_list_title:
-  other: "Mundos"
-gui_world_list_none:
-  other: "Nenhum mundo encontrado"
 gui_realms_title:
   other: "Realms"
 gui_realms_none:
@@ -715,3 +709,41 @@ recent_kind_friend:
   other: "Mundo de um amigo"
 recent_kind_server:
   other: "Servidor"
+
+# GUI: friends' worlds
+gui_address_friends:
+  other: "Amigos ({{.Count}})"
+gui_friends_title:
+  other: "Mundos de amigos"
+gui_friends_select:
+  other: "Escolher"
+gui_friends_players:
+  other: "Jogadores: {{.Count}}/{{.Max}}"
+gui_friends_players_count:
+  other: "Jogadores: {{.Count}}"
+gui_friends_none:
+  other: "Nenhum amigo seu está jogando agora um mundo em que você possa entrar."
+gui_friends_none_hint:
+  other: "O mundo de um amigo aparece aqui enquanto está sendo jogado com o multijogador aberto para amigos."
+gui_friends_error:
+  other: "Não foi possível verificar os mundos dos seus amigos: {{.Err}}"
+gui_friends_signed_out:
+  other: "Entre na sua conta para ver os mundos dos seus amigos."
+gui_refresh:
+  other: "Atualizar"
+friend_status_full:
+  other: "Cheio"
+friend_status_invite_only:
+  other: "Só com convite"
+friend_status_closed:
+  other: "Não está aceitando novos jogadores"
+friend_status_version:
+  other: "Usa o Minecraft {{.Version}}; o bedrocktool suporta {{.Supported}}"
+friend_status_no_connection:
+  other: "Não dá para entrar pelo bedrocktool"
+friend_world_gone:
+  other: "O mundo desse amigo não está mais aberto. Escolha-o de novo em Amigos quando ele for reaberto."
+friend_world_unjoinable:
+  other: "Não é possível entrar no mundo {{.Name}} de {{.Host}}: {{.Reason}}"
+friend_world_timeout:
+  other: "O mundo do amigo não deixou você entrar em {{.Seconds}} segundos. Talvez a partida tenha sido fechada ou não aceite mais amigos."

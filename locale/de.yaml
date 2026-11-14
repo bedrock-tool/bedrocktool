@@ -186,8 +186,6 @@ gui_address_experiences:
   other: "Erlebnisse"
 gui_address_featured:
   other: "Empfohlen"
-gui_address_worlds:
-  other: "Welten"
 gui_browse:
   other: "Durchsuchen"
 
@@ -288,10 +286,6 @@ gui_featured_title:
   other: "Empfohlene Server"
 gui_featured_none:
   other: "Keine empfohlenen Server gefunden"
-gui_world_list_title:
-  other: "Welten"
-gui_world_list_none:
-  other: "Keine Welten gefunden"
 gui_realms_title:
   other: "Realms"
 gui_realms_none:
@@ -705,3 +699,41 @@ recent_kind_friend:
   other: "Welt eines Freundes"
 recent_kind_server:
   other: "Server"
+
+# GUI: friends' worlds
+gui_address_friends:
+  other: "Freunde ({{.Count}})"
+gui_friends_title:
+  other: "Welten von Freunden"
+gui_friends_select:
+  other: "Auswählen"
+gui_friends_players:
+  other: "Spieler: {{.Count}}/{{.Max}}"
+gui_friends_players_count:
+  other: "Spieler: {{.Count}}"
+gui_friends_none:
+  other: "Gerade spielt keiner deiner Freunde eine Welt, der du beitreten kannst."
+gui_friends_none_hint:
+  other: "Die Welt eines Freundes erscheint hier, solange sie gespielt wird und der Mehrspielermodus für Freunde offen ist."
+gui_friends_error:
+  other: "Die Welten deiner Freunde konnten nicht abgefragt werden: {{.Err}}"
+gui_friends_signed_out:
+  other: "Melde dich an, um die Welten deiner Freunde zu sehen."
+gui_refresh:
+  other: "Aktualisieren"
+friend_status_full:
+  other: "Voll"
+friend_status_invite_only:
+  other: "Nur auf Einladung"
+friend_status_closed:
+  other: "Nimmt keine neuen Spieler auf"
+friend_status_version:
+  other: "Läuft mit Minecraft {{.Version}}, bedrocktool unterstützt {{.Supported}}"
+friend_status_no_connection:
+  other: "Kann von bedrocktool aus nicht betreten werden"
+friend_world_gone:
+  other: "Die Welt dieses Freundes ist nicht mehr offen. Wähle sie unter Freunde erneut aus, sobald sie wieder läuft."
+friend_world_unjoinable:
+  other: "Der Welt {{.Name}} von {{.Host}} kann nicht beigetreten werden: {{.Reason}}"
+friend_world_timeout:
+  other: "Die Welt des Freundes hat dich nicht innerhalb von {{.Seconds}} Sekunden hereingelassen. Vielleicht wurde sie verlassen oder ist nicht mehr für Freunde offen."

@@ -21,6 +21,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/connectinfo"
+	"github.com/bedrock-tool/bedrocktool/utils/friendworlds"
 	"github.com/bedrock-tool/bedrocktool/utils/proxy/blobcache"
 	"github.com/bedrock-tool/bedrocktool/utils/proxy/pcap2"
 	"github.com/bedrock-tool/bedrocktool/utils/proxy/resourcepacks"
@@ -169,6 +170,12 @@ func (s *Session) ServerAddress() string {
 	return parsed.Address
 }
 
+// p2pJoinTimeout is how long a friend's world gets to let us in. Joining
+// waits for the host to hand out a nonce; a host that never does (it left,
+// or closed the world to friends meanwhile) used to leave the GUI at
+// "connecting" forever.
+const p2pJoinTimeout = 30 * time.Second
+
 func (s *Session) joinP2P(ctx context.Context, id uuid.UUID) (*p2p.Session, error) {
 	if s.p2pSession != nil {
 		return s.p2pSession, nil
@@ -177,8 +184,29 @@ func (s *Session) joinP2P(ctx context.Context, id uuid.UUID) (*p2p.Session, erro
 	if err != nil {
 		return nil, err
 	}
-	session, err := p2p.NewClient(xblClient).Join(ctx, id)
+
+	// Look the world up among the friends' worlds first, to say plainly
+	// why one can't be joined (full, invite only, another version) instead
+	// of failing somewhere in the join. A world that isn't listed may still
+	// be joinable (a friend of a friend's), so that only words the error.
+	world, lookupErr := friendworlds.Find(ctx, s.connectInfo.Account, id)
+	switch {
+	case lookupErr == nil && world.Status != friendworlds.Joinable:
+		return nil, &friendworlds.UnjoinableError{World: world}
+	case lookupErr != nil && !errors.Is(lookupErr, friendworlds.ErrGone):
+		s.log.Debugf("looking up friend world %s: %s", id, lookupErr)
+	}
+
+	joinCtx, cancel := context.WithTimeout(ctx, p2pJoinTimeout)
+	defer cancel()
+	session, err := p2p.NewClient(xblClient).Join(joinCtx, id)
 	if err != nil {
+		switch {
+		case errors.Is(lookupErr, friendworlds.ErrGone):
+			return nil, fmt.Errorf("%w (%s)", lookupErr, err)
+		case errors.Is(err, context.DeadlineExceeded) && ctx.Err() == nil:
+			return nil, errors.New(locale.Loc("friend_world_timeout", locale.Strmap{"Seconds": int(p2pJoinTimeout.Seconds())}))
+		}
 		return nil, fmt.Errorf("joining session: %w", err)
 	}
 	s.p2pSession = session
@@ -229,10 +257,12 @@ func (s *Session) SendMessage(text string) {
 	})
 }
 
-// SendPopup sends a toolbar popup to the client
+// SendPopup shows text above the client's hotbar. It is sent as a tip: the
+// game draws a popup under a line kept for a tip, so a popup showed a blank
+// line above the text (the world downloader's chunk counter).
 func (s *Session) SendPopup(text string) {
 	_ = s.ClientWritePacket(&packet.Text{
-		TextType: packet.TextTypePopup,
+		TextType: packet.TextTypeTip,
 		Message:  text,
 	})
 }

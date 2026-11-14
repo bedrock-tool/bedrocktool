@@ -186,8 +186,6 @@ gui_address_experiences:
   other: "Deneyimler"
 gui_address_featured:
   other: "Öne çıkanlar"
-gui_address_worlds:
-  other: "Dünyalar"
 gui_browse:
   other: "Gözat"
 
@@ -288,10 +286,6 @@ gui_featured_title:
   other: "Öne çıkan sunucular"
 gui_featured_none:
   other: "Öne çıkan sunucu bulunamadı"
-gui_world_list_title:
-  other: "Dünyalar"
-gui_world_list_none:
-  other: "Hiç dünya bulunamadı"
 gui_realms_title:
   other: "Realm'ler"
 gui_realms_none:
@@ -707,3 +701,41 @@ recent_kind_friend:
   other: "Arkadaşın dünyası"
 recent_kind_server:
   other: "Sunucu"
+
+# GUI: friends' worlds
+gui_address_friends:
+  other: "Arkadaşlar ({{.Count}})"
+gui_friends_title:
+  other: "Arkadaşların dünyaları"
+gui_friends_select:
+  other: "Seç"
+gui_friends_players:
+  other: "Oyuncular: {{.Count}}/{{.Max}}"
+gui_friends_players_count:
+  other: "Oyuncular: {{.Count}}"
+gui_friends_none:
+  other: "Şu anda arkadaşlarından hiçbiri katılabileceğin bir dünyada oynamıyor."
+gui_friends_none_hint:
+  other: "Bir arkadaşın dünyası, çok oyunculu mod arkadaşlara açıkken oynandığı sürece burada görünür."
+gui_friends_error:
+  other: "Arkadaşlarının dünyaları kontrol edilemedi: {{.Err}}"
+gui_friends_signed_out:
+  other: "Arkadaşlarının oynadığı dünyaları görmek için giriş yap."
+gui_refresh:
+  other: "Yenile"
+friend_status_full:
+  other: "Dolu"
+friend_status_invite_only:
+  other: "Yalnızca davetle"
+friend_status_closed:
+  other: "Yeni oyuncu almıyor"
+friend_status_version:
+  other: "Minecraft {{.Version}} kullanıyor, bedrocktool {{.Supported}} destekliyor"
+friend_status_no_connection:
+  other: "bedrocktool üzerinden katılınamaz"
+friend_world_gone:
+  other: "Bu arkadaşın dünyası artık açık değil. Yeniden açıldığında Arkadaşlar bölümünden tekrar seç."
+friend_world_unjoinable:
+  other: "{{.Host}} adlı oyuncunun {{.Name}} dünyasına katılınamıyor: {{.Reason}}"
+friend_world_timeout:
+  other: "Arkadaşın dünyası seni {{.Seconds}} saniye içinde içeri almadı. Dünya kapatılmış ya da arkadaşlara kapatılmış olabilir."

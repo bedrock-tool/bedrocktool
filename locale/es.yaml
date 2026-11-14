@@ -187,8 +187,6 @@ gui_address_experiences:
   other: "Experiencias"
 gui_address_featured:
   other: "Destacados"
-gui_address_worlds:
-  other: "Mundos"
 gui_browse:
   other: "Examinar"
 
@@ -289,10 +287,6 @@ gui_featured_title:
   other: "Servidores destacados"
 gui_featured_none:
   other: "No se encontró ningún servidor destacado"
-gui_world_list_title:
-  other: "Mundos"
-gui_world_list_none:
-  other: "No se encontró ningún mundo"
 gui_realms_title:
   other: "Realms"
 gui_realms_none:
@@ -715,3 +709,41 @@ recent_kind_friend:
   other: "Mundo de un amigo"
 recent_kind_server:
   other: "Servidor"
+
+# GUI: friends' worlds
+gui_address_friends:
+  other: "Amigos ({{.Count}})"
+gui_friends_title:
+  other: "Mundos de amigos"
+gui_friends_select:
+  other: "Elegir"
+gui_friends_players:
+  other: "Jugadores: {{.Count}}/{{.Max}}"
+gui_friends_players_count:
+  other: "Jugadores: {{.Count}}"
+gui_friends_none:
+  other: "Ninguno de tus amigos está jugando ahora un mundo al que puedas unirte."
+gui_friends_none_hint:
+  other: "El mundo de un amigo aparece aquí mientras lo juega con el multijugador abierto a amigos."
+gui_friends_error:
+  other: "No se pudieron consultar los mundos de tus amigos: {{.Err}}"
+gui_friends_signed_out:
+  other: "Inicia sesión para ver los mundos de tus amigos."
+gui_refresh:
+  other: "Actualizar"
+friend_status_full:
+  other: "Lleno"
+friend_status_invite_only:
+  other: "Solo con invitación"
+friend_status_closed:
+  other: "No admite jugadores nuevos"
+friend_status_version:
+  other: "Usa Minecraft {{.Version}}; bedrocktool es compatible con {{.Supported}}"
+friend_status_no_connection:
+  other: "No se puede entrar desde bedrocktool"
+friend_world_gone:
+  other: "El mundo de ese amigo ya no está abierto. Vuelve a elegirlo en Amigos cuando vuelva."
+friend_world_unjoinable:
+  other: "No se puede entrar al mundo {{.Name}} de {{.Host}}: {{.Reason}}"
+friend_world_timeout:
+  other: "El mundo del amigo no te dejó entrar en {{.Seconds}} segundos. Puede que lo haya cerrado o que ya no deje entrar a amigos."

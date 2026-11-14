@@ -80,7 +80,8 @@ func TestRenderModePicker(t *testing.T) {
 
 type popupRecorder struct {
 	guim.Guim
-	shown []any
+	shown  []any
+	closed []string
 }
 
 func (p *popupRecorder) ShowPopup(popup any) { p.shown = append(p.shown, popup) }
