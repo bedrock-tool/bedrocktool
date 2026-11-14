@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds"
+	"github.com/bedrock-tool/bedrocktool/handlers/worlds/worldstate"
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/bedrock-tool/bedrocktool/utils/connectinfo"
@@ -13,7 +14,8 @@ import (
 
 type WorldSettings struct {
 	ProxySettings proxy.ProxySettings
-	Void          bool     `opt:"locale.opt_worlds_void" flag:"void" default:"true" desc:"locale.enable_void"`
+	Generator     string   `opt:"locale.opt_worlds_generator" flag:"generator" default:"void" choices:"void,flat,normal" desc:"locale.desc_worlds_generator"`
+	Void          bool     `flag:"void" default:"true" hidden:"true" desc:"locale.desc_worlds_void_old"`
 	Image         bool     `opt:"locale.opt_worlds_image" flag:"image" desc:"locale.save_image"`
 	Entities      bool     `opt:"locale.opt_worlds_save_entities" flag:"save-entities" default:"true" desc:"locale.desc_worlds_save_entities"`
 	Players       bool     `opt:"locale.opt_worlds_save_players" flag:"save-players" default:"false" desc:"locale.desc_worlds_save_players"`
@@ -26,6 +28,18 @@ type WorldSettings struct {
 	ScriptPath    string   `opt:"locale.opt_worlds_script" flag:"script" desc:"locale.desc_worlds_script" type:"file,js"`
 	ReplayJoin    bool     `opt:"locale.opt_worlds_replay_join" flag:"replay-join" desc:"locale.desc_worlds_replay_join"`
 	RecordUI      bool     `opt:"locale.opt_worlds_record_ui" flag:"record-ui" default:"false" desc:"locale.desc_worlds_record_ui"`
+}
+
+// generator is -generator, or flat for the old -void=false.
+func (s *WorldSettings) generator() (worldstate.Generator, error) {
+	generator, err := worldstate.ParseGenerator(s.Generator)
+	if err != nil {
+		return "", err
+	}
+	if !s.Void && generator == worldstate.GeneratorVoid {
+		generator = worldstate.GeneratorFlat
+	}
+	return generator, nil
 }
 
 type WorldCMD struct{}
@@ -54,13 +68,18 @@ func (WorldCMD) Run(ctx context.Context, settings any) error {
 		scriptSource = string(data)
 	}
 
+	generator, err := worldSettings.generator()
+	if err != nil {
+		return err
+	}
+
 	p, err := proxy.New(ctx, worldSettings.ProxySettings)
 	if err != nil {
 		return err
 	}
 
 	p.AddHandler(worlds.NewWorldsHandler(ctx, worlds.WorldSettings{
-		VoidGen:         worldSettings.Void,
+		Generator:       generator,
 		SaveEntities:    worldSettings.Entities,
 		SaveInventories: worldSettings.Inventories,
 		SaveImage:       worldSettings.Image,

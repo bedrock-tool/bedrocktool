@@ -22,7 +22,10 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui/gui/guim"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/popups"
+	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
+	"github.com/bedrock-tool/bedrocktool/utils/connectinfo"
+	"github.com/bedrock-tool/bedrocktool/utils/savedsettings"
 	"github.com/sirupsen/logrus"
 )
 
@@ -32,6 +35,9 @@ type (
 )
 
 const ID = "settings"
+
+// SavedPath is where the last used settings and recent servers are kept.
+var SavedPath = func() string { return utils.PathData("saved-settings.json") }
 
 type cmdItem struct {
 	Clickable *widget.Clickable
@@ -52,7 +58,12 @@ type Page struct {
 
 	settings    map[string]*settingsPage
 	startButton widget.Clickable
-	closePopup  *component.ScrimStyle
+
+	saved *savedsettings.Saved
+	// filledAddress is the address put in for the mode picked, so picking
+	// another mode can replace it, but not one typed in.
+	filledAddress string
+	closePopup    *component.ScrimStyle
 }
 
 func New(g guim.Guim) pages.Page {
@@ -87,6 +98,8 @@ func New(g guim.Guim) pages.Page {
 		return order[p.cmdMenu.names[i]] < order[p.cmdMenu.names[j]]
 	})
 
+	p.loadSaved()
+
 	p.cmdMenu.pick = make(map[string]*widget.Clickable)
 	for _, name := range p.cmdMenu.names {
 		p.cmdMenu.pick[name] = &widget.Clickable{}
@@ -103,6 +116,67 @@ func New(g guim.Guim) pages.Page {
 }
 
 var _ pages.Page = &Page{}
+
+// loadSaved puts back the settings each mode was last started with. A
+// missing or broken file leaves the defaults.
+func (p *Page) loadSaved() {
+	saved, err := savedsettings.Load(SavedPath())
+	if err != nil {
+		logrus.Warnf("Couldn't read the saved settings, using the defaults: %s", err)
+	}
+	p.saved = saved
+	for name, s := range p.settings {
+		if m, ok := saved.Mode(name); ok {
+			s.Restore(m.Options)
+		}
+	}
+	AddressInput.SetRecent(func() []string {
+		return slices.Clone(p.saved.Recent)
+	}, func(address string) {
+		p.saved.RemoveRecent(address)
+		p.writeSaved()
+	})
+}
+
+func (p *Page) writeSaved() {
+	if err := p.saved.Save(SavedPath()); err != nil {
+		logrus.Warnf("Couldn't save the settings: %s", err)
+	}
+}
+
+// remember saves what mode is started with, and its server as a recent one.
+func (p *Page) remember(mode string, s *settingsPage) {
+	m := savedsettings.Mode{Options: s.Values()}
+	if _, ok := s.widgets["address"]; ok {
+		m.Address = AddressInput.Text()
+		if kind, err := (&connectinfo.ConnectInfo{Value: m.Address}).Kind(); err == nil && kind != connectinfo.KindReplay {
+			p.saved.AddRecent(m.Address)
+		}
+	}
+	p.saved.SetMode(mode, m)
+	p.writeSaved()
+}
+
+// selectMode switches to a mode, filling in the address it last used (or
+// the latest server) unless one was typed in.
+func (p *Page) selectMode(mode string) {
+	p.cmdMenu.selected = mode
+	current := AddressInput.Text()
+	if current != "" && current != p.filledAddress {
+		return
+	}
+	address := ""
+	if m, ok := p.saved.Mode(mode); ok {
+		address = m.Address
+	}
+	if address == "" && len(p.saved.Recent) > 0 {
+		address = p.saved.Recent[0]
+	}
+	if address != "" && address != current {
+		AddressInput.SetText(address)
+	}
+	p.filledAddress = AddressInput.Text()
+}
 
 func (p *Page) ID() string {
 	return ID
@@ -142,6 +216,7 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 			if err != nil {
 				p.g.ShowPopup(popups.NewErrorPopup(p.g, err, false, nil))
 			} else {
+				p.remember(p.cmdMenu.selected, settingsUI)
 				p.g.StartSubcommand(p.cmdMenu.selected, settings)
 			}
 		}
@@ -149,12 +224,12 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 
 	for k, c := range p.cmdMenu.clickables {
 		if c.Clickable.Clicked(gtx) {
-			p.cmdMenu.selected = k
+			p.selectMode(k)
 		}
 	}
 	for k, c := range p.cmdMenu.pick {
 		if c.Clicked(gtx) {
-			p.cmdMenu.selected = k
+			p.selectMode(k)
 		}
 	}
 

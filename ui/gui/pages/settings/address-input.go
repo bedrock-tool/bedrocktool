@@ -23,6 +23,12 @@ type addressInput struct {
 	showExperiences widget.Clickable
 	showFeatured    widget.Clickable
 	showWorlds      widget.Clickable
+	showRecent      widget.Clickable
+
+	// recent lists the servers connected to before; removeRecent takes one
+	// off that list.
+	recent       func() []string
+	removeRecent func(address string)
 
 	connectInfo *connectinfo.ConnectInfo
 }
@@ -37,6 +43,24 @@ var AddressInput = &addressInput{
 
 func (a *addressInput) SetGuim(g guim.Guim) {
 	a.g = g
+}
+
+// SetRecent gives the input the recent servers to offer.
+func (a *addressInput) SetRecent(recent func() []string, remove func(address string)) {
+	a.recent = recent
+	a.removeRecent = remove
+}
+
+// Text is the address as typed.
+func (a *addressInput) Text() string {
+	return a.editor.Text()
+}
+
+// SetText replaces the address, forgetting the Realm or Experience picked
+// for the old one.
+func (a *addressInput) SetText(address string) {
+	a.connectInfo = &connectinfo.ConnectInfo{Value: address}
+	a.editor.SetText(address)
 }
 
 func (a *addressInput) GetConnectInfo() *connectinfo.ConnectInfo {
@@ -71,6 +95,14 @@ func (a *addressInput) Layout(gtx C, th *material.Theme) D {
 		}))
 	}
 
+	if a.showRecent.Clicked(gtx) && a.recent != nil {
+		a.g.ShowPopup(popups.NewRecentServers(a.g, a.recent(), a.SetText, func(address string) {
+			if a.removeRecent != nil {
+				a.removeRecent(address)
+			}
+		}))
+	}
+
 	if a.showWorlds.Clicked(gtx) {
 		a.g.ShowPopup(popups.NewWorldsList(a.g, func(world *p2p.World) {
 			a.connectInfo.SetWorld(world)
@@ -102,8 +134,16 @@ func (a *addressInput) Layout(gtx C, th *material.Theme) D {
 				//gtx.Constraints.Max.X = gtx.Dp(unit.Dp(500))
 				return layout.Flex{
 					Axis:      layout.Horizontal,
-					WeightSum: 4,
+					WeightSum: 5,
 				}.Layout(gtx,
+					layout.Flexed(1, func(gtx C) D {
+						return layout.Inset{
+							Top:    5,
+							Bottom: 5,
+							Left:   0,
+							Right:  5,
+						}.Layout(gtx, material.Button(th, &a.showRecent, locale.Loc("gui_address_recent", nil)).Layout)
+					}),
 					layout.Flexed(1, func(gtx C) D {
 						return layout.Inset{
 							Top:    5,

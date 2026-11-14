@@ -61,6 +61,9 @@ func (s *settingsPage) Init() {
 
 	hasAddress := false
 	for _, arg := range args {
+		if arg.Hidden {
+			continue
+		}
 		extType := strings.Split(arg.ExtType, ",")
 		if len(extType) > 0 && extType[0] == "file" {
 			var ext string
@@ -87,6 +90,19 @@ func (s *settingsPage) Init() {
 			}
 			hasAddress = true
 			continue
+
+		case "string":
+			if len(arg.Choices) == 0 {
+				e := &component.TextField{Editor: widget.Editor{SingleLine: true}}
+				e.SetText(arg.Default)
+				s.widgets[arg.Flag] = &settingsArg{widget: e, name: argName(arg), usage: argDesc(arg)}
+				break
+			}
+			s.widgets[arg.Flag] = &settingsArg{
+				widget: newChoiceInput(arg.Choices, arg.Default),
+				name:   argName(arg),
+				usage:  argDesc(arg),
+			}
 
 		case "bool":
 			e := &widget.Bool{}
@@ -143,26 +159,22 @@ func (e settingError) Error() string {
 
 func (s *settingsPage) Apply() (any, error) {
 	for _, arg := range s.args {
-		flagWidget := s.widgets[arg.Flag]
-		var value string
-		switch flagWidget := flagWidget.widget.(type) {
-		case *widget.Bool:
-			value = "false"
-			if flagWidget.Value {
-				value = "true"
+		flagWidget, ok := s.widgets[arg.Flag]
+		if !ok {
+			// hidden: keeps its default
+			if arg.Default != "" {
+				if err := arg.Set(arg.Default); err != nil {
+					return nil, settingError{name: arg.Flag, err: err}
+				}
 			}
-
-		case *component.TextField:
-			value = flagWidget.Text()
-
-		case *fileInputWidget:
-			value = flagWidget.textField.Text()
-
-		case *addressInput:
-			arg.SetConnectInfo(flagWidget.GetConnectInfo())
 			continue
-
-		default:
+		}
+		if addr, ok := flagWidget.widget.(*addressInput); ok {
+			arg.SetConnectInfo(addr.GetConnectInfo())
+			continue
+		}
+		value, ok := widgetValue(flagWidget.widget)
+		if !ok {
 			return nil, errors.New("unknown widget " + arg.Name)
 		}
 		if arg.Type == "int" && value == "" {
@@ -177,6 +189,61 @@ func (s *settingsPage) Apply() (any, error) {
 		}
 	}
 	return s.settings, nil
+}
+
+// widgetValue is a setting widget's value as its flag takes it.
+func widgetValue(w any) (string, bool) {
+	switch w := w.(type) {
+	case *widget.Bool:
+		if w.Value {
+			return "true", true
+		}
+		return "false", true
+	case *component.TextField:
+		return w.Text(), true
+	case *fileInputWidget:
+		return w.textField.Text(), true
+	case *choiceInput:
+		return w.Value(), true
+	}
+	return "", false
+}
+
+// Values are the settings as they are now, by flag, without the address.
+func (s *settingsPage) Values() map[string]string {
+	values := make(map[string]string)
+	for flag, w := range s.widgets {
+		if v, ok := widgetValue(w.widget); ok {
+			values[flag] = v
+		}
+	}
+	return values
+}
+
+// Restore puts saved values back; ones that no longer exist or don't fit
+// are left at their defaults.
+func (s *settingsPage) Restore(values map[string]string) {
+	for flag, value := range values {
+		w, ok := s.widgets[flag]
+		if !ok {
+			continue
+		}
+		switch w := w.widget.(type) {
+		case *widget.Bool:
+			switch value {
+			case "true":
+				w.Value = true
+			case "false":
+				w.Value = false
+			}
+		case *component.TextField:
+			w.SetText(value)
+		case *fileInputWidget:
+			w.textField.SetText(value)
+		case *choiceInput:
+			w.SetValue(value)
+		}
+	}
 }
 
 func textFieldIsActive(w *component.TextField) bool {
@@ -408,6 +475,10 @@ func (s *settingsPage) layoutField(gtx C, th *material.Theme, w *settingsArg) D 
 					return ww.Layout(gtx, th, w.name)
 				case *fileInputWidget:
 					return ww.Layout(gtx, th)
+				case *choiceInput:
+					return layout.Inset{Top: 4}.Layout(gtx, func(gtx C) D {
+						return ww.Layout(gtx, th)
+					})
 				}
 				return D{}
 			}),
@@ -419,10 +490,16 @@ func (s *settingsPage) Layout(gtx C, th *material.Theme) D {
 	// the command's own settings first; the proxy's connection and
 	// debugging ones last
 	var bools, advBools []string
-	var fields, advFields []*settingsArg
+	var choices, fields, advFields []*settingsArg
 	for _, name := range s.flagsNamesOrdered {
 		w := s.widgets[name]
 		switch w.widget.(type) {
+		case *choiceInput:
+			if w.advanced {
+				advFields = append(advFields, w)
+			} else {
+				choices = append(choices, w)
+			}
 		case *widget.Bool:
 			if w.advanced {
 				advBools = append(advBools, name)
@@ -451,8 +528,11 @@ func (s *settingsPage) Layout(gtx C, th *material.Theme) D {
 			})
 		}
 	}
-	if len(bools) > 0 || len(fields) > 0 {
+	if len(bools) > 0 || len(fields) > 0 || len(choices) > 0 {
 		section(locale.Loc("gui_section_options", nil))
+		for _, f := range choices {
+			items = append(items, func(gtx C) D { return s.layoutField(gtx, th, f) })
+		}
 		items = append(items, func(gtx C) D { return s.layoutOptions(gtx, th, bools) })
 		if len(fields) > 0 {
 			items = append(items, layout.Spacer{Height: 10}.Layout)

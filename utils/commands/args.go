@@ -41,13 +41,22 @@ type Arg struct {
 	Type    string
 	Path    []string
 	ExtType string
-	field   reflect.Value
+	// Choices, from a `choices:"a,b,c"` tag, are the only values a string
+	// takes.
+	Choices []string
+	// Hidden ones (`hidden:"true"`) are left out of the GUI, e.g. old flags
+	// kept for the command line.
+	Hidden bool
+	field  reflect.Value
 }
 
 func (a *Arg) Set(v string) error {
 	switch a.field.Kind() {
 	case reflect.String:
-		a.field.Set(reflect.ValueOf(v))
+		if len(a.Choices) > 0 && !slices.Contains(a.Choices, v) {
+			return fmt.Errorf("%q isn't one of %s", v, strings.Join(a.Choices, ", "))
+		}
+		a.field.SetString(v)
 		return nil
 	case reflect.Int:
 		vi, err := strconv.Atoi(v)
@@ -125,6 +134,10 @@ func ParseArgsType(settings reflect.Value, path []string, without []string) ([]A
 			Default: defaultStr,
 			field:   field,
 			ExtType: extType,
+			Hidden:  fieldType.Tag.Get("hidden") == "true",
+		}
+		if choices := fieldType.Tag.Get("choices"); choices != "" {
+			arg.Choices = strings.Split(choices, ",")
 		}
 
 		if fieldType.Type == connectInfoType {

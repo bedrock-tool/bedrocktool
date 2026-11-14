@@ -32,7 +32,7 @@ import (
 )
 
 type WorldSettings struct {
-	VoidGen         bool
+	Generator       worldstate.Generator
 	SaveImage       bool
 	SaveEntities    bool
 	SaveInventories bool
@@ -120,6 +120,9 @@ func NewWorldsHandler(ctx context.Context, settings WorldSettings) func() *proxy
 
 	if settings.ChunkRadius == 0 {
 		settings.ChunkRadius = 76
+	}
+	if settings.Generator == "" {
+		settings.Generator = worldstate.GeneratorVoid
 	}
 
 	return func() *proxy.Handler {
@@ -217,10 +220,27 @@ func (w *worldsHandler) onSessionStart(session *proxy.Session, serverName string
 	})
 
 	session.AddCommand(func(cmdline []string) bool {
-		return w.setVoidGen(!w.worldState.VoidGen)
+		// void on and off; off is flat, as it always was
+		gen := worldstate.GeneratorVoid
+		if w.settings.Generator == worldstate.GeneratorVoid {
+			gen = worldstate.GeneratorFlat
+		}
+		return w.setGenerator(gen)
 	}, protocol.Command{
 		Name:        "void",
 		Description: locale.Loc("void_desc", nil),
+	})
+
+	session.AddCommand(func(args []string) bool {
+		gen, err := worldstate.ParseGenerator(strings.Join(args, " "))
+		if err != nil || len(args) == 0 {
+			session.SendMessage(fmt.Sprintf("Unsaved chunks are generated as: %s. Use /generator void, flat or normal", w.settings.Generator))
+			return true
+		}
+		return w.setGenerator(gen)
+	}, protocol.Command{
+		Name:        "generator",
+		Description: "set what fills chunks that weren't saved: void, flat or normal",
 	})
 
 	session.AddCommand(func(args []string) bool {
@@ -245,7 +265,7 @@ func (w *worldsHandler) onSessionStart(session *proxy.Session, serverName string
 	if err != nil {
 		return err
 	}
-	worldState.VoidGen = w.settings.VoidGen
+	worldState.Generator = w.settings.Generator
 	w.worldState = worldState
 	return nil
 }
@@ -281,26 +301,25 @@ func (w *worldsHandler) currentWorld(fn func(world *worldstate.World)) {
 	w.worldStateMu.Unlock()
 }
 
-func (w *worldsHandler) setVoidGen(val bool) bool {
+// setGenerator changes the generator of the world being saved, and of the
+// ones after it.
+func (w *worldsHandler) setGenerator(gen worldstate.Generator) bool {
 	w.currentWorld(func(world *worldstate.World) {
-		world.VoidGen = val
+		world.Generator = gen
 	})
-	var s = locale.Loc("void_generator_false", nil)
-	if val {
-		s = locale.Loc("void_generator_true", nil)
-	}
-	w.session.SendMessage(s)
-
-	var voidGen = "false"
-	if val {
-		voidGen = "true"
-	}
-
-	messages.SendEvent(&messages.EventSetValue{
-		Name:  "voidGen",
-		Value: voidGen,
-	})
+	w.settings.Generator = gen
+	w.session.SendMessage(generatorMessage(gen))
 	return true
+}
+
+func generatorMessage(gen worldstate.Generator) string {
+	switch gen {
+	case worldstate.GeneratorFlat:
+		return "Unsaved chunks will be flat land"
+	case worldstate.GeneratorNormal:
+		return "Unsaved chunks will be normal terrain from the server's seed (it often won't match, many servers send a fake seed)"
+	}
+	return locale.Loc("void_generator_true", nil)
 }
 
 func (w *worldsHandler) setWorldName(val string) bool {
@@ -368,7 +387,7 @@ func (w *worldsHandler) SaveAndReset(end bool, dim world.Dimension) {
 		if err != nil {
 			w.log.Error(err)
 		}
-		worldState.VoidGen = w.settings.VoidGen
+		worldState.Generator = w.settings.Generator
 		worldState.SetDimension(dim)
 		w.worldState = worldState
 		w.openWorldState()

@@ -49,9 +49,14 @@ Start the GUI build without arguments.
 
 1. Pick a mode at the top: **Worlds**, **Skins** or **Packs**.
 2. Under **Server**, type an address or use the buttons to pick a Realm,
-   a featured server, an experience or a friend's world.
+   a featured server, an experience or a friend's world. **Recent** lists
+   the last 10 you started with; **Remove** takes one off.
 3. Turn options on or off. Each one says what it does under its name.
 4. Press **Start**, then join from Minecraft as described above.
+
+Each mode remembers its address and options from the last time you pressed
+**Start**, in `saved-settings.json` next to the login token. Delete the file
+to go back to the defaults.
 
 The **Worlds** page shows a live map while you play, and lists each world as
 it's saved.
@@ -85,7 +90,7 @@ bedrocktool worlds -h
 ```
 
 Flags are written `-flag value` or `-flag=value`. A true/false flag is turned
-on by naming it (`-image`) and off with `=false` (`-void=false`).
+on by naming it (`-image`) and off with `=false` (`-save-entities=false`).
 
 ### Flags every proxy command has
 
@@ -148,7 +153,7 @@ bedrocktool worlds -address <server> [flags]
 
 | Flag | Default | Description |
 |---|---|---|
-| `-void` | `true` | Save with the void generator, so unloaded chunks stay empty instead of being generated |
+| `-generator` | `void` | What Minecraft fills the chunks you didn't load with: `void` (empty), `flat` (superflat land) or `normal` (terrain from the server's seed). Many servers send a fake seed or 0, so `normal` terrain often won't match the saved area. The old `-void=false` still works and means `flat` |
 | `-image` | `false` | Also save a PNG of the map next to the world |
 | `-save-entities` | `true` | Save mobs and other entities |
 | `-save-players` | `false` | Save other players as entities wearing their skins. On The Hive, its NPC and advert players are saved either way |
@@ -169,7 +174,8 @@ Type these in chat while connected through the proxy:
 | Command | What it does |
 |---|---|
 | `/setname <name>` | Name the world being saved |
-| `/void` | Turn the void generator on or off |
+| `/generator <void\|flat\|normal>` | Change what fills the chunks that weren't saved, for this world and the next |
+| `/void` | Switch between `void` and `flat` |
 | `/exclude-mob <id>` | Leave a mob out of the save, e.g. `/exclude-mob minecraft:bat` |
 | `/save-world` | Save now and start a new world |
 
