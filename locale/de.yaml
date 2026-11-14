@@ -248,10 +248,6 @@ gui_update_downloading_percent:
   other: "wird geladen ({{.Percent}} %)"
 
 # GUI: popups
-gui_auth_at:
-  other: "Anmelden auf: "
-gui_auth_code:
-  other: "Mit Code: "
 gui_connect_starting:
   other: "Wird gestartet"
 gui_connect_starting_detail:
@@ -659,8 +655,18 @@ capture_confirm_detail:
 capture_confirm_keep:
   other: "Weiter aufzeichnen"
 capture_confirm_off:
-  other: "Trotzdem ausschalten"
+  other: "Trotzdem ausschalten (nicht mehr anzeigen!)"
 capture_off_warning:
   other: "Die Sitzungsaufzeichnung ist aus (-capture=false): Es gibt keine .pcap2, um diese Welt später erneut zu speichern, mit anderen Einstellungen oder einem neueren bedrocktool"
 anti_cheat_notice:
   other: "Ein Hinweis vor der Anmeldung: Auf Servern mit strengem Anti-Cheat (Cubecraft und The Hive sind bekannte Fälle) kann bedrocktool in seltenen Fällen dazu führen, dass das Konto markiert oder gesperrt wird. Es verbindet sich über gophertunnel, das sich nicht genau wie das echte Spiel bewegt und Eingaben sendet, daher können manche Anti-Cheats es erkennen. Nutze für diese Server ein Zweitkonto; Realms, eigene Welten und die meisten Server sind kein Problem."
+gui_auth_title:
+  other: "Mit Microsoft anmelden"
+gui_auth_steps:
+  other: "Öffne diese Seite und gib den Code unten ein:"
+gui_auth_copy_hint:
+  other: "Klicken zum Kopieren"
+gui_auth_open:
+  other: "Seite öffnen"
+gui_auth_notice_title:
+  other: "Server mit Anti-Cheat"

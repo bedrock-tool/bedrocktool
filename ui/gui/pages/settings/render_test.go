@@ -5,6 +5,7 @@ import (
 	"image/color"
 	"image/png"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"gioui.org/font/gofont"
@@ -88,6 +89,8 @@ func (p *popupRecorder) Invalidate()         {}
 // Switching Record Session off asks first, and leaves it on until the
 // user confirms.
 func TestCaptureOffAsks(t *testing.T) {
+	marker := filepath.Join(t.TempDir(), "dismissed")
+	captureWarningFile = func() string { return marker }
 	g := &popupRecorder{}
 	s := &settingsPage{cmd: commands.Registered["worlds"], g: g}
 	s.Init()
@@ -111,6 +114,14 @@ func TestCaptureOffAsks(t *testing.T) {
 	g.shown[1].(*popups.ConfirmPopup).Answer(true)
 	if b.Value {
 		t.Fatal("confirming should turn it off")
+	}
+
+	// "don't show again": the next time it turns off without asking
+	b.Value = true
+	b.Value = false
+	s.onToggle("capture", b)
+	if b.Value || len(g.shown) != 2 {
+		t.Fatalf("after turning it off anyway it shouldn't ask again: on=%v popups=%d", b.Value, len(g.shown))
 	}
 
 	// other options toggle freely

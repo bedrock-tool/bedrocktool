@@ -65,34 +65,42 @@ func (p *ConfirmPopup) Layout(gtx C, th *material.Theme) D {
 	}
 
 	return LayoutPopupBackground(gtx, th, p.id, func(gtx C) D {
-		children := []layout.FlexChild{
-			layout.Rigid(func(gtx C) D {
-				return layout.Inset{Top: 4, Bottom: 10}.Layout(gtx, material.Label(th, th.TextSize*1.4, p.title).Layout)
-			}),
-		}
-		for i, text := range p.body {
-			l := material.Body1(th, text)
-			if i > 0 {
-				l = material.Body2(th, text)
+		gtx.Constraints.Min.X = gtx.Constraints.Max.X
+		return layout.Inset{Top: 12, Bottom: 8, Left: 20, Right: 20}.Layout(gtx, func(gtx C) D {
+			children := []layout.FlexChild{
+				layout.Rigid(func(gtx C) D {
+					l := centered(material.Label(th, th.TextSize*1.4, p.title))
+					return layout.Inset{Bottom: 12}.Layout(gtx, l.Layout)
+				}),
 			}
-			children = append(children, layout.Rigid(func(gtx C) D {
-				return layout.Inset{Bottom: 8}.Layout(gtx, l.Layout)
-			}))
-		}
-		children = append(children,
-			layout.Rigid(layout.Spacer{Height: 16}.Layout),
-			layout.Rigid(func(gtx C) D {
-				return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceBetween}.Layout(gtx,
-					layout.Rigid(func(gtx C) D { return CloseButtonText(gtx, th, &p.proceedBtn, p.proceed) }),
-					layout.Rigid(func(gtx C) D {
-						b := material.Button(th, &p.keepBtn, p.keep)
-						b.CornerRadius = Radius
-						gtx.Constraints.Min.X = gtx.Dp(140)
-						return b.Layout(gtx)
-					}),
-				)
-			}),
-		)
-		return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+			for i, text := range p.body {
+				l := centered(material.Body1(th, text))
+				if i > 0 {
+					l = centered(material.Body2(th, text))
+					l.Color = mutedColor(th.Fg)
+				}
+				children = append(children, layout.Rigid(func(gtx C) D {
+					return layout.Inset{Bottom: 8}.Layout(gtx, l.Layout)
+				}))
+			}
+			children = append(children,
+				layout.Rigid(layout.Spacer{Height: 14}.Layout),
+				// the safe choice first and highlighted, the other one beside it
+				layout.Rigid(func(gtx C) D {
+					gtx.Constraints.Min.X = 0 // centered
+					return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
+						layout.Rigid(func(gtx C) D {
+							b := material.Button(th, &p.keepBtn, p.keep)
+							b.CornerRadius = Radius
+							gtx.Constraints.Min.X = gtx.Dp(150)
+							return b.Layout(gtx)
+						}),
+						layout.Rigid(layout.Spacer{Width: 10}.Layout),
+						layout.Rigid(func(gtx C) D { return CloseButtonText(gtx, th, &p.proceedBtn, p.proceed) }),
+					)
+				}),
+			)
+			return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx, children...)
+		})
 	})
 }

@@ -255,11 +255,11 @@ func TestConfirmPopup(t *testing.T) {
 	for _, tc := range []struct {
 		button string
 		want   bool
-	}{{"Keep recording", false}, {"Turn off anyway", true}} {
+	}{{"Keep recording", false}, {"Turn off anyway (Don't show again!)", true}} {
 		var got *bool
 		p := NewConfirm(nil, "confirm-capture-off", "Turn off session recording?",
-			[]string{"The .pcap2 recording holds every packet.", "Without it, anything missed is gone for good."},
-			"Keep recording", "Turn off anyway", func(proceed bool) { got = &proceed })
+			[]string{locale.Loc("capture_confirm_body", nil), locale.Loc("capture_confirm_detail", nil)},
+			"Keep recording", "Turn off anyway (Don't show again!)", func(proceed bool) { got = &proceed })
 		closes(t, p, tc.button, "confirm")
 		if got == nil || *got != tc.want {
 			t.Fatalf("%s: answered %v, want %v", tc.button, got, tc.want)
@@ -290,5 +290,5 @@ func TestAuthPopup(t *testing.T) {
 	if !strings.Contains(all, auth.AntiCheatNotice()) {
 		t.Error("login popup doesn't show the anti-cheat note")
 	}
-	closes(t, p, "Close", "auth")
+	closes(t, p, "Cancel", "auth")
 }

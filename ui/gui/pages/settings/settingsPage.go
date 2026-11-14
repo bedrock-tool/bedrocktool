@@ -4,8 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"github.com/bedrock-tool/bedrocktool/locale"
+	"github.com/bedrock-tool/bedrocktool/utils"
 	"image"
 	"image/color"
+	"os"
 	"reflect"
 	"strings"
 	"unsafe"
@@ -497,7 +499,7 @@ func captureWarning() []string {
 // onToggle runs when an option is clicked. Turning off Record Session asks
 // first: the switch stays on until the user confirms.
 func (s *settingsPage) onToggle(flag string, b *widget.Bool) {
-	if flag != "capture" || b.Value || s.g == nil {
+	if flag != "capture" || b.Value || s.g == nil || captureWarningDismissed() {
 		return
 	}
 	b.Value = true
@@ -507,7 +509,23 @@ func (s *settingsPage) onToggle(flag string, b *widget.Bool) {
 		func(proceed bool) {
 			if proceed {
 				b.Value = false
+				dismissCaptureWarning()
 			}
 			s.g.Invalidate()
 		}))
+}
+
+// captureWarningFile marks that the user turned recording off with "don't
+// show again". A variable so tests can put it somewhere else.
+var captureWarningFile = func() string { return utils.PathData(".capture-warning-dismissed") }
+
+func captureWarningDismissed() bool {
+	_, err := os.Stat(captureWarningFile())
+	return err == nil
+}
+
+func dismissCaptureWarning() {
+	if err := os.WriteFile(captureWarningFile(), nil, 0o644); err != nil {
+		logrus.Warn(err)
+	}
 }
