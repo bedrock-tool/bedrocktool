@@ -105,6 +105,8 @@ func (p *Context) Run(ctx context.Context, withClient bool) (err error) {
 
 	if p.settings.Capture && !isReplay {
 		p.AddHandler(NewPacketCapturer)
+	} else if !isReplay {
+		logrus.Warn("Session recording is off (-capture=false): there will be no .pcap2 to save this world again from later, with other settings or a newer bedrocktool")
 	}
 	p.addedPacks, err = loadForcedPacks()
 	if err != nil {

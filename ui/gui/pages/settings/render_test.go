@@ -14,8 +14,11 @@ import (
 	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/unit"
+	"gioui.org/widget"
 	"gioui.org/widget/material"
 	_ "github.com/bedrock-tool/bedrocktool/subcommands"
+	"github.com/bedrock-tool/bedrocktool/ui/gui/guim"
+	"github.com/bedrock-tool/bedrocktool/ui/gui/popups"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 )
 
@@ -72,4 +75,49 @@ func TestRenderModePicker(t *testing.T) {
 	f, _ := os.Create(out + "/modes.png")
 	png.Encode(f, img)
 	f.Close()
+}
+
+type popupRecorder struct {
+	guim.Guim
+	shown []any
+}
+
+func (p *popupRecorder) ShowPopup(popup any) { p.shown = append(p.shown, popup) }
+func (p *popupRecorder) Invalidate()         {}
+
+// Switching Record Session off asks first, and leaves it on until the
+// user confirms.
+func TestCaptureOffAsks(t *testing.T) {
+	g := &popupRecorder{}
+	s := &settingsPage{cmd: commands.Registered["worlds"], g: g}
+	s.Init()
+	b := s.widgets["capture"].widget.(*widget.Bool)
+	if !b.Value {
+		t.Fatal("Record Session should be on by default")
+	}
+	b.Value = false // what the click did
+	s.onToggle("capture", b)
+	if !b.Value || len(g.shown) != 1 {
+		t.Fatalf("turning it off should ask first and stay on: on=%v popups=%d", b.Value, len(g.shown))
+	}
+	confirm := g.shown[0].(*popups.ConfirmPopup)
+	confirm.Close() // closed without answering
+	if !b.Value {
+		t.Fatal("closing the question should keep recording on")
+	}
+
+	b.Value = false
+	s.onToggle("capture", b)
+	g.shown[1].(*popups.ConfirmPopup).Answer(true)
+	if b.Value {
+		t.Fatal("confirming should turn it off")
+	}
+
+	// other options toggle freely
+	img := s.widgets["image"].widget.(*widget.Bool)
+	img.Value = true
+	s.onToggle("image", img)
+	if !img.Value || len(g.shown) != 2 {
+		t.Fatal("other options shouldn't ask")
+	}
 }

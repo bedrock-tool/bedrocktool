@@ -338,7 +338,9 @@ func (s *settingsPage) layoutOptions(gtx C, th *material.Theme, names []string) 
 		for j := i; j < min(i+cols, len(names)); j++ {
 			w := s.widgets[names[j]]
 			b := w.widget.(*widget.Bool)
-			b.Update(gtx)
+			if b.Update(gtx) {
+				s.onToggle(names[j], b)
+			}
 			cgtx := gtx
 			cgtx.Constraints = layout.Constraints{Min: image.Pt(colW, 0), Max: image.Pt(colW, gtx.Constraints.Max.Y)}
 			m := op.Record(gtx.Ops)
@@ -483,4 +485,29 @@ func argDesc(arg commands.Arg) string {
 		return d
 	}
 	return strings.ToUpper(d[:1]) + d[1:]
+}
+
+// captureWarning is why Record Session should stay on, shown before it is
+// turned off.
+var captureWarning = []string{
+	"The .pcap2 recording holds every packet the server sent during the session.",
+	"With it, the world can be saved again at any time without going back to the server: with other settings, or with a future version of bedrocktool that fixes bugs or adds features. Without it, anything missed is gone for good.",
+}
+
+// onToggle runs when an option is clicked. Turning off Record Session asks
+// first: the switch stays on until the user confirms.
+func (s *settingsPage) onToggle(flag string, b *widget.Bool) {
+	if flag != "capture" || b.Value || s.g == nil {
+		return
+	}
+	b.Value = true
+	s.g.ShowPopup(popups.NewConfirm(s.g, "confirm-capture-off",
+		"Turn off session recording?", captureWarning,
+		"Keep recording", "Turn off anyway",
+		func(proceed bool) {
+			if proceed {
+				b.Value = false
+			}
+			s.g.Invalidate()
+		}))
 }

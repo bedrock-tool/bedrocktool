@@ -161,6 +161,8 @@ func setGuim(p Popup, g *fakeGuim) {
 		p.g = g
 	case *errorPopup:
 		p.g = g
+	case *ConfirmPopup:
+		p.g = g
 	}
 }
 
@@ -243,4 +245,29 @@ func TestConnectPopupCloses(t *testing.T) {
 func TestErrorPopupCloses(t *testing.T) {
 	p := NewErrorPopup(nil, os.ErrNotExist, false, nil)
 	closes(t, p, "Close", "error")
+}
+
+func TestConfirmPopup(t *testing.T) {
+	for _, tc := range []struct {
+		button string
+		want   bool
+	}{{"Keep recording", false}, {"Turn off anyway", true}} {
+		var got *bool
+		p := NewConfirm(nil, "confirm-capture-off", "Turn off session recording?",
+			[]string{"The .pcap2 recording holds every packet.", "Without it, anything missed is gone for good."},
+			"Keep recording", "Turn off anyway", func(proceed bool) { got = &proceed })
+		closes(t, p, tc.button, "confirm")
+		if got == nil || *got != tc.want {
+			t.Fatalf("%s: answered %v, want %v", tc.button, got, tc.want)
+		}
+		p.Close() // closing after an answer mustn't answer again
+	}
+
+	// closed without picking: keep
+	var got *bool
+	p := NewConfirm(nil, "c", "t", nil, "Keep", "Go", func(proceed bool) { got = &proceed })
+	p.Close()
+	if got == nil || *got {
+		t.Fatal("closing without an answer should keep things as they were")
+	}
 }
