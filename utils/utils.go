@@ -239,6 +239,23 @@ func (w *CountingWriter) BytesWritten() int64 {
 
 var filenameReservedRegex = regexp.MustCompile(`[<>:"/\\|?*\x00-\x1F]|(?:§.)`)
 
+// windowsDeviceNames can't be used as file or folder names on Windows,
+// with or without an extension.
+var windowsDeviceNames = regexp.MustCompile(`(?i)^(CON|PRN|AUX|NUL|COM[0-9]|LPT[0-9])(\.|$)`)
+
+// MakeValidFilename turns a world, server or pack name into a name that
+// works as a file or folder name on every OS: Windows drops trailing dots
+// and spaces (so "World." and "World" would clash or fail to open) and
+// refuses device names like CON.
 func MakeValidFilename(name string) string {
-	return strings.TrimSpace(filenameReservedRegex.ReplaceAllString(name, "_"))
+	name = filenameReservedRegex.ReplaceAllString(name, "_")
+	name = strings.TrimSpace(name)
+	name = strings.TrimRight(name, ". ")
+	if windowsDeviceNames.MatchString(name) {
+		name = "_" + name
+	}
+	if name == "" {
+		name = "_"
+	}
+	return name
 }
