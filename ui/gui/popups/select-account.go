@@ -71,7 +71,7 @@ func (p *SelectAccount) Layout(gtx C, th *material.Theme) D {
 						return layout.UniformInset(8).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 							gtx.Constraints.Min.X = 80
 							b := material.Button(th, &p.close, "Close")
-							b.CornerRadius = 8
+							b.CornerRadius = Radius
 							return b.Layout(gtx)
 						})
 					}),
@@ -79,7 +79,7 @@ func (p *SelectAccount) Layout(gtx C, th *material.Theme) D {
 						return layout.UniformInset(8).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 							gtx.Constraints.Min.X = 80
 							b := material.Button(th, &p.done, "Done")
-							b.CornerRadius = 8
+							b.CornerRadius = Radius
 							if p.editor.Len() == 0 {
 								b.Color = th.Bg
 								b.Background = th.Fg

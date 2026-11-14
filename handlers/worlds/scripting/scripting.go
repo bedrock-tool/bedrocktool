@@ -34,6 +34,7 @@ type VM struct {
 		OnBlockUpdate          func(name string, properties map[string]any, pos protocol.BlockPos, timeReceived float64) (apply goja.Value)
 		OnSpawnParticle        func(name string, pos mgl32.Vec3, timeReceived float64)
 		OnPacket               func(name string, pk packet.Packet, toServer bool, timeReceived float64) (apply goja.Value)
+		OnPlayerAdd            func(player *goja.Object, metadata *goja.Object, timeReceived float64) (save goja.Value)
 	}
 
 	GetWorld           func() *worldstate.World
@@ -88,6 +89,10 @@ func New() *VM {
 			err = v.runtime.ExportTo(callback, &v.CB.OnSpawnParticle)
 		case "Packet":
 			err = v.runtime.ExportTo(callback, &v.CB.OnPacket)
+		case "PlayerAdd":
+			err = v.runtime.ExportTo(callback, &v.CB.OnPlayerAdd)
+		default:
+			v.log.Warnf("events.register: unknown event %q", name)
 		}
 		return err
 	})

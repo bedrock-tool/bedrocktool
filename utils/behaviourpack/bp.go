@@ -17,6 +17,19 @@ type Pack struct {
 	items    map[string]*itemBehaviour
 	entities map[string]*entityBehaviour
 	biomes   []biomeBehaviour
+
+	// script is a Script API entry point (scripts/main.js) when set.
+	script string
+}
+
+// SetScript puts a Script API script in the pack as scripts/main.js, run
+// with @minecraft/server and @minecraft/server-ui.
+func (bp *Pack) SetScript(source string) {
+	bp.script = source
+}
+
+func (bp *Pack) HasScript() bool {
+	return bp.script != ""
 }
 
 func New(name string) *Pack {
@@ -90,7 +103,56 @@ func (bp *Pack) HasEntities() bool {
 }
 
 func (bp *Pack) HasContent() bool {
-	return bp.HasBlocks() || bp.HasItems()
+	return bp.HasBlocks() || bp.HasItems() || bp.HasScript()
+}
+
+// writeScriptManifest writes the manifest with a script module, which the
+// resource.Manifest type has no fields for (entry, module_name).
+func (bp *Pack) writeScriptManifest(fs utils.WriterFS) error {
+	m := bp.Manifest
+	modules := []map[string]any{}
+	for _, mod := range m.Modules {
+		modules = append(modules, map[string]any{
+			"type":        mod.Type,
+			"uuid":        mod.UUID,
+			"description": mod.Description,
+			"version":     mod.Version,
+		})
+	}
+	modules = append(modules, map[string]any{
+		"type":        "script",
+		"language":    "javascript",
+		"uuid":        utils.RandSeededUUID(m.Header.Name + "_script_module"),
+		"description": "Menus and scoreboards recorded by bedrocktool",
+		"version":     []int{1, 0, 0},
+		"entry":       "scripts/main.js",
+	})
+	deps := []map[string]any{}
+	for _, d := range m.Dependencies {
+		deps = append(deps, map[string]any{"uuid": d.UUID, "version": d.Version})
+	}
+	deps = append(deps,
+		map[string]any{"module_name": "@minecraft/server", "version": "1.16.0"},
+		map[string]any{"module_name": "@minecraft/server-ui", "version": "1.3.0"},
+	)
+	header := m.Header
+	if v := header.MinimumGameVersion; v[0] < 1 || (v[0] == 1 && (v[1] < 21 || (v[1] == 21 && v[2] < 50))) {
+		header.MinimumGameVersion = resource.Version{1, 21, 50}
+	}
+	out := map[string]any{
+		"format_version": 2,
+		"header":         header,
+		"modules":        modules,
+		"dependencies":   deps,
+	}
+	w, err := fs.Create("manifest.json")
+	if err != nil {
+		return err
+	}
+	defer w.Close()
+	e := json.NewEncoder(w)
+	e.SetIndent("", "	")
+	return e.Encode(out)
 }
 
 func splitNamespace(identifier string) (ns, name string) {
@@ -99,7 +161,20 @@ func splitNamespace(identifier string) (ns, name string) {
 }
 
 func (bp *Pack) Save(fs utils.WriterFS) error {
-	if err := utils.WriteManifest(bp.Manifest, fs, ""); err != nil {
+	if bp.HasScript() {
+		if err := bp.writeScriptManifest(fs); err != nil {
+			return err
+		}
+		w, err := fs.Create("scripts/main.js")
+		if err != nil {
+			return err
+		}
+		_, err = w.Write([]byte(bp.script))
+		w.Close()
+		if err != nil {
+			return err
+		}
+	} else if err := utils.WriteManifest(bp.Manifest, fs, ""); err != nil {
 		return err
 	}
 

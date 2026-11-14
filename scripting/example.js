@@ -3,8 +3,8 @@ events.register('EntityAdd', (entity, metadata, time) => {
 });
 
 
-events.register('EntityDataUpdate', (entity, metadata, time) => {
-    console.log(`EntityDataUpdate ${entity.EntityType}`);
+events.register('EntityUpdate', (update, time) => {
+    console.log(`EntityUpdate ${update.Entity.EntityType}`);
 });
 
 
@@ -25,5 +25,14 @@ events.register('SpawnParticle', (name, pos, time) => {
 events.register('Packet', (name, packet, toServer, time) => {
     if(name === 'LevelSoundEvent') {
         console.log(`Packet ${name} ${JSON.stringify(packet)}`);
+    }
+});
+
+// return true to save a player, false to leave it out,
+// or nothing to use the usual rules
+events.register('PlayerAdd', (player, metadata, time) => {
+    console.log(`PlayerAdd ${player.Username} npc=${player.IsNPC}`);
+    if (player.Username.startsWith('§')) {
+        return true;
     }
 });

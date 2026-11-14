@@ -321,6 +321,10 @@ func (r *Router) HandleEvent(event any) error {
 			r.PushPopup(popups.NewConnect(r.g, event.ListenAddr))
 		}
 
+	case *messages.EventStoriesPrompt:
+		r.PushPopup(popups.NewStoriesPopup(r.g, event))
+		r.g.Invalidate()
+
 	case *messages.EventUpdateAvailable:
 		r.updateAvailable = true
 		r.setActions()

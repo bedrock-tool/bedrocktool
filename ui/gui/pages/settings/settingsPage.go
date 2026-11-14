@@ -4,28 +4,30 @@ import (
 	"errors"
 	"fmt"
 	"image"
-	"math"
+	"image/color"
 	"reflect"
 	"strings"
 	"unsafe"
 
+	"gioui.org/font"
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
-	"gioui.org/x/outlay"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/guim"
+	"github.com/bedrock-tool/bedrocktool/ui/gui/popups"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/sirupsen/logrus"
 )
 
 type settingsArg struct {
-	widget  any
-	tooltip component.TipArea
-	usage   string
+	widget any
+	name   string
+	usage  string
 }
 
 type settingsPage struct {
@@ -37,7 +39,6 @@ type settingsPage struct {
 
 	flagsNamesOrdered []string
 
-	grid outlay.Grid
 	list widget.List
 }
 
@@ -67,6 +68,8 @@ func (s *settingsPage) Init() {
 						SingleLine: true,
 					},
 				}, Hint: arg.Name, Ext: ext},
+				name:  argName(arg),
+				usage: argDesc(arg),
 			}
 			s.flagsNamesOrdered = append(s.flagsNamesOrdered, arg.Flag)
 			continue
@@ -83,23 +86,29 @@ func (s *settingsPage) Init() {
 		case "bool":
 			e := &widget.Bool{}
 			e.Value = arg.Default == "true"
-			s.widgets[arg.Flag] = &settingsArg{widget: e, usage: arg.Desc}
+			s.widgets[arg.Flag] = &settingsArg{widget: e, name: argName(arg), usage: argDesc(arg)}
 
 		default:
 			e := &component.TextField{
-				Helper: arg.Name,
 				Editor: widget.Editor{
 					SingleLine: true,
 				},
 			}
 			e.SetText(arg.Default)
-			s.widgets[arg.Flag] = &settingsArg{widget: e, usage: arg.Desc}
+			s.widgets[arg.Flag] = &settingsArg{widget: e, name: argName(arg), usage: argDesc(arg)}
 		}
 		s.flagsNamesOrdered = append(s.flagsNamesOrdered, arg.Flag)
 	}
 	if hasAddress {
 		s.flagsNamesOrdered = append([]string{"address"}, s.flagsNamesOrdered...)
 	}
+}
+
+func argName(arg commands.Arg) string {
+	if arg.Name != "" {
+		return arg.Name
+	}
+	return arg.Flag
 }
 
 func (s *settingsPage) Valid() bool {
@@ -184,7 +193,7 @@ func (s *settingsPage) PopupActive() bool {
 }
 
 func (s *settingsPage) LayoutPopupInput(gtx C, th *material.Theme) D {
-	cornerRadius := 8
+	cornerRadius := 4
 	return layout.UniformInset(8).Layout(gtx, func(gtx C) D {
 		return layout.Stack{}.Layout(gtx,
 			layout.Expanded(func(gtx C) D {
@@ -213,8 +222,9 @@ func (s *settingsPage) LayoutPopupInput(gtx C, th *material.Theme) D {
 							continue
 						case *component.TextField:
 							if textFieldIsActive(w) {
-								w.Update(gtx, th, w.Helper)
-								return w.Layout(gtx, th, w.Helper)
+								hint := s.widgets[name].name
+								w.Update(gtx, th, hint)
+								return w.Layout(gtx, th, hint)
 							}
 						case *fileInputWidget:
 							if textFieldIsActive(&w.textField) {
@@ -229,78 +239,216 @@ func (s *settingsPage) LayoutPopupInput(gtx C, th *material.Theme) D {
 	})
 }
 
-func (s *settingsPage) Layout(gtx C, th *material.Theme) D {
-	return layout.Flex{
-		Axis:      layout.Horizontal,
-		Alignment: layout.Middle,
-	}.Layout(gtx,
-		layout.Flexed(1, layout.Spacer{Width: 1000}.Layout),
-		layout.Rigid(func(gtx C) D {
-			gtx.Constraints.Max.X = min(gtx.Constraints.Max.X, gtx.Dp(138*4))
-			return material.List(th, &s.list).Layout(gtx, len(s.flagsNamesOrdered)+2, func(gtx C, index int) D {
-				switch index {
-				case 0: // address
-					w, ok := s.widgets["address"].widget.(*addressInput)
-					if ok {
-						gtx.Constraints.Min.X = gtx.Constraints.Max.X
-						return w.Layout(gtx, th)
-					}
-					return D{}
+// muted is th.Fg faded, for secondary text.
+func muted(th *material.Theme) color.NRGBA {
+	c := th.Fg
+	c.A = 170
+	return c
+}
 
-				case 1: // checkboxes
-					var widgets []layout.Widget
-					for _, name := range s.flagsNamesOrdered {
-						w := s.widgets[name]
-						if ww, ok := w.widget.(*widget.Bool); ok {
-							widgets = append(widgets, func(gtx C) D {
-								return w.tooltip.Layout(gtx,
-									component.PlatformTooltip(th, w.usage),
-									material.CheckBox(th, ww, name).Layout,
-								)
-							})
-						}
-					}
+// surface is a card background a little apart from th.Bg.
+func surface(th *material.Theme, alpha uint8) color.NRGBA {
+	c := th.Fg
+	c.A = alpha
+	return c
+}
 
-					boxWidth := gtx.Dp(130)
-					rows, cols := max(1, int(math.Ceil(float64(len(widgets))/4))), min(len(widgets), 4)
-					if cols*boxWidth > gtx.Constraints.Max.X {
-						cols = max(gtx.Constraints.Max.X/boxWidth, 1)
-						rows = len(widgets) / cols
-					}
+func sectionTitle(gtx C, th *material.Theme, title string) D {
+	return layout.Inset{Top: 18, Bottom: 8}.Layout(gtx, func(gtx C) D {
+		l := material.Subtitle1(th, title)
+		l.Font.Weight = font.Bold
+		return l.Layout(gtx)
+	})
+}
 
-					return s.grid.Layout(gtx, rows, cols, func(axis layout.Axis, index, constraint int) int {
-						switch axis {
-						case layout.Horizontal:
-							return boxWidth
-						case layout.Vertical:
-							return gtx.Dp(40)
-						}
-						return 0
-					}, func(gtx C, row, col int) D {
-						idx := col + cols*row
-						if idx >= len(widgets) {
+// optionCard is a bool setting: its name, and its description below, which
+// wraps instead of being cut off.
+func optionCard(gtx C, th *material.Theme, name, desc string, value bool) D {
+	return layout.UniformInset(12).Layout(gtx, func(gtx C) D {
+		return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Start}.Layout(gtx,
+			layout.Rigid(func(gtx C) D {
+				icon := th.Icon.CheckBoxUnchecked
+				col := muted(th)
+				if value {
+					icon = th.Icon.CheckBoxChecked
+					col = th.ContrastBg
+				}
+				size := gtx.Dp(22)
+				gtx.Constraints = layout.Exact(image.Pt(size, size))
+				return icon.Layout(gtx, col)
+			}),
+			layout.Rigid(layout.Spacer{Width: 10}.Layout),
+			layout.Flexed(1, func(gtx C) D {
+				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+					layout.Rigid(func(gtx C) D {
+						l := material.Body1(th, name)
+						l.Font.Weight = font.SemiBold
+						return l.Layout(gtx)
+					}),
+					layout.Rigid(func(gtx C) D {
+						if desc == "" || desc == name {
 							return D{}
 						}
-						return widgets[idx](gtx)
-					})
+						return layout.Inset{Top: 3}.Layout(gtx, func(gtx C) D {
+							l := material.Body2(th, desc)
+							l.Color = muted(th)
+							return l.Layout(gtx)
+						})
+					}),
+				)
+			}),
+		)
+	})
+}
 
-				default:
-					name := s.flagsNamesOrdered[index-2]
-					w := s.widgets[name]
-					switch w := w.widget.(type) {
-					case *widget.Bool:
-						return D{}
-					case *component.TextField:
-						w.Update(gtx, th, w.Helper)
-						return w.Layout(gtx, th, w.Helper)
-					case *fileInputWidget:
-						return w.Layout(gtx, th)
-					default:
-						return D{}
-					}
-				}
+// layoutOptions lays the bool settings out as cards, two to a row when
+// there's room, each row as tall as its tallest card.
+func (s *settingsPage) layoutOptions(gtx C, th *material.Theme) D {
+	var names []string
+	for _, name := range s.flagsNamesOrdered {
+		if _, ok := s.widgets[name].widget.(*widget.Bool); ok {
+			names = append(names, name)
+		}
+	}
+	if len(names) == 0 {
+		return D{}
+	}
+
+	gap := gtx.Dp(8)
+	width := gtx.Constraints.Max.X
+	cols := 1
+	if width >= gtx.Dp(480) {
+		cols = 2
+	}
+	colW := (width - gap*(cols-1)) / cols
+	radius := gtx.Dp(popups.Radius)
+
+	type card struct {
+		call op.CallOp
+		b    *widget.Bool
+	}
+
+	y := 0
+	for i := 0; i < len(names); i += cols {
+		var cards []card
+		rowH := 0
+		for j := i; j < min(i+cols, len(names)); j++ {
+			w := s.widgets[names[j]]
+			b := w.widget.(*widget.Bool)
+			b.Update(gtx)
+			cgtx := gtx
+			cgtx.Constraints = layout.Constraints{Min: image.Pt(colW, 0), Max: image.Pt(colW, gtx.Constraints.Max.Y)}
+			m := op.Record(gtx.Ops)
+			d := optionCard(cgtx, th, w.name, w.usage, b.Value)
+			cards = append(cards, card{call: m.Stop(), b: b})
+			rowH = max(rowH, d.Size.Y)
+		}
+		for k, c := range cards {
+			off := op.Offset(image.Pt(k*(colW+gap), y)).Push(gtx.Ops)
+			rect := image.Rect(0, 0, colW, rowH)
+			bg := surface(th, 14)
+			if c.b.Value {
+				bg = th.ContrastBg
+				bg.A = 40
+			}
+			if c.b.Hovered() {
+				bg.A += 14
+			}
+			rr := clip.UniformRRect(rect, radius).Push(gtx.Ops)
+			paint.Fill(gtx.Ops, bg)
+			rr.Pop()
+			cgtx := gtx
+			cgtx.Constraints = layout.Exact(rect.Size())
+			c.b.Layout(cgtx, func(gtx C) D {
+				c.call.Add(gtx.Ops)
+				return D{Size: rect.Size()}
 			})
-		}),
-		layout.Flexed(1, layout.Spacer{Width: 1000}.Layout),
+			off.Pop()
+		}
+		y += rowH + gap
+	}
+	return D{Size: image.Pt(width, y)}
+}
+
+// layoutField is a text or file setting with its name and description
+// above it.
+func (s *settingsPage) layoutField(gtx C, th *material.Theme, w *settingsArg) D {
+	return layout.Inset{Bottom: 12}.Layout(gtx, func(gtx C) D {
+		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+			layout.Rigid(func(gtx C) D {
+				l := material.Body1(th, w.name)
+				l.Font.Weight = font.SemiBold
+				return l.Layout(gtx)
+			}),
+			layout.Rigid(func(gtx C) D {
+				if w.usage == "" || w.usage == w.name {
+					return D{}
+				}
+				l := material.Body2(th, w.usage)
+				l.Color = muted(th)
+				return layout.Inset{Top: 2}.Layout(gtx, l.Layout)
+			}),
+			layout.Rigid(func(gtx C) D {
+				switch ww := w.widget.(type) {
+				case *component.TextField:
+					ww.Update(gtx, th, w.name)
+					return ww.Layout(gtx, th, w.name)
+				case *fileInputWidget:
+					return ww.Layout(gtx, th)
+				}
+				return D{}
+			}),
+		)
+	})
+}
+
+func (s *settingsPage) Layout(gtx C, th *material.Theme) D {
+	var fields []*settingsArg
+	for _, name := range s.flagsNamesOrdered {
+		w := s.widgets[name]
+		switch w.widget.(type) {
+		case *component.TextField, *fileInputWidget:
+			fields = append(fields, w)
+		}
+	}
+
+	var items []layout.Widget
+	if addr, ok := s.widgets["address"]; ok {
+		if input, ok := addr.widget.(*addressInput); ok {
+			items = append(items,
+				func(gtx C) D { return sectionTitle(gtx, th, "Server") },
+				func(gtx C) D {
+					gtx.Constraints.Min.X = gtx.Constraints.Max.X
+					return input.Layout(gtx, th)
+				},
+			)
+		}
+	}
+	items = append(items,
+		func(gtx C) D { return sectionTitle(gtx, th, "Options") },
+		func(gtx C) D { return s.layoutOptions(gtx, th) },
 	)
+	if len(fields) > 0 {
+		items = append(items, func(gtx C) D { return sectionTitle(gtx, th, "More") })
+		for _, f := range fields {
+			items = append(items, func(gtx C) D { return s.layoutField(gtx, th, f) })
+		}
+	}
+
+	return layout.N.Layout(gtx, func(gtx C) D {
+		gtx.Constraints.Max.X = min(gtx.Constraints.Max.X, gtx.Dp(760))
+		gtx.Constraints.Min.X = gtx.Constraints.Max.X
+		return material.List(th, &s.list).Layout(gtx, len(items), func(gtx C, index int) D {
+			return layout.Inset{Right: 12, Left: 2}.Layout(gtx, items[index])
+		})
+	})
+}
+
+// argDesc is an argument's description starting with a capital letter.
+func argDesc(arg commands.Arg) string {
+	d := strings.TrimSpace(arg.Desc)
+	if d == "" {
+		return d
+	}
+	return strings.ToUpper(d[:1]) + d[1:]
 }

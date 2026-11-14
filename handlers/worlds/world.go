@@ -13,6 +13,7 @@ import (
 
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds/entity"
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds/scripting"
+	"github.com/bedrock-tool/bedrocktool/handlers/worlds/uirecord"
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds/worldstate"
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
@@ -42,6 +43,7 @@ type WorldSettings struct {
 	MapArt          bool
 	BlockUpdates    bool
 	EntityCulling   bool
+	RecordUI        bool
 }
 
 type serverState struct {
@@ -64,6 +66,7 @@ type serverState struct {
 	dimensions           map[int]protocol.DimensionDefinition
 	playerSkins          map[uuid.UUID]*protocol.Skin
 	playerXUIDs          map[uuid.UUID]string
+	scriptPlayerKeep     map[uuid.UUID]bool
 	isHive               bool
 	entityProperties     map[string][]entity.EntityPropertyDef
 	playerPropertyValues map[string]any
@@ -94,7 +97,8 @@ type worldsHandler struct {
 	mapUI   *MapUI
 	log     *logrus.Entry
 
-	scripting *scripting.VM
+	scripting  *scripting.VM
+	uiRecorder *uirecord.Recorder
 
 	// lock used for when the worldState gets swapped
 	worldStateMu sync.Mutex
@@ -165,6 +169,7 @@ func (w *worldsHandler) onSessionStart(session *proxy.Session, serverName string
 		dimensions:           make(map[int]protocol.DimensionDefinition),
 		playerSkins:          make(map[uuid.UUID]*protocol.Skin),
 		playerXUIDs:          make(map[uuid.UUID]string),
+		scriptPlayerKeep:     make(map[uuid.UUID]bool),
 		isHive:               isHiveServer(session.ServerAddress(), serverName),
 		knownMaps:            make(map[int64]*worldstate.Map),
 		requestedMaps:        make(map[int64]struct{}),
@@ -178,6 +183,12 @@ func (w *worldsHandler) onSessionStart(session *proxy.Session, serverName string
 	w.mapUI = NewMapUI(w)
 	if w.serverState.isHive {
 		w.log.Info("The Hive: sheep are saved as hive:text, and its NPC players are kept")
+	}
+
+	w.uiRecorder = nil
+	if w.settings.RecordUI {
+		w.uiRecorder = uirecord.New(w.entityInfo)
+		w.log.Info("Recording menus and scoreboards into the behavior pack's script")
 	}
 
 	w.scripting = nil
@@ -206,7 +217,7 @@ func (w *worldsHandler) onSessionStart(session *proxy.Session, serverName string
 	})
 
 	session.AddCommand(func(cmdline []string) bool {
-		return w.setVoidGen(w.worldState.VoidGen)
+		return w.setVoidGen(!w.worldState.VoidGen)
 	}, protocol.Command{
 		Name:        "void",
 		Description: locale.Loc("void_desc", nil),
@@ -332,6 +343,10 @@ func (w *worldsHandler) SaveAndReset(end bool, dim world.Dimension) {
 		// reset map, increase counter for
 		w.serverState.worldCounter += 1
 		w.mapUI.Reset()
+
+		if w.uiRecorder != nil && w.uiRecorder.HasContent() {
+			w.serverState.behaviorPack.SetScript(w.uiRecorder.Script())
+		}
 
 		// taken now: the packet loop keeps changing these while it saves
 		keepPlayer := w.keepPlayer()
@@ -470,4 +485,21 @@ func (w *worldsHandler) renameWorldState(name string) error {
 		err = world.Rename(name, folder)
 	})
 	return err
+}
+
+// entityInfo gives the recorder an entity's type and name tag.
+func (w *worldsHandler) entityInfo(rid uint64) (typeID, nameTag string, ok bool) {
+	w.currentWorld(func(world *worldstate.World) {
+		if world == nil {
+			return
+		}
+		world.ActEntity(rid, false, func(ent *entity.Entity) error {
+			typeID, ok = ent.EntityType, true
+			if name, isStr := ent.Metadata[protocol.EntityDataKeyName].(string); isStr {
+				nameTag = name
+			}
+			return nil
+		})
+	})
+	return
 }

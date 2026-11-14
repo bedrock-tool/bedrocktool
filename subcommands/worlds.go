@@ -23,6 +23,7 @@ type WorldSettings struct {
 	ExcludeMobs   []string `opt:"Exclude Mobs" flag:"exclude-mobs" desc:"list of mobs to exclude seperated by comma"`
 	ChunkRadius   int      `opt:"Chunk Radius" flag:"chunk-radius" desc:"the max chunk radius to force"`
 	ScriptPath    string   `opt:"Script Path" flag:"script" desc:"path to script to use" type:"file,js"`
+	RecordUI      bool     `opt:"Record Menus" flag:"record-ui" default:"false" desc:"Record the server's menus (forms opened by items or NPCs, and the buttons pressed through them) and scoreboards, and rebuild them as a script in the world's behavior pack"`
 }
 
 type WorldCMD struct{}
@@ -68,6 +69,7 @@ func (WorldCMD) Run(ctx context.Context, settings any) error {
 		EntityCulling:   worldSettings.EntityCulling,
 		Players:         worldSettings.Players,
 		MapArt:          worldSettings.MapArt,
+		RecordUI:        worldSettings.RecordUI,
 	}))
 
 	err = p.Run(ctx, true)

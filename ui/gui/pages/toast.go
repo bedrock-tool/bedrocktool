@@ -28,7 +28,7 @@ func (t *Toast) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions
 	bgColor := color.NRGBA{R: 0x33, G: 0x33, B: 0x33, A: 0xFF}
 	textColor := color.NRGBA{R: 0xFF, G: 0xFF, B: 0xFF, A: 0xFF}
 	padding := unit.Dp(12)
-	cornerRadius := unit.Dp(8)
+	cornerRadius := unit.Dp(4)
 
 	return layout.Inset{
 		Top:    padding,

@@ -593,7 +593,7 @@ func (w *World) Save(
 		excludedMobs,
 		spawnPos,
 		gameData,
-		behaviorPack.HasContent(),
+		behaviorPack.HasBlocks() || behaviorPack.HasItems(),
 		entityCulling,
 		entityRenderDistance,
 	)

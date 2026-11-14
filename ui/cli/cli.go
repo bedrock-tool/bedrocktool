@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"os"
 	"strings"
@@ -79,10 +80,14 @@ func (c *CLI) Start(ctx context.Context, cancel context.CancelCauseFunc) error {
 		subcommandIndex = i
 		break
 	}
-	for _, arg := range os.Args {
-		if arg == "-h" || arg == "-help" || arg == "help" {
-			printCommands()
-			return nil
+	// "bedrocktool -h" lists the commands; "bedrocktool worlds -h" falls
+	// through to the command's own flags
+	if subcommandIndex == -1 || os.Args[1+subcommandIndex] == "help" {
+		for _, arg := range os.Args {
+			if arg == "-h" || arg == "-help" || arg == "--help" || arg == "help" {
+				printCommands()
+				return nil
+			}
 		}
 	}
 
@@ -107,6 +112,9 @@ func (c *CLI) Start(ctx context.Context, cancel context.CancelCauseFunc) error {
 	}
 
 	settings, flags, err := commands.ParseArgs(ctx, subcommand, args)
+	if errors.Is(err, flag.ErrHelp) {
+		return nil // the flag set printed the usage
+	}
 	if err != nil {
 		if flags != nil {
 			fmt.Printf("Usage for %s:\n", subcommandName)
@@ -131,5 +139,26 @@ func (c *CLI) Start(ctx context.Context, cancel context.CancelCauseFunc) error {
 }
 
 func (c *CLI) eventHandler(event any) error {
+	switch event := event.(type) {
+	case *messages.EventStoriesPrompt:
+		go func() {
+			fmt.Printf("\n%s won't let this account join until it answers the Realm's Stories prompt\n"+
+				"(the one Minecraft asks the first time you join a Realm). Opting in shares your\n"+
+				"activity on its Stories timeline; either answer lets you join.\n", event.RealmName)
+			answer, cancelled := utils.UserInput(context.Background(), "Opt in, opt out or cancel? [in/out/cancel]: ", nil)
+			switch strings.ToLower(strings.TrimSpace(answer)) {
+			case "in", "i", "opt in", "yes", "y":
+				event.Reply <- messages.StoriesOptIn
+			case "out", "o", "opt out", "no", "n":
+				if !cancelled {
+					event.Reply <- messages.StoriesOptOut
+					return
+				}
+				event.Reply <- messages.StoriesCancel
+			default:
+				event.Reply <- messages.StoriesCancel
+			}
+		}()
+	}
 	return nil
 }

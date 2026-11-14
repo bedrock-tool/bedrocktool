@@ -2,11 +2,14 @@ package settings
 
 import (
 	"image"
+	"image/color"
 	"runtime"
 	"slices"
 	"sort"
+	"strings"
 	"time"
 
+	"gioui.org/font"
 	"gioui.org/io/key"
 	"gioui.org/layout"
 	"gioui.org/unit"
@@ -157,13 +160,18 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 						for _, name := range p.cmdMenu.names {
 							clickable := p.cmdMenu.clickables[name]
 							children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								button := material.Button(th, clickable.Clickable, clickable.Text)
+								button := material.Button(th, clickable.Clickable, modeTitle(clickable.Text))
+								button.CornerRadius = popups.Radius
+								button.Inset = layout.Inset{Top: 9, Bottom: 9, Left: 14, Right: 14}
 								if p.cmdMenu.selected == name {
-									button.Background = th.Fg
-									button.Color = th.Bg
+									button.Background = th.ContrastBg
+									button.Color = color.NRGBA{0xff, 0xff, 0xff, 0xff}
+								} else {
+									button.Background = surface(th, 22)
+									button.Color = th.Fg
 								}
 
-								gtx.Constraints.Min.X = maxButtonWidth / 2
+								gtx.Constraints.Min.X = maxButtonWidth * 2 / 3
 								gtx.Constraints.Max.X = maxButtonWidth
 								return layout.Inset{
 									Left:  5,
@@ -181,7 +189,34 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 
 			layout.Flexed(1, func(gtx C) (d D) {
 				if p.cmdMenu.selected == "" {
-					d = layout.Center.Layout(gtx, material.H5(th, "Select a Mode").Layout)
+					d = layout.Center.Layout(gtx, func(gtx C) D {
+						gtx.Constraints.Max.X = min(gtx.Constraints.Max.X, gtx.Dp(520))
+						children := []layout.FlexChild{
+							layout.Rigid(func(gtx C) D {
+								return layout.Inset{Bottom: 14}.Layout(gtx, material.H5(th, "Select a Mode").Layout)
+							}),
+						}
+						for _, name := range p.cmdMenu.names {
+							desc := p.settings[name].cmd.Description()
+							children = append(children, layout.Rigid(func(gtx C) D {
+								return layout.Inset{Bottom: 10}.Layout(gtx, func(gtx C) D {
+									return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+										layout.Rigid(func(gtx C) D {
+											l := material.Body1(th, modeTitle(name))
+											l.Font.Weight = font.SemiBold
+											return l.Layout(gtx)
+										}),
+										layout.Rigid(func(gtx C) D {
+											l := material.Body2(th, desc)
+											l.Color = muted(th)
+											return l.Layout(gtx)
+										}),
+									)
+								})
+							}))
+						}
+						return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+					})
 					d.Size.Y = gtx.Constraints.Max.Y
 				} else {
 					s := p.settings[p.cmdMenu.selected]
@@ -202,12 +237,15 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 						Top:    15,
 						Bottom: 15,
 					}.Layout(gtx, func(gtx C) D {
-						gtx.Constraints.Min = image.Pt(gtx.Dp(300), gtx.Dp(40))
-						gtx.Constraints.Max = image.Pt(gtx.Constraints.Max.X/3, gtx.Dp(40))
+						width := min(gtx.Constraints.Max.X, max(gtx.Dp(260), gtx.Constraints.Max.X/3))
+						gtx.Constraints = layout.Exact(image.Pt(width, gtx.Dp(44)))
 						b := material.Button(th, &p.startButton, "Start")
+						b.CornerRadius = popups.Radius
+						b.Background = th.ContrastBg
+						b.Color = color.NRGBA{0xff, 0xff, 0xff, 0xff}
 						if !validSettings {
-							b.Color = th.Bg
-							b.Background = th.Fg
+							b.Background = surface(th, 30)
+							b.Color = muted(th)
 						}
 						return b.Layout(gtx)
 					})
@@ -251,4 +289,12 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 
 func (p *Page) HandleEvent(event any) error {
 	return nil
+}
+
+// modeTitle is a mode's name as its button shows it ("worlds" -> "Worlds").
+func modeTitle(name string) string {
+	if name == "" {
+		return name
+	}
+	return strings.ToUpper(name[:1]) + name[1:]
 }

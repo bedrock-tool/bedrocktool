@@ -86,7 +86,7 @@ func layoutp2pWorld(gtx layout.Context, th *material.Theme, world *worldButton) 
 	return material.ButtonLayoutStyle{
 		Background:   component.WithAlpha(th.Fg, 10),
 		Button:       &world.Clickable,
-		CornerRadius: 8,
+		CornerRadius: Radius,
 	}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		gtx.Constraints.Min.X = gtx.Constraints.Max.X
 		return layout.UniformInset(8).Layout(gtx, func(gtx C) D {
@@ -163,7 +163,7 @@ func (wl *WorldList) Layout(gtx C, th *material.Theme) D {
 			layout.Rigid(func(gtx C) D {
 				gtx.Constraints.Max.X /= 4
 				b := material.Button(th, &wl.close, "Close")
-				b.CornerRadius = 8
+				b.CornerRadius = Radius
 				return b.Layout(gtx)
 			}),
 		)

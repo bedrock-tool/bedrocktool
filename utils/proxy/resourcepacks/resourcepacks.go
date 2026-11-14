@@ -380,25 +380,52 @@ func (r *ResourcePackHandler) downloadResourcePack(pk *packet.ResourcePackDataIn
 	h := sha256.New()
 	w := io.MultiWriter(f, h)
 
+	// Several chunks are asked for at once: one at a time, each costs a
+	// round trip, which over a Realm's connection made big packs take
+	// minutes (long enough for the game waiting on the proxy to give up).
+	// They're written in order whatever order they come in.
+	const chunksInFlight = 8
+	nextRequest := int32(0)
+	requestMore := func(upTo int32) error {
+		for ; nextRequest < chunkCount && nextRequest < upTo; nextRequest++ {
+			err := r.Server.WritePacket(&packet.ResourcePackChunkRequest{
+				UUID:       pk.UUID,
+				ChunkIndex: nextRequest,
+			})
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	if err = requestMore(chunksInFlight); err != nil {
+		return err
+	}
+	early := make(map[uint32]*packet.ResourcePackChunkData)
+
 	dataWritten := 0
 	for chunkIndex := range chunkCount {
-		err = r.Server.WritePacket(&packet.ResourcePackChunkRequest{
-			UUID:       pk.UUID,
-			ChunkIndex: chunkIndex,
-		})
-		if err != nil {
+		frag, ok := early[uint32(chunkIndex)]
+		delete(early, uint32(chunkIndex))
+		for !ok {
+			var got *packet.ResourcePackChunkData
+			var open bool
+			select {
+			case <-r.Server.Context().Done():
+				return net.ErrClosed
+			case got, open = <-pack.newFrag:
+			}
+			if !open {
+				return fmt.Errorf("resource pack %s: download ended early", pk.UUID)
+			}
+			if got.ChunkIndex == uint32(chunkIndex) {
+				frag, ok = got, true
+			} else if got.ChunkIndex > uint32(chunkIndex) && got.ChunkIndex < uint32(chunkCount) {
+				early[got.ChunkIndex] = got
+			}
+		}
+		if err = requestMore(chunkIndex + 1 + chunksInFlight); err != nil {
 			return err
-		}
-
-		var frag *packet.ResourcePackChunkData
-		var ok bool
-		select {
-		case <-r.Server.Context().Done():
-			return net.ErrClosed
-		case frag, ok = <-pack.newFrag:
-		}
-		if !ok {
-			break
 		}
 
 		// Write the fragment to the full buffer of the downloading resource pack.
@@ -479,10 +506,8 @@ func (r *ResourcePackHandler) OnResourcePackChunkData(pk *packet.ResourcePackChu
 		return fmt.Errorf("resource pack chunk data for resource pack that was not being downloaded")
 	}
 
-	if pk.ChunkIndex != pack.expectedIndex {
-		return fmt.Errorf("resource pack chunk data had chunk index %v, but expected %v", pk.ChunkIndex, pack.expectedIndex)
-	}
-	pack.expectedIndex++
+	// with several chunks asked for at once they can come in any order:
+	// downloadResourcePack puts them back in order
 	pack.newFrag <- pk
 	return nil
 }

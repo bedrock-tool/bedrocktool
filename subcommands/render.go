@@ -146,13 +146,17 @@ func (RenderCMD) Run(ctx context.Context, settings any) error {
 	}
 
 	renderer := utils.NewChunkRenderer(blockReg)
+	renderer.Biomes = world.DefaultBiomes
 	renderer.ResolveColors(entries, resourcePacks)
 
 	boundsMin := world.ChunkPos{math.MaxInt32, math.MaxInt32}
 	boundsMax := world.ChunkPos{math.MinInt32, math.MinInt32}
+	// the first pass also notes each chunk's south edge, so every chunk's
+	// north row is lit from its neighbour's heights
 	it := db.NewColumnIterator(nil)
 	for it.Next() {
 		pos := it.Position()
+		renderer.NoteHeights(pos, it.Column().Chunk)
 		boundsMin[0] = min(boundsMin[0], pos[0])
 		boundsMin[1] = min(boundsMin[1], pos[1])
 		boundsMax[0] = max(boundsMax[0], pos[0])
@@ -177,7 +181,7 @@ func (RenderCMD) Run(ctx context.Context, settings any) error {
 			break
 		}
 
-		tile := renderer.Chunk2Img(col.Chunk)
+		tile := renderer.ChunkImage(pos, col.Chunk)
 		px := image.Pt(
 			int((pos.X()-boundsMin.X())*16),
 			int((pos.Z()-boundsMin.Z())*16),

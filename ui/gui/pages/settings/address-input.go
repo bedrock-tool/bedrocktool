@@ -92,7 +92,7 @@ func (a *addressInput) Layout(gtx C, th *material.Theme) D {
 				component.Rect{
 					Color: component.WithAlpha(th.Fg, 10),
 					Size:  d.Size,
-					Radii: 8,
+					Radii: 4,
 				}.Layout(gtx)
 				c.Add(gtx.Ops)
 				return d

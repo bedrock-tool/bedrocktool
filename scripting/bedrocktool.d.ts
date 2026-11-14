@@ -9,7 +9,33 @@ function setIngameMap(enabled: boolean);
 /**
  * Names of events that can be registered.
  */
-declare type EventNames = 'EntityAdd' | 'EntityUpdate' | 'EntityPropertyChange' | 'ChunkAdd' | 'BlockUpdate' | 'SpawnParticle' | 'Packet';
+declare type EventNames = 'EntityAdd' | 'EntityUpdate' | 'EntityPropertyChange' | 'ChunkAdd' | 'ChunkData' | 'BlockUpdate' | 'SpawnParticle' | 'Packet' | 'PlayerAdd';
+
+/**
+ * A player the server added to the world.
+ */
+declare type PlayerInfo = {
+	UUID: string;
+	Username: string;
+	/** Empty or "0" for players the server made up (NPCs, adverts). */
+	XUID: string;
+	/** The player is in the player list without an XUID, so it's an NPC. */
+	IsNPC: boolean;
+	/** Its skin arrived; a player without one can't be saved. */
+	HasSkin: boolean;
+	RuntimeID: number;
+	UniqueID: number;
+	Position: [number, number, number];
+}
+
+/**
+ * Callback for the `PlayerAdd` event: decides whether a player is saved
+ * into the world (as an entity drawn with its skin).
+ *
+ * Return `true` to save it, `false` to leave it out, or nothing to use the
+ * usual rules (the "Players" setting, and Hive's NPCs).
+ */
+declare type PlayerAddCallback = (player: PlayerInfo, metadata: EntityMetadata, time: number) => boolean | void;
 
 declare type EntityUpdate = {
 	Entity: Entity;
@@ -239,6 +265,18 @@ declare const events: {
     register(name: 'Packet', callback: PacketCallback): void;
 
 	register(name: "ChunkData", callback: ChunkDataCallback): void;
+
+	/**
+	 * Triggered when the server adds a player. Return true/false to choose
+	 * whether it's saved.
+	 *
+	 * @example
+	 * events.register('PlayerAdd', (player, metadata) => {
+	 *     // keep only NPCs whose name tag mentions "Shop"
+	 *     return player.IsNPC && String(metadata.Name ?? '').includes('Shop');
+	 * });
+	 */
+	register(name: 'PlayerAdd', callback: PlayerAddCallback): void;
 };
 
 interface FileWriter {

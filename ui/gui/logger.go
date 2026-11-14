@@ -52,7 +52,7 @@ func (l *logger) Layout(gtx C, th *material.Theme) D {
 		component.Rect{
 			Color: color.NRGBA{A: 240},
 			Size:  gtx.Constraints.Max,
-			Radii: 15,
+			Radii: 4,
 		}.Layout(gtx)
 		return layout.UniformInset(8).Layout(gtx, func(gtx C) D {
 			return layout.Stack{

@@ -90,7 +90,7 @@ func (g *guiAuth) Layout(gtx C, th *material.Theme) D {
 			layout.Rigid(func(gtx C) D {
 				gtx.Constraints.Max.X /= 4
 				b := material.Button(th, &g.close, "Close")
-				b.CornerRadius = 8
+				b.CornerRadius = Radius
 				return b.Layout(gtx)
 			}),
 		)

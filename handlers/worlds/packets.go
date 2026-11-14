@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds/entity"
+	"github.com/bedrock-tool/bedrocktool/handlers/worlds/scripting"
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds/worldstate"
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
@@ -67,7 +68,7 @@ func (w *worldsHandler) packetHandlerPreLogin(_pk packet.Packet, timeReceived ti
 			if len(pk.Blocks) > 0 {
 				w.log.Info(locale.Loc("using_customblocks", nil))
 				for _, be := range pk.Blocks {
-					w.serverState.behaviorPack.AddBlock(be)
+					w.addonSafely("block "+be.Name, func() { w.serverState.behaviorPack.AddBlock(be) })
 				}
 				err := AddCustomBlocks(br, pk.Blocks)
 				if err != nil {
@@ -76,6 +77,10 @@ func (w *worldsHandler) packetHandlerPreLogin(_pk packet.Packet, timeReceived ti
 				w.serverState.customBlocks = pk.Blocks
 			}
 			br.Finalize()
+			if c, ok := br.(interface{ NetworkHashCollisions() []string }); ok && len(c.NetworkHashCollisions()) > 0 {
+				collisions := c.NetworkHashCollisions()
+				w.log.Warnf("%d custom block states share a network hash with another, and show up as that one: %s", len(collisions), strings.Join(collisions, "; "))
+			}
 			w.serverState.blocks = br
 			w.serverState.worldName = pk.WorldName
 
@@ -100,9 +105,9 @@ func (w *worldsHandler) packetHandlerPreLogin(_pk packet.Packet, timeReceived ti
 	case *packet.ItemRegistry:
 		world.InsertCustomItems(pk.Items)
 		for _, ie := range pk.Items {
-			w.serverState.behaviorPack.AddItem(ie)
+			w.addonSafely("item "+ie.Name, func() { w.serverState.behaviorPack.AddItem(ie) })
 		}
-		w.serverState.behaviorPack.ApplyComponentEntries(pk.Items)
+		w.addonSafely("item components", func() { w.serverState.behaviorPack.ApplyComponentEntries(pk.Items) })
 
 	case *packet.BiomeDefinitionList:
 		for _, biome := range pk.BiomeDefinitions {
@@ -114,11 +119,17 @@ func (w *worldsHandler) packetHandlerPreLogin(_pk packet.Packet, timeReceived ti
 					biomeName = sp[1]
 				}
 			}
-			_, ok := w.serverState.biomes.BiomeByName(biomeName)
-			if !ok {
-				w.serverState.biomes.Register(&customBiome{name: biomeName, biome: biome, pk: pk})
-				w.serverState.behaviorPack.AddBiome(biomeName, biome)
+			if _, ok := w.serverState.biomes.BiomeByName(biomeName); ok {
+				continue
 			}
+			custom := &customBiome{name: biomeName, biome: biome, pk: pk}
+			if other, ok := w.serverState.biomes.BiomeByID(custom.EncodeBiome()); ok {
+				// two definitions with one ID: the server's own mistake
+				w.log.Warnf("biome %s has the same ID (%d) as %s, keeping %s", biomeName, custom.EncodeBiome(), other.String(), other.String())
+				continue
+			}
+			w.serverState.biomes.Register(custom)
+			w.addonSafely("biome "+biomeName, func() { w.serverState.behaviorPack.AddBiome(biomeName, biome) })
 		}
 
 	}
@@ -196,6 +207,23 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 		w.currentWorld(func(world *worldstate.World) {
 			world.AddPlayer(pk)
 		})
+		if w.scripting != nil {
+			_, hasSkin := w.serverState.playerSkins[pk.UUID]
+			save, decided := w.scripting.OnPlayerAdd(scripting.PlayerInfo{
+				UUID:      pk.UUID.String(),
+				Username:  pk.Username,
+				XUID:      w.serverState.playerXUIDs[pk.UUID],
+				IsNPC:     isNPCPlayer(w.serverState.playerXUIDs, pk.UUID),
+				HasSkin:   hasSkin,
+				RuntimeID: pk.EntityRuntimeID,
+				UniqueID:  pk.AbilityData.EntityUniqueID,
+				Position:  pk.Position,
+				Metadata:  pk.EntityMetadata,
+			}, timeReceived)
+			if decided {
+				w.serverState.scriptPlayerKeep[pk.UUID] = save
+			}
+		}
 
 	case *packet.PlayerList:
 		for _, player := range pk.Entries {
@@ -688,6 +716,9 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 }
 
 func (w *worldsHandler) packetHandler(_ *proxy.Session, pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
+	if w.uiRecorder != nil {
+		w.uiRecorder.OnPacket(pk, toServer, timeReceived)
+	}
 	if w.scripting != nil {
 		if !w.scripting.OnPacket(pk, toServer, timeReceived) {
 			return nil, nil
@@ -851,4 +882,16 @@ func containsStackNetworkID(action protocol.StackRequestAction, target int32) bo
 		return false
 	}
 	return false
+}
+
+// addonSafely runs f, which turns one of the server's add-on definitions
+// into the behavior pack. Add-ons come in shapes the parsers don't know, and
+// one of them failing should cost that definition, not the session.
+func (w *worldsHandler) addonSafely(what string, f func()) {
+	defer func() {
+		if r := recover(); r != nil {
+			w.log.Warnf("skipping %s for the behavior pack: %v", what, r)
+		}
+	}()
+	f()
 }

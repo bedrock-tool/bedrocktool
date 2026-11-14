@@ -82,7 +82,7 @@ func layoutExperience(gtx layout.Context, th *material.Theme, experience *experi
 	return material.ButtonLayoutStyle{
 		Background:   component.WithAlpha(th.Fg, 10),
 		Button:       &experience.Clickable,
-		CornerRadius: 8,
+		CornerRadius: Radius,
 	}.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 		gtx.Constraints.Min.X = gtx.Constraints.Max.X
 		return layout.UniformInset(8).Layout(gtx, func(gtx C) D {
@@ -171,7 +171,7 @@ func (e *Experiences) Layout(gtx C, th *material.Theme) D {
 			layout.Rigid(func(gtx C) D {
 				gtx.Constraints.Max.X /= 4
 				b := material.Button(th, &e.close, "Close")
-				b.CornerRadius = 8
+				b.CornerRadius = Radius
 				return b.Layout(gtx)
 			}),
 		)

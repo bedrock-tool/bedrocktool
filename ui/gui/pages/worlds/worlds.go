@@ -3,9 +3,12 @@ package worlds
 import (
 	"fmt"
 	"image"
+	"image/color"
 	"slices"
+	"strings"
 	"sync"
 
+	"gioui.org/font"
 	"gioui.org/layout"
 	"gioui.org/op/paint"
 	"gioui.org/widget"
@@ -13,6 +16,7 @@ import (
 	"gioui.org/x/component"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/guim"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages"
+	"github.com/bedrock-tool/bedrocktool/ui/gui/popups"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 )
 
@@ -33,13 +37,12 @@ const ID = "worlds"
 type Page struct {
 	g guim.Guim
 
-	worldMap             *Map2
-	finishedWorldsMu     sync.Mutex
-	finishedWorlds       []*savedWorld
-	finishedWorldsList   widget.List
-	processingWorlds     []*processingWorld
-	processingWorldsList widget.List
-	haveConnected        bool
+	worldMap           *Map2
+	finishedWorldsMu   sync.Mutex
+	finishedWorlds     []*savedWorld
+	finishedWorldsList widget.List
+	processingWorlds   []*processingWorld
+	haveConnected      bool
 
 	State     messages.UIState
 	voidGen   bool
@@ -58,12 +61,6 @@ func New(g guim.Guim) pages.Page {
 		finishedWorldsList: widget.List{
 			List: layout.List{
 				Axis: layout.Vertical,
-			},
-		},
-		processingWorldsList: widget.List{
-			List: layout.List{
-				Axis:        layout.Vertical,
-				ScrollToEnd: true,
 			},
 		},
 	}
@@ -97,37 +94,175 @@ func (p *Page) NavItem() component.NavItem {
 	}
 }
 
+// saveSteps are the steps of saving a world, in order, and the state the
+// saver reports for each starts with.
+var saveSteps = []struct{ prefix, label string }{
+	{"Saving", "Preparing"},
+	{"Storing Chunks", "Storing chunks"},
+	{"Storing Entities", "Storing entities"},
+	{"Adding Resourcepack", "Adding resource packs"},
+	{"Adding Behaviorpack", "Adding the behavior pack"},
+	{"Writing mcworld file", "Writing the .mcworld file"},
+}
+
+func saveStepIndex(state string) int {
+	for i := len(saveSteps) - 1; i >= 0; i-- {
+		if strings.HasPrefix(state, saveSteps[i].prefix) {
+			return i
+		}
+	}
+	return 0
+}
+
+func muted(th *material.Theme) color.NRGBA {
+	c := th.Fg
+	c.A = 150
+	return c
+}
+
+func card(gtx C, th *material.Theme, w layout.Widget) D {
+	return layout.Background{}.Layout(gtx,
+		func(gtx C) D {
+			bg := th.Fg
+			bg.A = 14
+			return component.Rect{Color: bg, Size: gtx.Constraints.Min, Radii: gtx.Dp(popups.Radius)}.Layout(gtx)
+		},
+		func(gtx C) D { return layout.UniformInset(14).Layout(gtx, w) },
+	)
+}
+
+// stepMark is the box before a save step: filled when done, a spinner
+// while it runs, dim while it waits.
+func stepMark(gtx C, th *material.Theme, done, current bool) D {
+	size := gtx.Dp(14)
+	gtx.Constraints = layout.Exact(image.Pt(size, size))
+	switch {
+	case current:
+		return material.Loader(th).Layout(gtx)
+	case done:
+		return component.Rect{Color: th.ContrastBg, Size: image.Pt(size, size), Radii: gtx.Dp(2)}.Layout(gtx)
+	}
+	c := th.Fg
+	c.A = 50
+	return component.Rect{Color: c, Size: image.Pt(size, size), Radii: gtx.Dp(2)}.Layout(gtx)
+}
+
+func displayWorldProcessing(gtx C, th *material.Theme, entry *processingWorld) D {
+	current := saveStepIndex(entry.State)
+	return card(gtx, th, func(gtx C) D {
+		children := []layout.FlexChild{
+			layout.Rigid(func(gtx C) D {
+				l := material.Label(th, th.TextSize*1.25, "Saving "+entry.Name)
+				l.Font.Weight = font.SemiBold
+				return layout.Inset{Bottom: 10}.Layout(gtx, l.Layout)
+			}),
+		}
+		for i, step := range saveSteps {
+			label := step.label
+			if i == current && strings.HasPrefix(entry.State, "Adding Resourcepack ") {
+				label = "Adding resource pack " + strings.TrimPrefix(entry.State, "Adding Resourcepack ")
+			}
+			children = append(children, layout.Rigid(func(gtx C) D {
+				return layout.Inset{Top: 3, Bottom: 3}.Layout(gtx, func(gtx C) D {
+					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Middle}.Layout(gtx,
+						layout.Rigid(func(gtx C) D { return stepMark(gtx, th, i < current, i == current) }),
+						layout.Rigid(layout.Spacer{Width: 10}.Layout),
+						layout.Flexed(1, func(gtx C) D {
+							l := material.Body1(th, label)
+							l.MaxLines = 1
+							if i == current {
+								l.Font.Weight = font.SemiBold
+							} else {
+								l.Color = muted(th)
+							}
+							return l.Layout(gtx)
+						}),
+					)
+				})
+			}))
+		}
+		return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+	})
+}
+
 func displayWorldEntry(gtx C, th *material.Theme, entry *savedWorld) D {
-	return layout.UniformInset(5).Layout(gtx, func(gtx C) D {
-		return component.Surface(&material.Theme{
-			Palette: material.Palette{
-				Bg: component.WithAlpha(th.ContrastFg, 8),
-			},
-		}).Layout(gtx, func(gtx C) D {
+	return layout.Inset{Bottom: 8}.Layout(gtx, func(gtx C) D {
+		return card(gtx, th, func(gtx C) D {
+			gtx.Constraints.Min.X = gtx.Constraints.Max.X
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-				layout.Rigid(material.Label(th, th.TextSize, entry.Name).Layout),
-				layout.Rigid(material.Label(th, th.TextSize, fmt.Sprintf("%d Chunks", entry.Chunks)).Layout),
-				layout.Rigid(material.Label(th, th.TextSize, fmt.Sprintf("%d Entities", entry.Entities)).Layout),
+				layout.Rigid(func(gtx C) D {
+					l := material.Body1(th, entry.Name)
+					l.Font.Weight = font.SemiBold
+					return l.Layout(gtx)
+				}),
+				layout.Rigid(func(gtx C) D {
+					l := material.Body2(th, fmt.Sprintf("%d chunks   %d entities", entry.Chunks, entry.Entities))
+					l.Color = muted(th)
+					return layout.Inset{Top: 2}.Layout(gtx, l.Layout)
+				}),
+				layout.Rigid(func(gtx C) D {
+					l := material.Caption(th, entry.Filepath)
+					l.Color = muted(th)
+					l.Font.Typeface = "monospace"
+					return layout.Inset{Top: 4}.Layout(gtx, l.Layout)
+				}),
 			)
 		})
 	})
 }
 
-func displayWorldProcessing(gtx C, th *material.Theme, entry *processingWorld) D {
-	return layout.Inset{Top: 0, Bottom: 8, Left: 8, Right: 8}.Layout(gtx, func(gtx C) D {
-		return component.Surface(&material.Theme{
-			Palette: material.Palette{
-				Bg: component.WithAlpha(th.ContrastFg, 8),
-			},
-		}).Layout(gtx, func(gtx C) D {
-			return layout.UniformInset(5).Layout(gtx, func(gtx C) D {
-				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-					layout.Rigid(material.Label(th, th.TextSize, "Saving World").Layout),
-					layout.Rigid(material.Label(th, th.TextSize, entry.Name).Layout),
-					layout.Rigid(material.Label(th, th.TextSize, entry.State).Layout),
-				)
-			})
+func (p *Page) layoutFinished(gtx C, th *material.Theme) D {
+	return layout.N.Layout(gtx, func(gtx C) D {
+		gtx.Constraints.Max.X = min(gtx.Constraints.Max.X, gtx.Dp(720))
+		gtx.Constraints.Min.X = gtx.Constraints.Max.X
+		return layout.UniformInset(20).Layout(gtx, func(gtx C) D {
+			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+				layout.Rigid(func(gtx C) D {
+					l := material.Label(th, th.TextSize*1.4, "Saved worlds")
+					return layout.Inset{Bottom: 12}.Layout(gtx, l.Layout)
+				}),
+				layout.Flexed(1, func(gtx C) D {
+					p.finishedWorldsMu.Lock()
+					defer p.finishedWorldsMu.Unlock()
+					if len(p.finishedWorlds) == 0 && len(p.processingWorlds) == 0 {
+						l := material.Body1(th, "Nothing was saved: no chunks were loaded.")
+						l.Color = muted(th)
+						return l.Layout(gtx)
+					}
+					return material.List(th, &p.finishedWorldsList).
+						Layout(gtx, len(p.finishedWorlds), func(gtx C, index int) D {
+							return layout.Inset{Right: 10}.Layout(gtx, func(gtx C) D {
+								return displayWorldEntry(gtx, th, p.finishedWorlds[len(p.finishedWorlds)-index-1])
+							})
+						})
+				}),
+				layout.Rigid(func(gtx C) D {
+					return layout.Inset{Top: 12}.Layout(gtx, func(gtx C) D {
+						b := material.Button(th, &p.back, "Back")
+						b.CornerRadius = popups.Radius
+						gtx.Constraints.Min.X = gtx.Dp(120)
+						return b.Layout(gtx)
+					})
+				}),
+			)
 		})
+	})
+}
+
+func (p *Page) layoutMap(gtx C, th *material.Theme) D {
+	d := p.worldMap.Layout(gtx)
+	if len(p.worldMap.tileImages) > 0 {
+		return d
+	}
+	return layout.Center.Layout(gtx, func(gtx C) D {
+		return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
+			layout.Rigid(material.Body1(th, "Waiting for chunks").Layout),
+			layout.Rigid(func(gtx C) D {
+				l := material.Body2(th, "The map fills in as you walk around in Minecraft.")
+				l.Color = muted(th)
+				return l.Layout(gtx)
+			}),
+		)
 	})
 }
 
@@ -137,53 +272,44 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 	}
 
 	return layout.Stack{}.Layout(gtx,
-		layout.Stacked(func(gtx C) D {
+		layout.Expanded(func(gtx C) D {
+			gtx.Constraints.Min = gtx.Constraints.Max
 			switch p.State {
 			case messages.UIStateMain:
-				return p.worldMap.Layout(gtx)
+				return p.layoutMap(gtx, th)
 			case messages.UIStateFinished:
-				return layout.UniformInset(25).Layout(gtx, func(gtx C) D {
-					return layout.Flex{
-						Axis:    layout.Vertical,
-						Spacing: layout.SpaceBetween,
-					}.Layout(gtx,
-						layout.Flexed(1, func(gtx C) D {
-							return layout.UniformInset(15).Layout(gtx, func(gtx C) D {
-								return layout.Flex{
-									Axis: layout.Vertical,
-								}.Layout(gtx,
-									layout.Rigid(material.Label(th, 20, "Worlds Saved").Layout),
-									layout.Flexed(1, func(gtx C) D {
-										p.finishedWorldsMu.Lock()
-										defer p.finishedWorldsMu.Unlock()
-										return material.List(th, &p.finishedWorldsList).
-											Layout(gtx, len(p.finishedWorlds), func(gtx C, index int) D {
-												entry := p.finishedWorlds[len(p.finishedWorlds)-index-1]
-												return displayWorldEntry(gtx, th, entry)
-											})
-									}),
-								)
-							})
-						}),
-						layout.Rigid(func(gtx C) D {
-							gtx.Constraints.Max.Y = gtx.Dp(40)
-							gtx.Constraints.Max.X = gtx.Constraints.Max.X / 6
-							return material.Button(th, &p.back, "Return").Layout(gtx)
-						}),
-					)
-				})
-			default:
+				return p.layoutFinished(gtx, th)
+			}
+			return D{}
+		}),
+		// worlds being saved, in the middle, over the map
+		layout.Expanded(func(gtx C) D {
+			p.finishedWorldsMu.Lock()
+			processing := slices.Clone(p.processingWorlds)
+			p.finishedWorldsMu.Unlock()
+			if len(processing) == 0 {
 				return D{}
 			}
-		}),
-		layout.Stacked(func(gtx C) D {
-			p.finishedWorldsMu.Lock()
-			defer p.finishedWorldsMu.Unlock()
-			return material.List(th, &p.processingWorldsList).
-				Layout(gtx, len(p.processingWorlds), func(gtx C, index int) D {
-					entry := p.processingWorlds[index]
-					return displayWorldProcessing(gtx, th, entry)
-				})
+			gtx.Constraints.Min = gtx.Constraints.Max
+			return layout.Center.Layout(gtx, func(gtx C) D {
+				gtx.Constraints.Max.X = min(gtx.Constraints.Max.X-gtx.Dp(32), gtx.Dp(420))
+				gtx.Constraints.Min.X = gtx.Constraints.Max.X
+				var children []layout.FlexChild
+				for _, entry := range processing {
+					children = append(children, layout.Rigid(func(gtx C) D {
+						return layout.Inset{Bottom: 10}.Layout(gtx, func(gtx C) D {
+							// opaque, so the map doesn't show through
+							return layout.Background{}.Layout(gtx,
+								func(gtx C) D {
+									return component.Rect{Color: th.Bg, Size: gtx.Constraints.Min, Radii: gtx.Dp(popups.Radius)}.Layout(gtx)
+								},
+								func(gtx C) D { return displayWorldProcessing(gtx, th, entry) },
+							)
+						})
+					}))
+				}
+				return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+			})
 		}),
 	)
 }

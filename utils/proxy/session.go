@@ -526,8 +526,11 @@ func (s *Session) resolveServerAddress(ctx context.Context, parsed *connectinfo.
 			return "", "", nil, err
 		}
 		addr, err := realm.Address(ctx)
+		if errors.Is(err, realms.ErrPlayerNotInRealm) && !realm.Expired && answerRealmStories(ctx, realm) {
+			addr, err = realm.Address(ctx)
+		}
 		if err != nil {
-			return "", "", nil, err
+			return "", "", nil, realmJoinError(realm, err)
 		}
 
 		tokenSource, err := s.connectInfo.Account.TokenSource(ctx)
@@ -626,6 +629,11 @@ func (s *Session) resolveServerAddress(ctx context.Context, parsed *connectinfo.
 	}
 }
 
+// maxBatchSize is the most a packet batch may decompress to. gophertunnel's
+// default of 16MB is too little for some servers: Realms send batches past
+// it when you join, which ended the session ("size exceeds limit").
+const maxBatchSize = 256 << 20
+
 func (s *Session) connectServer(ctx context.Context, rpHandler *resourcepacks.ResourcePackHandler) (err error) {
 	if s.withClient {
 		select {
@@ -656,6 +664,7 @@ func (s *Session) connectServer(ctx context.Context, rpHandler *resourcepacks.Re
 		PlayFabClient: playfabClient,
 
 		DisconnectOnUnknownPackets: false,
+		MaxDecompressedLen:         maxBatchSize,
 		ErrorLog:                   slog.Default(),
 		PacketFunc:                 s.packetFunc,
 		EnableClientCache:          s.settings.ClientCache,
@@ -747,6 +756,7 @@ func (s *Session) connectClient(ctx context.Context, rpHandler *resourcepacks.Re
 	s.listener, err = minecraft.ListenConfig{
 		AuthenticationDisabled: true,
 		AllowUnknownPackets:    true,
+		MaxDecompressedLen:     maxBatchSize,
 		StatusProvider:         minecraft.NewStatusProvider(fmt.Sprintf("%s Proxy", serverName), "Bedrocktool"),
 		ErrorLog:               slog.Default(),
 		PacketFunc:             clientPacketFunc,

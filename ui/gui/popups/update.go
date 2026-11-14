@@ -1,11 +1,10 @@
 package popups
 
 import (
-	"fmt"
+	"image"
 	"os"
 
 	"gioui.org/layout"
-	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/guim"
@@ -26,6 +25,7 @@ type UpdatePopup struct {
 	g           guim.Guim
 	state       int
 	startButton widget.Clickable
+	close       widget.Clickable
 	updating    bool
 
 	update *updater.Update
@@ -64,7 +64,7 @@ func (p *UpdatePopup) Layout(gtx C, th *material.Theme) D {
 		}()
 	}
 
-	if p.startButton.Clicked(gtx) && !p.updating && p.update != nil {
+	if p.startButton.Clicked(gtx) && !p.updating && p.update != nil && p.update.IsNew() {
 		p.updating = true
 		p.state = stateDownloading
 		go func() {
@@ -84,35 +84,62 @@ func (p *UpdatePopup) Layout(gtx C, th *material.Theme) D {
 		}()
 	}
 
+	if p.close.Clicked(gtx) && p.state != stateDownloading && p.state != stateFinished {
+		p.g.ClosePopup(p.ID())
+	}
+
 	return LayoutPopupBackground(gtx, th, p.ID(), func(gtx C) D {
-		return layout.Inset{
-			Top:    unit.Dp(25),
-			Bottom: unit.Dp(25),
-			Right:  unit.Dp(35),
-			Left:   unit.Dp(35),
-		}.Layout(gtx, func(gtx C) D {
-			var children []layout.FlexChild
-			switch p.state {
-			case stateInit:
-			case stateLoading:
-				return layout.Center.Layout(gtx, material.H3(th, "Loading...").Layout)
-			case stateAsk:
-				children = append(children,
-					layout.Rigid(material.Label(th, 20, fmt.Sprintf("Current: %s\nNew:     %s", utils.Version, p.update.Version)).Layout),
-					layout.Rigid(material.Button(th, &p.startButton, "Do Update").Layout),
-				)
-			case stateDownloading:
-				return layout.Center.Layout(gtx, material.H3(th, "Updating...").Layout)
-			case stateError:
-				if p.err == nil {
-					return layout.Center.Layout(gtx, material.H3(th, "Update failed").Layout)
-				}
-				return layout.Center.Layout(gtx, material.H1(th, p.err.Error()).Layout)
-			case stateFinished:
-				return layout.Center.Layout(gtx, material.H3(th, "Restarting...").Layout)
+		var body layout.Widget
+		switch p.state {
+		case stateInit, stateLoading:
+			body = func(gtx C) D {
+				return layout.Center.Layout(gtx, func(gtx C) D {
+					gtx.Constraints.Max = image.Pt(gtx.Dp(24), gtx.Dp(24))
+					return material.Loader(th).Layout(gtx)
+				})
 			}
-			return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
-		})
+		case stateAsk:
+			body = func(gtx C) D {
+				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+					layout.Rigid(material.Body1(th, "Installed: "+utils.Version).Layout),
+					layout.Rigid(material.Body1(th, "Latest:    "+p.update.Version).Layout),
+					layout.Rigid(layout.Spacer{Height: 14}.Layout),
+					layout.Rigid(func(gtx C) D {
+						if !p.update.IsNew() {
+							return material.Body2(th, "You already have the latest version.").Layout(gtx)
+						}
+						b := material.Button(th, &p.startButton, "Update and restart")
+						b.CornerRadius = Radius
+						return b.Layout(gtx)
+					}),
+				)
+			}
+		case stateDownloading:
+			body = material.Body1(th, "Downloading the update...").Layout
+		case stateError:
+			msg := "Update failed"
+			if p.err != nil {
+				msg = "Update failed: " + p.err.Error()
+			}
+			body = material.Body1(th, msg).Layout
+		case stateFinished:
+			body = material.Body1(th, "Restarting...").Layout
+		}
+
+		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+			layout.Rigid(func(gtx C) D {
+				return layout.Inset{Top: 4, Bottom: 10}.Layout(gtx, material.Label(th, th.TextSize*1.4, "Update").Layout)
+			}),
+			layout.Rigid(func(gtx C) D {
+				return layout.Inset{Left: 8, Right: 8, Top: 4, Bottom: 24}.Layout(gtx, body)
+			}),
+			layout.Rigid(func(gtx C) D {
+				if p.state == stateDownloading || p.state == stateFinished {
+					return D{}
+				}
+				return CloseButton(gtx, th, &p.close)
+			}),
+		)
 	})
 }
 

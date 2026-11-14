@@ -11,6 +11,8 @@ import (
 	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
+	"gioui.org/unit"
+	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
@@ -53,7 +55,7 @@ func LayoutPopupBackground(gtx C, th *material.Theme, tag string, widget layout.
 		// set width constant, height min 250, max 80%
 		gtx.Constraints.Min.X = width
 		gtx.Constraints.Max.X = gtx.Constraints.Min.X
-		gtx.Constraints.Min.Y = gtx.Dp(250)
+		gtx.Constraints.Min.Y = gtx.Dp(120)
 		gtx.Constraints.Max.Y = int(float32(gtx.Constraints.Max.Y) * 0.8)
 
 		macro := op.Record(gtx.Ops)
@@ -63,10 +65,27 @@ func LayoutPopupBackground(gtx C, th *material.Theme, tag string, widget layout.
 		component.Rect{
 			Color: th.Bg,
 			Size:  image.Pt(width, wdims.Size.Y),
-			Radii: gtx.Dp(15),
+			Radii: gtx.Dp(Radius),
 		}.Layout(gtx)
 
 		call.Add(gtx.Ops)
 		return wdims
 	})
+}
+
+// Radius is the corner radius of popups and their buttons: barely rounded.
+const Radius = unit.Dp(3)
+
+// CloseButton is the button every popup closes with, at the bottom left.
+func CloseButton(gtx C, th *material.Theme, c *widget.Clickable) D {
+	return CloseButtonText(gtx, th, c, "Close")
+}
+
+func CloseButtonText(gtx C, th *material.Theme, c *widget.Clickable, text string) D {
+	b := material.Button(th, c, text)
+	b.CornerRadius = Radius
+	b.Background = component.WithAlpha(th.Fg, 30)
+	b.Color = th.Fg
+	gtx.Constraints.Min.X = gtx.Dp(110)
+	return b.Layout(gtx)
 }

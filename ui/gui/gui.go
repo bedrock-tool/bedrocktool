@@ -133,6 +133,9 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelCauseFunc) (err er
 
 	utils.ErrorHandler = func(err error) {
 		utils.PrintPanic(err)
+		// the session can't be trusted after a panic: stop it rather than
+		// let it run on half set up (and crash for real later)
+		g.router.ExitSubcommand()
 		g.router.RemovePopup("connect")
 		g.router.PushPopup(popups.NewErrorPopup(g, err, true, func() {
 			g.router.SwitchTo("settings")

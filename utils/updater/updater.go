@@ -205,8 +205,13 @@ type githubAsset struct {
 	BrowserDownloadURL string `json:"browser_download_url"`
 }
 
+// isNewVersion says whether version differs from the running one. A local
+// build ("1.63.0-19-g8737703-dirty") counts as having the release it's
+// built on, and a leading "v" doesn't matter.
 func isNewVersion(version string) bool {
-	return utils.Version != version && !strings.HasPrefix(utils.Version, version+"-")
+	current := strings.TrimPrefix(utils.Version, "v")
+	version = strings.TrimPrefix(version, "v")
+	return current != version && !strings.HasPrefix(current, version+"-")
 }
 
 func (u *Update) IsNew() bool {

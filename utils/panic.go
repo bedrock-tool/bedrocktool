@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"os"
 	"runtime/debug"
+	"time"
 
 	"github.com/bedrock-tool/bedrocktool/locale"
+	"github.com/sirupsen/logrus"
 )
 
 var panicStack string
@@ -14,6 +16,13 @@ var panicErr error
 func PrintPanic(err error) {
 	panicStack = string(debug.Stack())
 	panicErr = err
+	// the GUI has no console, so the report also goes to the log and a file
+	logrus.Errorf("fatal error: %s\n%s", err, panicStack)
+	crashFile := fmt.Sprintf("crash-%s.txt", time.Now().Format("2006-01-02_15-04-05.000"))
+	report := fmt.Sprintf("Version: %s\nCmdline: %s\nError: %s\n\n%s", Version, os.Args, err, panicStack)
+	if werr := os.WriteFile(PathData(crashFile), []byte(report), 0o644); werr == nil {
+		logrus.Errorf("crash report written to %s", crashFile)
+	}
 	fmt.Println(locale.Loc("fatal_error", nil))
 	fmt.Println("--COPY FROM HERE--")
 	fmt.Printf("Version: %s\n", Version)

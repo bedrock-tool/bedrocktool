@@ -59,70 +59,81 @@ func (p *ConnectPopup) Layout(gtx C, th *material.Theme) D {
 
 	if p.close.Clicked(gtx) {
 		p.g.ClosePopup(p.ID())
-		p.g.ExitSubcommand()
+		if p.state != "established" {
+			// before the game is in, closing stops the download
+			p.g.ExitSubcommand()
+		}
 	}
 
-	var connectStr string
-	connectStr += p.listenIP
-	if p.localIP != "" {
-		connectStr += " or " + p.localIP
+	muted := func(l material.LabelStyle) material.LabelStyle {
+		l.Color.A = 170
+		return l
 	}
-	if p.listenPort != "19132" {
-		connectStr += " with port " + p.listenPort
+	addressLine := func(gtx C, where, ip string) D {
+		return layout.Inset{Top: 6}.Layout(gtx, func(gtx C) D {
+			return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Baseline}.Layout(gtx,
+				layout.Rigid(func(gtx C) D {
+					gtx.Constraints.Min.X = gtx.Dp(150)
+					return muted(material.Body1(th, where)).Layout(gtx)
+				}),
+				layout.Rigid(func(gtx C) D {
+					l := material.Body1(th, fmt.Sprintf("%s   port %s", ip, p.listenPort))
+					l.Font.Typeface = "monospace"
+					return l.Layout(gtx)
+				}),
+			)
+		})
+	}
+
+	var title, detail string
+	switch p.state {
+	case "":
+		title, detail = "Starting", "Logging in and finding the server..."
+	case "listening":
+		title = "Join from Minecraft"
+	case "connecting-server":
+		title, detail = "Connecting to the server", "Hold on in Minecraft: the server's resource packs are downloaded first, which can take a minute the first time."
+	case "receiving-resources":
+		title, detail = "Downloading resource packs", "Hold on in Minecraft, this can take a minute the first time."
+	case "established":
+		title, detail = "Connected", "Play as usual. The world is saved when you leave."
 	}
 
 	return LayoutPopupBackground(gtx, th, "connect", func(gtx C) D {
-		return layout.Flex{
-			Axis: layout.Vertical,
-		}.Layout(gtx,
-			layout.Flexed(1, func(gtx C) D {
-				return layout.Center.Layout(gtx, func(gtx C) D {
-					return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
-						layout.Rigid(func(gtx C) D {
-							switch p.state {
-							case "listening":
-								return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
-									layout.Rigid(material.Label(th, 40, "Listening").Layout),
-									layout.Rigid(material.Body1(th, fmt.Sprintf("connect to %s", connectStr)).Layout),
-									layout.Rigid(material.Body1(th, "in minecraft bedrock to continue").Layout),
-								)
-							case "connecting-server":
-								return material.Label(th, 40, "Connecting to Server").Layout(gtx)
-							case "established":
-								return material.Label(th, 40, "Established").Layout(gtx)
-							}
-							return D{}
-						}),
-					)
-				})
+		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+			layout.Rigid(func(gtx C) D {
+				return layout.Inset{Top: 4, Bottom: 10}.Layout(gtx, material.Label(th, th.TextSize*1.4, title).Layout)
 			}),
 			layout.Rigid(func(gtx C) D {
-				gtx.Constraints.Max.X /= 2
-
-				return layout.Flex{
-					Axis:      layout.Horizontal,
-					Spacing:   layout.SpaceBetween,
-					Alignment: layout.End,
-				}.Layout(gtx,
+				if p.state != "listening" {
+					return material.Body1(th, detail).Layout(gtx)
+				}
+				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+					layout.Rigid(material.Body1(th, "In Minecraft, go to Servers, Add Server, and use:").Layout),
+					layout.Rigid(func(gtx C) D { return addressLine(gtx, "On this computer", p.listenIP) }),
 					layout.Rigid(func(gtx C) D {
-						b := material.Button(th, &p.close, "Close")
-						b.CornerRadius = 8
-						return b.Layout(gtx)
-					}),
-					layout.Rigid(func(gtx C) D {
-						if p.state == "listening" {
-							return layout.Flex{
-								Axis:      layout.Horizontal,
-								Alignment: layout.Middle,
-							}.Layout(gtx,
-								layout.Flexed(1, func(gtx C) D {
-									b := material.Button(th, &p.connectButton, "Open Minecraft")
-									b.CornerRadius = 8
-									return b.Layout(gtx)
-								}),
-							)
+						if p.localIP == "" {
+							return D{}
 						}
-						return D{}
+						return addressLine(gtx, "On another device", p.localIP)
+					}),
+				)
+			}),
+			layout.Rigid(layout.Spacer{Height: 24}.Layout),
+			layout.Rigid(func(gtx C) D {
+				label := "Cancel"
+				if p.state == "established" {
+					label = "Hide"
+				}
+				return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceBetween}.Layout(gtx,
+					layout.Rigid(func(gtx C) D { return CloseButtonText(gtx, th, &p.close, label) }),
+					layout.Rigid(func(gtx C) D {
+						if p.state != "listening" {
+							return D{}
+						}
+						b := material.Button(th, &p.connectButton, "Open Minecraft")
+						b.CornerRadius = Radius
+						return b.Layout(gtx)
 					}),
 				)
 			}),
@@ -138,6 +149,8 @@ func (p *ConnectPopup) HandleEvent(event any) error {
 			p.state = "listening"
 		case messages.ConnectStateServerConnecting:
 			p.state = "connecting-server"
+		case messages.ConnectStateReceivingResources:
+			p.state = "receiving-resources"
 		case messages.ConnectStateEstablished:
 			p.state = "established"
 		case messages.ConnectStateDone:

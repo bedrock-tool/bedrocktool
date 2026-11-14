@@ -49,7 +49,22 @@ func isNPCPlayer(xuids map[uuid.UUID]string, id uuid.UUID) bool {
 
 // keepPlayer is which players a save keeps: all of them with Players on;
 // otherwise on Hive only its NPC/advert players, and elsewhere none.
+// A script's PlayerAdd callback decides first for the players it answered.
 func (w *worldsHandler) keepPlayer() func(uuid.UUID) bool {
+	base := w.defaultKeepPlayer()
+	if len(w.serverState.scriptPlayerKeep) == 0 {
+		return base
+	}
+	decided := maps.Clone(w.serverState.scriptPlayerKeep)
+	return func(id uuid.UUID) bool {
+		if keep, ok := decided[id]; ok {
+			return keep
+		}
+		return base != nil && base(id)
+	}
+}
+
+func (w *worldsHandler) defaultKeepPlayer() func(uuid.UUID) bool {
 	if w.settings.Players {
 		return func(uuid.UUID) bool { return true }
 	}
