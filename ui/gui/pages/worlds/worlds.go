@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -185,25 +187,40 @@ func displayWorldProcessing(gtx C, th *material.Theme, entry *processingWorld) D
 	})
 }
 
-func displayWorldEntry(gtx C, th *material.Theme, entry *savedWorld) D {
+// displayWorldEntry is a saved world's card. With dir (the folder all the
+// saved worlds are in, shown above them) the card shows only its file name.
+func displayWorldEntry(gtx C, th *material.Theme, entry *savedWorld, dir string) D {
 	return layout.Inset{Bottom: 8}.Layout(gtx, func(gtx C) D {
 		return card(gtx, th, func(gtx C) D {
 			gtx.Constraints.Min.X = gtx.Constraints.Max.X
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+				// name on the left, counts on the right
 				layout.Rigid(func(gtx C) D {
-					l := material.Body1(th, entry.Name)
-					l.Font.Weight = font.SemiBold
-					return l.Layout(gtx)
+					return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Baseline}.Layout(gtx,
+						layout.Flexed(1, func(gtx C) D {
+							l := material.Body1(th, entry.Name)
+							l.Font.Weight = font.SemiBold
+							l.MaxLines = 1
+							return l.Layout(gtx)
+						}),
+						layout.Rigid(func(gtx C) D {
+							l := material.Body2(th, fmt.Sprintf("%s chunks  ·  %s entities", thousands(entry.Chunks), thousands(entry.Entities)))
+							l.Color = muted(th)
+							return layout.Inset{Left: 12}.Layout(gtx, l.Layout)
+						}),
+					)
 				}),
 				layout.Rigid(func(gtx C) D {
-					l := material.Body2(th, fmt.Sprintf("%d chunks   %d entities", entry.Chunks, entry.Entities))
+					file := filepath.ToSlash(entry.Filepath)
+					if dir != "" {
+						file = filepath.Base(entry.Filepath)
+						if file == entry.Name+".mcworld" {
+							return D{} // it would only repeat the name
+						}
+					}
+					l := material.Body2(th, file)
 					l.Color = muted(th)
-					return layout.Inset{Top: 2}.Layout(gtx, l.Layout)
-				}),
-				layout.Rigid(func(gtx C) D {
-					l := material.Caption(th, entry.Filepath)
-					l.Color = muted(th)
-					l.Font.Typeface = "monospace"
+					l.MaxLines = 1
 					return layout.Inset{Top: 4}.Layout(gtx, l.Layout)
 				}),
 			)
@@ -212,14 +229,39 @@ func displayWorldEntry(gtx C, th *material.Theme, entry *savedWorld) D {
 }
 
 func (p *Page) layoutFinished(gtx C, th *material.Theme) D {
+	// the folder every saved world is in, if they share one
+	p.finishedWorldsMu.Lock()
+	dir := ""
+	for i, w := range p.finishedWorlds {
+		d := filepath.Dir(w.Filepath)
+		if i == 0 {
+			dir = d
+		} else if d != dir {
+			dir = ""
+			break
+		}
+	}
+	p.finishedWorldsMu.Unlock()
 	return layout.N.Layout(gtx, func(gtx C) D {
 		gtx.Constraints.Max.X = min(gtx.Constraints.Max.X, gtx.Dp(720))
 		gtx.Constraints.Min.X = gtx.Constraints.Max.X
 		return layout.UniformInset(20).Layout(gtx, func(gtx C) D {
 			return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 				layout.Rigid(func(gtx C) D {
-					l := material.Label(th, th.TextSize*1.4, "Saved worlds")
-					return layout.Inset{Bottom: 12}.Layout(gtx, l.Layout)
+					return layout.Inset{Bottom: 12}.Layout(gtx, func(gtx C) D {
+						return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+							layout.Rigid(material.Label(th, th.TextSize*1.4, "Saved worlds").Layout),
+							layout.Rigid(func(gtx C) D {
+								if dir == "" {
+									return D{}
+								}
+								l := material.Body2(th, "In "+filepath.ToSlash(dir))
+								l.Color = muted(th)
+								l.MaxLines = 1
+								return layout.Inset{Top: 2}.Layout(gtx, l.Layout)
+							}),
+						)
+					})
 				}),
 				layout.Flexed(1, func(gtx C) D {
 					p.finishedWorldsMu.Lock()
@@ -232,7 +274,7 @@ func (p *Page) layoutFinished(gtx C, th *material.Theme) D {
 					return material.List(th, &p.finishedWorldsList).
 						Layout(gtx, len(p.finishedWorlds), func(gtx C, index int) D {
 							return layout.Inset{Right: 10}.Layout(gtx, func(gtx C) D {
-								return displayWorldEntry(gtx, th, p.finishedWorlds[len(p.finishedWorlds)-index-1])
+								return displayWorldEntry(gtx, th, p.finishedWorlds[len(p.finishedWorlds)-index-1], dir)
 							})
 						})
 				}),
@@ -389,4 +431,18 @@ func (p *Page) SetValue(name, value string) {
 	case "worldName":
 		p.worldName = value
 	}
+}
+
+// thousands writes n with commas between thousands (2311 -> "2,311").
+func thousands(n int) string {
+	s := strconv.Itoa(n)
+	neg := strings.HasPrefix(s, "-")
+	s = strings.TrimPrefix(s, "-")
+	for i := len(s) - 3; i > 0; i -= 3 {
+		s = s[:i] + "," + s[i:]
+	}
+	if neg {
+		s = "-" + s
+	}
+	return s
 }

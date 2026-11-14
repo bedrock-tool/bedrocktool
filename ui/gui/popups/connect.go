@@ -78,7 +78,6 @@ func (p *ConnectPopup) Layout(gtx C, th *material.Theme) D {
 				}),
 				layout.Rigid(func(gtx C) D {
 					l := material.Body1(th, fmt.Sprintf("%s   port %s", ip, p.listenPort))
-					l.Font.Typeface = "monospace"
 					return l.Layout(gtx)
 				}),
 			)

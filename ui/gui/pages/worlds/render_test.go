@@ -45,8 +45,10 @@ func TestRenderStates(t *testing.T) {
 		}},
 		{"saved", func(p *Page) {
 			p.HandleEvent(&messages.EventSetUIState{State: messages.UIStateFinished})
-			p.HandleEvent(&messages.EventFinishedSavingWorld{WorldName: "Magic Realm", Filepath: `worlds\Magic Realm\Magic Realm.mcworld`, Chunks: 2311, Entities: 418})
-			p.HandleEvent(&messages.EventFinishedSavingWorld{WorldName: "world-1", Filepath: `worlds\Magic Realm\world-1.mcworld`, Chunks: 96, Entities: 12})
+			for i, n := range []int{9, 9, 303, 50, 9, 99} {
+				name := "world-" + string(rune('1'+i))
+				p.HandleEvent(&messages.EventFinishedSavingWorld{WorldName: name, Filepath: "worlds/HIVE-O-WEEN _ BEDWARS S5-2026-11-13_03-16-39.pcap2/" + name + ".mcworld", Chunks: n * 25, Entities: n})
+			}
 		}},
 	} {
 		p := New(nil).(*Page)
