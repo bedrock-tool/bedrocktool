@@ -17,11 +17,11 @@ func PrintPanic(err error) {
 	panicStack = string(debug.Stack())
 	panicErr = err
 	// the GUI has no console, so the report also goes to the log and a file
-	logrus.Errorf("fatal error: %s\n%s", err, panicStack)
+	logrus.Errorf("%s\n%s", locale.Loc("panic_fatal_error", locale.Strmap{"Err": err}), panicStack)
 	crashFile := fmt.Sprintf("crash-%s.txt", time.Now().Format("2006-01-02_15-04-05.000"))
 	report := fmt.Sprintf("Version: %s\nCmdline: %s\nError: %s\n\n%s", Version, os.Args, err, panicStack)
 	if werr := os.WriteFile(PathData(crashFile), []byte(report), 0o644); werr == nil {
-		logrus.Errorf("crash report written to %s", crashFile)
+		logrus.Error(locale.Loc("crash_report_written", locale.Strmap{"Path": crashFile}))
 	}
 	fmt.Println(locale.Loc("fatal_error", nil))
 	fmt.Println("--COPY FROM HERE--")

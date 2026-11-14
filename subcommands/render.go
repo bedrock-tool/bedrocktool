@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"image"
 	"image/draw"
 	"image/png"
@@ -34,11 +35,11 @@ import (
 )
 
 type RenderSettings struct {
-	WorldPath string `opt:"World" flag:"world" desc:"The world to draw: a world folder or a .mcworld file"`
-	Out       string `opt:"Output" flag:"out" default:"world.png" desc:"Where to write the top-down map"`
-	NoImage   bool   `opt:"No Map Image" flag:"no-image" desc:"Skip the top-down map (for -map-art alone)"`
-	MapArt    bool   `opt:"Map Art" flag:"map-art" desc:"Also export the maps in item frames and chests as PNGs"`
-	MapArtOut string `opt:"Map Art Folder" flag:"map-art-out" desc:"Where to put the map art (next to -out, as <name>_mapart, if empty)"`
+	WorldPath string `opt:"locale.opt_render_world" flag:"world" desc:"locale.desc_render_world"`
+	Out       string `opt:"locale.opt_render_out" flag:"out" default:"world.png" desc:"locale.desc_render_out"`
+	NoImage   bool   `opt:"locale.opt_render_no_image" flag:"no-image" desc:"locale.desc_render_no_image"`
+	MapArt    bool   `opt:"locale.opt_render_map_art" flag:"map-art" desc:"locale.desc_render_map_art"`
+	MapArtOut string `opt:"locale.opt_render_map_art_out" flag:"map-art-out" desc:"locale.desc_render_map_art_out"`
 }
 
 type RenderCMD struct{}
@@ -48,7 +49,7 @@ func (RenderCMD) Name() string {
 }
 
 func (RenderCMD) Description() string {
-	return "draw a saved world (folder or .mcworld) from above as a PNG, and export its map art"
+	return locale.Loc("render_synopsis", nil)
 }
 
 func (RenderCMD) Settings() any {
@@ -65,7 +66,7 @@ func (RenderCMD) Run(ctx context.Context, settings any) error {
 
 	if renderSettings.WorldPath == "" {
 		var ok bool
-		renderSettings.WorldPath, ok = utils.UserInput(ctx, "World folder or .mcworld: ", func(s string) bool {
+		renderSettings.WorldPath, ok = utils.UserInput(ctx, locale.Loc("render_world_prompt", nil), func(s string) bool {
 			_, err := os.Stat(s)
 			return err == nil
 		})
@@ -236,7 +237,7 @@ func (RenderCMD) Run(ctx context.Context, settings any) error {
 		return err
 	}
 
-	logrus.Infof("Wrote %s", outPath)
+	logrus.Info(locale.Loc("render_wrote", locale.Strmap{"Path": outPath}))
 
 	return nil
 }
@@ -309,11 +310,11 @@ func exportWorldMapArt(db *mcdb.DB, br world.BlockRegistry, settings *RenderSett
 	}
 	switch {
 	case len(ids) == 0:
-		logrus.Info("map art: the world has no maps in item frames or chests")
+		logrus.Info(locale.Loc("render_map_art_none", nil))
 	case tiles == 0:
-		logrus.Infof("map art: %d maps found, but none has pixels saved", len(ids))
+		logrus.Info(locale.Loc("render_map_art_no_pixels", locale.Strmap{"Count": len(ids)}))
 	default:
-		logrus.Infof("map art: %d maps, %d walls written to %s", tiles, grids, dir)
+		logrus.Info(locale.Loc("render_map_art_written", locale.Strmap{"Maps": tiles, "Walls": grids, "Dir": dir}))
 	}
 	return nil
 }

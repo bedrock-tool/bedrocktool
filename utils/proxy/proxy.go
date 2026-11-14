@@ -15,13 +15,13 @@ import (
 )
 
 type ProxySettings struct {
-	ConnectInfo *connectinfo.ConnectInfo `opt:"Address" flag:"address" desc:"locale.remote_address"`
+	ConnectInfo *connectinfo.ConnectInfo `opt:"locale.opt_proxy_address" flag:"address" desc:"locale.remote_address"`
 
-	Debug         bool   `opt:"Debug" flag:"debug" desc:"locale.debug_mode"`
-	ExtraDebug    bool   `opt:"Extra Debug" flag:"extra-debug" desc:"Also log every packet to packet.log (large)"`
-	Capture       bool   `opt:"Record Session" flag:"capture" default:"true" desc:"Save a .pcap2 recording you can replay later"`
-	ClientCache   bool   `opt:"Client Cache" flag:"client-cache" default:"true" desc:"Let Minecraft cache chunks, so they load faster"`
-	ListenAddress string `opt:"Listen Address" flag:"listen" default:"0.0.0.0:19132" desc:"Where Minecraft joins the proxy, e.g. :19133 for another port"`
+	Debug         bool   `opt:"locale.opt_proxy_debug" flag:"debug" desc:"locale.debug_mode"`
+	ExtraDebug    bool   `opt:"locale.opt_proxy_extra_debug" flag:"extra-debug" desc:"locale.desc_proxy_extra_debug"`
+	Capture       bool   `opt:"locale.opt_proxy_capture" flag:"capture" default:"true" desc:"locale.desc_proxy_capture"`
+	ClientCache   bool   `opt:"locale.opt_proxy_client_cache" flag:"client-cache" default:"true" desc:"locale.desc_proxy_client_cache"`
+	ListenAddress string `opt:"locale.opt_proxy_listen" flag:"listen" default:"0.0.0.0:19132" desc:"locale.desc_proxy_listen"`
 }
 
 type PacketFunc func(header packet.Header, payload []byte, src, dst net.Addr, timeReceived time.Time)

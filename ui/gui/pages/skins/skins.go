@@ -1,6 +1,7 @@
 package skins
 
 import (
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"sync"
 
 	"gioui.org/layout"
@@ -64,7 +65,7 @@ func (p *Page) Overflow() []component.OverflowAction {
 
 func (p *Page) NavItem() component.NavItem {
 	return component.NavItem{
-		Name: "Skin Grabber",
+		Name: locale.Loc("gui_skins_title", nil),
 		//Icon: icon.OtherIcon,
 	}
 }
@@ -107,7 +108,7 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 				return layout.UniformInset(5).Layout(gtx, func(gtx C) D {
 					gtx.Constraints.Max.Y = gtx.Dp(40)
 					gtx.Constraints.Max.X = gtx.Constraints.Max.X / 6
-					return material.Button(th, &p.back, "Return").Layout(gtx)
+					return material.Button(th, &p.back, locale.Loc("gui_return", nil)).Layout(gtx)
 				})
 			}),
 		)

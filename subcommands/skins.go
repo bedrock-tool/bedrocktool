@@ -14,10 +14,10 @@ import (
 type SkinSettings struct {
 	ProxySettings proxy.ProxySettings
 
-	Filter      string `opt:"Name Filter" flag:"filter" desc:"Only save players whose name matches this regex"`
-	NoProxy     bool   `opt:"Without Minecraft" flag:"no-proxy" desc:"Join by itself and save the skins of whoever is online"`
-	TextureOnly bool   `opt:"Texture Only" flag:"texture-only" desc:"Save just the skin images, not skin packs with models"`
-	Timestamped bool   `opt:"Dated Folders" flag:"timestamped" default:"true" desc:"Put each session in its own dated folder"`
+	Filter      string `opt:"locale.opt_skins_filter" flag:"filter" desc:"locale.desc_skins_filter"`
+	NoProxy     bool   `opt:"locale.opt_skins_no_proxy" flag:"no-proxy" desc:"locale.desc_skins_no_proxy"`
+	TextureOnly bool   `opt:"locale.opt_skins_texture_only" flag:"texture-only" desc:"locale.desc_skins_texture_only"`
+	Timestamped bool   `opt:"locale.opt_skins_timestamped" flag:"timestamped" default:"true" desc:"locale.desc_skins_timestamped"`
 }
 
 type SkinCMD struct{}

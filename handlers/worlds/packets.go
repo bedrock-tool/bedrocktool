@@ -79,7 +79,7 @@ func (w *worldsHandler) packetHandlerPreLogin(_pk packet.Packet, timeReceived ti
 			br.Finalize()
 			if c, ok := br.(interface{ NetworkHashCollisions() []string }); ok && len(c.NetworkHashCollisions()) > 0 {
 				collisions := c.NetworkHashCollisions()
-				w.log.Warnf("%d custom block states share a network hash with another, and show up as that one: %s", len(collisions), strings.Join(collisions, "; "))
+				w.log.Warn(locale.Locm("worlds_block_hash_collisions", locale.Strmap{"List": strings.Join(collisions, "; ")}, len(collisions)))
 			}
 			w.serverState.blocks = br
 			w.serverState.worldName = pk.WorldName
@@ -125,7 +125,7 @@ func (w *worldsHandler) packetHandlerPreLogin(_pk packet.Packet, timeReceived ti
 			custom := &customBiome{name: biomeName, biome: biome, pk: pk}
 			if other, ok := w.serverState.biomes.BiomeByID(custom.EncodeBiome()); ok {
 				// two definitions with one ID: the server's own mistake
-				w.log.Warnf("biome %s has the same ID (%d) as %s, keeping %s", biomeName, custom.EncodeBiome(), other.String(), other.String())
+				w.log.Warn(locale.Loc("worlds_biome_id_clash", locale.Strmap{"Biome": biomeName, "Id": custom.EncodeBiome(), "Other": other.String()}))
 				continue
 			}
 			w.serverState.biomes.Register(custom)
@@ -273,7 +273,7 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 
 				if w.scripting != nil {
 					if !w.scripting.OnEntityAdd(ent, isNew, timeReceived) {
-						logrus.Infof("Ignoring Entity: %s %d", ent.EntityType, ent.UniqueID)
+						logrus.Info(locale.Loc("worlds_ignoring_entity", locale.Strmap{"Type": ent.EntityType, "Id": ent.UniqueID}))
 						return worldstate.ErrIgnoreEntity
 					}
 					for name, previous := range changes {
@@ -890,7 +890,7 @@ func containsStackNetworkID(action protocol.StackRequestAction, target int32) bo
 func (w *worldsHandler) addonSafely(what string, f func()) {
 	defer func() {
 		if r := recover(); r != nil {
-			w.log.Warnf("skipping %s for the behavior pack: %v", what, r)
+			w.log.Warn(locale.Loc("worlds_bp_skipping", locale.Strmap{"What": what, "Err": r}))
 		}
 	}()
 	f()

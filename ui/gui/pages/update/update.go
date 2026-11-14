@@ -1,7 +1,7 @@
 package update
 
 import (
-	"fmt"
+	"github.com/bedrock-tool/bedrocktool/locale"
 
 	"gioui.org/layout"
 	"gioui.org/widget/material"
@@ -47,7 +47,7 @@ func (p *Page) ID() string {
 }
 
 func (p *Page) Layout(gtx layout.Context, th *material.Theme) layout.Dimensions {
-	return material.Body1(th, fmt.Sprintf("downloading (%d%%)", p.percentDownload)).Layout(gtx)
+	return material.Body1(th, locale.Loc("gui_update_downloading_percent", locale.Strmap{"Percent": p.percentDownload})).Layout(gtx)
 }
 
 func (p *Page) NavItem() component.NavItem {

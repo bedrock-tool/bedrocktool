@@ -2,6 +2,7 @@ package packs
 
 import (
 	"fmt"
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"image"
 	"image/color"
 	"strings"
@@ -91,7 +92,7 @@ func (p *Page) Overflow() []component.OverflowAction {
 
 func (p *Page) NavItem() component.NavItem {
 	return component.NavItem{
-		Name: "Pack Download",
+		Name: locale.Loc("gui_packs_title", nil),
 		//Icon: icon.OtherIcon,
 	}
 }
@@ -171,16 +172,16 @@ func (p *Page) drawPackEntry(gtx C, th *material.Theme, pack *packEntry) D {
 											t = pack.Err.Error()
 										} else if pack.Processing {
 											c = th.Fg
-											t = "Processing"
+											t = locale.Loc("gui_pack_processing", nil)
 										} else if pack.IsFinished {
 											c = th.Fg
 											t = ""
 										} else if pack.Loaded == pack.Size {
 											c = th.Fg
-											t = "Downloaded"
+											t = locale.Loc("gui_pack_downloaded", nil)
 										} else {
 											c = th.Fg
-											t = "Downloading"
+											t = locale.Loc("gui_pack_downloading", nil)
 										}
 
 										if t != "" {
@@ -206,7 +207,7 @@ func (p *Page) drawPackEntry(gtx C, th *material.Theme, pack *packEntry) D {
 									return layout.Flex{
 										Axis:      layout.Vertical,
 										Alignment: layout.End,
-									}.Layout(gtx, layout.Rigid(material.Button(th, &pack.button, "Show").Layout))
+									}.Layout(gtx, layout.Rigid(material.Button(th, &pack.button, locale.Loc("gui_pack_show", nil)).Layout))
 								}
 								return D{}
 							}),
@@ -231,9 +232,9 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 		p.g.ExitSubcommand()
 	}
 
-	var title = "Downloading Packs"
+	var title = locale.Loc("gui_packs_downloading_title", nil)
 	if p.State == messages.UIStateFinished {
-		title = "Downloaded Packs"
+		title = locale.Loc("gui_packs_downloaded_title", nil)
 	}
 
 	return layout.Inset{
@@ -274,7 +275,7 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 				return layout.UniformInset(5).Layout(gtx, func(gtx C) D {
 					gtx.Constraints.Max.Y = gtx.Dp(40)
 					gtx.Constraints.Max.X = gtx.Constraints.Max.X / 6
-					return material.Button(th, &p.back, "Return").Layout(gtx)
+					return material.Button(th, &p.back, locale.Loc("gui_return", nil)).Layout(gtx)
 				})
 			}),
 		)

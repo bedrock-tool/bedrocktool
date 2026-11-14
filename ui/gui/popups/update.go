@@ -1,6 +1,7 @@
 package popups
 
 import (
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"image"
 	"os"
 
@@ -101,34 +102,34 @@ func (p *UpdatePopup) Layout(gtx C, th *material.Theme) D {
 		case stateAsk:
 			body = func(gtx C) D {
 				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-					layout.Rigid(material.Body1(th, "Installed: "+utils.Version).Layout),
-					layout.Rigid(material.Body1(th, "Latest:    "+p.update.Version).Layout),
+					layout.Rigid(material.Body1(th, locale.Loc("gui_update_installed", locale.Strmap{"Version": utils.Version})).Layout),
+					layout.Rigid(material.Body1(th, locale.Loc("gui_update_latest", locale.Strmap{"Version": p.update.Version})).Layout),
 					layout.Rigid(layout.Spacer{Height: 14}.Layout),
 					layout.Rigid(func(gtx C) D {
 						if !p.update.IsNew() {
-							return material.Body2(th, "You already have the latest version.").Layout(gtx)
+							return material.Body2(th, locale.Loc("gui_update_up_to_date", nil)).Layout(gtx)
 						}
-						b := material.Button(th, &p.startButton, "Update and restart")
+						b := material.Button(th, &p.startButton, locale.Loc("gui_update_start", nil))
 						b.CornerRadius = Radius
 						return b.Layout(gtx)
 					}),
 				)
 			}
 		case stateDownloading:
-			body = material.Body1(th, "Downloading the update...").Layout
+			body = material.Body1(th, locale.Loc("gui_update_downloading", nil)).Layout
 		case stateError:
-			msg := "Update failed"
+			msg := locale.Loc("gui_update_failed", nil)
 			if p.err != nil {
-				msg = "Update failed: " + p.err.Error()
+				msg = locale.Loc("gui_update_failed_err", locale.Strmap{"Err": p.err.Error()})
 			}
 			body = material.Body1(th, msg).Layout
 		case stateFinished:
-			body = material.Body1(th, "Restarting...").Layout
+			body = material.Body1(th, locale.Loc("gui_update_restarting", nil)).Layout
 		}
 
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx C) D {
-				return layout.Inset{Top: 4, Bottom: 10}.Layout(gtx, material.Label(th, th.TextSize*1.4, "Update").Layout)
+				return layout.Inset{Top: 4, Bottom: 10}.Layout(gtx, material.Label(th, th.TextSize*1.4, locale.Loc("gui_update_title", nil)).Layout)
 			}),
 			layout.Rigid(func(gtx C) D {
 				return layout.Inset{Left: 8, Right: 8, Top: 4, Bottom: 24}.Layout(gtx, body)

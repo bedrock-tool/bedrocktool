@@ -3,6 +3,7 @@ package resourcepack
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"image"
 	"image/png"
 	"maps"
@@ -93,7 +94,7 @@ type EntityPlayer struct {
 func (p *Pack) MakePlayers(players []EntityPlayer, playerSkins map[uuid.UUID]*protocol.Skin) error {
 	for _, player := range players {
 		if playerSkins[player.UUID] == nil {
-			logrus.Warnf("no skin for player %s", player.UUID)
+			logrus.Warn(locale.Loc("skin_missing_for_player", locale.Strmap{"Id": player.UUID}))
 			continue
 		}
 		skin := skinconverter.Skin{Skin: playerSkins[player.UUID]}
@@ -121,7 +122,7 @@ func (p *Pack) MakePlayers(players []EntityPlayer, playerSkins map[uuid.UUID]*pr
 
 		geometryIdentifier, _, geometry, err := skin.ParseGeometry()
 		if err != nil {
-			logrus.Warnf("player %s: %s, drawing it with the default model", player.UUID, err)
+			logrus.Warn(locale.Loc("skin_default_model", locale.Strmap{"Id": player.UUID, "Err": err}))
 			geometry = nil
 		}
 

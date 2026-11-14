@@ -4,6 +4,7 @@ import (
 	"gioui.org/layout"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/guim"
 	"github.com/bedrock-tool/bedrocktool/utils/auth"
 	"github.com/sirupsen/logrus"
@@ -33,7 +34,7 @@ func (*SelectAccount) Close() error {
 func (p *SelectAccount) Layout(gtx C, th *material.Theme) D {
 	if p.done.Clicked(gtx) && p.editor.Len() != 0 {
 		name := p.editor.Text()
-		logrus.WithField("name", name).Info("switched account")
+		logrus.WithField("name", name).Info(locale.Loc("account_switched", nil))
 		p.g.ClosePopup(p.ID())
 		p.g.SetAccountName(name)
 		err := auth.Auth.LoadAccount(name)
@@ -53,11 +54,11 @@ func (p *SelectAccount) Layout(gtx C, th *material.Theme) D {
 			Spacing: layout.SpaceBetween,
 		}.Layout(gtx,
 			layout.Rigid(func(gtx C) D {
-				return material.H4(th, "Select Account Instance").Layout(gtx)
+				return material.H4(th, locale.Loc("gui_select_account_title", nil)).Layout(gtx)
 			}),
 			layout.Rigid(func(gtx C) D {
 				return layout.N.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
-					return material.Editor(th, &p.editor, "enter instance name").Layout(gtx)
+					return material.Editor(th, &p.editor, locale.Loc("gui_select_account_placeholder", nil)).Layout(gtx)
 				})
 			}),
 			layout.Rigid(func(gtx C) D {
@@ -70,7 +71,7 @@ func (p *SelectAccount) Layout(gtx C, th *material.Theme) D {
 					layout.Rigid(func(gtx C) D {
 						return layout.UniformInset(8).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 							gtx.Constraints.Min.X = 80
-							b := material.Button(th, &p.close, "Close")
+							b := material.Button(th, &p.close, locale.Loc("gui_close", nil))
 							b.CornerRadius = Radius
 							return b.Layout(gtx)
 						})
@@ -78,7 +79,7 @@ func (p *SelectAccount) Layout(gtx C, th *material.Theme) D {
 					layout.Rigid(func(gtx C) D {
 						return layout.UniformInset(8).Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 							gtx.Constraints.Min.X = 80
-							b := material.Button(th, &p.done, "Done")
+							b := material.Button(th, &p.done, locale.Loc("gui_done", nil))
 							b.CornerRadius = Radius
 							if p.editor.Len() == 0 {
 								b.Color = th.Bg

@@ -107,6 +107,9 @@ func ParseArgsType(settings reflect.Value, path []string, without []string) ([]A
 		if slices.Contains(without, flag) {
 			continue
 		}
+		if strings.HasPrefix(name, "locale.") {
+			name = locale.Loc(name[7:], nil)
+		}
 		if desc == "" {
 			desc = name
 		}

@@ -182,13 +182,13 @@ func (w *worldsHandler) onSessionStart(session *proxy.Session, serverName string
 
 	w.mapUI = NewMapUI(w)
 	if w.serverState.isHive {
-		w.log.Info("The Hive: sheep are saved as hive:text, and its NPC players are kept")
+		w.log.Info(locale.Loc("worlds_hive_detected", nil))
 	}
 
 	w.uiRecorder = nil
 	if w.settings.RecordUI {
 		w.uiRecorder = uirecord.New(w.entityInfo)
-		w.log.Info("Recording menus and scoreboards into the behavior pack's script")
+		w.log.Info(locale.Loc("worlds_recording_ui", nil))
 	}
 
 	w.scripting = nil
@@ -225,11 +225,11 @@ func (w *worldsHandler) onSessionStart(session *proxy.Session, serverName string
 
 	session.AddCommand(func(args []string) bool {
 		w.settings.ExcludedMobs = append(w.settings.ExcludedMobs, args...)
-		session.SendMessage(fmt.Sprintf("Exluding: %s", strings.Join(w.settings.ExcludedMobs, ", ")))
+		session.SendMessage(locale.Loc("worlds_excluding", locale.Strmap{"List": strings.Join(w.settings.ExcludedMobs, ", ")}))
 		return true
 	}, protocol.Command{
 		Name:        "exclude-mob",
-		Description: "add a mob to the list of mobs to ignore",
+		Description: locale.Loc("exclude_mob_desc", nil),
 	})
 
 	session.AddCommand(func(args []string) bool {
@@ -237,7 +237,7 @@ func (w *worldsHandler) onSessionStart(session *proxy.Session, serverName string
 		return true
 	}, protocol.Command{
 		Name:        "save-world",
-		Description: "immediately save and reset the world state",
+		Description: locale.Loc("save_world_desc", nil),
 	})
 
 	// initialize a worldstate
@@ -376,7 +376,7 @@ func (w *worldsHandler) SaveAndReset(end bool, dim world.Dimension) {
 }
 
 func (w *worldsHandler) saveWorldState(worldState *worldstate.World, player proxy.Player, behaviorPack *behaviourpack.Pack, keepPlayer func(uuid.UUID) bool, playerSkins map[uuid.UUID]*protocol.Skin) error {
-	text := locale.Loc("saving_world", locale.Strmap{"Name": worldState.Name, "Count": len(worldState.StoredChunks)})
+	text := locale.Locm("saving_world", locale.Strmap{"Name": worldState.Name}, len(worldState.StoredChunks))
 	w.log.Info(text)
 	w.session.SendMessage(text)
 
@@ -428,9 +428,9 @@ func (w *worldsHandler) saveWorldState(worldState *worldstate.World, player prox
 		dir := worldState.Folder + "_mapart"
 		grids, tiles, err := worldState.ExportMapArt(dir)
 		if err != nil {
-			w.log.Errorf("map art: %s", err)
+			w.log.Error(locale.Loc("worlds_map_art_failed", locale.Strmap{"Err": err}))
 		} else if tiles > 0 {
-			w.log.Infof("map art: %d maps, %d walls saved to %s", tiles, grids, dir)
+			w.log.Info(locale.Loc("worlds_map_art_saved", locale.Strmap{"Maps": tiles, "Walls": grids, "Dir": dir}))
 		}
 	}
 
@@ -470,7 +470,7 @@ func (w *worldsHandler) openWorldState() {
 	w.worldState.OnMapSeen = w.onMapSeen
 	if !w.serverState.isHive && hasHivePacks(w.worldState.ResourcePacks) {
 		w.serverState.isHive = true
-		w.log.Info("The Hive (by its resource packs): sheep are saved as hive:text, and its NPC players are kept")
+		w.log.Info(locale.Loc("worlds_hive_detected_packs", nil))
 	}
 	w.worldState.Open(w.defaultWorldName(), folder)
 }

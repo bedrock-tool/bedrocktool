@@ -36,7 +36,7 @@ func (w *World) addResourcePacks() error {
 	for _, pack := range w.ResourcePacks {
 		log := w.log.WithField("pack", pack.Name())
 		if pack.Encrypted() && !pack.CanRead() {
-			log.Warn("Cant add is encrypted")
+			log.Warn(locale.Loc("worlds_pack_encrypted", nil))
 			continue
 		}
 		logrus.Info(locale.Loc("adding_pack", locale.Strmap{"Name": text.Clean(pack.Name())}))

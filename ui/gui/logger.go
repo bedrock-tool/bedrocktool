@@ -2,6 +2,7 @@ package gui
 
 import (
 	"bytes"
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"image/color"
 	"io"
 	"sync"
@@ -40,7 +41,7 @@ func (l *logger) Layout(gtx C, th *material.Theme) D {
 			Type: "text",
 			Data: io.NopCloser(bytes.NewReader(logTxt)),
 		})
-		l.g.Toast(gtx, "Copied!")
+		l.g.Toast(gtx, locale.Loc("gui_copied", nil))
 	}
 
 	if l.clickClose.Clicked(gtx) {
@@ -77,9 +78,9 @@ func (l *logger) Layout(gtx C, th *material.Theme) D {
 							return layout.Flex{
 								Axis: layout.Horizontal,
 							}.Layout(gtx,
-								layout.Rigid(material.Button(th, &l.clickCopyLogs, "Copy Logs").Layout),
+								layout.Rigid(material.Button(th, &l.clickCopyLogs, locale.Loc("gui_copy_logs", nil)).Layout),
 								layout.Rigid(layout.Spacer{Width: 8}.Layout),
-								layout.Rigid(material.Button(th, &l.clickClose, "Close").Layout),
+								layout.Rigid(material.Button(th, &l.clickClose, locale.Loc("gui_close", nil)).Layout),
 							)
 						}),
 					)

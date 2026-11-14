@@ -1,7 +1,7 @@
 package worlds
 
 import (
-	"fmt"
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"image"
 	"image/color"
 	"path/filepath"
@@ -91,20 +91,20 @@ func (p *Page) Overflow() []component.OverflowAction {
 
 func (p *Page) NavItem() component.NavItem {
 	return component.NavItem{
-		Name: "World Downloader",
+		Name: locale.Loc("gui_worlds_title", nil),
 		//Icon: icon.OtherIcon,
 	}
 }
 
-// saveSteps are the steps of saving a world, in order, and the state the
-// saver reports for each starts with.
+// saveSteps are the steps of saving a world, in order, the state the
+// saver reports for each starts with, and the locale key of its label.
 var saveSteps = []struct{ prefix, label string }{
-	{"Saving", "Preparing"},
-	{"Storing Chunks", "Storing chunks"},
-	{"Storing Entities", "Storing entities"},
-	{"Adding Resourcepack", "Adding resource packs"},
-	{"Adding Behaviorpack", "Adding the behavior pack"},
-	{"Writing mcworld file", "Writing the .mcworld file"},
+	{"Saving", "gui_save_step_preparing"},
+	{"Storing Chunks", "gui_save_step_chunks"},
+	{"Storing Entities", "gui_save_step_entities"},
+	{"Adding Resourcepack", "gui_save_step_resource_packs"},
+	{"Adding Behaviorpack", "gui_save_step_behavior_pack"},
+	{"Writing mcworld file", "gui_save_step_mcworld"},
 }
 
 func saveStepIndex(state string) int {
@@ -154,15 +154,15 @@ func displayWorldProcessing(gtx C, th *material.Theme, entry *processingWorld) D
 	return card(gtx, th, func(gtx C) D {
 		children := []layout.FlexChild{
 			layout.Rigid(func(gtx C) D {
-				l := material.Label(th, th.TextSize*1.25, "Saving "+entry.Name)
+				l := material.Label(th, th.TextSize*1.25, locale.Loc("gui_worlds_saving", locale.Strmap{"Name": entry.Name}))
 				l.Font.Weight = font.SemiBold
 				return layout.Inset{Bottom: 10}.Layout(gtx, l.Layout)
 			}),
 		}
 		for i, step := range saveSteps {
-			label := step.label
+			label := locale.Loc(step.label, nil)
 			if i == current && strings.HasPrefix(entry.State, "Adding Resourcepack ") {
-				label = "Adding resource pack " + strings.TrimPrefix(entry.State, "Adding Resourcepack ")
+				label = locale.Loc("gui_save_step_resource_pack", locale.Strmap{"Name": strings.TrimPrefix(entry.State, "Adding Resourcepack ")})
 			}
 			children = append(children, layout.Rigid(func(gtx C) D {
 				return layout.Inset{Top: 3, Bottom: 3}.Layout(gtx, func(gtx C) D {
@@ -204,7 +204,7 @@ func displayWorldEntry(gtx C, th *material.Theme, entry *savedWorld, dir string)
 							return l.Layout(gtx)
 						}),
 						layout.Rigid(func(gtx C) D {
-							l := material.Body2(th, fmt.Sprintf("%s chunks  ·  %s entities", thousands(entry.Chunks), thousands(entry.Entities)))
+							l := material.Body2(th, locale.Loc("gui_worlds_counts", locale.Strmap{"Chunks": thousands(entry.Chunks), "Entities": thousands(entry.Entities)}))
 							l.Color = muted(th)
 							return layout.Inset{Left: 12}.Layout(gtx, l.Layout)
 						}),
@@ -250,12 +250,12 @@ func (p *Page) layoutFinished(gtx C, th *material.Theme) D {
 				layout.Rigid(func(gtx C) D {
 					return layout.Inset{Bottom: 12}.Layout(gtx, func(gtx C) D {
 						return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-							layout.Rigid(material.Label(th, th.TextSize*1.4, "Saved worlds").Layout),
+							layout.Rigid(material.Label(th, th.TextSize*1.4, locale.Loc("gui_worlds_saved_title", nil)).Layout),
 							layout.Rigid(func(gtx C) D {
 								if dir == "" {
 									return D{}
 								}
-								l := material.Body2(th, "In "+filepath.ToSlash(dir))
+								l := material.Body2(th, locale.Loc("gui_worlds_saved_in", locale.Strmap{"Dir": filepath.ToSlash(dir)}))
 								l.Color = muted(th)
 								l.MaxLines = 1
 								return layout.Inset{Top: 2}.Layout(gtx, l.Layout)
@@ -267,7 +267,7 @@ func (p *Page) layoutFinished(gtx C, th *material.Theme) D {
 					p.finishedWorldsMu.Lock()
 					defer p.finishedWorldsMu.Unlock()
 					if len(p.finishedWorlds) == 0 && len(p.processingWorlds) == 0 {
-						l := material.Body1(th, "Nothing was saved: no chunks were loaded.")
+						l := material.Body1(th, locale.Loc("gui_worlds_nothing_saved", nil))
 						l.Color = muted(th)
 						return l.Layout(gtx)
 					}
@@ -280,7 +280,7 @@ func (p *Page) layoutFinished(gtx C, th *material.Theme) D {
 				}),
 				layout.Rigid(func(gtx C) D {
 					return layout.Inset{Top: 12}.Layout(gtx, func(gtx C) D {
-						b := material.Button(th, &p.back, "Back")
+						b := material.Button(th, &p.back, locale.Loc("gui_back", nil))
 						b.CornerRadius = popups.Radius
 						gtx.Constraints.Min.X = gtx.Dp(120)
 						return b.Layout(gtx)
@@ -298,9 +298,9 @@ func (p *Page) layoutMap(gtx C, th *material.Theme) D {
 	}
 	return layout.Center.Layout(gtx, func(gtx C) D {
 		return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
-			layout.Rigid(material.Body1(th, "Waiting for chunks").Layout),
+			layout.Rigid(material.Body1(th, locale.Loc("gui_worlds_waiting", nil)).Layout),
 			layout.Rigid(func(gtx C) D {
-				l := material.Body2(th, "The map fills in as you walk around in Minecraft.")
+				l := material.Body2(th, locale.Loc("gui_worlds_waiting_hint", nil))
 				l.Color = muted(th)
 				return l.Layout(gtx)
 			}),

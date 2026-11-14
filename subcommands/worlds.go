@@ -13,19 +13,19 @@ import (
 
 type WorldSettings struct {
 	ProxySettings proxy.ProxySettings
-	Void          bool     `opt:"Void Generator" flag:"void" default:"true" desc:"locale.enable_void"`
-	Image         bool     `opt:"Map Image" flag:"image" desc:"locale.save_image"`
-	Entities      bool     `opt:"Entities" flag:"save-entities" default:"true" desc:"Mobs, armor stands, item frames and other entities"`
-	Players       bool     `opt:"Players" flag:"save-players" default:"false" desc:"Other players, as statues wearing their skins"`
-	MapArt        bool     `opt:"Map Art" flag:"map-art" default:"false" desc:"Also save maps hanging in item frames as PNGs"`
-	Inventories   bool     `opt:"Inventories" flag:"save-inventories" default:"true" desc:"What is in chests you open, and your own inventory"`
-	BlockUpdates  bool     `opt:"Block Updates" flag:"block-updates" desc:"Keep blocks the server changes after a chunk loaded"`
-	EntityCulling bool     `opt:"Entity Culling" flag:"entity-culling" desc:"Leave out entities that died or despawned (experimental)"`
-	ExcludeMobs   []string `opt:"Exclude Mobs" flag:"exclude-mobs" desc:"Entity IDs to leave out, comma separated; * works, e.g. minecraft:bat,hive:*"`
-	ChunkRadius   int      `opt:"Chunk Radius" flag:"chunk-radius" desc:"View distance to ask the server for, in chunks (76 if empty)"`
-	ScriptPath    string   `opt:"Script" flag:"script" desc:"A JavaScript file that decides what gets saved" type:"file,js"`
-	ReplayJoin    bool     `opt:"Watch Replay" flag:"replay-join" desc:"When replaying a .pcap2, wait for Minecraft to join and watch it"`
-	RecordUI      bool     `opt:"Record Menus" flag:"record-ui" default:"false" desc:"Rebuild the menus you open and the scoreboards as a script in the world"`
+	Void          bool     `opt:"locale.opt_worlds_void" flag:"void" default:"true" desc:"locale.enable_void"`
+	Image         bool     `opt:"locale.opt_worlds_image" flag:"image" desc:"locale.save_image"`
+	Entities      bool     `opt:"locale.opt_worlds_save_entities" flag:"save-entities" default:"true" desc:"locale.desc_worlds_save_entities"`
+	Players       bool     `opt:"locale.opt_worlds_save_players" flag:"save-players" default:"false" desc:"locale.desc_worlds_save_players"`
+	MapArt        bool     `opt:"locale.opt_worlds_map_art" flag:"map-art" default:"false" desc:"locale.desc_worlds_map_art"`
+	Inventories   bool     `opt:"locale.opt_worlds_save_inventories" flag:"save-inventories" default:"true" desc:"locale.desc_worlds_save_inventories"`
+	BlockUpdates  bool     `opt:"locale.opt_worlds_block_updates" flag:"block-updates" desc:"locale.desc_worlds_block_updates"`
+	EntityCulling bool     `opt:"locale.opt_worlds_entity_culling" flag:"entity-culling" desc:"locale.desc_worlds_entity_culling"`
+	ExcludeMobs   []string `opt:"locale.opt_worlds_exclude_mobs" flag:"exclude-mobs" desc:"locale.desc_worlds_exclude_mobs"`
+	ChunkRadius   int      `opt:"locale.opt_worlds_chunk_radius" flag:"chunk-radius" desc:"locale.desc_worlds_chunk_radius"`
+	ScriptPath    string   `opt:"locale.opt_worlds_script" flag:"script" desc:"locale.desc_worlds_script" type:"file,js"`
+	ReplayJoin    bool     `opt:"locale.opt_worlds_replay_join" flag:"replay-join" desc:"locale.desc_worlds_replay_join"`
+	RecordUI      bool     `opt:"locale.opt_worlds_record_ui" flag:"record-ui" default:"false" desc:"locale.desc_worlds_record_ui"`
 }
 
 type WorldCMD struct{}

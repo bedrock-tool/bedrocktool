@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"math"
 	"path"
 	"regexp"
@@ -154,14 +155,14 @@ func (s *SkinSaver) AddSkin(player *skinPlayer, newSkin *protocol.Skin) (*skinco
 
 		err := skinconverter.WriteSkinTexture(s.fs, skinName, skin)
 		if err != nil {
-			s.log.WithError(err).Error("failed to write skin texture")
+			s.log.WithError(err).Error(locale.Loc("skins_write_texture_failed", nil))
 			return skin, false
 		}
 
 		if skin.HaveCape() {
 			err := skinconverter.WriteCapeTexture(s.fs, skinName, skin)
 			if err != nil {
-				s.log.WithError(err).Error("failed to write cape texture")
+				s.log.WithError(err).Error(locale.Loc("skins_write_cape_failed", nil))
 				return skin, false
 			}
 		}
@@ -170,11 +171,11 @@ func (s *SkinSaver) AddSkin(player *skinPlayer, newSkin *protocol.Skin) (*skinco
 	} else {
 		if player.SkinPack == nil {
 			player.SkinPack = skinconverter.NewSkinPack(player.Name)
-			creating := fmt.Sprintf("Creating Skinpack for %s", player.Name)
+			creating := locale.Loc("skins_creating_pack", locale.Strmap{"Name": player.Name})
 			s.log.Info(creating)
 		}
 		player.SkinPack.AddSkin(skin)
-		addedStr := fmt.Sprintf("Added a skin %s", player.Name)
+		addedStr := locale.Loc("skins_added", locale.Strmap{"Name": player.Name})
 		s.session.SendPopup(addedStr)
 		s.log.Info(addedStr)
 		pfs := utils.SubFS(s.fs, player.Name)
@@ -310,7 +311,7 @@ func (s *SkinSaver) stealSkin() {
 			id := uuid.MustParse(s.session.Client.IdentityData().Identity)
 			playerSkin := sp.SkinPack.Latest().Skin
 			if playerSkin == nil {
-				logrus.Warnf("%s has no skin", sp.Name)
+				logrus.Warn(locale.Loc("skins_no_skin", locale.Strmap{"Name": sp.Name}))
 				continue
 			}
 

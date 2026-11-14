@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/bedrock-tool/bedrocktool/locale"
 
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/sandertv/gophertunnel/minecraft/realms"
@@ -24,7 +25,7 @@ func answerRealmStories(ctx context.Context, realm *realms.Realm) bool {
 		return false // answered already: the refusal is something else
 	}
 
-	logrus.Infof("%s: the Realm's Stories prompt was never answered, so it won't let you join yet", realm.Name)
+	logrus.Info(locale.Loc("stories_unanswered", locale.Strmap{"Realm": realm.Name}))
 	switch messages.AskStoriesPrompt(ctx, realm.Name) {
 	case messages.StoriesOptIn:
 		settings.PlayerOptIn = realms.StoryOptInOptIn
@@ -34,10 +35,10 @@ func answerRealmStories(ctx context.Context, realm *realms.Realm) bool {
 		return false
 	}
 	if err := realm.UpdateStorySettings(ctx, settings); err != nil {
-		logrus.Errorf("saving the Stories answer: %s", err)
+		logrus.Error(locale.Loc("stories_save_failed", locale.Strmap{"Err": err}))
 		return false
 	}
-	logrus.Infof("Stories answer saved (%s), joining again", settings.PlayerOptIn)
+	logrus.Info(locale.Loc("stories_saved", locale.Strmap{"Answer": settings.PlayerOptIn}))
 	return true
 }
 
@@ -46,9 +47,9 @@ func answerRealmStories(ctx context.Context, realm *realms.Realm) bool {
 func realmJoinError(realm *realms.Realm, err error) error {
 	switch {
 	case realm.Expired:
-		return fmt.Errorf("%s has expired (its owner's subscription ran out), so it can't be joined: %w", realm.Name, err)
+		return fmt.Errorf("%s: %w", locale.Loc("realm_expired_error", locale.Strmap{"Realm": realm.Name}), err)
 	case errors.Is(err, realms.ErrPlayerNotInRealm):
-		return fmt.Errorf("%s refused the join. If you've never joined it from Minecraft, join it there once and answer its prompts, then try again: %w", realm.Name, err)
+		return fmt.Errorf("%s: %w", locale.Loc("realm_refused_join", locale.Strmap{"Realm": realm.Name}), err)
 	}
 	return err
 }

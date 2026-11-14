@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -41,7 +42,7 @@ func (account *Account) LiveToken(ctx context.Context) (t *oauth2.Token, err err
 	}
 	liveToken := account.token.LiveToken()
 	if !liveToken.Valid() {
-		logrus.WithField("part", "Auth").Info("Refreshing Microsoft Token")
+		logrus.WithField("part", "Auth").Info(locale.Loc("auth_refreshing_ms_token", nil))
 		conf := account.token.AuthConfig()
 		if conf == nil {
 			return nil, fmt.Errorf("invalid token")
@@ -85,17 +86,17 @@ func checkMCToken(mcToken *service.Token) bool {
 	}
 	data, err := base64.RawURLEncoding.DecodeString(strings.Split(mcToken.AuthorizationHeader, ".")[1])
 	if err != nil {
-		logrus.Error("invalid mctoken, refreshing")
+		logrus.Error(locale.Loc("auth_invalid_mctoken", nil))
 		return false
 	}
 	var claims map[string]any
 	if err := json.Unmarshal(data, &claims); err != nil {
-		logrus.Error("invalid mctoken, refreshing")
+		logrus.Error(locale.Loc("auth_invalid_mctoken", nil))
 		return false
 	}
 	claimVer := claims["ver"].(string)
 	if claimVer != protocol.CurrentVersion {
-		logrus.Info("mctoken for older version, refreshing")
+		logrus.Info(locale.Loc("auth_old_mctoken", nil))
 		return false
 	}
 	return true

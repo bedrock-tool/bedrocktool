@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"io"
 	"maps"
 	"net"
@@ -101,7 +102,7 @@ func (r *Pcap2Reader) ReadPacket(skip bool) (pk packet.Packet, toServer bool, re
 			err = io.EOF
 		}
 		if errors.Is(err, io.EOF) {
-			logrus.Info("Reached End")
+			logrus.Info(locale.Loc("replay_end", nil))
 			return nil, false, receivedTime, net.ErrClosed
 		}
 		return nil, false, receivedTime, err
