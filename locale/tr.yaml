@@ -1,0 +1,709 @@
+# General and CLI
+bedrocktool_version:
+  other: "Bedrocktool sürüm {{.Version}}"
+available_commands:
+  other: "Kullanılabilir komutlar:"
+use_to_run_command:
+  other: "Bir komutu çalıştırmak için 'bedrocktool <komut>' kullan"
+input_command:
+  other: "Komut gir: "
+fatal_error:
+  other: "Ölümcül bir hata oluştu."
+report_issue:
+  other: |
+    Bu hatayı bildirmek istersen şurada bir issue aç:
+    https://github.com/bedrock-tool/bedrocktool/issues
+    Hata bilgisini ekle, hatayı almak için ne yaptığını anlat ve mümkünse bedrocktool.log dosyasını ekle.
+    Teşekkürler!
+used_extra_debug_report:
+  other: |
+    NOT: extra-debug kullandın; bu, packets.log ve packets.log.gpg dosyalarını oluşturur.
+    Bir issue göndermek istersen yalnızca packets.log.gpg dosyasını yükle.
+    packets.log ve packets.log.gpg hesap bilgisi içerebilir (giriş bilgisi asla), bu yüzden şifreli dosyayı yüklemek daha güvenlidir.
+    O dosyayı yalnızca geliştirici okuyabilir, herkese açık issue sayfasına bakanlar okuyamaz.
+enter_to_exit:
+  other: "Çıkmak için Enter'a bas."
+should_login_xbox:
+  other: "Xbox Live'a giriş yap"
+debug_mode:
+  other: "Daha fazla kayıt, hata raporları için"
+done:
+  other: "Tamam"
+
+# Connecting
+enter_server:
+  other: "Sunucuyu gir: "
+listening_on:
+  other: "{{.Address}} üzerinde dinleniyor"
+connecting:
+  other: "{{.Address}} adresine bağlanılıyor"
+connected:
+  other: "Sunucuya bağlanıldı."
+help_connect:
+  other: "Devam etmek için Minecraft'ı aç ve bu bilgisayarın yerel IP adresine bağlan"
+remote_address:
+  other: "Sunucu adresi"
+realm_list_line:
+  other: "Ad: {{.Name}}\tid: {{.Id}}"
+
+# Updates
+update_available:
+  other: "Güncelleme var: {{.Version}}  yüklemek için update komutunu kullan."
+no_update:
+  other: "Güncelleme yok."
+updating:
+  other: "{{.Version}} sürümüne güncelleniyor"
+updated:
+  other: "Güncellendi!"
+
+# Worlds (log and in-game)
+worldname_set:
+  other: "Dünya adı artık {{.Name}}"
+void_generator_true:
+  other: "Boş jeneratör kullanılıyor"
+zoom_level:
+  other: "Yakınlaştırma: {{.Level}}"
+saving_world:
+  one: "{{.Name}} dünyası {{.Count}} chunk ile kaydediliyor"
+  other: "{{.Name}} dünyası {{.Count}} chunk ile kaydediliyor"
+unknown_gamerule:
+  other: "Bilinmeyen oyun kuralı: {{.Name}}"
+adding_pack:
+  other: "{{.Name}} kaynak paketi ekleniyor"
+using_customblocks:
+  other: "Özel bloklar kullanılıyor"
+use_setname:
+  other: "Dünyaya ad vermek için\n/setname <ad> kullan"
+setname_desc:
+  other: "bu dünyaya bir ad ver"
+void_desc:
+  other: "boş jeneratörü aç veya kapat"
+popup_chunk_count:
+  other: "{{.Chunks}} chunk\n{{.Entities}} varlık\nAd: {{.Name}}"
+warn_window_closed_not_open:
+  other: "Açık olmayan bir pencere kapatıldı"
+saved_block_inv:
+  other: "Blok envanteri kaydedildi"
+save_image:
+  other: "Haritanın PNG'sini de dünyanın yanına kaydet"
+saved:
+  other: "Kaydedildi: {{.Name}}"
+empty_chunk:
+  other: "Boş chunk."
+failed_write:
+  other: "{{.Part}} {{.Path}} yazılamadı: {{.Err}}"
+
+# Resource pack keys
+no_resourcepacks:
+  other: "Hiç kaynak paketi gönderilmedi"
+writing_keys:
+  other: "Anahtarlar {{.Path}} dosyasına yazılıyor"
+warn_key_exists:
+  other: "{{.Id}} anahtarı zaten var"
+compare_key:
+  other: "uuid: {{.Id}}, veritabanındaki anahtar: {{.Prev}} != yeni anahtar {{.Now}}"
+
+# Subcommand descriptions (also the mode cards in the GUI)
+list_realms_synopsis:
+  other: "Erişimin olan tüm Realm'leri listele"
+capture_synopsis:
+  other: "Paketleri bir pcap dosyasına kaydet"
+chat_log_synopsis:
+  other: "Sohbeti bir dosyaya kaydet"
+debug_proxy_synopsis:
+  other: "Ayrıntılı hata ayıklama paketleri"
+merge_synopsis:
+  other: "2 veya daha fazla dünyayı birleştir"
+update_synopsis:
+  other: "En son sürüme güncelle"
+skins_synopsis:
+  other: "Bir sunucuda gördüğün oyuncuların skinlerini kaydet"
+world_synopsis:
+  other: "Oynadığın dünyayı varlıkları ve eklentileriyle birlikte .mcworld olarak kaydet"
+pack_synopsis:
+  other: "Bir sunucunun kaynak paketlerini şifresi çözülmüş olarak indir"
+
+# GUI: general
+gui_window_title:
+  other: "Bedrocktool {{.Version}} (Minecraft {{.McVersion}})"
+gui_closing:
+  other: "Kapatılıyor"
+gui_close:
+  other: "Kapat"
+gui_cancel:
+  other: "İptal"
+gui_back:
+  other: "Geri"
+gui_return:
+  other: "Geri dön"
+gui_done:
+  other: "Tamam"
+gui_copied:
+  other: "Kopyalandı!"
+gui_copy_logs:
+  other: "Kayıtları kopyala"
+gui_appbar_menu:
+  other: "Menü"
+gui_appbar_actions:
+  other: "Eylemler"
+gui_nav_title:
+  other: "Gezinme"
+gui_login:
+  other: "Giriş yap"
+gui_logout:
+  other: "Çıkış yap"
+gui_account_named:
+  other: "{{.Action}} ({{.Name}})"
+gui_switch_account:
+  other: "Değiştir"
+gui_logs:
+  other: "Kayıtlar"
+
+# GUI: settings
+gui_settings_title:
+  other: "Ayarlar"
+gui_settings_pick_mode:
+  other: "Neyi kaydetmek istiyorsun?"
+gui_start:
+  other: "Başlat"
+gui_mode_worlds:
+  other: "Dünyalar"
+gui_mode_skins:
+  other: "Skinler"
+gui_mode_packs:
+  other: "Paketler"
+gui_section_server:
+  other: "Sunucu"
+gui_section_options:
+  other: "Seçenekler"
+gui_section_connection:
+  other: "Bağlantı ve hata ayıklama"
+gui_address_placeholder:
+  other: "Sunucu adresini gir"
+gui_address_realms:
+  other: "Realm'ler"
+gui_address_experiences:
+  other: "Deneyimler"
+gui_address_featured:
+  other: "Öne çıkanlar"
+gui_address_worlds:
+  other: "Dünyalar"
+gui_browse:
+  other: "Gözat"
+
+# GUI: world downloader
+gui_worlds_title:
+  other: "Dünya İndirici"
+gui_worlds_saving:
+  other: "{{.Name}} kaydediliyor"
+gui_save_step_preparing:
+  other: "Hazırlanıyor"
+gui_save_step_chunks:
+  other: "Chunk'lar kaydediliyor"
+gui_save_step_entities:
+  other: "Varlıklar kaydediliyor"
+gui_save_step_resource_packs:
+  other: "Kaynak paketleri ekleniyor"
+gui_save_step_resource_pack:
+  other: "{{.Name}} kaynak paketi ekleniyor"
+gui_save_step_behavior_pack:
+  other: "Davranış paketi ekleniyor"
+gui_save_step_mcworld:
+  other: ".mcworld dosyası yazılıyor"
+gui_worlds_counts:
+  other: "{{.Chunks}} chunk  ·  {{.Entities}} varlık"
+gui_worlds_saved_title:
+  other: "Kaydedilen dünyalar"
+gui_worlds_saved_in:
+  other: "Konum: {{.Dir}}"
+gui_worlds_nothing_saved:
+  other: "Hiçbir şey kaydedilmedi: hiç chunk yüklenmedi."
+gui_worlds_waiting:
+  other: "Chunk'lar bekleniyor"
+gui_worlds_waiting_hint:
+  other: "Minecraft'ta dolaştıkça harita dolar."
+
+# GUI: skins, packs, update page
+gui_skins_title:
+  other: "Skin Toplayıcı"
+gui_packs_title:
+  other: "Paket İndirme"
+gui_packs_downloading_title:
+  other: "Paketler indiriliyor"
+gui_packs_downloaded_title:
+  other: "İndirilen paketler"
+gui_pack_processing:
+  other: "İşleniyor"
+gui_pack_downloaded:
+  other: "İndirildi"
+gui_pack_downloading:
+  other: "İndiriliyor"
+gui_pack_show:
+  other: "Göster"
+gui_update_downloading_percent:
+  other: "indiriliyor (%{{.Percent}})"
+
+# GUI: popups
+gui_connect_starting:
+  other: "Başlatılıyor"
+gui_connect_starting_detail:
+  other: "Giriş yapılıyor ve sunucu aranıyor..."
+gui_connect_title:
+  other: "Minecraft'tan katıl"
+gui_connect_connecting:
+  other: "Sunucuya bağlanılıyor"
+gui_connect_connecting_detail:
+  other: "Minecraft'ta bekle: önce sunucunun kaynak paketleri indirilir, bu ilk seferde bir dakika sürebilir."
+gui_connect_resources:
+  other: "Kaynak paketleri indiriliyor"
+gui_connect_resources_detail:
+  other: "Minecraft'ta bekle, bu ilk seferde bir dakika sürebilir."
+gui_connect_connected:
+  other: "Bağlandı"
+gui_connect_connected_detail:
+  other: "Normal şekilde oyna. Çıktığında dünya kaydedilir."
+gui_connect_instructions:
+  other: "Minecraft'ta Sunucular, Sunucu ekle'ye git ve şunu kullan:"
+gui_connect_this_computer:
+  other: "Bu bilgisayarda"
+gui_connect_other_device:
+  other: "Başka bir cihazda"
+gui_connect_address_port:
+  other: "{{.Ip}}   port {{.Port}}"
+gui_connect_hide:
+  other: "Gizle"
+gui_connect_open_minecraft:
+  other: "Minecraft'ı aç"
+gui_error_title:
+  other: "Hata"
+gui_error_fatal_title:
+  other: "Ölümcül hata"
+gui_error_more_info:
+  other: "Daha fazla bilgi konsola yazıldı; hata raporuna eklemek yardımcı olur."
+gui_experiences_title:
+  other: "Deneyimler"
+gui_experiences_none:
+  other: "Hiç deneyim bulunamadı"
+gui_featured_title:
+  other: "Öne çıkan sunucular"
+gui_featured_none:
+  other: "Öne çıkan sunucu bulunamadı"
+gui_world_list_title:
+  other: "Dünyalar"
+gui_world_list_none:
+  other: "Hiç dünya bulunamadı"
+gui_realms_title:
+  other: "Realm'ler"
+gui_realms_none:
+  other: "Hiçbir Realm'de değilsin"
+gui_realm_expired:
+  other: "Süresi doldu: sahibinin aboneliği bitti, katılınamaz"
+gui_realm_closed:
+  other: "Sahibi tarafından kapatıldı"
+gui_realm_open:
+  other: "Açık"
+gui_select_account_title:
+  other: "Hesap örneği seç"
+gui_select_account_placeholder:
+  other: "örnek adı"
+gui_stories_title:
+  other: "Realm Hikâyeleri"
+gui_stories_text:
+  other: "{{.Realm}}, bu hesap Realm Hikâyeleri sorusunu yanıtlayana kadar girmesine izin vermeyecek; bu, Minecraft'ın bir Realm'e ilk girişte sorduğu soru."
+gui_stories_detail:
+  other: "Katılırsan bu Realm'deki etkinliğin Hikâyeler zaman akışında paylaşılır; katılmazsan paylaşılmaz. İki yanıt da girmene izin verir ve sonradan Minecraft'ta değiştirebilirsin."
+gui_stories_opt_in:
+  other: "Katıl"
+gui_stories_opt_out:
+  other: "Katılma"
+gui_update_title:
+  other: "Güncelleme"
+gui_update_installed:
+  other: "Yüklü:  {{.Version}}"
+gui_update_latest:
+  other: "En son: {{.Version}}"
+gui_update_up_to_date:
+  other: "Zaten en son sürüme sahipsin."
+gui_update_start:
+  other: "Güncelle ve yeniden başlat"
+gui_update_downloading:
+  other: "Güncelleme indiriliyor..."
+gui_update_failed:
+  other: "Güncelleme başarısız oldu"
+gui_update_failed_err:
+  other: "Güncelleme başarısız oldu: {{.Err}}"
+gui_update_restarting:
+  other: "Yeniden başlatılıyor..."
+
+# Settings: option names (opt) and descriptions (desc)
+opt_worlds_image:
+  other: "Harita görüntüsü"
+opt_worlds_save_entities:
+  other: "Varlıklar"
+desc_worlds_save_entities:
+  other: "Yaratıklar, zırh askıları, eşya çerçeveleri ve diğer varlıklar"
+opt_worlds_save_players:
+  other: "Oyuncular"
+desc_worlds_save_players:
+  other: "Diğer oyuncular, skinlerini giymiş heykeller olarak"
+opt_worlds_map_art:
+  other: "Harita sanatı"
+desc_worlds_map_art:
+  other: "Eşya çerçevelerinde asılı haritaları da PNG olarak kaydet"
+opt_worlds_save_inventories:
+  other: "Envanterler"
+desc_worlds_save_inventories:
+  other: "Açtığın sandıkların içindekiler ve kendi envanterin"
+opt_worlds_block_updates:
+  other: "Blok değişiklikleri"
+desc_worlds_block_updates:
+  other: "Bir chunk yüklendikten sonra sunucunun değiştirdiği blokları koru"
+opt_worlds_entity_culling:
+  other: "Varlık ayıklama"
+desc_worlds_entity_culling:
+  other: "Ölen veya kaybolan varlıkları dahil etme (deneysel)"
+opt_worlds_exclude_mobs:
+  other: "Yaratıkları hariç tut"
+desc_worlds_exclude_mobs:
+  other: "Dahil edilmeyecek varlık ID'leri, virgülle ayrılmış; * çalışır, ör. minecraft:bat,hive:*"
+opt_worlds_chunk_radius:
+  other: "Chunk yarıçapı"
+desc_worlds_chunk_radius:
+  other: "Sunucudan istenecek görüş mesafesi, chunk olarak (boşsa 76)"
+opt_worlds_script:
+  other: "Betik"
+desc_worlds_script:
+  other: "Neyin kaydedileceğine karar veren bir JavaScript dosyası"
+opt_worlds_record_ui:
+  other: "Menüleri kaydet"
+desc_worlds_record_ui:
+  other: "Açtığın menüleri ve skor tablolarını dünyada bir betik olarak yeniden oluştur"
+opt_proxy_address:
+  other: "Adres"
+opt_proxy_debug:
+  other: "Hata ayıklama"
+opt_proxy_extra_debug:
+  other: "Ek hata ayıklama"
+desc_proxy_extra_debug:
+  other: "Her paketi ayrıca packet.log dosyasına yaz (büyük)"
+opt_proxy_capture:
+  other: "Oturumu kaydet"
+desc_proxy_capture:
+  other: "Sonra yeniden oynatabileceğin bir .pcap2 kaydı tut"
+opt_proxy_client_cache:
+  other: "İstemci önbelleği"
+desc_proxy_client_cache:
+  other: "Minecraft'ın chunk'ları önbelleğe almasına izin ver, böylece daha hızlı yüklenir"
+opt_proxy_listen:
+  other: "Dinleme adresi"
+desc_proxy_listen:
+  other: "Minecraft'ın proxy'ye katıldığı yer, ör. başka bir port için :19133"
+opt_skins_filter:
+  other: "Ad filtresi"
+desc_skins_filter:
+  other: "Yalnızca adı bu regex ile eşleşen oyuncuları kaydet"
+opt_skins_no_proxy:
+  other: "Minecraft olmadan"
+desc_skins_no_proxy:
+  other: "Kendi başına katıl ve çevrimiçi olan herkesin skinini kaydet"
+opt_skins_texture_only:
+  other: "Yalnızca doku"
+desc_skins_texture_only:
+  other: "Yalnızca skin görsellerini kaydet, modelli skin paketlerini değil"
+opt_skins_timestamped:
+  other: "Tarihli klasörler"
+desc_skins_timestamped:
+  other: "Her oturumu kendi tarihli klasörüne koy"
+opt_packs_save_encrypted:
+  other: "Şifreli kopyayı sakla"
+desc_packs_save_encrypted:
+  other: "Şifreli paketleri gönderildikleri haliyle de kaydet"
+opt_packs_folders:
+  other: "Klasör olarak"
+desc_packs_folders:
+  other: "Paketleri .mcpack dosyaları yerine klasör olarak kaydet"
+opt_chat_log_verbose:
+  other: "Ayrıntılı"
+opt_merge_bounds:
+  other: "Sınırları göster"
+opt_merge_out:
+  other: "Çıktı yolu"
+opt_merge_args:
+  other: "Girdi dünyaları"
+opt_render_world:
+  other: "Dünya"
+opt_render_out:
+  other: "Çıktı"
+opt_dump_actors_world:
+  other: "Dünya klasörü"
+opt_dump_actors_write:
+  other: "Geri yaz"
+opt_dump_actors_json:
+  other: "json dosyası"
+opt_trans_auth:
+  other: "Kimlik doğrulama"
+
+# Subcommands
+render_synopsis:
+  other: "Kaydedilmiş bir dünyayı (klasör veya .mcworld) yukarıdan PNG olarak çiz ve harita sanatını dışa aktar"
+dump_actors_synopsis:
+  other: "Bir dünyanın varlıklarını JSON'a aktar ve geri yaz"
+render_wrote:
+  other: "{{.Path}} yazıldı"
+merge_out_required:
+  other: "-out belirtilmeli"
+dump_actors_extracted:
+  one: "{{.Count}} varlık json'a aktarıldı"
+  other: "{{.Count}} varlık json'a aktarıldı"
+dump_actors_removed_digp:
+  one: "{{.Count}} digp kaydı silindi"
+  other: "{{.Count}} digp kaydı silindi"
+dump_actors_removed:
+  one: "{{.Count}} varlık silindi"
+  other: "{{.Count}} varlık silindi"
+dump_actors_writing:
+  one: "Varlıklar {{.Count}} chunk'a yazılıyor"
+  other: "Varlıklar {{.Count}} chunk'a yazılıyor"
+dump_actors_wrote:
+  one: "{{.Count}} varlık yazıldı"
+  other: "{{.Count}} varlık yazıldı"
+pack_icon_parse_failed:
+  other: "{{.Name}} paketinin pack_icon.png dosyası okunamadı"
+dump_keys_failed:
+  other: "Anahtarlar aktarılırken hata: {{.Err}}"
+
+# CLI
+ui_init_failed:
+  other: "Arayüz başlatılamadı: {{.Err}}"
+already_logged_in:
+  other: "Zaten giriş yapıldı"
+unknown_subcommand:
+  other: "{{.Name}} bilinen bir alt komut değil"
+cli_usage_for:
+  other: "{{.Name}} kullanımı:"
+cli_stories_text:
+  other: "{{.Realm}}, bu hesap Realm Hikâyeleri sorusunu yanıtlayana kadar girmesine izin vermeyecek\n(Minecraft'ın bir Realm'e ilk girişte sorduğu soru). Katılırsan etkinliğin\nHikâyeler zaman akışında paylaşılır; iki yanıt da girmene izin verir."
+cli_stories_prompt:
+  other: "Katıl, katılma veya iptal? [in/out/cancel]: "
+
+# Accounts and connection
+account_switched:
+  other: "Hesap değiştirildi"
+auth_refreshing_ms_token:
+  other: "Microsoft jetonu yenileniyor"
+auth_invalid_mctoken:
+  other: "Geçersiz Minecraft jetonu, yenileniyor"
+auth_old_mctoken:
+  other: "Minecraft jetonu eski bir sürüme ait, yenileniyor"
+transferring:
+  other: "{{.Address}} adresine aktarılıyor"
+forced_pack_added:
+  other: "{{.Name}} zorunlu paketlere eklendi"
+forced_pack_unknown_file:
+  other: "forcedpacks içinde tanınmayan dosya {{.Path}}"
+replay_reading:
+  other: "{{.File}} kaydı okunuyor"
+replay_end:
+  other: "Kaydın sonuna gelindi"
+disconnecting:
+  other: "Bağlantı kesiliyor"
+client_connected:
+  other: "İstemci bağlandı"
+already_connected:
+  other: "Zaten bağlısın!"
+realm_not_found:
+  other: "{{.Name}} Realm'i bulunamadı"
+stories_unanswered:
+  other: "{{.Realm}}: Realm Hikâyeleri sorusu hiç yanıtlanmadı, bu yüzden henüz girmene izin vermiyor"
+stories_save_failed:
+  other: "Hikâyeler yanıtı kaydedilirken: {{.Err}}"
+stories_saved:
+  other: "Hikâyeler yanıtı kaydedildi ({{.Answer}}), yeniden giriliyor"
+realm_expired_error:
+  other: "{{.Realm}} süresi doldu (sahibinin aboneliği bitti), bu yüzden katılınamaz"
+realm_refused_join:
+  other: "{{.Realm}} girişi reddetti. Ona Minecraft'tan hiç girmediysen bir kez oradan gir ve sorularını yanıtla, sonra tekrar dene"
+
+# Resource packs
+downloading_pack:
+  other: "Kaynak paketi indiriliyor: {{.Url}}"
+pack_duplicate_entry:
+  other: "Paket bilgisinde yinelenen doku paketi kaydı {{.Id}}"
+pack_download_failed:
+  other: "{{.Url}} indirilemedi: {{.Err}}"
+pack_size_mismatch:
+  other: "{{.Id}} paketinin boyutu ResourcePacksInfo paketinde ResourcePackDataInfo'dakinden farklıydı"
+packs_sent_to_client:
+  other: "Kaynak paketlerinin istemciye gönderimi tamamlandı"
+bp_invalid_block_component:
+  other: "Geçersiz blok bileşeni {{.Block}} {{.Component}}"
+
+# Skins
+skins_creating_pack:
+  other: "{{.Name}} için skin paketi oluşturuluyor"
+skins_added:
+  other: "Skin eklendi: {{.Name}}"
+skins_write_texture_failed:
+  other: "Skin dokusu yazılamadı"
+skins_write_cape_failed:
+  other: "Pelerin dokusu yazılamadı"
+skins_no_skin:
+  other: "{{.Name}} için skin yok"
+skin_missing_for_player:
+  other: "{{.Id}} oyuncusu için skin yok"
+skin_default_model:
+  other: "Oyuncu {{.Id}}: {{.Err}}, varsayılan modelle çiziliyor"
+skin_empty_texture:
+  other: "{{.Name}}-{{.Index}} skininin dokusu boş"
+skin_geometry_decode_failed:
+  other: "{{.Name}} geometrisi okunamadı: {{.Err}}"
+skin_geometry_write_failed:
+  other: "{{.Name}} geometrisi yazılamadı: {{.Err}}"
+
+# Worlds
+worlds_hive_detected:
+  other: "The Hive: koyunlar hive:text olarak kaydedilir ve NPC oyuncuları korunur"
+worlds_hive_detected_packs:
+  other: "The Hive (kaynak paketlerinden): koyunlar hive:text olarak kaydedilir ve NPC oyuncuları korunur"
+worlds_recording_ui:
+  other: "Menüler ve skor tabloları davranış paketinin betiğine kaydediliyor"
+worlds_excluding:
+  other: "Hariç tutulanlar: {{.List}}"
+exclude_mob_desc:
+  other: "yok sayılacak yaratıklar listesine bir yaratık ekle"
+save_world_desc:
+  other: "dünya durumunu hemen kaydet ve sıfırla"
+worlds_map_art_failed:
+  other: "Harita sanatı: {{.Err}}"
+worlds_map_art_saved:
+  other: "Harita sanatı: {{.Maps}} harita, {{.Walls}} duvar {{.Dir}} konumuna kaydedildi"
+worlds_invalid_block_data:
+  other: "Sunucu geçersiz blok verisi gönderdi"
+worlds_block_hash_collisions:
+  one: "{{.Count}} özel blok durumu başka biriyle aynı ağ hash'ine sahip ve onun gibi görünüyor: {{.List}}"
+  other: "{{.Count}} özel blok durumu başkalarıyla aynı ağ hash'ine sahip ve onlar gibi görünüyor: {{.List}}"
+worlds_biome_id_clash:
+  other: "{{.Biome}} biyomu {{.Other}} ile aynı ID'ye ({{.Id}}) sahip, {{.Other}} korunuyor"
+worlds_ignoring_entity:
+  other: "Varlık yok sayılıyor: {{.Type}} {{.Id}}"
+worlds_bp_skipping:
+  other: "Davranış paketi için {{.What}} atlanıyor: {{.Err}}"
+worlds_pack_encrypted:
+  other: "Bu paket eklenemiyor, şifreli"
+worlds_hive_name_tags:
+  other: "Hive: {{.Tags}} isim etiketi ({{.Entity}}), {{.Sheep}} tanesi koyun"
+worlds_saving_players:
+  one: "{{.Count}} oyuncu kaydediliyor"
+  other: "{{.Count}} oyuncu kaydediliyor"
+worlds_block_hash_missing:
+  other: "Bir blok değişikliği için blok hash'i bulunamadı"
+worlds_chunk_update_missing:
+  other: "Yüklenmemiş bir chunk'ta değişiklik, pos = {{.Pos}}"
+worlds_chunk_load_failed:
+  other: "{{.Pos}} chunk'ı yüklenemedi: {{.Err}}"
+worlds_chunk_store_failed:
+  other: "{{.Pos}} chunk'ı kaydedilemedi: {{.Err}}"
+script_unknown_event:
+  other: "events.register: bilinmeyen olay {{.Name}}"
+
+# Crashes
+panic_fatal_error:
+  other: "Ölümcül hata: {{.Err}}"
+crash_report_written:
+  other: "Çökme raporu {{.Path}} konumuna yazıldı"
+
+# Replays, render, recording, sign-in
+opt_worlds_replay_join:
+  other: "Kaydı izle"
+desc_worlds_replay_join:
+  other: "Bir .pcap2 oynatılırken izlemek için Minecraft'ın katılmasını bekle"
+desc_render_world:
+  other: "Çizilecek dünya: bir dünya klasörü veya .mcworld dosyası"
+desc_render_out:
+  other: "Yukarıdan haritanın yazılacağı yer"
+opt_render_no_image:
+  other: "Harita görüntüsü yok"
+desc_render_no_image:
+  other: "Yukarıdan haritayı atla (yalnızca -map-art için)"
+opt_render_map_art:
+  other: "Harita sanatı"
+desc_render_map_art:
+  other: "Eşya çerçevelerindeki ve sandıklardaki haritaları da PNG olarak dışa aktar"
+opt_render_map_art_out:
+  other: "Harita sanatı klasörü"
+desc_render_map_art_out:
+  other: "Harita sanatının konacağı yer (boşsa -out yanında <ad>_mapart olarak)"
+render_world_prompt:
+  other: "Dünya klasörü veya .mcworld: "
+render_map_art_none:
+  other: "Harita sanatı: dünyada çerçevelerde veya sandıklarda harita yok"
+render_map_art_no_pixels:
+  other: "Harita sanatı: {{.Count}} harita bulundu, ama hiçbirinin kayıtlı pikseli yok"
+render_map_art_written:
+  other: "Harita sanatı: {{.Maps}} harita, {{.Walls}} duvar {{.Dir}} konumuna yazıldı"
+capture_confirm_title:
+  other: "Oturum kaydı kapatılsın mı?"
+capture_confirm_body:
+  other: ".pcap2 kaydı, oturum boyunca sunucunun gönderdiği her paketi tutar."
+capture_confirm_detail:
+  other: "Onunla dünya, sunucuya geri dönmeden istediğin zaman yeniden kaydedilebilir: başka ayarlarla ya da hataları düzelten veya yeni özellik ekleyen gelecekteki bir bedrocktool sürümüyle. O olmadan eksik kalan her şey sonsuza dek kaybolur."
+capture_confirm_keep:
+  other: "Kaydetmeye devam et"
+capture_confirm_off:
+  other: "Yine de kapat (Bir daha gösterme!)"
+capture_off_warning:
+  other: "Oturum kaydı kapalı (-capture=false): bu dünyayı sonra başka ayarlarla veya daha yeni bir bedrocktool ile yeniden kaydetmek için .pcap2 olmayacak"
+anti_cheat_notice:
+  other: "Giriş yapmadan önce bir not: katı anti-hile sistemi olan sunucularda (Cubecraft ve The Hive bilinen örnekler) bedrocktool kullanmak, nadiren de olsa hesabın işaretlenmesine veya yasaklanmasına yol açabilir. gophertunnel üzerinden bağlanır; gophertunnel gerçek oyunla tam olarak aynı şekilde hareket etmez ve girdi göndermez, bu yüzden bazı anti-hileler onu ayırt edebilir. Bu sunucularda ikincil bir hesap kullan; Realm'ler, kendi dünyaların ve çoğu sunucu sorunsuzdur."
+gui_auth_title:
+  other: "Microsoft ile giriş yap"
+gui_auth_steps:
+  other: "Bu sayfayı aç ve aşağıdaki kodu gir:"
+gui_auth_copy_hint:
+  other: "Kopyalamak için tıkla"
+gui_auth_open:
+  other: "Sayfayı aç"
+gui_auth_notice_title:
+  other: "Anti-hileli sunucular"
+
+# World generator (#303) and saved settings / recent servers (#220)
+opt_worlds_generator:
+  other: "Kaydedilmemiş chunk'lar"
+desc_worlds_generator:
+  other: "Minecraft'ın yüklemediğin chunk'ları neyle dolduracağı: boş, düz (süper düz arazi) veya normal (sunucunun tohumundan arazi)"
+desc_worlds_void_old:
+  other: "Eski anahtar: -void=false, -generator flat demektir"
+choice_void:
+  other: "Boş"
+choice_flat:
+  other: "Düz"
+choice_normal:
+  other: "Normal"
+generator_current:
+  other: "Kaydedilmemiş chunk'lar şöyle oluşturuluyor: {{.Generator}}. /generator void, flat veya normal kullan"
+generator_desc:
+  other: "Kaydedilmemiş chunk'ların neyle doldurulacağını ayarla: void, flat veya normal"
+generator_flat:
+  other: "Kaydedilmemiş chunk'lar düz arazi olacak"
+generator_normal:
+  other: "Kaydedilmemiş chunk'lar sunucunun tohumundan normal arazi olacak (çoğu zaman uyuşmaz: birçok sunucu sahte tohum gönderir)"
+settings_read_failed:
+  other: "Kayıtlı ayarlar okunamadı, varsayılanlar kullanılıyor: {{.Err}}"
+settings_save_failed:
+  other: "Ayarlar kaydedilemedi: {{.Err}}"
+gui_address_recent:
+  other: "Son"
+gui_remove:
+  other: "Kaldır"
+recent_title:
+  other: "Son sunucular"
+recent_empty:
+  other: "Başlattığın sunucular burada görünür"
+recent_kind_realm:
+  other: "Realm"
+recent_kind_experience:
+  other: "Deneyim"
+recent_kind_friend:
+  other: "Arkadaşın dünyası"
+recent_kind_server:
+  other: "Sunucu"

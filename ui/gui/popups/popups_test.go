@@ -181,8 +181,8 @@ var recentAddresses = []string{
 }
 
 func TestRecentServersCloses(t *testing.T) {
-	closes(t, NewRecentServers(nil, recentAddresses, func(string) {}, func(string) {}), "Close", "recent_servers")
-	closes(t, NewRecentServers(nil, nil, func(string) {}, func(string) {}), "Close", "recent_servers_empty")
+	closes(t, NewRecentServers(nil, recentAddresses, func(string) {}, func(string) {}), locale.Loc("gui_close", nil), "recent_servers")
+	closes(t, NewRecentServers(nil, nil, func(string) {}, func(string) {}), locale.Loc("gui_close", nil), "recent_servers_empty")
 }
 
 func TestRecentServersPickAndRemove(t *testing.T) {
@@ -200,7 +200,7 @@ func TestRecentServersPickAndRemove(t *testing.T) {
 	for _, n := range r.AppendSemantics(nil) {
 		if n.Desc.Class == semantic.Button {
 			for _, c := range r.AppendSemantics(nil) {
-				if c.ParentID == n.ID && c.Desc.Label == "Remove" {
+				if c.ParentID == n.ID && c.Desc.Label == locale.Loc("gui_remove", nil) {
 					b := n.Desc.Bounds
 					removes = append(removes, f32.Pt(float32(b.Min.X+b.Max.X)/2, float32(b.Min.Y+b.Max.Y)/2))
 				}
@@ -310,11 +310,11 @@ func TestConfirmPopup(t *testing.T) {
 	for _, tc := range []struct {
 		button string
 		want   bool
-	}{{"Keep recording", false}, {"Turn off anyway (Don't show again!)", true}} {
+	}{{locale.Loc("capture_confirm_keep", nil), false}, {locale.Loc("capture_confirm_off", nil), true}} {
 		var got *bool
 		p := NewConfirm(nil, "confirm-capture-off", "Turn off session recording?",
 			[]string{locale.Loc("capture_confirm_body", nil), locale.Loc("capture_confirm_detail", nil)},
-			"Keep recording", "Turn off anyway (Don't show again!)", func(proceed bool) { got = &proceed })
+			locale.Loc("capture_confirm_keep", nil), locale.Loc("capture_confirm_off", nil), func(proceed bool) { got = &proceed })
 		closes(t, p, tc.button, "confirm")
 		if got == nil || *got != tc.want {
 			t.Fatalf("%s: answered %v, want %v", tc.button, got, tc.want)
@@ -345,5 +345,5 @@ func TestAuthPopup(t *testing.T) {
 	if !strings.Contains(all, auth.AntiCheatNotice()) {
 		t.Error("login popup doesn't show the anti-cheat note")
 	}
-	closes(t, p, "Cancel", "auth")
+	closes(t, p, locale.Loc("gui_cancel", nil), "auth")
 }

@@ -10,6 +10,8 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 	"unsafe"
 
 	"gioui.org/font"
@@ -567,7 +569,18 @@ func argDesc(arg commands.Arg) string {
 	if d == "" {
 		return d
 	}
-	return strings.ToUpper(d[:1]) + d[1:]
+	return upperFirst(d)
+}
+
+// upperFirst capitalizes the first letter, whole: slicing off the first
+// byte broke any description starting with a non-ASCII letter (Cyrillic,
+// CJK, "É"...).
+func upperFirst(s string) string {
+	r, size := utf8.DecodeRuneInString(s)
+	if r == utf8.RuneError {
+		return s
+	}
+	return string(unicode.ToUpper(r)) + s[size:]
 }
 
 // captureWarning is why Record Session should stay on, shown before it is

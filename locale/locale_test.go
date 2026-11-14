@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -148,16 +149,16 @@ func TestFallback(t *testing.T) {
 		t.Errorf("de saving_world = %q", got)
 	}
 
-	for _, name := range []string{"", "xx", "not a language", "de_AT", "en-US", "fr"} {
+	for _, name := range []string{"", "xx", "not a language", "de_AT", "en-US", "fi"} {
 		SetLanguage(name)
 		got := Loc("gui_close", nil)
 		if got != "Close" && got != "Schließen" {
 			t.Errorf("%q: gui_close = %q", name, got)
 		}
 	}
-	SetLanguage("fr")
+	SetLanguage("fi")
 	if got := Loc("gui_close", nil); got != "Close" {
-		t.Errorf("fr should fall back to English, got %q", got)
+		t.Errorf("fi should fall back to English, got %q", got)
 	}
 	if got := Loc("no_such_key", nil); got != "no_such_key" {
 		t.Errorf("missing key = %q", got)
@@ -168,4 +169,56 @@ func TestFallback(t *testing.T) {
 	// missing template data must not crash
 	_ = Loc("saved", nil)
 	_ = Locm("saving_world", nil, 2)
+}
+
+// System languages pick the right translation, region or not.
+func TestLanguagesPicked(t *testing.T) {
+	defer SetLanguage("en")
+	for name, want := range map[string]string{
+		"es": "Cerrar", "es-MX": "Cerrar", "fr_CA": "Fermer", "pt_BR": "Fechar", "pt-BR": "Fechar",
+		"ru-RU": "Закрыть", "pl": "Zamknij", "tr-TR": "Kapat", "de_AT": "Schließen",
+		"zh-CN": "关闭", "zh-Hans": "关闭", "ja-JP": "閉じる", "ko_KR": "닫기",
+	} {
+		SetLanguage(name)
+		if got := Loc("gui_close", nil); got != want {
+			t.Errorf("%s: gui_close = %q, want %q", name, got, want)
+		}
+	}
+}
+
+// Every plural message resolves in every language for the counts that pick
+// different forms (one, few, many, other), instead of falling back.
+func TestPluralsResolve(t *testing.T) {
+	defer SetLanguage("en")
+	en := loadFile(t, "en.yaml")
+	var plurals []string
+	for key, forms := range en {
+		if _, ok := forms["one"]; ok {
+			plurals = append(plurals, key)
+		}
+	}
+	entries, _ := localesFS.ReadDir(".")
+	for _, e := range entries {
+		name := strings.TrimSuffix(e.Name(), ".yaml")
+		if name == e.Name() {
+			continue
+		}
+		SetLanguage(name)
+		for _, key := range plurals {
+			for _, n := range []int{0, 1, 2, 5, 21, 22, 25, 111} {
+				got := Locm(key, Strmap{"Name": "x", "List": "y"}, n)
+				if got == "" || got == key || !strings.Contains(got, strconv.Itoa(n)) {
+					t.Errorf("%s: %s with %d = %q", name, key, n, got)
+				}
+				if name != "en" {
+					SetLanguage("en")
+					english := Locm(key, Strmap{"Name": "x", "List": "y"}, n)
+					SetLanguage(name)
+					if got == english {
+						t.Errorf("%s: %s with %d fell back to English: %q", name, key, n, got)
+					}
+				}
+			}
+		}
+	}
 }

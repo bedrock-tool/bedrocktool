@@ -132,3 +132,13 @@ func TestCaptureOffAsks(t *testing.T) {
 		t.Fatal("other options shouldn't ask")
 	}
 }
+
+func TestUpperFirst(t *testing.T) {
+	for in, want := range map[string]string{
+		"debug mode": "Debug mode", "écrire": "Écrire", "чем": "Чем", "虚空": "虚空", "": "", "x": "X",
+	} {
+		if got := upperFirst(in); got != want {
+			t.Errorf("upperFirst(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

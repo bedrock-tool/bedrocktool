@@ -1,0 +1,709 @@
+# General and CLI
+bedrocktool_version:
+  other: "Bedrocktool 버전 {{.Version}}"
+available_commands:
+  other: "사용할 수 있는 명령어:"
+use_to_run_command:
+  other: "명령어를 실행하려면 'bedrocktool <명령어>'를 사용하세요"
+input_command:
+  other: "명령어 입력: "
+fatal_error:
+  other: "치명적인 오류가 발생했습니다."
+report_issue:
+  other: |
+    이 오류를 신고하려면 다음 주소에서 issue를 열어 주세요:
+    https://github.com/bedrock-tool/bedrocktool/issues
+    오류 정보를 첨부하고, 오류가 나기까지 무엇을 했는지 설명하고, 가능하면 bedrocktool.log 파일도 첨부해 주세요.
+    감사합니다!
+used_extra_debug_report:
+  other: |
+    참고: extra-debug를 사용해서 packets.log와 packets.log.gpg 파일이 만들어졌습니다.
+    issue를 보내려면 packets.log.gpg 파일만 올려 주세요.
+    packets.log와 packets.log.gpg에는 계정 정보가 들어 있을 수 있으므로(로그인 정보는 절대 없음) 암호화된 파일을 올리는 것이 더 안전합니다.
+    그 파일은 개발자만 읽을 수 있고, 공개 issue 페이지를 보는 사람은 읽을 수 없습니다.
+enter_to_exit:
+  other: "Enter 키를 누르면 종료합니다."
+should_login_xbox:
+  other: "Xbox Live에 로그인"
+debug_mode:
+  other: "로그를 더 남김 (버그 신고용)"
+done:
+  other: "완료"
+
+# Connecting
+enter_server:
+  other: "서버 입력: "
+listening_on:
+  other: "{{.Address}}에서 대기 중"
+connecting:
+  other: "{{.Address}}에 연결 중"
+connected:
+  other: "서버에 연결했습니다."
+help_connect:
+  other: "계속하려면 Minecraft를 열고 이 컴퓨터의 로컬 IP 주소로 접속하세요"
+remote_address:
+  other: "서버 주소"
+realm_list_line:
+  other: "이름: {{.Name}}\tid: {{.Id}}"
+
+# Updates
+update_available:
+  other: "업데이트가 있습니다: {{.Version}}  update 명령어로 설치하세요."
+no_update:
+  other: "업데이트가 없습니다."
+updating:
+  other: "{{.Version}}(으)로 업데이트 중"
+updated:
+  other: "업데이트했습니다!"
+
+# Worlds (log and in-game)
+worldname_set:
+  other: "이제 월드 이름은 {{.Name}}입니다"
+void_generator_true:
+  other: "공허 생성기를 사용 중"
+zoom_level:
+  other: "확대: {{.Level}}"
+saving_world:
+  one: "월드 {{.Name}} 저장 중 (청크 {{.Count}}개)"
+  other: "월드 {{.Name}} 저장 중 (청크 {{.Count}}개)"
+unknown_gamerule:
+  other: "알 수 없는 게임 규칙: {{.Name}}"
+adding_pack:
+  other: "리소스 팩 {{.Name}} 추가 중"
+using_customblocks:
+  other: "사용자 지정 블록을 사용 중"
+use_setname:
+  other: "/setname <이름>으로\n월드 이름을 정하세요"
+setname_desc:
+  other: "이 월드의 이름 정하기"
+void_desc:
+  other: "공허 생성기 사용 여부 전환"
+popup_chunk_count:
+  other: "청크 {{.Chunks}}개\n엔티티 {{.Entities}}개\n이름: {{.Name}}"
+warn_window_closed_not_open:
+  other: "열려 있지 않은 창이 닫혔습니다"
+saved_block_inv:
+  other: "블록 인벤토리를 저장했습니다"
+save_image:
+  other: "월드 옆에 지도 PNG도 저장"
+saved:
+  other: "저장됨: {{.Name}}"
+empty_chunk:
+  other: "빈 청크입니다."
+failed_write:
+  other: "{{.Part}} {{.Path}}을(를) 쓰지 못했습니다: {{.Err}}"
+
+# Resource pack keys
+no_resourcepacks:
+  other: "리소스 팩을 보내지 않았습니다"
+writing_keys:
+  other: "키를 {{.Path}}에 쓰는 중"
+warn_key_exists:
+  other: "키 {{.Id}}이(가) 이미 있습니다"
+compare_key:
+  other: "uuid: {{.Id}}, DB의 키: {{.Prev}} != 새 키 {{.Now}}"
+
+# Subcommand descriptions (also the mode cards in the GUI)
+list_realms_synopsis:
+  other: "접근할 수 있는 모든 Realm 보기"
+capture_synopsis:
+  other: "패킷을 pcap 파일에 기록"
+chat_log_synopsis:
+  other: "채팅을 파일에 기록"
+debug_proxy_synopsis:
+  other: "자세한 디버그 패킷"
+merge_synopsis:
+  other: "월드 2개 이상 합치기"
+update_synopsis:
+  other: "최신 버전으로 업데이트"
+skins_synopsis:
+  other: "서버에서 보이는 플레이어들의 스킨 저장"
+world_synopsis:
+  other: "플레이 중인 월드를 엔티티와 애드온까지 .mcworld로 저장"
+pack_synopsis:
+  other: "서버의 리소스 팩을 복호화해서 다운로드"
+
+# GUI: general
+gui_window_title:
+  other: "Bedrocktool {{.Version}} (Minecraft {{.McVersion}})"
+gui_closing:
+  other: "닫는 중"
+gui_close:
+  other: "닫기"
+gui_cancel:
+  other: "취소"
+gui_back:
+  other: "뒤로"
+gui_return:
+  other: "돌아가기"
+gui_done:
+  other: "완료"
+gui_copied:
+  other: "복사했습니다!"
+gui_copy_logs:
+  other: "로그 복사"
+gui_appbar_menu:
+  other: "메뉴"
+gui_appbar_actions:
+  other: "작업"
+gui_nav_title:
+  other: "탐색"
+gui_login:
+  other: "로그인"
+gui_logout:
+  other: "로그아웃"
+gui_account_named:
+  other: "{{.Action}} ({{.Name}})"
+gui_switch_account:
+  other: "전환"
+gui_logs:
+  other: "로그"
+
+# GUI: settings
+gui_settings_title:
+  other: "설정"
+gui_settings_pick_mode:
+  other: "무엇을 저장할까요?"
+gui_start:
+  other: "시작"
+gui_mode_worlds:
+  other: "월드"
+gui_mode_skins:
+  other: "스킨"
+gui_mode_packs:
+  other: "팩"
+gui_section_server:
+  other: "서버"
+gui_section_options:
+  other: "옵션"
+gui_section_connection:
+  other: "연결 및 디버그"
+gui_address_placeholder:
+  other: "서버 주소 입력"
+gui_address_realms:
+  other: "Realm"
+gui_address_experiences:
+  other: "체험"
+gui_address_featured:
+  other: "추천"
+gui_address_worlds:
+  other: "월드"
+gui_browse:
+  other: "찾아보기"
+
+# GUI: world downloader
+gui_worlds_title:
+  other: "월드 다운로더"
+gui_worlds_saving:
+  other: "{{.Name}} 저장 중"
+gui_save_step_preparing:
+  other: "준비 중"
+gui_save_step_chunks:
+  other: "청크 저장 중"
+gui_save_step_entities:
+  other: "엔티티 저장 중"
+gui_save_step_resource_packs:
+  other: "리소스 팩 추가 중"
+gui_save_step_resource_pack:
+  other: "리소스 팩 {{.Name}} 추가 중"
+gui_save_step_behavior_pack:
+  other: "비헤이비어 팩 추가 중"
+gui_save_step_mcworld:
+  other: ".mcworld 파일 쓰는 중"
+gui_worlds_counts:
+  other: "청크 {{.Chunks}}개  ·  엔티티 {{.Entities}}개"
+gui_worlds_saved_title:
+  other: "저장한 월드"
+gui_worlds_saved_in:
+  other: "위치: {{.Dir}}"
+gui_worlds_nothing_saved:
+  other: "아무것도 저장되지 않았습니다: 불러온 청크가 없습니다."
+gui_worlds_waiting:
+  other: "청크를 기다리는 중"
+gui_worlds_waiting_hint:
+  other: "Minecraft에서 돌아다니면 지도가 채워집니다."
+
+# GUI: skins, packs, update page
+gui_skins_title:
+  other: "스킨 수집"
+gui_packs_title:
+  other: "팩 다운로드"
+gui_packs_downloading_title:
+  other: "팩 다운로드 중"
+gui_packs_downloaded_title:
+  other: "다운로드한 팩"
+gui_pack_processing:
+  other: "처리 중"
+gui_pack_downloaded:
+  other: "다운로드됨"
+gui_pack_downloading:
+  other: "다운로드 중"
+gui_pack_show:
+  other: "보기"
+gui_update_downloading_percent:
+  other: "다운로드 중 ({{.Percent}}%)"
+
+# GUI: popups
+gui_connect_starting:
+  other: "시작 중"
+gui_connect_starting_detail:
+  other: "로그인하고 서버를 찾는 중..."
+gui_connect_title:
+  other: "Minecraft에서 접속하세요"
+gui_connect_connecting:
+  other: "서버에 연결 중"
+gui_connect_connecting_detail:
+  other: "Minecraft에서 기다려 주세요: 서버의 리소스 팩을 먼저 받는데, 처음에는 1분 정도 걸릴 수 있습니다."
+gui_connect_resources:
+  other: "리소스 팩 다운로드 중"
+gui_connect_resources_detail:
+  other: "Minecraft에서 기다려 주세요. 처음에는 1분 정도 걸릴 수 있습니다."
+gui_connect_connected:
+  other: "연결됨"
+gui_connect_connected_detail:
+  other: "평소처럼 플레이하세요. 나가면 월드가 저장됩니다."
+gui_connect_instructions:
+  other: "Minecraft에서 서버 > 서버 추가로 가서 다음을 입력하세요:"
+gui_connect_this_computer:
+  other: "이 컴퓨터에서"
+gui_connect_other_device:
+  other: "다른 기기에서"
+gui_connect_address_port:
+  other: "{{.Ip}}   포트 {{.Port}}"
+gui_connect_hide:
+  other: "숨기기"
+gui_connect_open_minecraft:
+  other: "Minecraft 열기"
+gui_error_title:
+  other: "오류"
+gui_error_fatal_title:
+  other: "치명적인 오류"
+gui_error_more_info:
+  other: "자세한 정보를 콘솔에 출력했습니다. 버그 신고에 함께 넣어 주시면 도움이 됩니다."
+gui_experiences_title:
+  other: "체험"
+gui_experiences_none:
+  other: "체험을 찾지 못했습니다"
+gui_featured_title:
+  other: "추천 서버"
+gui_featured_none:
+  other: "추천 서버를 찾지 못했습니다"
+gui_world_list_title:
+  other: "월드"
+gui_world_list_none:
+  other: "월드를 찾지 못했습니다"
+gui_realms_title:
+  other: "Realm"
+gui_realms_none:
+  other: "참여 중인 Realm이 없습니다"
+gui_realm_expired:
+  other: "만료됨: 소유자의 구독이 끝나서 참여할 수 없습니다"
+gui_realm_closed:
+  other: "소유자가 닫음"
+gui_realm_open:
+  other: "열림"
+gui_select_account_title:
+  other: "계정 인스턴스 선택"
+gui_select_account_placeholder:
+  other: "인스턴스 이름"
+gui_stories_title:
+  other: "Realm 스토리"
+gui_stories_text:
+  other: "{{.Realm}}은(는) 이 계정이 Realm 스토리 질문에 답할 때까지 참여를 허락하지 않습니다. Minecraft에서 Realm에 처음 참여할 때 묻는 질문입니다."
+gui_stories_detail:
+  other: "참여하면 이 Realm의 스토리 타임라인에 내 활동이 공유되고, 참여하지 않으면 공유되지 않습니다. 어느 쪽을 골라도 참여할 수 있고, 나중에 Minecraft에서 바꿀 수 있습니다."
+gui_stories_opt_in:
+  other: "참여"
+gui_stories_opt_out:
+  other: "참여 안 함"
+gui_update_title:
+  other: "업데이트"
+gui_update_installed:
+  other: "설치됨: {{.Version}}"
+gui_update_latest:
+  other: "최신:   {{.Version}}"
+gui_update_up_to_date:
+  other: "이미 최신 버전입니다."
+gui_update_start:
+  other: "업데이트 후 다시 시작"
+gui_update_downloading:
+  other: "업데이트 다운로드 중..."
+gui_update_failed:
+  other: "업데이트에 실패했습니다"
+gui_update_failed_err:
+  other: "업데이트에 실패했습니다: {{.Err}}"
+gui_update_restarting:
+  other: "다시 시작하는 중..."
+
+# Settings: option names (opt) and descriptions (desc)
+opt_worlds_image:
+  other: "지도 이미지"
+opt_worlds_save_entities:
+  other: "엔티티"
+desc_worlds_save_entities:
+  other: "몹, 갑옷 거치대, 아이템 액자 등의 엔티티"
+opt_worlds_save_players:
+  other: "플레이어"
+desc_worlds_save_players:
+  other: "다른 플레이어를 스킨을 입은 조각상으로 저장"
+opt_worlds_map_art:
+  other: "지도 아트"
+desc_worlds_map_art:
+  other: "아이템 액자에 걸린 지도도 PNG로 저장"
+opt_worlds_save_inventories:
+  other: "인벤토리"
+desc_worlds_save_inventories:
+  other: "연 상자의 내용물과 내 인벤토리"
+opt_worlds_block_updates:
+  other: "블록 변경"
+desc_worlds_block_updates:
+  other: "청크를 불러온 뒤 서버가 바꾼 블록을 유지"
+opt_worlds_entity_culling:
+  other: "엔티티 걸러내기"
+desc_worlds_entity_culling:
+  other: "죽거나 사라진 엔티티는 저장하지 않음 (실험적)"
+opt_worlds_exclude_mobs:
+  other: "몹 제외"
+desc_worlds_exclude_mobs:
+  other: "저장하지 않을 엔티티 ID, 쉼표로 구분; * 사용 가능, 예: minecraft:bat,hive:*"
+opt_worlds_chunk_radius:
+  other: "청크 반경"
+desc_worlds_chunk_radius:
+  other: "서버에 요청할 시야 거리, 청크 단위 (비우면 76)"
+opt_worlds_script:
+  other: "스크립트"
+desc_worlds_script:
+  other: "무엇을 저장할지 정하는 JavaScript 파일"
+opt_worlds_record_ui:
+  other: "메뉴 기록"
+desc_worlds_record_ui:
+  other: "연 메뉴와 점수판을 월드 안의 스크립트로 다시 만들기"
+opt_proxy_address:
+  other: "주소"
+opt_proxy_debug:
+  other: "디버그"
+opt_proxy_extra_debug:
+  other: "추가 디버그"
+desc_proxy_extra_debug:
+  other: "모든 패킷도 packet.log에 기록 (용량 큼)"
+opt_proxy_capture:
+  other: "세션 기록"
+desc_proxy_capture:
+  other: "나중에 재생할 수 있는 .pcap2 기록 저장"
+opt_proxy_client_cache:
+  other: "클라이언트 캐시"
+desc_proxy_client_cache:
+  other: "Minecraft가 청크를 캐시해서 더 빨리 불러오게 함"
+opt_proxy_listen:
+  other: "수신 주소"
+desc_proxy_listen:
+  other: "Minecraft가 프록시에 접속하는 곳, 예: 다른 포트는 :19133"
+opt_skins_filter:
+  other: "이름 필터"
+desc_skins_filter:
+  other: "이름이 이 정규식과 맞는 플레이어만 저장"
+opt_skins_no_proxy:
+  other: "Minecraft 없이"
+desc_skins_no_proxy:
+  other: "직접 접속해서 온라인인 사람들의 스킨을 저장"
+opt_skins_texture_only:
+  other: "텍스처만"
+desc_skins_texture_only:
+  other: "스킨 이미지만 저장하고, 모델이 있는 스킨 팩은 만들지 않음"
+opt_skins_timestamped:
+  other: "날짜별 폴더"
+desc_skins_timestamped:
+  other: "세션마다 날짜가 붙은 폴더에 저장"
+opt_packs_save_encrypted:
+  other: "암호화된 사본 보관"
+desc_packs_save_encrypted:
+  other: "암호화된 팩도 받은 그대로 저장"
+opt_packs_folders:
+  other: "폴더로 저장"
+desc_packs_folders:
+  other: "팩을 .mcpack 파일 대신 폴더로 저장"
+opt_chat_log_verbose:
+  other: "자세히"
+opt_merge_bounds:
+  other: "경계 표시"
+opt_merge_out:
+  other: "출력 경로"
+opt_merge_args:
+  other: "입력 월드"
+opt_render_world:
+  other: "월드"
+opt_render_out:
+  other: "출력"
+opt_dump_actors_world:
+  other: "월드 폴더"
+opt_dump_actors_write:
+  other: "다시 쓰기"
+opt_dump_actors_json:
+  other: "json 파일"
+opt_trans_auth:
+  other: "인증"
+
+# Subcommands
+render_synopsis:
+  other: "저장된 월드(폴더 또는 .mcworld)를 위에서 본 PNG로 그리고, 지도 아트를 내보내기"
+dump_actors_synopsis:
+  other: "월드의 엔티티를 JSON으로 내보내고 다시 쓰기"
+render_wrote:
+  other: "{{.Path}}을(를) 썼습니다"
+merge_out_required:
+  other: "-out을 지정해야 합니다"
+dump_actors_extracted:
+  one: "엔티티 {{.Count}}개를 json으로 내보냈습니다"
+  other: "엔티티 {{.Count}}개를 json으로 내보냈습니다"
+dump_actors_removed_digp:
+  one: "digp 항목 {{.Count}}개를 지웠습니다"
+  other: "digp 항목 {{.Count}}개를 지웠습니다"
+dump_actors_removed:
+  one: "엔티티 {{.Count}}개를 지웠습니다"
+  other: "엔티티 {{.Count}}개를 지웠습니다"
+dump_actors_writing:
+  one: "청크 {{.Count}}개에 엔티티를 쓰는 중"
+  other: "청크 {{.Count}}개에 엔티티를 쓰는 중"
+dump_actors_wrote:
+  one: "엔티티 {{.Count}}개를 썼습니다"
+  other: "엔티티 {{.Count}}개를 썼습니다"
+pack_icon_parse_failed:
+  other: "{{.Name}}의 pack_icon.png를 읽지 못했습니다"
+dump_keys_failed:
+  other: "키를 내보내는 중 오류: {{.Err}}"
+
+# CLI
+ui_init_failed:
+  other: "화면을 시작하지 못했습니다: {{.Err}}"
+already_logged_in:
+  other: "이미 로그인되어 있습니다"
+unknown_subcommand:
+  other: "{{.Name}}은(는) 알 수 없는 하위 명령어입니다"
+cli_usage_for:
+  other: "{{.Name}} 사용법:"
+cli_stories_text:
+  other: "{{.Realm}}은(는) 이 계정이 Realm 스토리 질문에 답할 때까지 참여를 허락하지 않습니다\n(Minecraft에서 Realm에 처음 참여할 때 묻는 질문). 참여하면 내 활동이 스토리\n타임라인에 공유되고, 어느 쪽을 골라도 참여할 수 있습니다."
+cli_stories_prompt:
+  other: "참여, 참여 안 함, 취소 중 무엇을 할까요? [in/out/cancel]: "
+
+# Accounts and connection
+account_switched:
+  other: "계정을 전환했습니다"
+auth_refreshing_ms_token:
+  other: "Microsoft 토큰 갱신 중"
+auth_invalid_mctoken:
+  other: "Minecraft 토큰이 올바르지 않아 갱신 중"
+auth_old_mctoken:
+  other: "Minecraft 토큰이 예전 버전 것이라 갱신 중"
+transferring:
+  other: "{{.Address}}(으)로 이동 중"
+forced_pack_added:
+  other: "{{.Name}}을(를) 강제 팩에 추가했습니다"
+forced_pack_unknown_file:
+  other: "forcedpacks에 알 수 없는 파일 {{.Path}}이(가) 있습니다"
+replay_reading:
+  other: "리플레이 {{.File}} 읽는 중"
+replay_end:
+  other: "리플레이 끝에 도달했습니다"
+disconnecting:
+  other: "연결 끊는 중"
+client_connected:
+  other: "클라이언트가 연결되었습니다"
+already_connected:
+  other: "이미 연결되어 있습니다!"
+realm_not_found:
+  other: "Realm {{.Name}}을(를) 찾을 수 없습니다"
+stories_unanswered:
+  other: "{{.Realm}}: Realm 스토리 질문에 답한 적이 없어서 아직 참여할 수 없습니다"
+stories_save_failed:
+  other: "스토리 답변 저장 중: {{.Err}}"
+stories_saved:
+  other: "스토리 답변을 저장했습니다 ({{.Answer}}). 다시 참여합니다"
+realm_expired_error:
+  other: "{{.Realm}}은(는) 만료되어서 (소유자의 구독이 끝남) 참여할 수 없습니다"
+realm_refused_join:
+  other: "{{.Realm}}이(가) 참여를 거부했습니다. Minecraft에서 한 번도 참여한 적이 없다면, 거기서 한 번 참여해서 질문에 답한 뒤 다시 시도하세요"
+
+# Resource packs
+downloading_pack:
+  other: "리소스 팩 다운로드 중: {{.Url}}"
+pack_duplicate_entry:
+  other: "팩 정보에 텍스처 팩 {{.Id}} 항목이 중복되어 있습니다"
+pack_download_failed:
+  other: "{{.Url}}을(를) 다운로드하지 못했습니다: {{.Err}}"
+pack_size_mismatch:
+  other: "팩 {{.Id}}의 크기가 ResourcePacksInfo 패킷과 ResourcePackDataInfo에서 다릅니다"
+packs_sent_to_client:
+  other: "클라이언트로 리소스 팩을 다 보냈습니다"
+bp_invalid_block_component:
+  other: "잘못된 블록 구성 요소 {{.Block}} {{.Component}}"
+
+# Skins
+skins_creating_pack:
+  other: "{{.Name}}의 스킨 팩 만드는 중"
+skins_added:
+  other: "스킨을 추가했습니다: {{.Name}}"
+skins_write_texture_failed:
+  other: "스킨 텍스처를 쓰지 못했습니다"
+skins_write_cape_failed:
+  other: "망토 텍스처를 쓰지 못했습니다"
+skins_no_skin:
+  other: "{{.Name}}에게는 스킨이 없습니다"
+skin_missing_for_player:
+  other: "플레이어 {{.Id}}의 스킨이 없습니다"
+skin_default_model:
+  other: "플레이어 {{.Id}}: {{.Err}}, 기본 모델로 그립니다"
+skin_empty_texture:
+  other: "스킨 {{.Name}}-{{.Index}}의 텍스처가 비어 있습니다"
+skin_geometry_decode_failed:
+  other: "지오메트리 {{.Name}}을(를) 읽지 못했습니다: {{.Err}}"
+skin_geometry_write_failed:
+  other: "지오메트리 {{.Name}}을(를) 쓰지 못했습니다: {{.Err}}"
+
+# Worlds
+worlds_hive_detected:
+  other: "The Hive: 양은 hive:text로 저장하고, NPC 플레이어는 남겨 둡니다"
+worlds_hive_detected_packs:
+  other: "The Hive (리소스 팩으로 판단): 양은 hive:text로 저장하고, NPC 플레이어는 남겨 둡니다"
+worlds_recording_ui:
+  other: "메뉴와 점수판을 비헤이비어 팩 스크립트에 기록하는 중"
+worlds_excluding:
+  other: "제외: {{.List}}"
+exclude_mob_desc:
+  other: "무시할 몹 목록에 몹 추가"
+save_world_desc:
+  other: "지금 바로 월드 상태를 저장하고 초기화"
+worlds_map_art_failed:
+  other: "지도 아트: {{.Err}}"
+worlds_map_art_saved:
+  other: "지도 아트: 지도 {{.Maps}}개, 벽 {{.Walls}}개를 {{.Dir}}에 저장했습니다"
+worlds_invalid_block_data:
+  other: "서버가 잘못된 블록 데이터를 보냈습니다"
+worlds_block_hash_collisions:
+  one: "사용자 지정 블록 상태 {{.Count}}개가 다른 블록과 네트워크 해시가 같아서 그 블록으로 보입니다: {{.List}}"
+  other: "사용자 지정 블록 상태 {{.Count}}개가 다른 블록과 네트워크 해시가 같아서 그 블록으로 보입니다: {{.List}}"
+worlds_biome_id_clash:
+  other: "생물 군계 {{.Biome}}의 ID({{.Id}})가 {{.Other}}와(과) 같아서 {{.Other}}을(를) 남깁니다"
+worlds_ignoring_entity:
+  other: "엔티티 무시: {{.Type}} {{.Id}}"
+worlds_bp_skipping:
+  other: "비헤이비어 팩에서 {{.What}} 건너뜀: {{.Err}}"
+worlds_pack_encrypted:
+  other: "이 팩은 암호화되어 있어서 추가할 수 없습니다"
+worlds_hive_name_tags:
+  other: "Hive: 이름표 {{.Tags}}개 ({{.Entity}}), 그중 양 {{.Sheep}}마리"
+worlds_saving_players:
+  one: "플레이어 {{.Count}}명 저장 중"
+  other: "플레이어 {{.Count}}명 저장 중"
+worlds_block_hash_missing:
+  other: "블록 변경에 대한 블록 해시를 찾지 못했습니다"
+worlds_chunk_update_missing:
+  other: "불러오지 않은 청크의 변경입니다, pos = {{.Pos}}"
+worlds_chunk_load_failed:
+  other: "청크 {{.Pos}}을(를) 불러오지 못했습니다: {{.Err}}"
+worlds_chunk_store_failed:
+  other: "청크 {{.Pos}}을(를) 저장하지 못했습니다: {{.Err}}"
+script_unknown_event:
+  other: "events.register: 알 수 없는 이벤트 {{.Name}}"
+
+# Crashes
+panic_fatal_error:
+  other: "치명적인 오류: {{.Err}}"
+crash_report_written:
+  other: "충돌 보고서를 {{.Path}}에 저장했습니다"
+
+# Replays, render, recording, sign-in
+opt_worlds_replay_join:
+  other: "리플레이 보기"
+desc_worlds_replay_join:
+  other: ".pcap2를 재생할 때 Minecraft가 접속하기를 기다려서 지켜보기"
+desc_render_world:
+  other: "그릴 월드: 월드 폴더 또는 .mcworld 파일"
+desc_render_out:
+  other: "위에서 본 지도를 쓸 위치"
+opt_render_no_image:
+  other: "지도 이미지 없음"
+desc_render_no_image:
+  other: "위에서 본 지도는 건너뜀 (-map-art만 쓸 때)"
+opt_render_map_art:
+  other: "지도 아트"
+desc_render_map_art:
+  other: "아이템 액자와 상자에 있는 지도도 PNG로 내보내기"
+opt_render_map_art_out:
+  other: "지도 아트 폴더"
+desc_render_map_art_out:
+  other: "지도 아트를 둘 위치 (비우면 -out 옆에 <이름>_mapart로)"
+render_world_prompt:
+  other: "월드 폴더 또는 .mcworld: "
+render_map_art_none:
+  other: "지도 아트: 이 월드의 액자나 상자에 지도가 없습니다"
+render_map_art_no_pixels:
+  other: "지도 아트: 지도 {{.Count}}개를 찾았지만, 픽셀이 저장된 지도가 없습니다"
+render_map_art_written:
+  other: "지도 아트: 지도 {{.Maps}}개, 벽 {{.Walls}}개를 {{.Dir}}에 썼습니다"
+capture_confirm_title:
+  other: "세션 기록을 끌까요?"
+capture_confirm_body:
+  other: ".pcap2 기록에는 세션 동안 서버가 보낸 모든 패킷이 들어 있습니다."
+capture_confirm_detail:
+  other: "이게 있으면 서버에 다시 가지 않고도 언제든 월드를 다시 저장할 수 있습니다. 다른 설정으로도, 버그를 고치거나 기능을 추가한 미래의 bedrocktool로도 가능합니다. 이게 없으면 빠진 부분은 영영 되찾을 수 없습니다."
+capture_confirm_keep:
+  other: "계속 기록"
+capture_confirm_off:
+  other: "그래도 끄기 (다시 보지 않기!)"
+capture_off_warning:
+  other: "세션 기록이 꺼져 있습니다 (-capture=false): 나중에 다른 설정이나 새 bedrocktool로 이 월드를 다시 저장할 .pcap2가 남지 않습니다"
+anti_cheat_notice:
+  other: "로그인 전 안내: 안티치트가 엄격한 서버(Cubecraft와 The Hive가 알려진 사례)에서는 bedrocktool을 쓰면 드물게 계정이 표시되거나 차단될 수 있습니다. bedrocktool은 gophertunnel로 접속하는데, gophertunnel은 실제 게임과 똑같이 움직이거나 입력을 보내지 않아서 일부 안티치트가 구별할 수 있습니다. 그런 서버에서는 부계정을 쓰세요. Realm, 내 월드, 대부분의 서버는 괜찮습니다."
+gui_auth_title:
+  other: "Microsoft로 로그인"
+gui_auth_steps:
+  other: "이 페이지를 열고 아래 코드를 입력하세요:"
+gui_auth_copy_hint:
+  other: "클릭해서 복사"
+gui_auth_open:
+  other: "페이지 열기"
+gui_auth_notice_title:
+  other: "안티치트가 있는 서버"
+
+# World generator (#303) and saved settings / recent servers (#220)
+opt_worlds_generator:
+  other: "저장되지 않은 청크"
+desc_worlds_generator:
+  other: "불러오지 않은 청크를 Minecraft가 무엇으로 채울지: 공허(비어 있음), 평지(완전 평지), 일반(서버 시드의 지형)"
+desc_worlds_void_old:
+  other: "예전 스위치: -void=false는 -generator flat과 같음"
+choice_void:
+  other: "공허"
+choice_flat:
+  other: "평지"
+choice_normal:
+  other: "일반"
+generator_current:
+  other: "저장되지 않은 청크 생성 방식: {{.Generator}}. /generator void, flat, normal로 바꿀 수 있습니다"
+generator_desc:
+  other: "저장되지 않은 청크를 무엇으로 채울지 설정: void, flat, normal"
+generator_flat:
+  other: "저장되지 않은 청크는 평평한 땅이 됩니다"
+generator_normal:
+  other: "저장되지 않은 청크는 서버 시드로 만든 일반 지형이 됩니다 (가짜 시드를 보내는 서버가 많아서 잘 안 맞을 때가 많습니다)"
+settings_read_failed:
+  other: "저장한 설정을 읽지 못해서 기본값을 씁니다: {{.Err}}"
+settings_save_failed:
+  other: "설정을 저장하지 못했습니다: {{.Err}}"
+gui_address_recent:
+  other: "최근"
+gui_remove:
+  other: "삭제"
+recent_title:
+  other: "최근 서버"
+recent_empty:
+  other: "시작한 서버가 여기에 표시됩니다"
+recent_kind_realm:
+  other: "Realm"
+recent_kind_experience:
+  other: "체험"
+recent_kind_friend:
+  other: "친구의 월드"
+recent_kind_server:
+  other: "서버"

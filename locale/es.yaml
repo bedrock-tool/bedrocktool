@@ -1,0 +1,717 @@
+# General and CLI
+bedrocktool_version:
+  other: "Bedrocktool versión {{.Version}}"
+available_commands:
+  other: "Comandos disponibles:"
+use_to_run_command:
+  other: "Usa 'bedrocktool <comando>' para ejecutar un comando"
+input_command:
+  other: "Escribe un comando: "
+fatal_error:
+  other: "Se produjo un error fatal."
+report_issue:
+  other: |
+    Si quieres informar de este error, abre una incidencia en
+    https://github.com/bedrock-tool/bedrocktool/issues
+    y adjunta la información del error, describe qué hiciste para provocarlo y, si puedes, adjunta el archivo bedrocktool.log.
+    ¡Gracias!
+used_extra_debug_report:
+  other: |
+    NOTA: has usado extra-debug, que crea los archivos packets.log y packets.log.gpg.
+    Si quieres enviar una incidencia, sube solo el archivo packets.log.gpg.
+    packets.log y packets.log.gpg pueden incluir datos de la cuenta (nunca datos de inicio de sesión), así que es más seguro subir el archivo cifrado.
+    Ese archivo solo lo puede leer el desarrollador, no quien mire la página pública de incidencias.
+enter_to_exit:
+  other: "Pulsa Intro para salir."
+should_login_xbox:
+  other: "Iniciar sesión en Xbox Live"
+debug_mode:
+  other: "Más registros, para informes de errores"
+done:
+  other: "Hecho"
+
+# Connecting
+enter_server:
+  other: "Escribe el servidor: "
+listening_on:
+  other: "Escuchando en {{.Address}}"
+connecting:
+  other: "Conectando a {{.Address}}"
+connected:
+  other: "Conectado al servidor."
+help_connect:
+  other: "Abre Minecraft y conéctate a la IP local de este ordenador para continuar"
+remote_address:
+  other: "Dirección del servidor"
+realm_list_line:
+  other: "Nombre: {{.Name}}\tid: {{.Id}}"
+
+# Updates
+update_available:
+  other: "Actualización disponible: {{.Version}}  usa el comando update para instalarla."
+no_update:
+  other: "No hay actualizaciones."
+updating:
+  other: "Actualizando a {{.Version}}"
+updated:
+  other: "¡Actualizado!"
+
+# Worlds (log and in-game)
+worldname_set:
+  other: "El nombre del mundo ahora es {{.Name}}"
+void_generator_true:
+  other: "Usando el generador vacío"
+zoom_level:
+  other: "Zoom: {{.Level}}"
+saving_world:
+  one: "Guardando el mundo {{.Name}} con {{.Count}} chunk"
+  many: "Guardando el mundo {{.Name}} con {{.Count}} chunks"
+  other: "Guardando el mundo {{.Name}} con {{.Count}} chunks"
+unknown_gamerule:
+  other: "Regla de juego desconocida: {{.Name}}"
+adding_pack:
+  other: "Añadiendo el paquete de recursos {{.Name}}"
+using_customblocks:
+  other: "Usando bloques personalizados"
+use_setname:
+  other: "Usa /setname <nombre>\npara poner nombre al mundo"
+setname_desc:
+  other: "poner un nombre a este mundo"
+void_desc:
+  other: "activar o desactivar el generador vacío"
+popup_chunk_count:
+  other: "{{.Chunks}} chunks\n{{.Entities}} entidades\nNombre: {{.Name}}"
+warn_window_closed_not_open:
+  other: "Se cerró una ventana que no estaba abierta"
+saved_block_inv:
+  other: "Inventario del bloque guardado"
+save_image:
+  other: "Guardar también un PNG del mapa junto al mundo"
+saved:
+  other: "Guardado: {{.Name}}"
+empty_chunk:
+  other: "Chunk vacío."
+failed_write:
+  other: "No se pudo escribir {{.Part}} {{.Path}}: {{.Err}}"
+
+# Resource pack keys
+no_resourcepacks:
+  other: "No se envió ningún paquete de recursos"
+writing_keys:
+  other: "Escribiendo las claves en {{.Path}}"
+warn_key_exists:
+  other: "La clave {{.Id}} ya existe"
+compare_key:
+  other: "uuid: {{.Id}}, clave en la base de datos: {{.Prev}} != clave nueva {{.Now}}"
+
+# Subcommand descriptions (also the mode cards in the GUI)
+list_realms_synopsis:
+  other: "Mostrar todos los Realms a los que tienes acceso"
+capture_synopsis:
+  other: "Capturar paquetes en un archivo pcap"
+chat_log_synopsis:
+  other: "Guardar el chat en un archivo"
+debug_proxy_synopsis:
+  other: "Paquetes de depuración detallados"
+merge_synopsis:
+  other: "Unir 2 o más mundos"
+update_synopsis:
+  other: "Actualizar a la última versión"
+skins_synopsis:
+  other: "Guardar las skins de los jugadores que ves en un servidor"
+world_synopsis:
+  other: "Guardar el mundo en el que juegas, con sus entidades y complementos, como .mcworld"
+pack_synopsis:
+  other: "Descargar los paquetes de recursos de un servidor, descifrados"
+
+# GUI: general
+gui_window_title:
+  other: "Bedrocktool {{.Version}} (Minecraft {{.McVersion}})"
+gui_closing:
+  other: "Cerrando"
+gui_close:
+  other: "Cerrar"
+gui_cancel:
+  other: "Cancelar"
+gui_back:
+  other: "Atrás"
+gui_return:
+  other: "Volver"
+gui_done:
+  other: "Hecho"
+gui_copied:
+  other: "¡Copiado!"
+gui_copy_logs:
+  other: "Copiar registros"
+gui_appbar_menu:
+  other: "Menú"
+gui_appbar_actions:
+  other: "Acciones"
+gui_nav_title:
+  other: "Navegación"
+gui_login:
+  other: "Iniciar sesión"
+gui_logout:
+  other: "Cerrar sesión"
+gui_account_named:
+  other: "{{.Action}} ({{.Name}})"
+gui_switch_account:
+  other: "Cambiar"
+gui_logs:
+  other: "Registros"
+
+# GUI: settings
+gui_settings_title:
+  other: "Ajustes"
+gui_settings_pick_mode:
+  other: "¿Qué quieres guardar?"
+gui_start:
+  other: "Iniciar"
+gui_mode_worlds:
+  other: "Mundos"
+gui_mode_skins:
+  other: "Skins"
+gui_mode_packs:
+  other: "Paquetes"
+gui_section_server:
+  other: "Servidor"
+gui_section_options:
+  other: "Opciones"
+gui_section_connection:
+  other: "Conexión y depuración"
+gui_address_placeholder:
+  other: "Escribe la dirección del servidor"
+gui_address_realms:
+  other: "Realms"
+gui_address_experiences:
+  other: "Experiencias"
+gui_address_featured:
+  other: "Destacados"
+gui_address_worlds:
+  other: "Mundos"
+gui_browse:
+  other: "Examinar"
+
+# GUI: world downloader
+gui_worlds_title:
+  other: "Descarga de mundos"
+gui_worlds_saving:
+  other: "Guardando {{.Name}}"
+gui_save_step_preparing:
+  other: "Preparando"
+gui_save_step_chunks:
+  other: "Guardando chunks"
+gui_save_step_entities:
+  other: "Guardando entidades"
+gui_save_step_resource_packs:
+  other: "Añadiendo paquetes de recursos"
+gui_save_step_resource_pack:
+  other: "Añadiendo el paquete de recursos {{.Name}}"
+gui_save_step_behavior_pack:
+  other: "Añadiendo el paquete de comportamiento"
+gui_save_step_mcworld:
+  other: "Escribiendo el archivo .mcworld"
+gui_worlds_counts:
+  other: "{{.Chunks}} chunks  ·  {{.Entities}} entidades"
+gui_worlds_saved_title:
+  other: "Mundos guardados"
+gui_worlds_saved_in:
+  other: "En {{.Dir}}"
+gui_worlds_nothing_saved:
+  other: "No se guardó nada: no se cargó ningún chunk."
+gui_worlds_waiting:
+  other: "Esperando chunks"
+gui_worlds_waiting_hint:
+  other: "El mapa se completa a medida que te mueves en Minecraft."
+
+# GUI: skins, packs, update page
+gui_skins_title:
+  other: "Captura de skins"
+gui_packs_title:
+  other: "Descarga de paquetes"
+gui_packs_downloading_title:
+  other: "Descargando paquetes"
+gui_packs_downloaded_title:
+  other: "Paquetes descargados"
+gui_pack_processing:
+  other: "Procesando"
+gui_pack_downloaded:
+  other: "Descargado"
+gui_pack_downloading:
+  other: "Descargando"
+gui_pack_show:
+  other: "Mostrar"
+gui_update_downloading_percent:
+  other: "descargando ({{.Percent}}%)"
+
+# GUI: popups
+gui_connect_starting:
+  other: "Iniciando"
+gui_connect_starting_detail:
+  other: "Iniciando sesión y buscando el servidor..."
+gui_connect_title:
+  other: "Únete desde Minecraft"
+gui_connect_connecting:
+  other: "Conectando al servidor"
+gui_connect_connecting_detail:
+  other: "Espera en Minecraft: primero se descargan los paquetes de recursos del servidor, lo que puede tardar un minuto la primera vez."
+gui_connect_resources:
+  other: "Descargando paquetes de recursos"
+gui_connect_resources_detail:
+  other: "Espera en Minecraft, puede tardar un minuto la primera vez."
+gui_connect_connected:
+  other: "Conectado"
+gui_connect_connected_detail:
+  other: "Juega con normalidad. El mundo se guarda cuando sales."
+gui_connect_instructions:
+  other: "En Minecraft, ve a Servidores, Añadir servidor, y usa:"
+gui_connect_this_computer:
+  other: "En este ordenador"
+gui_connect_other_device:
+  other: "En otro dispositivo"
+gui_connect_address_port:
+  other: "{{.Ip}}   puerto {{.Port}}"
+gui_connect_hide:
+  other: "Ocultar"
+gui_connect_open_minecraft:
+  other: "Abrir Minecraft"
+gui_error_title:
+  other: "Error"
+gui_error_fatal_title:
+  other: "Error fatal"
+gui_error_more_info:
+  other: "Se mostró más información en la consola; incluirla en un informe de error ayuda."
+gui_experiences_title:
+  other: "Experiencias"
+gui_experiences_none:
+  other: "No se encontró ninguna experiencia"
+gui_featured_title:
+  other: "Servidores destacados"
+gui_featured_none:
+  other: "No se encontró ningún servidor destacado"
+gui_world_list_title:
+  other: "Mundos"
+gui_world_list_none:
+  other: "No se encontró ningún mundo"
+gui_realms_title:
+  other: "Realms"
+gui_realms_none:
+  other: "No estás en ningún Realm"
+gui_realm_expired:
+  other: "Caducado: la suscripción del dueño terminó, no se puede entrar"
+gui_realm_closed:
+  other: "Cerrado por su dueño"
+gui_realm_open:
+  other: "Abierto"
+gui_select_account_title:
+  other: "Elegir instancia de cuenta"
+gui_select_account_placeholder:
+  other: "nombre de la instancia"
+gui_stories_title:
+  other: "Historias del Realm"
+gui_stories_text:
+  other: "{{.Realm}} no dejará entrar a esta cuenta hasta que responda a la pregunta de Historias del Realm, la que Minecraft hace la primera vez que entras en un Realm."
+gui_stories_detail:
+  other: "Si participas, tu actividad se comparte en la línea de tiempo de Historias de este Realm; si no, no. Cualquier respuesta te deja entrar, y puedes cambiarla después en Minecraft."
+gui_stories_opt_in:
+  other: "Participar"
+gui_stories_opt_out:
+  other: "No participar"
+gui_update_title:
+  other: "Actualización"
+gui_update_installed:
+  other: "Instalada: {{.Version}}"
+gui_update_latest:
+  other: "Última:    {{.Version}}"
+gui_update_up_to_date:
+  other: "Ya tienes la última versión."
+gui_update_start:
+  other: "Actualizar y reiniciar"
+gui_update_downloading:
+  other: "Descargando la actualización..."
+gui_update_failed:
+  other: "La actualización falló"
+gui_update_failed_err:
+  other: "La actualización falló: {{.Err}}"
+gui_update_restarting:
+  other: "Reiniciando..."
+
+# Settings: option names (opt) and descriptions (desc)
+opt_worlds_image:
+  other: "Imagen del mapa"
+opt_worlds_save_entities:
+  other: "Entidades"
+desc_worlds_save_entities:
+  other: "Criaturas, soportes de armadura, marcos y otras entidades"
+opt_worlds_save_players:
+  other: "Jugadores"
+desc_worlds_save_players:
+  other: "Otros jugadores, como estatuas con sus skins"
+opt_worlds_map_art:
+  other: "Arte de mapas"
+desc_worlds_map_art:
+  other: "Guardar también como PNG los mapas colgados en marcos"
+opt_worlds_save_inventories:
+  other: "Inventarios"
+desc_worlds_save_inventories:
+  other: "Lo que hay en los cofres que abres, y tu propio inventario"
+opt_worlds_block_updates:
+  other: "Cambios de bloques"
+desc_worlds_block_updates:
+  other: "Conservar los bloques que el servidor cambia después de cargar un chunk"
+opt_worlds_entity_culling:
+  other: "Filtrar entidades"
+desc_worlds_entity_culling:
+  other: "Omitir las entidades que murieron o desaparecieron (experimental)"
+opt_worlds_exclude_mobs:
+  other: "Excluir criaturas"
+desc_worlds_exclude_mobs:
+  other: "IDs de entidades que omitir, separados por comas; * funciona, p. ej. minecraft:bat,hive:*"
+opt_worlds_chunk_radius:
+  other: "Radio de chunks"
+desc_worlds_chunk_radius:
+  other: "Distancia de visión que pedir al servidor, en chunks (76 si está vacío)"
+opt_worlds_script:
+  other: "Script"
+desc_worlds_script:
+  other: "Un archivo JavaScript que decide qué se guarda"
+opt_worlds_record_ui:
+  other: "Grabar menús"
+desc_worlds_record_ui:
+  other: "Reconstruir los menús que abres y los marcadores como un script en el mundo"
+opt_proxy_address:
+  other: "Dirección"
+opt_proxy_debug:
+  other: "Depuración"
+opt_proxy_extra_debug:
+  other: "Depuración extra"
+desc_proxy_extra_debug:
+  other: "Registrar también cada paquete en packet.log (ocupa mucho)"
+opt_proxy_capture:
+  other: "Grabar sesión"
+desc_proxy_capture:
+  other: "Guardar una grabación .pcap2 que puedes reproducir más tarde"
+opt_proxy_client_cache:
+  other: "Caché del cliente"
+desc_proxy_client_cache:
+  other: "Dejar que Minecraft guarde chunks en caché para que carguen más rápido"
+opt_proxy_listen:
+  other: "Dirección de escucha"
+desc_proxy_listen:
+  other: "Dónde se une Minecraft al proxy, p. ej. :19133 para otro puerto"
+opt_skins_filter:
+  other: "Filtro de nombre"
+desc_skins_filter:
+  other: "Guardar solo los jugadores cuyo nombre coincida con esta expresión regular"
+opt_skins_no_proxy:
+  other: "Sin Minecraft"
+desc_skins_no_proxy:
+  other: "Entrar por sí solo y guardar las skins de quien esté conectado"
+opt_skins_texture_only:
+  other: "Solo texturas"
+desc_skins_texture_only:
+  other: "Guardar solo las imágenes de las skins, no paquetes de skins con modelos"
+opt_skins_timestamped:
+  other: "Carpetas con fecha"
+desc_skins_timestamped:
+  other: "Poner cada sesión en su propia carpeta con fecha"
+opt_packs_save_encrypted:
+  other: "Guardar copia cifrada"
+desc_packs_save_encrypted:
+  other: "Guardar también los paquetes cifrados tal como se enviaron"
+opt_packs_folders:
+  other: "Como carpetas"
+desc_packs_folders:
+  other: "Guardar los paquetes como carpetas en vez de archivos .mcpack"
+opt_chat_log_verbose:
+  other: "Detallado"
+opt_merge_bounds:
+  other: "Mostrar límites"
+opt_merge_out:
+  other: "Ruta de salida"
+opt_merge_args:
+  other: "Mundos de entrada"
+opt_render_world:
+  other: "Mundo"
+opt_render_out:
+  other: "Salida"
+opt_dump_actors_world:
+  other: "Carpeta del mundo"
+opt_dump_actors_write:
+  other: "Volver a escribir"
+opt_dump_actors_json:
+  other: "archivo json"
+opt_trans_auth:
+  other: "Autenticación"
+
+# Subcommands
+render_synopsis:
+  other: "Dibujar un mundo guardado (carpeta o .mcworld) visto desde arriba como PNG, y exportar su arte de mapas"
+dump_actors_synopsis:
+  other: "Volcar las entidades de un mundo a JSON y volver a escribirlas"
+render_wrote:
+  other: "Escrito {{.Path}}"
+merge_out_required:
+  other: "hay que indicar -out"
+dump_actors_extracted:
+  one: "{{.Count}} entidad extraída a json"
+  many: "{{.Count}} entidades extraídas a json"
+  other: "{{.Count}} entidades extraídas a json"
+dump_actors_removed_digp:
+  one: "{{.Count}} entrada digp eliminada"
+  many: "{{.Count}} entradas digp eliminadas"
+  other: "{{.Count}} entradas digp eliminadas"
+dump_actors_removed:
+  one: "{{.Count}} entidad eliminada"
+  many: "{{.Count}} entidades eliminadas"
+  other: "{{.Count}} entidades eliminadas"
+dump_actors_writing:
+  one: "Escribiendo entidades en {{.Count}} chunk"
+  many: "Escribiendo entidades en {{.Count}} chunks"
+  other: "Escribiendo entidades en {{.Count}} chunks"
+dump_actors_wrote:
+  one: "{{.Count}} entidad escrita"
+  many: "{{.Count}} entidades escritas"
+  other: "{{.Count}} entidades escritas"
+pack_icon_parse_failed:
+  other: "No se pudo leer el pack_icon.png de {{.Name}}"
+dump_keys_failed:
+  other: "Error al volcar las claves: {{.Err}}"
+
+# CLI
+ui_init_failed:
+  other: "No se pudo iniciar la interfaz: {{.Err}}"
+already_logged_in:
+  other: "Ya has iniciado sesión"
+unknown_subcommand:
+  other: "{{.Name}} no es un subcomando conocido"
+cli_usage_for:
+  other: "Uso de {{.Name}}:"
+cli_stories_text:
+  other: "{{.Realm}} no dejará entrar a esta cuenta hasta que responda a la pregunta de Historias del Realm\n(la que Minecraft hace la primera vez que entras en un Realm). Si participas, tu\nactividad se comparte en su línea de tiempo; cualquier respuesta te deja entrar."
+cli_stories_prompt:
+  other: "¿Participar, no participar o cancelar? [in/out/cancel]: "
+
+# Accounts and connection
+account_switched:
+  other: "Cuenta cambiada"
+auth_refreshing_ms_token:
+  other: "Renovando el token de Microsoft"
+auth_invalid_mctoken:
+  other: "Token de Minecraft no válido, renovando"
+auth_old_mctoken:
+  other: "El token de Minecraft es de una versión antigua, renovando"
+transferring:
+  other: "Transfiriendo a {{.Address}}"
+forced_pack_added:
+  other: "{{.Name}} añadido a los paquetes forzados"
+forced_pack_unknown_file:
+  other: "Archivo no reconocido {{.Path}} en forcedpacks"
+replay_reading:
+  other: "Leyendo la repetición {{.File}}"
+replay_end:
+  other: "Se llegó al final de la repetición"
+disconnecting:
+  other: "Desconectando"
+client_connected:
+  other: "Cliente conectado"
+already_connected:
+  other: "¡Ya estás conectado!"
+realm_not_found:
+  other: "No se encontró el Realm {{.Name}}"
+stories_unanswered:
+  other: "{{.Realm}}: nunca se respondió a la pregunta de Historias del Realm, así que todavía no te deja entrar"
+stories_save_failed:
+  other: "Guardando la respuesta de Historias: {{.Err}}"
+stories_saved:
+  other: "Respuesta de Historias guardada ({{.Answer}}), entrando de nuevo"
+realm_expired_error:
+  other: "{{.Realm}} ha caducado (la suscripción de su dueño terminó), así que no se puede entrar"
+realm_refused_join:
+  other: "{{.Realm}} rechazó la entrada. Si nunca has entrado desde Minecraft, entra allí una vez y responde a sus preguntas, y vuelve a intentarlo"
+
+# Resource packs
+downloading_pack:
+  other: "Descargando paquete de recursos: {{.Url}}"
+pack_duplicate_entry:
+  other: "Entrada de paquete de texturas {{.Id}} duplicada en la información de paquetes"
+pack_download_failed:
+  other: "No se pudo descargar {{.Url}}: {{.Err}}"
+pack_size_mismatch:
+  other: "El paquete {{.Id}} tenía un tamaño distinto en el paquete ResourcePacksInfo que en ResourcePackDataInfo"
+packs_sent_to_client:
+  other: "Terminó el envío de paquetes de recursos al cliente"
+bp_invalid_block_component:
+  other: "Componente de bloque no válido {{.Block}} {{.Component}}"
+
+# Skins
+skins_creating_pack:
+  other: "Creando el paquete de skins de {{.Name}}"
+skins_added:
+  other: "Skin añadida: {{.Name}}"
+skins_write_texture_failed:
+  other: "No se pudo escribir la textura de la skin"
+skins_write_cape_failed:
+  other: "No se pudo escribir la textura de la capa"
+skins_no_skin:
+  other: "{{.Name}} no tiene skin"
+skin_missing_for_player:
+  other: "No hay skin para el jugador {{.Id}}"
+skin_default_model:
+  other: "Jugador {{.Id}}: {{.Err}}, se dibuja con el modelo por defecto"
+skin_empty_texture:
+  other: "La skin {{.Name}}-{{.Index}} tiene una textura vacía"
+skin_geometry_decode_failed:
+  other: "No se pudo leer la geometría {{.Name}}: {{.Err}}"
+skin_geometry_write_failed:
+  other: "No se pudo escribir la geometría {{.Name}}: {{.Err}}"
+
+# Worlds
+worlds_hive_detected:
+  other: "The Hive: las ovejas se guardan como hive:text, y se conservan sus jugadores NPC"
+worlds_hive_detected_packs:
+  other: "The Hive (por sus paquetes de recursos): las ovejas se guardan como hive:text, y se conservan sus jugadores NPC"
+worlds_recording_ui:
+  other: "Grabando menús y marcadores en el script del paquete de comportamiento"
+worlds_excluding:
+  other: "Excluyendo: {{.List}}"
+exclude_mob_desc:
+  other: "añadir una criatura a la lista de criaturas que ignorar"
+save_world_desc:
+  other: "guardar y reiniciar el estado del mundo ahora"
+worlds_map_art_failed:
+  other: "Arte de mapas: {{.Err}}"
+worlds_map_art_saved:
+  other: "Arte de mapas: {{.Maps}} mapas, {{.Walls}} paredes guardadas en {{.Dir}}"
+worlds_invalid_block_data:
+  other: "El servidor envió datos de bloque no válidos"
+worlds_block_hash_collisions:
+  one: "{{.Count}} estado de bloque personalizado comparte hash de red con otro, y aparece como ese: {{.List}}"
+  many: "{{.Count}} estados de bloque personalizados comparten hash de red con otro, y aparecen como ese: {{.List}}"
+  other: "{{.Count}} estados de bloque personalizados comparten hash de red con otro, y aparecen como ese: {{.List}}"
+worlds_biome_id_clash:
+  other: "El bioma {{.Biome}} tiene el mismo ID ({{.Id}}) que {{.Other}}, se conserva {{.Other}}"
+worlds_ignoring_entity:
+  other: "Ignorando entidad: {{.Type}} {{.Id}}"
+worlds_bp_skipping:
+  other: "Omitiendo {{.What}} en el paquete de comportamiento: {{.Err}}"
+worlds_pack_encrypted:
+  other: "No se puede añadir este paquete, está cifrado"
+worlds_hive_name_tags:
+  other: "Hive: {{.Tags}} etiquetas de nombre ({{.Entity}}), {{.Sheep}} de ellas ovejas"
+worlds_saving_players:
+  one: "Guardando {{.Count}} jugador"
+  many: "Guardando {{.Count}} jugadores"
+  other: "Guardando {{.Count}} jugadores"
+worlds_block_hash_missing:
+  other: "No se encontró el hash de bloque de un cambio de bloque"
+worlds_chunk_update_missing:
+  other: "Cambio en un chunk que no estaba cargado, pos = {{.Pos}}"
+worlds_chunk_load_failed:
+  other: "No se pudo cargar el chunk {{.Pos}}: {{.Err}}"
+worlds_chunk_store_failed:
+  other: "No se pudo guardar el chunk {{.Pos}}: {{.Err}}"
+script_unknown_event:
+  other: "events.register: evento desconocido {{.Name}}"
+
+# Crashes
+panic_fatal_error:
+  other: "Error fatal: {{.Err}}"
+crash_report_written:
+  other: "Informe de fallo guardado en {{.Path}}"
+
+# Replays, render, recording, sign-in
+opt_worlds_replay_join:
+  other: "Ver la repetición"
+desc_worlds_replay_join:
+  other: "Al reproducir un .pcap2, esperar a que entre Minecraft para verlo"
+desc_render_world:
+  other: "El mundo que dibujar: una carpeta de mundo o un archivo .mcworld"
+desc_render_out:
+  other: "Dónde escribir el mapa visto desde arriba"
+opt_render_no_image:
+  other: "Sin imagen del mapa"
+desc_render_no_image:
+  other: "Omitir el mapa visto desde arriba (solo para -map-art)"
+opt_render_map_art:
+  other: "Arte de mapas"
+desc_render_map_art:
+  other: "Exportar también como PNG los mapas de los marcos y cofres"
+opt_render_map_art_out:
+  other: "Carpeta del arte de mapas"
+desc_render_map_art_out:
+  other: "Dónde poner el arte de mapas (junto a -out, como <nombre>_mapart, si está vacío)"
+render_world_prompt:
+  other: "Carpeta del mundo o .mcworld: "
+render_map_art_none:
+  other: "Arte de mapas: el mundo no tiene mapas en marcos ni cofres"
+render_map_art_no_pixels:
+  other: "Arte de mapas: se encontraron {{.Count}} mapas, pero ninguno tiene píxeles guardados"
+render_map_art_written:
+  other: "Arte de mapas: {{.Maps}} mapas, {{.Walls}} paredes escritas en {{.Dir}}"
+capture_confirm_title:
+  other: "¿Desactivar la grabación de la sesión?"
+capture_confirm_body:
+  other: "La grabación .pcap2 contiene cada paquete que el servidor envió durante la sesión."
+capture_confirm_detail:
+  other: "Con ella, el mundo se puede volver a guardar en cualquier momento sin volver al servidor: con otros ajustes, o con una versión futura de bedrocktool que corrija errores o añada funciones. Sin ella, lo que falte se pierde para siempre."
+capture_confirm_keep:
+  other: "Seguir grabando"
+capture_confirm_off:
+  other: "Desactivar de todos modos (¡no volver a mostrar!)"
+capture_off_warning:
+  other: "La grabación de la sesión está desactivada (-capture=false): no habrá un .pcap2 para volver a guardar este mundo más tarde, con otros ajustes o un bedrocktool más nuevo"
+anti_cheat_notice:
+  other: "Una nota antes de iniciar sesión: en servidores con anti-cheat estricto (Cubecraft y The Hive son casos conocidos), usar bedrocktool puede, en casos raros, hacer que la cuenta sea marcada o baneada. Se conecta mediante gophertunnel, que no se mueve ni envía la entrada exactamente como el juego real, así que algunos anti-cheats pueden distinguirlo. Para esos servidores usa una cuenta secundaria; los Realms, tus propios mundos y la mayoría de servidores no dan problemas."
+gui_auth_title:
+  other: "Iniciar sesión con Microsoft"
+gui_auth_steps:
+  other: "Abre esta página e introduce el código de abajo:"
+gui_auth_copy_hint:
+  other: "Haz clic para copiar"
+gui_auth_open:
+  other: "Abrir página"
+gui_auth_notice_title:
+  other: "Servidores con anti-cheat"
+
+# World generator (#303) and saved settings / recent servers (#220)
+opt_worlds_generator:
+  other: "Chunks no guardados"
+desc_worlds_generator:
+  other: "Con qué rellena Minecraft los chunks que no cargaste: vacío, plano (terreno superplano) o normal (terreno de la semilla del servidor)"
+desc_worlds_void_old:
+  other: "Interruptor antiguo: -void=false es -generator flat"
+choice_void:
+  other: "Vacío"
+choice_flat:
+  other: "Plano"
+choice_normal:
+  other: "Normal"
+generator_current:
+  other: "Los chunks no guardados se generan como: {{.Generator}}. Usa /generator void, flat o normal"
+generator_desc:
+  other: "Elegir con qué se rellenan los chunks que no se guardaron: void, flat o normal"
+generator_flat:
+  other: "Los chunks no guardados serán terreno plano"
+generator_normal:
+  other: "Los chunks no guardados serán terreno normal de la semilla del servidor (a menudo no coincide: muchos servidores envían una semilla falsa)"
+settings_read_failed:
+  other: "No se pudieron leer los ajustes guardados, se usan los predeterminados: {{.Err}}"
+settings_save_failed:
+  other: "No se pudieron guardar los ajustes: {{.Err}}"
+gui_address_recent:
+  other: "Recientes"
+gui_remove:
+  other: "Quitar"
+recent_title:
+  other: "Servidores recientes"
+recent_empty:
+  other: "Aquí aparecen los servidores con los que empiezas"
+recent_kind_realm:
+  other: "Realm"
+recent_kind_experience:
+  other: "Experiencia"
+recent_kind_friend:
+  other: "Mundo de un amigo"
+recent_kind_server:
+  other: "Servidor"

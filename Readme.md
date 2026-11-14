@@ -16,6 +16,7 @@ rejoining the server.
 - [Scripting](#scripting)
 - [Drawing worlds and exporting map art](#drawing-worlds-and-exporting-map-art)
 - [Other commands](#other-commands)
+- [Languages](#languages)
 - [Where files are saved](#where-files-are-saved)
 - [Building from source](#building-from-source)
 - [Issues](#issues)
@@ -331,6 +332,22 @@ downloading.
 - `dump-actors -world <world folder>`: writes the world's entities to
   `actors.json`; `-write` writes the file back into the world.
 - `chat-log -address <server>`: writes the chat to a file.
+
+## Languages
+
+bedrocktool shows its GUI and messages in your system's language when it has
+it: English, German, Spanish, French, Portuguese (Brazil), Russian, Polish,
+Turkish, Chinese (Simplified), Japanese and Korean. Anything else falls back
+to English. To pick one yourself, set `BEDROCKTOOL_LANG`:
+
+```bash
+BEDROCKTOOL_LANG=ja bedrocktool worlds -address play.example.net
+```
+
+The translations are the YAML files in [locale/](locale/), one per language.
+To add a language, copy `en.yaml` to `<code>.yaml` (`it.yaml`, `pt-BR.yaml`)
+and translate it, keeping every `{{.Field}}`. The tests check that it has
+every key, plural form and field English has.
 
 ## Where files are saved
 

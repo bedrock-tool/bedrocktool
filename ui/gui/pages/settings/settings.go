@@ -7,7 +7,6 @@ import (
 	"runtime"
 	"slices"
 	"sort"
-	"strings"
 	"time"
 
 	"gioui.org/font"
@@ -393,7 +392,7 @@ func modeTitle(name string) string {
 	case "":
 		return name
 	}
-	return strings.ToUpper(name[:1]) + name[1:]
+	return upperFirst(name)
 }
 
 // modeCard is a mode to pick: its name and what it does, the whole card
