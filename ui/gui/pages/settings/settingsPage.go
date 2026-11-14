@@ -28,6 +28,8 @@ type settingsArg struct {
 	widget any
 	name   string
 	usage  string
+	// advanced is a proxy setting (connection, debugging), shown last
+	advanced bool
 }
 
 type settingsPage struct {
@@ -98,6 +100,11 @@ func (s *settingsPage) Init() {
 			s.widgets[arg.Flag] = &settingsArg{widget: e, name: argName(arg), usage: argDesc(arg)}
 		}
 		s.flagsNamesOrdered = append(s.flagsNamesOrdered, arg.Flag)
+	}
+	for _, arg := range args {
+		if w, ok := s.widgets[arg.Flag]; ok && arg.Type != "connectInfo" && len(arg.Path) > 1 && arg.Path[0] == "ProxySettings" {
+			w.advanced = true
+		}
 	}
 	if hasAddress {
 		s.flagsNamesOrdered = append([]string{"address"}, s.flagsNamesOrdered...)
@@ -301,15 +308,10 @@ func optionCard(gtx C, th *material.Theme, name, desc string, value bool) D {
 	})
 }
 
-// layoutOptions lays the bool settings out as cards, two to a row when
-// there's room, each row as tall as its tallest card.
-func (s *settingsPage) layoutOptions(gtx C, th *material.Theme) D {
-	var names []string
-	for _, name := range s.flagsNamesOrdered {
-		if _, ok := s.widgets[name].widget.(*widget.Bool); ok {
-			names = append(names, name)
-		}
-	}
+// layoutOptions lays bool settings out as cards, two to a row when there's
+// room, each row as tall as its tallest card. An option that's on gets a
+// tint and an accent bar down its left side.
+func (s *settingsPage) layoutOptions(gtx C, th *material.Theme, names []string) D {
 	if len(names) == 0 {
 		return D{}
 	}
@@ -322,6 +324,7 @@ func (s *settingsPage) layoutOptions(gtx C, th *material.Theme) D {
 	}
 	colW := (width - gap*(cols-1)) / cols
 	radius := gtx.Dp(popups.Radius)
+	bar := gtx.Dp(3)
 
 	type card struct {
 		call op.CallOp
@@ -346,16 +349,21 @@ func (s *settingsPage) layoutOptions(gtx C, th *material.Theme) D {
 		for k, c := range cards {
 			off := op.Offset(image.Pt(k*(colW+gap), y)).Push(gtx.Ops)
 			rect := image.Rect(0, 0, colW, rowH)
-			bg := surface(th, 14)
+			bg := surface(th, 10)
 			if c.b.Value {
 				bg = th.ContrastBg
-				bg.A = 40
+				bg.A = 18
 			}
 			if c.b.Hovered() {
-				bg.A += 14
+				bg.A += 12
 			}
 			rr := clip.UniformRRect(rect, radius).Push(gtx.Ops)
 			paint.Fill(gtx.Ops, bg)
+			if c.b.Value {
+				accent := clip.Rect(image.Rect(0, 0, bar, rowH)).Push(gtx.Ops)
+				paint.Fill(gtx.Ops, th.ContrastBg)
+				accent.Pop()
+			}
 			rr.Pop()
 			cgtx := gtx
 			cgtx.Constraints = layout.Exact(rect.Size())
@@ -386,7 +394,7 @@ func (s *settingsPage) layoutField(gtx C, th *material.Theme, w *settingsArg) D 
 				}
 				l := material.Body2(th, w.usage)
 				l.Color = muted(th)
-				return layout.Inset{Top: 2}.Layout(gtx, l.Layout)
+				return layout.Inset{Top: 2, Bottom: 2}.Layout(gtx, l.Layout)
 			}),
 			layout.Rigid(func(gtx C) D {
 				switch ww := w.widget.(type) {
@@ -403,34 +411,58 @@ func (s *settingsPage) layoutField(gtx C, th *material.Theme, w *settingsArg) D 
 }
 
 func (s *settingsPage) Layout(gtx C, th *material.Theme) D {
-	var fields []*settingsArg
+	// the command's own settings first; the proxy's connection and
+	// debugging ones last
+	var bools, advBools []string
+	var fields, advFields []*settingsArg
 	for _, name := range s.flagsNamesOrdered {
 		w := s.widgets[name]
 		switch w.widget.(type) {
+		case *widget.Bool:
+			if w.advanced {
+				advBools = append(advBools, name)
+			} else {
+				bools = append(bools, name)
+			}
 		case *component.TextField, *fileInputWidget:
-			fields = append(fields, w)
+			if w.advanced {
+				advFields = append(advFields, w)
+			} else {
+				fields = append(fields, w)
+			}
 		}
 	}
 
 	var items []layout.Widget
+	section := func(title string) {
+		items = append(items, func(gtx C) D { return sectionTitle(gtx, th, title) })
+	}
 	if addr, ok := s.widgets["address"]; ok {
 		if input, ok := addr.widget.(*addressInput); ok {
-			items = append(items,
-				func(gtx C) D { return sectionTitle(gtx, th, "Server") },
-				func(gtx C) D {
-					gtx.Constraints.Min.X = gtx.Constraints.Max.X
-					return input.Layout(gtx, th)
-				},
-			)
+			section("Server")
+			items = append(items, func(gtx C) D {
+				gtx.Constraints.Min.X = gtx.Constraints.Max.X
+				return input.Layout(gtx, th)
+			})
 		}
 	}
-	items = append(items,
-		func(gtx C) D { return sectionTitle(gtx, th, "Options") },
-		func(gtx C) D { return s.layoutOptions(gtx, th) },
-	)
-	if len(fields) > 0 {
-		items = append(items, func(gtx C) D { return sectionTitle(gtx, th, "More") })
+	if len(bools) > 0 || len(fields) > 0 {
+		section("Options")
+		items = append(items, func(gtx C) D { return s.layoutOptions(gtx, th, bools) })
+		if len(fields) > 0 {
+			items = append(items, layout.Spacer{Height: 10}.Layout)
+		}
 		for _, f := range fields {
+			items = append(items, func(gtx C) D { return s.layoutField(gtx, th, f) })
+		}
+	}
+	if len(advBools) > 0 || len(advFields) > 0 {
+		section("Connection & debugging")
+		items = append(items, func(gtx C) D { return s.layoutOptions(gtx, th, advBools) })
+		if len(advFields) > 0 {
+			items = append(items, layout.Spacer{Height: 10}.Layout)
+		}
+		for _, f := range advFields {
 			items = append(items, func(gtx C) D { return s.layoutField(gtx, th, f) })
 		}
 	}

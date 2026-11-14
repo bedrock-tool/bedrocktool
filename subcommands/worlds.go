@@ -13,17 +13,17 @@ import (
 type WorldSettings struct {
 	ProxySettings proxy.ProxySettings
 	Void          bool     `opt:"Void Generator" flag:"void" default:"true" desc:"locale.enable_void"`
-	Image         bool     `opt:"Image" flag:"image" desc:"locale.save_image"`
-	Entities      bool     `opt:"Entities" flag:"save-entities" default:"true" desc:"Save Entities"`
-	Players       bool     `opt:"Players" flag:"save-players" default:"false" desc:"Save players as entities with their skins (on The Hive, its NPC/advert players are saved either way)"`
-	MapArt        bool     `opt:"Map Art PNGs" flag:"map-art" default:"false" desc:"Export maps in item frames as PNG images next to the saved world"`
-	Inventories   bool     `opt:"Inventories" flag:"save-inventories" default:"true" desc:"Save Inventories"`
-	BlockUpdates  bool     `opt:"Block Updates" flag:"block-updates" desc:"Block updates"`
-	EntityCulling bool     `opt:"Entity Culling" flag:"entity-culling" desc:"Remove Entities which died or are deleted (experimental)"`
-	ExcludeMobs   []string `opt:"Exclude Mobs" flag:"exclude-mobs" desc:"list of mobs to exclude seperated by comma"`
-	ChunkRadius   int      `opt:"Chunk Radius" flag:"chunk-radius" desc:"the max chunk radius to force"`
-	ScriptPath    string   `opt:"Script Path" flag:"script" desc:"path to script to use" type:"file,js"`
-	RecordUI      bool     `opt:"Record Menus" flag:"record-ui" default:"false" desc:"Record the server's menus (forms opened by items or NPCs, and the buttons pressed through them) and scoreboards, and rebuild them as a script in the world's behavior pack"`
+	Image         bool     `opt:"Map Image" flag:"image" desc:"locale.save_image"`
+	Entities      bool     `opt:"Entities" flag:"save-entities" default:"true" desc:"Mobs, armor stands, item frames and other entities"`
+	Players       bool     `opt:"Players" flag:"save-players" default:"false" desc:"Other players, as statues wearing their skins"`
+	MapArt        bool     `opt:"Map Art" flag:"map-art" default:"false" desc:"Also save maps hanging in item frames as PNGs"`
+	Inventories   bool     `opt:"Inventories" flag:"save-inventories" default:"true" desc:"What is in chests you open, and your own inventory"`
+	BlockUpdates  bool     `opt:"Block Updates" flag:"block-updates" desc:"Keep blocks the server changes after a chunk loaded"`
+	EntityCulling bool     `opt:"Entity Culling" flag:"entity-culling" desc:"Leave out entities that died or despawned (experimental)"`
+	ExcludeMobs   []string `opt:"Exclude Mobs" flag:"exclude-mobs" desc:"Entity IDs to leave out, comma separated; * works, e.g. minecraft:bat,hive:*"`
+	ChunkRadius   int      `opt:"Chunk Radius" flag:"chunk-radius" desc:"View distance to ask the server for, in chunks (76 if empty)"`
+	ScriptPath    string   `opt:"Script" flag:"script" desc:"A JavaScript file that decides what gets saved" type:"file,js"`
+	RecordUI      bool     `opt:"Record Menus" flag:"record-ui" default:"false" desc:"Rebuild the menus you open and the scoreboards as a script in the world"`
 }
 
 type WorldCMD struct{}

@@ -48,7 +48,7 @@ func (f *fileInputWidget) Layout(gtx layout.Context, th *material.Theme) layout.
 			return f.textField.Layout(gtx, th, f.Hint)
 		}),
 		layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-			button := material.Button(th, &f.button, "select file")
+			button := material.Button(th, &f.button, "Browse")
 			return layout.Inset{
 				Top:  8,
 				Left: 8,

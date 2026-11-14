@@ -27,7 +27,7 @@ should_login_xbox:
 enable_dns:
   other: "enable dns server for consoles"
 debug_mode:
-  other: "debug mode"
+  other: "More logging, for bug reports"
 refreshed_token:
   other: "refreshed token"
 done:
@@ -137,9 +137,9 @@ saved_block_inv:
 save_packs_with_world:
   other: "save resourcepacks to the worlds"
 enable_void:
-  other: "save with void generator"
+  other: "Leave unloaded areas empty instead of generating terrain"
 save_image:
-  other: "saves an png of the map at the end"
+  other: "Also save a PNG of the map next to the world"
 test_block_inv:
   other: "enable experimental block inventory saving"
 saved:
@@ -189,8 +189,8 @@ update_synopsis:
 skins_proxy_synopsis:
   other: "download skins from players on a server with proxy"
 skins_synopsis:
-  other: "download skins from players on a server"
+  other: "Save the skins of the players you see on a server"
 world_synopsis:
-  other: "download a world from a server"
+  other: "Save the world you play in, with its entities and add-ons, as a .mcworld"
 pack_synopsis:
-  other: "download resource packs from a server"
+  other: "Download a server's resource packs, decrypted"

@@ -228,7 +228,7 @@ to `worlds/<capture name>/`.
 
 ## Scripting
 
-A script passed with `-script` (or **Script Path** in the GUI) can watch
+A script passed with `-script` (or **Script** in the GUI) can watch
 what's received and decide what's saved. Callbacks are registered with
 `events.register(name, callback)`; returning `false` from one that allows it
 leaves that thing out.

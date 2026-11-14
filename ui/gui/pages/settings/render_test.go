@@ -46,3 +46,30 @@ func TestRenderSettings(t *testing.T) {
 	png.Encode(f, img)
 	f.Close()
 }
+
+func TestRenderModePicker(t *testing.T) {
+	out := os.Getenv("RENDER_OUT_DIR")
+	sz := image.Pt(800, 600)
+	th := material.NewTheme()
+	th.Shaper = text.NewShaper(text.WithCollection(gofont.Collection()))
+	pal := material.Palette{Bg: color.NRGBA{0x12, 0x12, 0x12, 0xff}, Fg: color.NRGBA{227, 227, 227, 0xff}, ContrastBg: color.NRGBA{142, 49, 235, 0xff}, ContrastFg: color.NRGBA{227, 227, 227, 0xff}}
+	th2 := th.WithPalette(pal)
+	p := New(nil)
+	ops := new(op.Ops)
+	gtx := layout.Context{Ops: ops, Constraints: layout.Exact(sz), Metric: unit.Metric{PxPerDp: 1, PxPerSp: 1}}
+	paint.Fill(ops, pal.Bg)
+	p.Layout(gtx, &th2)
+	if out == "" {
+		return
+	}
+	win, err := headless.NewWindow(sz.X, sz.Y)
+	if err != nil {
+		t.Skip(err)
+	}
+	win.Frame(ops)
+	img := image.NewRGBA(image.Rectangle{Max: sz})
+	win.Screenshot(img)
+	f, _ := os.Create(out + "/modes.png")
+	png.Encode(f, img)
+	f.Close()
+}

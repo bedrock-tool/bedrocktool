@@ -12,6 +12,8 @@ import (
 	"gioui.org/font"
 	"gioui.org/io/key"
 	"gioui.org/layout"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -43,6 +45,8 @@ type Page struct {
 		names      []string
 		state      component.GridState
 		selected   string
+		// pick are the mode cards shown before a mode is picked
+		pick map[string]*widget.Clickable
 	}
 
 	settings    map[string]*settingsPage
@@ -76,8 +80,16 @@ func New(g guim.Guim) pages.Page {
 		p.settings[k] = settingUI
 		p.cmdMenu.names = append(p.cmdMenu.names, k)
 	}
-	sort.Strings(p.cmdMenu.names)
+	// worlds first: it's what most people come for
+	order := map[string]int{"worlds": 0, "skins": 1, "packs": 2}
+	sort.Slice(p.cmdMenu.names, func(i, j int) bool {
+		return order[p.cmdMenu.names[i]] < order[p.cmdMenu.names[j]]
+	})
 
+	p.cmdMenu.pick = make(map[string]*widget.Clickable)
+	for _, name := range p.cmdMenu.names {
+		p.cmdMenu.pick[name] = &widget.Clickable{}
+	}
 	p.cmdMenu.clickables = make(map[string]cmdItem, len(commands.Registered))
 	for _, name := range p.cmdMenu.names {
 		p.cmdMenu.clickables[name] = cmdItem{
@@ -139,6 +151,11 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 			p.cmdMenu.selected = k
 		}
 	}
+	for k, c := range p.cmdMenu.pick {
+		if c.Clicked(gtx) {
+			p.cmdMenu.selected = k
+		}
+	}
 
 	dims := layout.UniformInset(7).Layout(gtx, func(gtx C) D {
 		return layout.Flex{
@@ -147,9 +164,11 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 		}.Layout(gtx,
 			// Select Command Button
 			layout.Rigid(func(gtx C) D {
+				if p.cmdMenu.selected == "" {
+					return D{} // the mode cards below do this
+				}
 				maxWidth := gtx.Constraints.Max.X
 				maxButtonWidth := min(maxWidth, gtx.Dp(150))
-				//minButtonWidth := maxButtonWidth
 
 				return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.Inset{
@@ -191,27 +210,19 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 				if p.cmdMenu.selected == "" {
 					d = layout.Center.Layout(gtx, func(gtx C) D {
 						gtx.Constraints.Max.X = min(gtx.Constraints.Max.X, gtx.Dp(520))
+						gtx.Constraints.Min.X = gtx.Constraints.Max.X
 						children := []layout.FlexChild{
 							layout.Rigid(func(gtx C) D {
-								return layout.Inset{Bottom: 14}.Layout(gtx, material.H5(th, "Select a Mode").Layout)
+								l := material.Label(th, th.TextSize*1.5, "What do you want to save?")
+								return layout.Inset{Bottom: 14}.Layout(gtx, l.Layout)
 							}),
 						}
 						for _, name := range p.cmdMenu.names {
+							click := p.cmdMenu.pick[name]
 							desc := p.settings[name].cmd.Description()
 							children = append(children, layout.Rigid(func(gtx C) D {
-								return layout.Inset{Bottom: 10}.Layout(gtx, func(gtx C) D {
-									return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
-										layout.Rigid(func(gtx C) D {
-											l := material.Body1(th, modeTitle(name))
-											l.Font.Weight = font.SemiBold
-											return l.Layout(gtx)
-										}),
-										layout.Rigid(func(gtx C) D {
-											l := material.Body2(th, desc)
-											l.Color = muted(th)
-											return l.Layout(gtx)
-										}),
-									)
+								return layout.Inset{Bottom: 8}.Layout(gtx, func(gtx C) D {
+									return modeCard(gtx, th, click, modeTitle(name), desc)
 								})
 							}))
 						}
@@ -232,6 +243,9 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 
 			// Start Button
 			layout.Rigid(func(gtx C) D {
+				if p.cmdMenu.selected == "" {
+					return D{}
+				}
 				return layout.Center.Layout(gtx, func(gtx C) D {
 					return layout.Inset{
 						Top:    15,
@@ -297,4 +311,41 @@ func modeTitle(name string) string {
 		return name
 	}
 	return strings.ToUpper(name[:1]) + name[1:]
+}
+
+// modeCard is a mode to pick: its name and what it does, the whole card
+// clickable.
+func modeCard(gtx C, th *material.Theme, click *widget.Clickable, title, desc string) D {
+	return click.Layout(gtx, func(gtx C) D {
+		return layout.Background{}.Layout(gtx,
+			func(gtx C) D {
+				bg := surface(th, 12)
+				if click.Hovered() {
+					bg = th.ContrastBg
+					bg.A = 40
+				}
+				rr := clip.UniformRRect(image.Rectangle{Max: gtx.Constraints.Min}, gtx.Dp(popups.Radius)).Push(gtx.Ops)
+				paint.Fill(gtx.Ops, bg)
+				rr.Pop()
+				return D{Size: gtx.Constraints.Min}
+			},
+			func(gtx C) D {
+				gtx.Constraints.Min.X = gtx.Constraints.Max.X
+				return layout.UniformInset(14).Layout(gtx, func(gtx C) D {
+					return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+						layout.Rigid(func(gtx C) D {
+							l := material.Body1(th, title)
+							l.Font.Weight = font.SemiBold
+							return l.Layout(gtx)
+						}),
+						layout.Rigid(func(gtx C) D {
+							l := material.Body2(th, desc)
+							l.Color = muted(th)
+							return layout.Inset{Top: 2}.Layout(gtx, l.Layout)
+						}),
+					)
+				})
+			},
+		)
+	})
 }

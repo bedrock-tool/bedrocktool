@@ -28,8 +28,8 @@ import (
 type ResourcePacksSettings struct {
 	ProxySettings proxy.ProxySettings `without:"listen"`
 
-	SaveEncrypted bool `opt:"Save Encrypted" flag:"save-encrypted"`
-	Folders       bool `opt:"Write Folders" flag:"folders"`
+	SaveEncrypted bool `opt:"Keep Encrypted Copy" flag:"save-encrypted" desc:"Also save encrypted packs as they were sent"`
+	Folders       bool `opt:"As Folders" flag:"folders" desc:"Save packs as folders instead of .mcpack files"`
 }
 
 type ResourcePackCMD struct{}
