@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -245,12 +246,21 @@ func (r *ResourcePackHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) 
 			continue
 		}
 
+		var cached resource.Pack
 		if r.cache.Has(pack.UUID, pack.Version) {
-			newPack, err := r.cache.Get(pack.UUID, pack.Version)
-			if err != nil {
+			var err error
+			cached, err = r.cache.Get(pack.UUID, pack.Version)
+			if errors.Is(err, errBadCachedPack) {
+				// Get removed the broken file: download the pack again
+				r.log.Warnf("cached copy of pack %s was broken, downloading it again: %s", packID, err)
+				cached = nil
+			} else if err != nil {
 				return fmt.Errorf("opening cached Resourcepack: %s (delete packcache as a fix)", err)
 			}
-
+		}
+		if cached != nil {
+			newPack := cached
+			var err error
 			if len(pack.ContentKey) > 0 {
 				newPack = newPack.WithContentKey(pack.ContentKey)
 			}
@@ -340,9 +350,16 @@ func (r *ResourcePackHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) 
 	return nil
 }
 
+// parsePackID reads the pack UUID from a pack ID in a resource pack packet.
+// The game sends it either as a bare UUID or as "<uuid>_<version>"
+// (42 characters for version 1.0.0), so both have to be accepted.
+func parsePackID(s string) (uuid.UUID, error) {
+	id, _, _ := strings.Cut(s, "_")
+	return uuid.Parse(id)
+}
+
 func (r *ResourcePackHandler) downloadResourcePack(pk *packet.ResourcePackDataInfo) error {
-	uuid_ver := strings.Split(pk.UUID, "_")
-	packID, err := uuid.Parse(uuid_ver[0])
+	packID, err := parsePackID(pk.UUID)
 	if err != nil {
 		return err
 	}
@@ -553,7 +570,7 @@ func (r *ResourcePackHandler) OnResourcePackStack(pk *packet.ResourcePackStack) 
 
 // from client
 func (r *ResourcePackHandler) OnResourcePackChunkRequest(pk *packet.ResourcePackChunkRequest) error {
-	packID, err := uuid.Parse(pk.UUID)
+	packID, err := parsePackID(pk.UUID)
 	if err != nil {
 		return err
 	}
