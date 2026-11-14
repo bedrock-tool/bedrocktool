@@ -26,8 +26,15 @@ func regexGetParams(r *regexp.Regexp, s string) (params map[string]string) {
 	return params
 }
 
-// normalizeAddress converts a server address to the URL format used by NetherNet.
-// If no scheme is specified, https is assumed.
+// DefaultPort is the port used for a server address typed without one.
+// It is the game's own default in the Add Server screen, and the port
+// servers answer NetherNet joins on (play.craftersmc.net only answers
+// on 19132; 443 was refused, #359).
+const DefaultPort = "19132"
+
+// NormalizeAddress converts a server address to the URL format used by NetherNet.
+// If no scheme is specified, https is assumed, and a missing port is DefaultPort.
+// A URL with a scheme and no port keeps the scheme's port (443 or 80).
 func NormalizeAddress(address string) (string, error) {
 	address = strings.TrimSpace(address)
 	if address == "" {
@@ -61,16 +68,16 @@ func NormalizeAddress(address string) (string, error) {
 	if err != nil {
 		switch {
 		case strings.Contains(err.Error(), "missing port in address"):
-			host, port = address, "443"
+			host, port = strings.Trim(address, "[]"), DefaultPort
 		case strings.Contains(err.Error(), "too many colons"):
 			// A bare IPv6 address.
-			host, port = strings.Trim(address, "[]"), "443"
+			host, port = strings.Trim(address, "[]"), DefaultPort
 		default:
 			return "", fmt.Errorf("parse address: %w", err)
 		}
 	}
 	if port == "" {
-		port = "443"
+		port = DefaultPort
 	}
 	return "https://" + net.JoinHostPort(host, port), nil
 }

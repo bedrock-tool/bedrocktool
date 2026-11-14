@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync/atomic"
@@ -46,6 +47,13 @@ func (account *Account) LiveToken(ctx context.Context) (t *oauth2.Token, err err
 			return nil, fmt.Errorf("invalid token")
 		}
 		liveToken, err := conf.RefreshTokenSource(liveToken).Token()
+		if loginRevoked(err) {
+			// The saved login can never work again (password changed, app
+			// access removed, or unused for too long). Forget it, so the
+			// next start asks to sign in instead of failing the same way.
+			Auth.forget(account)
+			return nil, fmt.Errorf("%w (%s)", ErrLoginExpired, err)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -55,6 +63,20 @@ func (account *Account) LiveToken(ctx context.Context) (t *oauth2.Token, err err
 		}
 	}
 	return account.token.LiveToken(), nil
+}
+
+// ErrLoginExpired is returned when Microsoft no longer accepts the saved
+// login. The saved login has been removed: signing in again fixes it.
+var ErrLoginExpired = errors.New("your Microsoft sign-in expired or was revoked, sign in again")
+
+// loginRevoked reports whether err is Microsoft refusing a refresh token
+// for good ("invalid_grant"), rather than a network error worth retrying.
+func loginRevoked(err error) bool {
+	var re *oauth2.RetrieveError
+	if !errors.As(err, &re) {
+		return false
+	}
+	return re.ErrorCode == "invalid_grant" || strings.Contains(string(re.Body), "invalid_grant")
 }
 
 func checkMCToken(mcToken *service.Token) bool {

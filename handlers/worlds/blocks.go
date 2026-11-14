@@ -2,6 +2,7 @@ package worlds
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/df-mc/dragonfly/server/world"
@@ -38,7 +39,13 @@ func splitNamespace(identifier string) (ns, name string) {
 	return sp[0], sp[1]
 }
 
+// AddCustomBlocks registers every state of the server's custom blocks.
+// A state is registered once even when the server lists the same block
+// twice, or names a property both in "properties" and through a trait:
+// dragonfly panics on a second registration ("cannot register the same
+// state twice", #327).
 func AddCustomBlocks(reg world.BlockRegistry, entries []protocol.BlockEntry) error {
+	registered := make(map[string]struct{})
 	for _, entry := range entries {
 		ns, _ := splitNamespace(entry.Name)
 		if ns == "minecraft" {
@@ -47,15 +54,20 @@ func AddCustomBlocks(reg world.BlockRegistry, entries []protocol.BlockEntry) err
 
 		var propertyNames []string
 		var propertyValues []any
+		addProperty := func(name string, values any) {
+			if slices.Contains(propertyNames, name) {
+				return
+			}
+			propertyNames = append(propertyNames, name)
+			propertyValues = append(propertyValues, values)
+		}
 
 		props, ok := entry.Properties["properties"].([]any)
 		if ok {
 			for _, v := range props {
 				v := v.(map[string]any)
 				name := v["name"].(string)
-				enum := v["enum"]
-				propertyNames = append(propertyNames, name)
-				propertyValues = append(propertyValues, enum)
+				addProperty(name, v["enum"])
 			}
 		}
 
@@ -79,14 +91,14 @@ func AddCustomBlocks(reg world.BlockRegistry, entries []protocol.BlockEntry) err
 							return fmt.Errorf("unresolved trait %s", k)
 						}
 
-						propertyNames = append(propertyNames, k)
-						propertyValues = append(propertyValues, v)
+						addProperty(k, v)
 					}
 				case int32:
 					if name == "minecraft:connection" {
-						propertyNames = append(propertyNames, "minecraft:connection_north", "minecraft:connection_south", "minecraft:connection_west", "minecraft:connection_east")
 						var b = []bool{false, true}
-						propertyValues = append(propertyValues, b, b, b, b)
+						for _, side := range []string{"north", "south", "west", "east"} {
+							addProperty("minecraft:connection_"+side, b)
+						}
 					} else {
 						return fmt.Errorf("unresolved trait %s", name)
 					}
@@ -102,6 +114,12 @@ func AddCustomBlocks(reg world.BlockRegistry, entries []protocol.BlockEntry) err
 				name := propertyNames[i]
 				m[name] = value
 			}
+			// fmt prints map keys sorted, so this names the state exactly
+			key := entry.Name + fmt.Sprint(m)
+			if _, ok := registered[key]; ok {
+				continue
+			}
+			registered[key] = struct{}{}
 			reg.RegisterBlockState(world.BlockState{
 				Name:       entry.Name,
 				Properties: m,

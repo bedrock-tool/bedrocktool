@@ -65,7 +65,7 @@ func (a *authSrv) LoggedIn() bool {
 // performs microsoft login using the handler passed
 func (a *authSrv) SetHandler(handler auth.AuthCodeHandler) (err error) {
 	if handler == nil {
-		handler = auth.CliAuthCodeHandler{Writer: os.Stdout}
+		handler = newCliAuthCodeHandler(os.Stdout)
 	}
 	a.handler = handler
 	return nil
@@ -92,6 +92,18 @@ func (a *authSrv) Login(ctx context.Context, conf *auth.Config, name string) (er
 		env:   a.env,
 	})
 	return nil
+}
+
+// forget logs out acc if it is still the current account: its saved
+// tokens are deleted and LoggedIn reports false, so the next session
+// asks for a new sign-in.
+func (a *authSrv) forget(acc *Account) {
+	if !a.account.CompareAndSwap(acc, nil) {
+		return
+	}
+	a.log.Warn("Microsoft no longer accepts the saved login, removed it. Sign in again.")
+	os.Remove(tokenFileName(acc.name))
+	os.Remove(chainFileName(acc.name))
 }
 
 func (a *authSrv) Logout() {

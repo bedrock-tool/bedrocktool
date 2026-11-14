@@ -8,7 +8,12 @@ func TestParseConnectInfo(t *testing.T) {
 		expected ParsedConnectInfo
 	}
 	var tests = []test{
-		{value: "minecraft.net", expected: ParsedConnectInfo{Kind: KindServer, Address: "https://minecraft.net:443"}},
+		{value: "minecraft.net", expected: ParsedConnectInfo{Kind: KindServer, Address: "https://minecraft.net:19132"}},
+		{value: " play.craftersmc.net ", expected: ParsedConnectInfo{Kind: KindServer, Address: "https://play.craftersmc.net:19132"}},
+		{value: "127.0.0.1", expected: ParsedConnectInfo{Kind: KindServer, Address: "https://127.0.0.1:19132"}},
+		{value: "::1", expected: ParsedConnectInfo{Kind: KindServer, Address: "https://[::1]:19132"}},
+		{value: "[::1]", expected: ParsedConnectInfo{Kind: KindServer, Address: "https://[::1]:19132"}},
+		{value: "[::1]:19133", expected: ParsedConnectInfo{Kind: KindServer, Address: "https://[::1]:19133"}},
 		{value: "minecraft.net:19133", expected: ParsedConnectInfo{Kind: KindServer, Address: "https://minecraft.net:19133"}},
 		{value: "http://minecraft.net:19132", expected: ParsedConnectInfo{Kind: KindServer, Address: "http://minecraft.net:19132"}},
 		{value: "https://minecraft.net", expected: ParsedConnectInfo{Kind: KindServer, Address: "https://minecraft.net:443"}},

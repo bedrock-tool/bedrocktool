@@ -25,6 +25,12 @@ type guiAuth struct {
 	close      widget.Clickable
 }
 
+// mutedColor is fg at about two thirds strength, for secondary text.
+func mutedColor(fg color.NRGBA) color.NRGBA {
+	fg.A = uint8(uint16(fg.A) * 2 / 3)
+	return fg
+}
+
 func NewGuiAuth(g guim.Guim, uri, code string) *guiAuth {
 	uriDest := fmt.Sprintf("https://login.live.com/oauth20_remoteconnect.srf?otc=%s", code)
 	return &guiAuth{g: g, uri: uri, uriDest: uriDest, code: code}
@@ -63,8 +69,9 @@ func (g *guiAuth) Layout(gtx C, th *material.Theme) D {
 		return layout.Flex{
 			Axis: layout.Vertical,
 		}.Layout(gtx,
-			layout.Flexed(1, func(gtx C) D {
-				return layout.Center.Layout(gtx, func(gtx C) D {
+			layout.Rigid(func(gtx C) D {
+				return layout.Inset{Top: 16, Bottom: 4}.Layout(gtx, func(gtx C) D {
+					gtx.Constraints.Min.X = gtx.Constraints.Max.X
 					return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
 						layout.Rigid(material.Body1(th, "Authenticate at: ").Layout),
 						layout.Rigid(func(gtx C) D {
@@ -85,6 +92,14 @@ func (g *guiAuth) Layout(gtx C, th *material.Theme) D {
 							)
 						}),
 					)
+				})
+			}),
+			layout.Rigid(func(gtx C) D {
+				// #348: a calm note about strict anti-cheat servers
+				return layout.Inset{Top: 12, Bottom: 12}.Layout(gtx, func(gtx C) D {
+					l := material.Body2(th, auth.AntiCheatNotice)
+					l.Color = mutedColor(th.Fg)
+					return l.Layout(gtx)
 				})
 			}),
 			layout.Rigid(func(gtx C) D {
