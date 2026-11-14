@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"image"
 
 	"gioui.org/font"
@@ -58,7 +59,7 @@ func (c *choiceInput) Layout(gtx C, th *material.Theme) D {
 				selected := c.enum.Value == name
 				m := op.Record(gtx.Ops)
 				d := layout.Inset{Top: 6, Bottom: 6, Left: 16, Right: 16}.Layout(gtx, func(gtx C) D {
-					l := material.Body1(th, name)
+					l := material.Body1(th, choiceLabel(name))
 					if selected {
 						l.Color = th.ContrastFg
 						l.Font.Weight = font.SemiBold
@@ -82,4 +83,14 @@ func (c *choiceInput) Layout(gtx C, th *material.Theme) D {
 		}))
 	}
 	return layout.Flex{Axis: layout.Horizontal}.Layout(gtx, children...)
+}
+
+// choiceLabel is a choice's name for people: locale's choice_<value>, or
+// the value itself when there is none.
+func choiceLabel(value string) string {
+	key := "choice_" + value
+	if l := locale.Loc(key, nil); l != key {
+		return l
+	}
+	return value
 }

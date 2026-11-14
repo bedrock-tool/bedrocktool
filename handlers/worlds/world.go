@@ -234,13 +234,13 @@ func (w *worldsHandler) onSessionStart(session *proxy.Session, serverName string
 	session.AddCommand(func(args []string) bool {
 		gen, err := worldstate.ParseGenerator(strings.Join(args, " "))
 		if err != nil || len(args) == 0 {
-			session.SendMessage(fmt.Sprintf("Unsaved chunks are generated as: %s. Use /generator void, flat or normal", w.settings.Generator))
+			session.SendMessage(locale.Loc("generator_current", locale.Strmap{"Generator": w.settings.Generator}))
 			return true
 		}
 		return w.setGenerator(gen)
 	}, protocol.Command{
 		Name:        "generator",
-		Description: "set what fills chunks that weren't saved: void, flat or normal",
+		Description: locale.Loc("generator_desc", nil),
 	})
 
 	session.AddCommand(func(args []string) bool {
@@ -315,9 +315,9 @@ func (w *worldsHandler) setGenerator(gen worldstate.Generator) bool {
 func generatorMessage(gen worldstate.Generator) string {
 	switch gen {
 	case worldstate.GeneratorFlat:
-		return "Unsaved chunks will be flat land"
+		return locale.Loc("generator_flat", nil)
 	case worldstate.GeneratorNormal:
-		return "Unsaved chunks will be normal terrain from the server's seed (it often won't match, many servers send a fake seed)"
+		return locale.Loc("generator_normal", nil)
 	}
 	return locale.Loc("void_generator_true", nil)
 }

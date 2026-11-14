@@ -1,6 +1,7 @@
 package popups
 
 import (
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"slices"
 	"strings"
 
@@ -61,14 +62,14 @@ func recentKind(address string) (kind, name string) {
 	if ok {
 		switch strings.ToLower(prefix) {
 		case "realm":
-			return "Realm", rest
+			return locale.Loc("recent_kind_realm", nil), rest
 		case "experience":
-			return "Experience", rest
+			return locale.Loc("recent_kind_experience", nil), rest
 		case "xbox":
-			return "Friend's world", rest
+			return locale.Loc("recent_kind_friend", nil), rest
 		}
 	}
-	return "Server", address
+	return locale.Loc("recent_kind_server", nil), address
 }
 
 func layoutRecentRow(gtx C, th *material.Theme, row *recentRow) D {
@@ -99,7 +100,7 @@ func layoutRecentRow(gtx C, th *material.Theme, row *recentRow) D {
 		}),
 		layout.Rigid(layout.Spacer{Width: 6}.Layout),
 		layout.Rigid(func(gtx C) D {
-			b := material.Button(th, &row.remove, "Remove")
+			b := material.Button(th, &row.remove, locale.Loc("gui_remove", nil))
 			b.CornerRadius = Radius
 			b.Background = component.WithAlpha(th.Fg, 22)
 			b.Color = th.Fg
@@ -130,12 +131,12 @@ func (r *RecentServers) Layout(gtx C, th *material.Theme) D {
 	return LayoutPopupBackground(gtx, th, "RecentServers", func(gtx C) D {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx C) D {
-				return layout.Inset{Top: 4, Bottom: 10}.Layout(gtx, material.Label(th, th.TextSize*1.4, "Recent Servers").Layout)
+				return layout.Inset{Top: 4, Bottom: 10}.Layout(gtx, material.Label(th, th.TextSize*1.4, locale.Loc("recent_title", nil)).Layout)
 			}),
 			layout.Flexed(1, func(gtx C) D {
 				if len(r.rows) == 0 {
 					return layout.Center.Layout(gtx, func(gtx C) D {
-						l := material.Body1(th, "Servers you start with show up here")
+						l := material.Body1(th, locale.Loc("recent_empty", nil))
 						l.Color = component.WithAlpha(th.Fg, 170)
 						return l.Layout(gtx)
 					})

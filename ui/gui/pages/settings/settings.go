@@ -122,7 +122,7 @@ var _ pages.Page = &Page{}
 func (p *Page) loadSaved() {
 	saved, err := savedsettings.Load(SavedPath())
 	if err != nil {
-		logrus.Warnf("Couldn't read the saved settings, using the defaults: %s", err)
+		logrus.Warn(locale.Loc("settings_read_failed", locale.Strmap{"Err": err}))
 	}
 	p.saved = saved
 	for name, s := range p.settings {
@@ -140,7 +140,7 @@ func (p *Page) loadSaved() {
 
 func (p *Page) writeSaved() {
 	if err := p.saved.Save(SavedPath()); err != nil {
-		logrus.Warnf("Couldn't save the settings: %s", err)
+		logrus.Warn(locale.Loc("settings_save_failed", locale.Strmap{"Err": err}))
 	}
 }
 

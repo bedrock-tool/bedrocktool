@@ -61,8 +61,6 @@ worldname_set:
   other: "worldName ist jetzt {{.Name}}"
 void_generator_true:
   other: "Void-Generator wird verwendet"
-void_generator_false:
-  other: "Void-Generator wird nicht verwendet"
 zoom_level:
   other: "Zoom: {{.Level}}"
 saving_world:
@@ -86,8 +84,6 @@ warn_window_closed_not_open:
   other: "Ein Fenster wurde geschlossen, das nicht offen war"
 saved_block_inv:
   other: "Blockinventar gespeichert"
-enable_void:
-  other: "Nicht geladene Bereiche leer lassen, statt Gelände zu erzeugen"
 save_image:
   other: "Zusätzlich ein PNG der Karte neben der Welt speichern"
 saved:
@@ -340,8 +336,6 @@ gui_update_restarting:
   other: "Neustart ..."
 
 # Settings: option names (opt) and descriptions (desc)
-opt_worlds_void:
-  other: "Void-Generator"
 opt_worlds_image:
   other: "Kartenbild"
 opt_worlds_save_entities:
@@ -670,3 +664,44 @@ gui_auth_open:
   other: "Seite öffnen"
 gui_auth_notice_title:
   other: "Server mit Anti-Cheat"
+# World generator (#303) and saved settings / recent servers (#220)
+opt_worlds_generator:
+  other: "Nicht gespeicherte Chunks"
+desc_worlds_generator:
+  other: "Womit Minecraft die nicht geladenen Chunks füllt: Void (leer), flach (Superflach-Land) oder normal (Gelände aus dem Seed des Servers)"
+desc_worlds_void_old:
+  other: "Alter Schalter: -void=false ist -generator flat"
+choice_void:
+  other: "Void"
+choice_flat:
+  other: "Flach"
+choice_normal:
+  other: "Normal"
+generator_current:
+  other: "Nicht gespeicherte Chunks werden erzeugt als: {{.Generator}}. Nutze /generator void, flat oder normal"
+generator_desc:
+  other: "Festlegen, womit nicht gespeicherte Chunks gefüllt werden: void, flat oder normal"
+generator_flat:
+  other: "Nicht gespeicherte Chunks werden flaches Land"
+generator_normal:
+  other: "Nicht gespeicherte Chunks werden normales Gelände aus dem Seed des Servers (passt oft nicht: viele Server senden einen falschen Seed)"
+settings_read_failed:
+  other: "Die gespeicherten Einstellungen konnten nicht gelesen werden, es gelten die Standardwerte: {{.Err}}"
+settings_save_failed:
+  other: "Die Einstellungen konnten nicht gespeichert werden: {{.Err}}"
+gui_address_recent:
+  other: "Zuletzt"
+gui_remove:
+  other: "Entfernen"
+recent_title:
+  other: "Zuletzt genutzte Server"
+recent_empty:
+  other: "Server, mit denen du startest, erscheinen hier"
+recent_kind_realm:
+  other: "Realm"
+recent_kind_experience:
+  other: "Erlebnis"
+recent_kind_friend:
+  other: "Welt eines Freundes"
+recent_kind_server:
+  other: "Server"

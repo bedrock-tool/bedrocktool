@@ -77,6 +77,10 @@ var keyRefs = []*regexp.Regexp{
 	regexp.MustCompile(`"(gui_save_step_[a-z0-9_]+)"`), // labels kept in a table
 }
 
+// choicesTag finds the choices of a setting's struct tag (one with a flag,
+// so an example in a comment doesn't count).
+var choicesTag = regexp.MustCompile("flag:\"[^\"]+\"[^`\\n]*choices:\"([a-z0-9_,]+)\"")
+
 // Every key the code asks for exists, and every key in en.yaml is used.
 func TestKeysUsed(t *testing.T) {
 	en := loadFile(t, "en.yaml")
@@ -87,8 +91,13 @@ func TestKeysUsed(t *testing.T) {
 			return err
 		}
 		if d.IsDir() {
+			// .claude holds other checkouts (session worktrees) with their
+			// own, older copies of the code
+			if strings.HasPrefix(d.Name(), ".") && path != root {
+				return filepath.SkipDir
+			}
 			switch d.Name() {
-			case ".git", "gophertunnel", "dragonfly", "node_modules":
+			case "gophertunnel", "dragonfly", "node_modules":
 				return filepath.SkipDir
 			}
 			return nil
@@ -103,6 +112,12 @@ func TestKeysUsed(t *testing.T) {
 		for _, re := range keyRefs {
 			for _, m := range re.FindAllSubmatch(data, -1) {
 				used[string(m[1])] = path
+			}
+		}
+		// a setting's choices are shown as choice_<value>
+		for _, m := range choicesTag.FindAllSubmatch(data, -1) {
+			for _, c := range strings.Split(string(m[1]), ",") {
+				used["choice_"+c] = path
 			}
 		}
 		return nil

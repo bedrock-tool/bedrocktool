@@ -61,8 +61,6 @@ worldname_set:
   other: "worldName is now {{.Name}}"
 void_generator_true:
   other: "Using void generator"
-void_generator_false:
-  other: "Not using void generator"
 zoom_level:
   other: "Zoom: {{.Level}}"
 saving_world:
@@ -86,8 +84,6 @@ warn_window_closed_not_open:
   other: "Closed a window that wasn't open"
 saved_block_inv:
   other: "Saved block inventory"
-enable_void:
-  other: "Leave unloaded areas empty instead of generating terrain"
 save_image:
   other: "Also save a PNG of the map next to the world"
 saved:
@@ -340,8 +336,6 @@ gui_update_restarting:
   other: "Restarting..."
 
 # Settings: option names (opt) and descriptions (desc)
-opt_worlds_void:
-  other: "Void Generator"
 opt_worlds_image:
   other: "Map Image"
 opt_worlds_save_entities:
@@ -670,3 +664,44 @@ gui_auth_open:
   other: "Open page"
 gui_auth_notice_title:
   other: "Servers with anti-cheat"
+# World generator (#303) and saved settings / recent servers (#220)
+opt_worlds_generator:
+  other: "Unsaved Chunks"
+desc_worlds_generator:
+  other: "What Minecraft fills the chunks you did not load with: void (empty), flat (superflat land) or normal (terrain from the server's seed)"
+desc_worlds_void_old:
+  other: "Old switch: -void=false is -generator flat"
+choice_void:
+  other: "Void"
+choice_flat:
+  other: "Flat"
+choice_normal:
+  other: "Normal"
+generator_current:
+  other: "Unsaved chunks are generated as: {{.Generator}}. Use /generator void, flat or normal"
+generator_desc:
+  other: "Set what fills chunks that were not saved: void, flat or normal"
+generator_flat:
+  other: "Unsaved chunks will be flat land"
+generator_normal:
+  other: "Unsaved chunks will be normal terrain from the server's seed (it often won't match: many servers send a fake seed)"
+settings_read_failed:
+  other: "Could not read the saved settings, using the defaults: {{.Err}}"
+settings_save_failed:
+  other: "Could not save the settings: {{.Err}}"
+gui_address_recent:
+  other: "Recent"
+gui_remove:
+  other: "Remove"
+recent_title:
+  other: "Recent Servers"
+recent_empty:
+  other: "Servers you start with show up here"
+recent_kind_realm:
+  other: "Realm"
+recent_kind_experience:
+  other: "Experience"
+recent_kind_friend:
+  other: "Friend's world"
+recent_kind_server:
+  other: "Server"
