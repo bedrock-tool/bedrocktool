@@ -550,6 +550,11 @@ func (s *Session) resolveServerAddress(ctx context.Context, parsed *connectinfo.
 		default:
 			return "", "", nil, fmt.Errorf("unimplemented signaling type %q", networkProto)
 		}
+		if err != nil {
+			// without this the join went on with no signaling and failed
+			// later with an error about the address
+			return "", "", nil, fmt.Errorf("realm %q: connecting to the signaling service: %w", realm.Name, err)
+		}
 		return addr.Address, "", signalingConn, nil
 
 	case connectinfo.KindExperience:
