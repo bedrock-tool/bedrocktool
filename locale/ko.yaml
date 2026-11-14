@@ -186,8 +186,6 @@ gui_address_experiences:
   other: "체험"
 gui_address_featured:
   other: "추천"
-gui_address_worlds:
-  other: "월드"
 gui_browse:
   other: "찾아보기"
 
@@ -288,10 +286,6 @@ gui_featured_title:
   other: "추천 서버"
 gui_featured_none:
   other: "추천 서버를 찾지 못했습니다"
-gui_world_list_title:
-  other: "월드"
-gui_world_list_none:
-  other: "월드를 찾지 못했습니다"
 gui_realms_title:
   other: "Realm"
 gui_realms_none:
@@ -707,3 +701,41 @@ recent_kind_friend:
   other: "친구의 월드"
 recent_kind_server:
   other: "서버"
+
+# GUI: friends' worlds
+gui_address_friends:
+  other: "친구 ({{.Count}})"
+gui_friends_title:
+  other: "친구의 월드"
+gui_friends_select:
+  other: "선택"
+gui_friends_players:
+  other: "플레이어: {{.Count}}/{{.Max}}"
+gui_friends_players_count:
+  other: "플레이어: {{.Count}}"
+gui_friends_none:
+  other: "지금 참가할 수 있는 월드를 플레이 중인 친구가 없습니다."
+gui_friends_none_hint:
+  other: "친구가 멀티플레이를 친구에게 열어 두고 플레이하는 동안 그 월드가 여기에 표시됩니다."
+gui_friends_error:
+  other: "친구의 월드를 확인하지 못했습니다: {{.Err}}"
+gui_friends_signed_out:
+  other: "로그인하면 친구가 플레이 중인 월드를 볼 수 있습니다."
+gui_refresh:
+  other: "새로고침"
+friend_status_full:
+  other: "가득 참"
+friend_status_invite_only:
+  other: "초대 전용"
+friend_status_closed:
+  other: "새 플레이어를 받지 않음"
+friend_status_version:
+  other: "Minecraft {{.Version}}에서 실행 중이며, bedrocktool은 {{.Supported}}을(를) 지원합니다"
+friend_status_no_connection:
+  other: "bedrocktool에서 참가할 수 없음"
+friend_world_gone:
+  other: "이 친구의 월드는 더 이상 열려 있지 않습니다. 다시 열리면 친구 목록에서 다시 선택하세요."
+friend_world_unjoinable:
+  other: "{{.Host}}님의 월드 {{.Name}}에 참가할 수 없습니다: {{.Reason}}"
+friend_world_timeout:
+  other: "친구의 월드가 {{.Seconds}}초 안에 들여보내 주지 않았습니다. 월드가 닫혔거나 친구 참가가 막혔을 수 있습니다."

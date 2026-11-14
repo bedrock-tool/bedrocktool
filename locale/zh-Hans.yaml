@@ -186,8 +186,6 @@ gui_address_experiences:
   other: "体验"
 gui_address_featured:
   other: "精选"
-gui_address_worlds:
-  other: "世界"
 gui_browse:
   other: "浏览"
 
@@ -288,10 +286,6 @@ gui_featured_title:
   other: "精选服务器"
 gui_featured_none:
   other: "没有找到精选服务器"
-gui_world_list_title:
-  other: "世界"
-gui_world_list_none:
-  other: "没有找到任何世界"
 gui_realms_title:
   other: "Realm"
 gui_realms_none:
@@ -707,3 +701,41 @@ recent_kind_friend:
   other: "好友的世界"
 recent_kind_server:
   other: "服务器"
+
+# GUI: friends' worlds
+gui_address_friends:
+  other: "好友 ({{.Count}})"
+gui_friends_title:
+  other: "好友的世界"
+gui_friends_select:
+  other: "选择"
+gui_friends_players:
+  other: "玩家：{{.Count}}/{{.Max}}"
+gui_friends_players_count:
+  other: "玩家：{{.Count}}"
+gui_friends_none:
+  other: "目前没有好友在玩你可以加入的世界。"
+gui_friends_none_hint:
+  other: "好友的世界在游玩中且多人游戏对好友开放时，会显示在这里。"
+gui_friends_error:
+  other: "无法查询好友的世界：{{.Err}}"
+gui_friends_signed_out:
+  other: "登录后即可查看好友正在玩的世界。"
+gui_refresh:
+  other: "刷新"
+friend_status_full:
+  other: "已满"
+friend_status_invite_only:
+  other: "仅限邀请"
+friend_status_closed:
+  other: "不接受新玩家"
+friend_status_version:
+  other: "运行 Minecraft {{.Version}}，bedrocktool 支持 {{.Supported}}"
+friend_status_no_connection:
+  other: "无法通过 bedrocktool 加入"
+friend_world_gone:
+  other: "该好友的世界已不再开放。等世界重新开放后，请在“好友”中重新选择。"
+friend_world_unjoinable:
+  other: "无法加入 {{.Host}} 的世界 {{.Name}}：{{.Reason}}"
+friend_world_timeout:
+  other: "好友的世界在 {{.Seconds}} 秒内没有让你进入。世界可能已关闭，或不再允许好友加入。"

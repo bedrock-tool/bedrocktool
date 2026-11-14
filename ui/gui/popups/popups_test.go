@@ -169,6 +169,8 @@ func setGuim(p Popup, g *fakeGuim) {
 		p.g = g
 	case *RecentServers:
 		p.g = g
+	case *FriendWorlds:
+		p.g = g
 	}
 }
 

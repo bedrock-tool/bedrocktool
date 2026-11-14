@@ -10,7 +10,6 @@ import (
 
 	"github.com/bedrock-tool/bedrocktool/utils/auth"
 	"github.com/google/uuid"
-	"github.com/sandertv/gophertunnel/minecraft/p2p"
 	"github.com/sandertv/gophertunnel/minecraft/realms"
 	"github.com/sandertv/gophertunnel/minecraft/service/gatherings"
 )
@@ -186,10 +185,6 @@ func (c *ConnectInfo) SetFeaturedServer(server *gatherings.FeaturedServer) {
 func (c *ConnectInfo) SetExperience(experience *gatherings.Experience) {
 	c.Value = "experience:" + experienceName(experience)
 	c.experience = experience
-}
-
-func (c *ConnectInfo) SetWorld(world *p2p.World) {
-	c.Value = "xbox:" + world.HandleID().String()
 }
 
 func parseConnectInfo(value string) (*ParsedConnectInfo, error) {

@@ -187,8 +187,6 @@ gui_address_experiences:
   other: "Expériences"
 gui_address_featured:
   other: "En vedette"
-gui_address_worlds:
-  other: "Mondes"
 gui_browse:
   other: "Parcourir"
 
@@ -289,10 +287,6 @@ gui_featured_title:
   other: "Serveurs en vedette"
 gui_featured_none:
   other: "Aucun serveur en vedette trouvé"
-gui_world_list_title:
-  other: "Mondes"
-gui_world_list_none:
-  other: "Aucun monde trouvé"
 gui_realms_title:
   other: "Realms"
 gui_realms_none:
@@ -715,3 +709,41 @@ recent_kind_friend:
   other: "Monde d'un ami"
 recent_kind_server:
   other: "Serveur"
+
+# GUI: friends' worlds
+gui_address_friends:
+  other: "Amis ({{.Count}})"
+gui_friends_title:
+  other: "Mondes des amis"
+gui_friends_select:
+  other: "Choisir"
+gui_friends_players:
+  other: "Joueurs : {{.Count}}/{{.Max}}"
+gui_friends_players_count:
+  other: "Joueurs : {{.Count}}"
+gui_friends_none:
+  other: "Aucun de tes amis ne joue en ce moment à un monde que tu peux rejoindre."
+gui_friends_none_hint:
+  other: "Le monde d'un ami apparaît ici tant qu'il est en cours de partie avec le multijoueur ouvert aux amis."
+gui_friends_error:
+  other: "Impossible de vérifier les mondes de tes amis : {{.Err}}"
+gui_friends_signed_out:
+  other: "Connecte-toi pour voir les mondes de tes amis."
+gui_refresh:
+  other: "Actualiser"
+friend_status_full:
+  other: "Complet"
+friend_status_invite_only:
+  other: "Sur invitation uniquement"
+friend_status_closed:
+  other: "N'accepte plus de nouveaux joueurs"
+friend_status_version:
+  other: "Tourne sous Minecraft {{.Version}}, bedrocktool prend en charge {{.Supported}}"
+friend_status_no_connection:
+  other: "Impossible à rejoindre depuis bedrocktool"
+friend_world_gone:
+  other: "Le monde de cet ami n'est plus ouvert. Choisis-le à nouveau dans Amis quand il sera rouvert."
+friend_world_unjoinable:
+  other: "Impossible de rejoindre le monde {{.Name}} de {{.Host}} : {{.Reason}}"
+friend_world_timeout:
+  other: "Le monde de l'ami ne t'a pas laissé entrer en {{.Seconds}} secondes. La partie a peut-être été quittée ou n'est plus ouverte aux amis."

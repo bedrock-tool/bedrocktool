@@ -188,8 +188,6 @@ gui_address_experiences:
   other: "Doświadczenia"
 gui_address_featured:
   other: "Polecane"
-gui_address_worlds:
-  other: "Światy"
 gui_browse:
   other: "Przeglądaj"
 
@@ -290,10 +288,6 @@ gui_featured_title:
   other: "Polecane serwery"
 gui_featured_none:
   other: "Nie znaleziono polecanych serwerów"
-gui_world_list_title:
-  other: "Światy"
-gui_world_list_none:
-  other: "Nie znaleziono żadnych światów"
 gui_realms_title:
   other: "Realmy"
 gui_realms_none:
@@ -723,3 +717,41 @@ recent_kind_friend:
   other: "Świat znajomego"
 recent_kind_server:
   other: "Serwer"
+
+# GUI: friends' worlds
+gui_address_friends:
+  other: "Znajomi ({{.Count}})"
+gui_friends_title:
+  other: "Światy znajomych"
+gui_friends_select:
+  other: "Wybierz"
+gui_friends_players:
+  other: "Gracze: {{.Count}}/{{.Max}}"
+gui_friends_players_count:
+  other: "Gracze: {{.Count}}"
+gui_friends_none:
+  other: "Żaden z twoich znajomych nie gra teraz w świecie, do którego możesz dołączyć."
+gui_friends_none_hint:
+  other: "Świat znajomego pojawia się tutaj, gdy trwa w nim gra z trybem wieloosobowym otwartym dla znajomych."
+gui_friends_error:
+  other: "Nie udało się sprawdzić światów znajomych: {{.Err}}"
+gui_friends_signed_out:
+  other: "Zaloguj się, aby zobaczyć światy, w które grają twoi znajomi."
+gui_refresh:
+  other: "Odśwież"
+friend_status_full:
+  other: "Pełny"
+friend_status_invite_only:
+  other: "Tylko na zaproszenie"
+friend_status_closed:
+  other: "Nie przyjmuje nowych graczy"
+friend_status_version:
+  other: "Działa na Minecraft {{.Version}}, bedrocktool obsługuje {{.Supported}}"
+friend_status_no_connection:
+  other: "Nie da się dołączyć z bedrocktool"
+friend_world_gone:
+  other: "Świat tego znajomego nie jest już otwarty. Wybierz go ponownie w Znajomi, gdy znów będzie otwarty."
+friend_world_unjoinable:
+  other: "Nie można dołączyć do świata {{.Name}} gracza {{.Host}}: {{.Reason}}"
+friend_world_timeout:
+  other: "Świat znajomego nie wpuścił cię w ciągu {{.Seconds}} s. Może gra została zamknięta albo znajomi nie mogą już dołączać."

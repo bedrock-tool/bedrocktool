@@ -186,8 +186,6 @@ gui_address_experiences:
   other: "Experiences"
 gui_address_featured:
   other: "Featured"
-gui_address_worlds:
-  other: "Worlds"
 gui_browse:
   other: "Browse"
 
@@ -288,10 +286,6 @@ gui_featured_title:
   other: "Featured Servers"
 gui_featured_none:
   other: "Couldn't find any featured servers"
-gui_world_list_title:
-  other: "Worlds"
-gui_world_list_none:
-  other: "Couldn't find any worlds"
 gui_realms_title:
   other: "Realms"
 gui_realms_none:
@@ -705,3 +699,41 @@ recent_kind_friend:
   other: "Friend's world"
 recent_kind_server:
   other: "Server"
+
+# GUI: friends' worlds
+gui_address_friends:
+  other: "Friends ({{.Count}})"
+gui_friends_title:
+  other: "Friends' worlds"
+gui_friends_select:
+  other: "Select"
+gui_friends_players:
+  other: "Players: {{.Count}}/{{.Max}}"
+gui_friends_players_count:
+  other: "Players: {{.Count}}"
+gui_friends_none:
+  other: "None of your friends are playing a world you can join right now."
+gui_friends_none_hint:
+  other: "A friend's world shows up here while they play it with multiplayer open to friends."
+gui_friends_error:
+  other: "Couldn't check your friends' worlds: {{.Err}}"
+gui_friends_signed_out:
+  other: "Sign in to see the worlds your friends are playing."
+gui_refresh:
+  other: "Refresh"
+friend_status_full:
+  other: "Full"
+friend_status_invite_only:
+  other: "Invite only"
+friend_status_closed:
+  other: "Not letting new players in"
+friend_status_version:
+  other: "Runs Minecraft {{.Version}}, bedrocktool supports {{.Supported}}"
+friend_status_no_connection:
+  other: "Can't be joined from bedrocktool"
+friend_world_gone:
+  other: "That friend's world isn't open any more. Pick it again under Friends once they're back."
+friend_world_unjoinable:
+  other: "Can't join {{.Host}}'s world {{.Name}}: {{.Reason}}"
+friend_world_timeout:
+  other: "The friend's world didn't let you in within {{.Seconds}} seconds. They may have left it or stopped letting friends join."

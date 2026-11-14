@@ -188,8 +188,6 @@ gui_address_experiences:
   other: "Режимы"
 gui_address_featured:
   other: "Рекомендуемые"
-gui_address_worlds:
-  other: "Миры"
 gui_browse:
   other: "Обзор"
 
@@ -290,10 +288,6 @@ gui_featured_title:
   other: "Рекомендуемые серверы"
 gui_featured_none:
   other: "Рекомендуемые серверы не найдены"
-gui_world_list_title:
-  other: "Миры"
-gui_world_list_none:
-  other: "Миры не найдены"
 gui_realms_title:
   other: "Realms"
 gui_realms_none:
@@ -723,3 +717,41 @@ recent_kind_friend:
   other: "Мир друга"
 recent_kind_server:
   other: "Сервер"
+
+# GUI: friends' worlds
+gui_address_friends:
+  other: "Друзья ({{.Count}})"
+gui_friends_title:
+  other: "Миры друзей"
+gui_friends_select:
+  other: "Выбрать"
+gui_friends_players:
+  other: "Игроки: {{.Count}}/{{.Max}}"
+gui_friends_players_count:
+  other: "Игроки: {{.Count}}"
+gui_friends_none:
+  other: "Сейчас никто из друзей не играет в мир, к которому можно присоединиться."
+gui_friends_none_hint:
+  other: "Мир друга появляется здесь, пока в нём идёт игра и сетевая игра открыта для друзей."
+gui_friends_error:
+  other: "Не удалось проверить миры друзей: {{.Err}}"
+gui_friends_signed_out:
+  other: "Войдите, чтобы видеть миры, в которые играют ваши друзья."
+gui_refresh:
+  other: "Обновить"
+friend_status_full:
+  other: "Заполнен"
+friend_status_invite_only:
+  other: "Только по приглашению"
+friend_status_closed:
+  other: "Не принимает новых игроков"
+friend_status_version:
+  other: "Работает на Minecraft {{.Version}}, bedrocktool поддерживает {{.Supported}}"
+friend_status_no_connection:
+  other: "Нельзя подключиться через bedrocktool"
+friend_world_gone:
+  other: "Мир этого друга больше не открыт. Выберите его снова в разделе «Друзья», когда он снова откроется."
+friend_world_unjoinable:
+  other: "Нельзя войти в мир {{.Name}} игрока {{.Host}}: {{.Reason}}"
+friend_world_timeout:
+  other: "Мир друга не впустил вас за {{.Seconds}} с. Возможно, игра закрыта или друзьям больше нельзя входить."
