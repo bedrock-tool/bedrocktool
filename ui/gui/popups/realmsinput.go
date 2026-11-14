@@ -2,6 +2,7 @@ package popups
 
 import (
 	"context"
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"image"
 	"sort"
 
@@ -87,11 +88,11 @@ func realmJoinable(realm *realms.Realm) bool {
 func realmStatus(realm *realms.Realm) string {
 	switch {
 	case realm.Expired:
-		return "Expired: the owner's subscription ran out, it can't be joined"
+		return locale.Loc("gui_realm_expired", nil)
 	case realm.State == "CLOSED":
-		return "Closed by its owner"
+		return locale.Loc("gui_realm_closed", nil)
 	}
-	return "Open"
+	return locale.Loc("gui_realm_open", nil)
 }
 
 func layoutRealm(gtx C, th *material.Theme, realm *realmButton) D {
@@ -165,7 +166,7 @@ func (r *RealmsList) Layout(gtx C, th *material.Theme) D {
 	return LayoutPopupBackground(gtx, th, "Realms", func(gtx C) D {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx C) D {
-				return layout.Inset{Top: 4, Bottom: 10}.Layout(gtx, material.Label(th, th.TextSize*1.4, "Realms").Layout)
+				return layout.Inset{Top: 4, Bottom: 10}.Layout(gtx, material.Label(th, th.TextSize*1.4, locale.Loc("gui_realms_title", nil)).Layout)
 			}),
 			layout.Flexed(1, func(gtx C) D {
 				if r.loading {
@@ -175,7 +176,7 @@ func (r *RealmsList) Layout(gtx C, th *material.Theme) D {
 					})
 				}
 				if len(r.realms) == 0 {
-					return layout.Center.Layout(gtx, material.Body1(th, "You aren't in any Realms").Layout)
+					return layout.Center.Layout(gtx, material.Body1(th, locale.Loc("gui_realms_none", nil)).Layout)
 				}
 				return material.List(th, &r.list).Layout(gtx, len(r.realms), func(gtx C, index int) D {
 					gtx.Constraints.Min.X = gtx.Constraints.Max.X

@@ -1,6 +1,7 @@
 package popups
 
 import (
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"image"
 	"image/color"
 	"io"
@@ -78,7 +79,7 @@ const Radius = unit.Dp(3)
 
 // CloseButton is the button every popup closes with, at the bottom left.
 func CloseButton(gtx C, th *material.Theme, c *widget.Clickable) D {
-	return CloseButtonText(gtx, th, c, "Close")
+	return CloseButtonText(gtx, th, c, locale.Loc("gui_close", nil))
 }
 
 func CloseButtonText(gtx C, th *material.Theme, c *widget.Clickable, text string) D {

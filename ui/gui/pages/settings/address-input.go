@@ -6,6 +6,7 @@ import (
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/guim"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/popups"
 	"github.com/bedrock-tool/bedrocktool/utils/auth"
@@ -84,7 +85,7 @@ func (a *addressInput) Layout(gtx C, th *material.Theme) D {
 			layout.Rigid(func(gtx C) D {
 				macro := op.Record(gtx.Ops)
 				d := layout.UniformInset(8).Layout(gtx, func(gtx C) D {
-					e := material.Editor(th, &a.editor, "Enter Server Address")
+					e := material.Editor(th, &a.editor, locale.Loc("gui_address_placeholder", nil))
 					e.LineHeight += 4
 					return e.Layout(gtx)
 				})
@@ -109,7 +110,7 @@ func (a *addressInput) Layout(gtx C, th *material.Theme) D {
 							Bottom: 5,
 							Left:   0,
 							Right:  5,
-						}.Layout(gtx, material.Button(th, &a.showRealmsList, "Realms").Layout)
+						}.Layout(gtx, material.Button(th, &a.showRealmsList, locale.Loc("gui_address_realms", nil)).Layout)
 					}),
 					layout.Flexed(1, func(gtx C) D {
 						return layout.Inset{
@@ -117,7 +118,7 @@ func (a *addressInput) Layout(gtx C, th *material.Theme) D {
 							Bottom: 5,
 							Left:   0,
 							Right:  5,
-						}.Layout(gtx, material.Button(th, &a.showExperiences, "Experiences").Layout)
+						}.Layout(gtx, material.Button(th, &a.showExperiences, locale.Loc("gui_address_experiences", nil)).Layout)
 					}),
 					layout.Flexed(1, func(gtx C) D {
 						return layout.Inset{
@@ -125,7 +126,7 @@ func (a *addressInput) Layout(gtx C, th *material.Theme) D {
 							Bottom: 5,
 							Left:   0,
 							Right:  5,
-						}.Layout(gtx, material.Button(th, &a.showFeatured, "Featured").Layout)
+						}.Layout(gtx, material.Button(th, &a.showFeatured, locale.Loc("gui_address_featured", nil)).Layout)
 					}),
 					layout.Flexed(1, func(gtx C) D {
 						return layout.Inset{
@@ -133,7 +134,7 @@ func (a *addressInput) Layout(gtx C, th *material.Theme) D {
 							Bottom: 5,
 							Left:   0,
 							Right:  5,
-						}.Layout(gtx, material.Button(th, &a.showWorlds, "Worlds").Layout)
+						}.Layout(gtx, material.Button(th, &a.showWorlds, locale.Loc("gui_address_worlds", nil)).Layout)
 					}),
 				)
 			}),

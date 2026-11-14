@@ -107,7 +107,7 @@ func (sp *SkinPack) Save(fs utils.WriterFS) error {
 			skinName += "-" + strconv.Itoa(i)
 		}
 		if skin.SkinImageWidth == 0 {
-			logrus.Warnf("skin %s-%d empty texture", sp.Name, i)
+			logrus.Warn(locale.Loc("skin_empty_texture", locale.Strmap{"Name": sp.Name, "Index": i}))
 			continue
 		}
 		err := WriteSkinTexture(fs, skinName, skin)
@@ -140,13 +140,13 @@ func (sp *SkinPack) Save(fs utils.WriterFS) error {
 		if skin.HaveGeometry() {
 			identifier, formatVersion, geometry, err := skin.ParseGeometry()
 			if err != nil {
-				logrus.Warnf("failed to decode geometry %s %v", skinName, err)
+				logrus.Warn(locale.Loc("skin_geometry_decode_failed", locale.Strmap{"Name": skinName, "Err": err}))
 			}
 			_ = formatVersion
 			if geometry != nil {
 				err := write112Geometry(fs, fmt.Sprintf("geometry-%s.json", identifier), []*SkinGeometry{geometry})
 				if err != nil {
-					logrus.Warnf("failed to write geometry %s %v", skinName, err)
+					logrus.Warn(locale.Loc("skin_geometry_write_failed", locale.Strmap{"Name": skinName, "Err": err}))
 				}
 				geometriesMap[identifier] = SkinGeometry{
 					Description: geometry.Description,

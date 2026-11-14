@@ -1,6 +1,7 @@
 package popups
 
 import (
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"image"
 	"image/color"
 	"image/png"
@@ -175,7 +176,7 @@ func TestRealmsListCloses(t *testing.T) {
 	} {
 		p.realms = append(p.realms, &realmButton{Realm: &r})
 	}
-	closes(t, p, "Close", "realms")
+	closes(t, p, locale.Loc("gui_close", nil), "realms")
 }
 
 func TestRealmsListPicksOpenRealm(t *testing.T) {
@@ -200,20 +201,20 @@ func TestUpdatePopupCloses(t *testing.T) {
 	p := NewUpdatePopup(nil).(*UpdatePopup)
 	p.state = stateAsk
 	p.update = &updater.Update{Version: "1.63.0"}
-	closes(t, p, "Close", "update")
+	closes(t, p, locale.Loc("gui_close", nil), "update")
 }
 
 func TestUpdatePopupErrorCloses(t *testing.T) {
 	p := NewUpdatePopup(nil).(*UpdatePopup)
 	p.state = stateError
-	closes(t, p, "Close", "update_error")
+	closes(t, p, locale.Loc("gui_close", nil), "update_error")
 }
 
 func TestStoriesPopup(t *testing.T) {
 	for _, tc := range []struct {
 		label string
 		want  messages.StoriesAnswer
-	}{{"Opt out", messages.StoriesOptOut}, {"Opt in", messages.StoriesOptIn}, {"Cancel", messages.StoriesCancel}} {
+	}{{locale.Loc("gui_stories_opt_out", nil), messages.StoriesOptOut}, {locale.Loc("gui_stories_opt_in", nil), messages.StoriesOptIn}, {locale.Loc("gui_cancel", nil), messages.StoriesCancel}} {
 		reply := make(chan messages.StoriesAnswer, 1)
 		p := NewStoriesPopup(nil, &messages.EventStoriesPrompt{RealmName: "Magic Realm", Reply: reply})
 		closes(t, p, tc.label, "stories")
@@ -231,7 +232,7 @@ func TestStoriesPopup(t *testing.T) {
 
 func TestConnectPopupCloses(t *testing.T) {
 	for _, tc := range []struct{ state, button string }{
-		{"", "Cancel"}, {"listening", "Cancel"}, {"connecting-server", "Cancel"}, {"established", "Hide"},
+		{"", locale.Loc("gui_cancel", nil)}, {"listening", locale.Loc("gui_cancel", nil)}, {"connecting-server", locale.Loc("gui_cancel", nil)}, {"established", locale.Loc("gui_connect_hide", nil)},
 	} {
 		p := NewConnect(nil, "0.0.0.0:19132").(*ConnectPopup)
 		p.state = tc.state
@@ -242,5 +243,5 @@ func TestConnectPopupCloses(t *testing.T) {
 
 func TestErrorPopupCloses(t *testing.T) {
 	p := NewErrorPopup(nil, os.ErrNotExist, false, nil)
-	closes(t, p, "Close", "error")
+	closes(t, p, locale.Loc("gui_close", nil), "error")
 }

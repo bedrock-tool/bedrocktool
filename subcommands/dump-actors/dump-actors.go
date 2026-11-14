@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"os"
 	"path"
 
@@ -20,9 +21,9 @@ import (
 )
 
 type DumpActorsSettings struct {
-	WorldPath string `opt:"World Folder" flag:"world"`
-	Write     bool   `opt:"Write Back" flag:"write"`
-	JsonPath  string `opt:"json file" flag:"json" default:"actors.json"`
+	WorldPath string `opt:"locale.opt_dump_actors_world" flag:"world"`
+	Write     bool   `opt:"locale.opt_dump_actors_write" flag:"write"`
+	JsonPath  string `opt:"locale.opt_dump_actors_json" flag:"json" default:"actors.json"`
 }
 
 type DumpActorsCMD struct {
@@ -33,7 +34,7 @@ func (DumpActorsCMD) Name() string {
 }
 
 func (DumpActorsCMD) Description() string {
-	return "dump and write actors"
+	return locale.Loc("dump_actors_synopsis", nil)
 }
 
 func (DumpActorsCMD) Settings() any {
@@ -106,7 +107,7 @@ func extractActorsToJson(worldPath, jsonPath string) error {
 	}); err != nil {
 		return err
 	}
-	logrus.Infof("Extracted %d actors to json", len(actors))
+	logrus.Info(locale.Locm("dump_actors_extracted", nil, len(actors)))
 	return nil
 }
 
@@ -129,7 +130,7 @@ func removeAllDigp(ldb *leveldb.DB) {
 	if err != nil {
 		logrus.Fatal(err)
 	}
-	logrus.Infof("removed %d digp entries", count)
+	logrus.Info(locale.Locm("dump_actors_removed_digp", nil, count))
 }
 
 func removeAllActorprefix(ldb *leveldb.DB) {
@@ -144,7 +145,7 @@ func removeAllActorprefix(ldb *leveldb.DB) {
 	if err != nil {
 		logrus.Fatal(err)
 	}
-	logrus.Infof("removed %d actors", count)
+	logrus.Info(locale.Locm("dump_actors_removed", nil, count))
 }
 
 func writeActorsBackToWorld(worldPath, jsonPath string) error {
@@ -170,7 +171,7 @@ func writeActorsBackToWorld(worldPath, jsonPath string) error {
 		}
 		actorsByChunk[cp] = append(actorsByChunk[cp], actor.e)
 	}
-	logrus.Infof("writing actors in %d chunks", len(actorsByChunk))
+	logrus.Info(locale.Locm("dump_actors_writing", nil, len(actorsByChunk)))
 
 	// backup leveldb
 	err = backupWorldDB(worldPath)
@@ -204,7 +205,7 @@ func writeActorsBackToWorld(worldPath, jsonPath string) error {
 		outputWorld.StoreEntities(cp, world.Overworld, actors)
 		count += len(actors)
 	}
-	logrus.Infof("wrote %d actors", count)
+	logrus.Info(locale.Locm("dump_actors_wrote", nil, count))
 	return nil
 }
 

@@ -2,6 +2,7 @@ package behaviourpack
 
 import (
 	"fmt"
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"slices"
 	"strings"
 
@@ -459,7 +460,7 @@ func parseBlock(block protocol.BlockEntry) (MinecraftBlock, string) {
 		for componentName, component := range components {
 			component, ok := component.(map[string]any)
 			if !ok {
-				logrus.Warnf("invalid block component %s %s", block.Name, componentName)
+				logrus.Warn(locale.Loc("bp_invalid_block_component", locale.Strmap{"Block": block.Name, "Component": componentName}))
 				continue
 			}
 			name, value := processComponent(componentName, component, &version)

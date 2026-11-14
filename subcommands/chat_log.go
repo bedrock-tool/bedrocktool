@@ -12,7 +12,7 @@ import (
 type ChatLogSettings struct {
 	ProxySettings proxy.ProxySettings
 
-	Verbose bool `opt:"Verbose" flag:"verbose"`
+	Verbose bool `opt:"locale.opt_chat_log_verbose" flag:"verbose"`
 }
 
 type ChatLogCMD struct {

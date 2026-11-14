@@ -3,6 +3,7 @@ package settings
 import (
 	"errors"
 	"fmt"
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"image"
 	"image/color"
 	"reflect"
@@ -80,7 +81,7 @@ func (s *settingsPage) Init() {
 		case "connectInfo":
 			s.widgets[arg.Flag] = &settingsArg{
 				widget: AddressInput,
-				usage:  "target server address",
+				usage:  locale.Loc("remote_address", nil),
 			}
 			hasAddress = true
 			continue
@@ -439,7 +440,7 @@ func (s *settingsPage) Layout(gtx C, th *material.Theme) D {
 	}
 	if addr, ok := s.widgets["address"]; ok {
 		if input, ok := addr.widget.(*addressInput); ok {
-			section("Server")
+			section(locale.Loc("gui_section_server", nil))
 			items = append(items, func(gtx C) D {
 				gtx.Constraints.Min.X = gtx.Constraints.Max.X
 				return input.Layout(gtx, th)
@@ -447,7 +448,7 @@ func (s *settingsPage) Layout(gtx C, th *material.Theme) D {
 		}
 	}
 	if len(bools) > 0 || len(fields) > 0 {
-		section("Options")
+		section(locale.Loc("gui_section_options", nil))
 		items = append(items, func(gtx C) D { return s.layoutOptions(gtx, th, bools) })
 		if len(fields) > 0 {
 			items = append(items, layout.Spacer{Height: 10}.Layout)
@@ -457,7 +458,7 @@ func (s *settingsPage) Layout(gtx C, th *material.Theme) D {
 		}
 	}
 	if len(advBools) > 0 || len(advFields) > 0 {
-		section("Connection & debugging")
+		section(locale.Loc("gui_section_connection", nil))
 		items = append(items, func(gtx C) D { return s.layoutOptions(gtx, th, advBools) })
 		if len(advFields) > 0 {
 			items = append(items, layout.Spacer{Height: 10}.Layout)

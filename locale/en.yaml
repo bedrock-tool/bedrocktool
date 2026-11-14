@@ -1,3 +1,4 @@
+# General and CLI
 bedrocktool_version:
   other: "Bedrocktool Version {{.Version}}"
 available_commands:
@@ -7,190 +8,616 @@ use_to_run_command:
 input_command:
   other: "Input Command: "
 fatal_error:
-  other: "Fatal Error occurred."
+  other: "Fatal error occurred."
 report_issue:
   other: |
-    if you want to report this error, please open an issue at
+    If you want to report this error, please open an issue at
     https://github.com/bedrock-tool/bedrocktool/issues
-    And attach the error info, describe what you did to get this error and if possible the bedrocktool.log file.
+    and attach the error info, describe what you did to get this error and, if possible, attach the bedrocktool.log file.
     Thanks!
 used_extra_debug_report:
   other: |
-    NOTE: you have used extra-debug which creates a packets.log and a packets.log.gpg file
-    please if you want to submit an issue only upload the packets.log.gpg file.
-    packets.log and packets.log.gpg may include account info (never login info) so it is safer to upload the encrypted file.
-    that file can be read by the developer and not by people looking at the public issues page.
+    NOTE: you have used extra-debug, which creates a packets.log and a packets.log.gpg file.
+    If you want to submit an issue, please only upload the packets.log.gpg file.
+    packets.log and packets.log.gpg may include account info (never login info), so it is safer to upload the encrypted file.
+    That file can be read by the developer and not by people looking at the public issues page.
 enter_to_exit:
   other: "Press Enter to exit."
 should_login_xbox:
-  other: "if it should login to xbox"
-enable_dns:
-  other: "enable dns server for consoles"
+  other: "Log in to Xbox Live"
 debug_mode:
   other: "More logging, for bug reports"
-refreshed_token:
-  other: "refreshed token"
 done:
-  other: "done"
+  other: "Done"
 
-starting_dns:
-  other: "Starting dns at {{.Ip}}:53"
-failed_to_start_dns:
-  other: "Failed to start dns server: {{.Err}}"
-suggest_bedrockconnect:
-  other: "you may have to use Bedrockconnect"
-
-invalid_server:
-  other: "Invalid Server Address"
+# Connecting
 enter_server:
   other: "Enter Server: "
-disconnect:
-  other: "Disconnect {{.Pk}}"
-failed_to_connect:
-  other: "failed to connect to {{.Address}}: {{.Err}}"
 listening_on:
   other: "Listening on {{.Address}}"
 connecting:
   other: "Connecting to {{.Address}}"
 connected:
   other: "Connected to server."
-connection_cancelled:
-  other: "connection cancelled"
-failed_start_game:
-  other: "failed to start game: {{.Err}}"
 help_connect:
-  other: "Open Minecraft and connect to this computers local ip address to continue"
-failed_to_spawn:
-  other: "Failed to Spawn"
-not_supported_anymore:
-  other: "not supported anymore"
+  other: "Open Minecraft and connect to this computer's local IP address to continue"
 remote_address:
-  other: "remote server address"
-ctrl_c_to_exit:
-  other: "Press ctrl+c to exit"
-server_address_help:
-  other: |
-   accepted server address formats:
-    123.234.123.234
-    123.234.123.234:19132
-    realm:<Realmname>
-    realm:<Realmname>:<Id>
-
+  other: "Server address"
 realm_list_line:
   other: "Name: {{.Name}}\tid: {{.Id}}"
 
-failed_to_open_output:
-  other: "Failed to open output"
-adding_world:
-  other: "Adding {{.World}}"
-not_found:
-  other: "{{.World}} Not Found"
-need_to_specify_multiple_worlds:
-  other: "you need to specify more than 1 world to merge"
-
+# Updates
 update_available:
   other: "Update available: {{.Version}}  use the update command to install it."
 no_update:
-  other: "No Updates available."
+  other: "No updates available."
 updating:
   other: "Updating to {{.Version}}"
 updated:
   other: "Updated!"
 
+# Worlds (log and in-game)
 worldname_set:
   other: "worldName is now {{.Name}}"
 void_generator_true:
-  other: "Using Void Generator"
+  other: "Using void generator"
 void_generator_false:
-  other: "Not using Void Generator"
-subchunk_before_chunk:
-  other: "The server didnt send the chunk before the subchunk!"
+  other: "Not using void generator"
 zoom_level:
   other: "Zoom: {{.Level}}"
-not_saving_empty:
-  other: "Skipping save because the world didnt contain any chunks."
 saving_world:
-  one: "Saving world {{.Name}} with {{.Count}} Chunk"
-  other: "Saving world {{.Name}} with {{.Count}} Chunks"
+  one: "Saving world {{.Name}} with {{.Count}} chunk"
+  other: "Saving world {{.Name}} with {{.Count}} chunks"
 unknown_gamerule:
-  other: "unknown gamerule: {{.Name}}"
+  other: "Unknown gamerule: {{.Name}}"
 adding_pack:
-  other: "Adding Resourcepack {{.Name}}"
+  other: "Adding resource pack {{.Name}}"
 using_customblocks:
-  other: "Using Custom Blocks"
-guessing_version:
-  other: "couldnt determine game version, assuming > 1.18"
+  other: "Using custom blocks"
 use_setname:
-  other: "use /setname <worldname>\nto set the world name"
-using_under_118:
-  other: "using legacy (< 1.18)"
+  other: "Use /setname <worldname>\nto set the world name"
 setname_desc:
-  other: "set user defined name for this world"
+  other: "set a name for this world"
 void_desc:
-  other: "toggle if void generator should be used"
+  other: "toggle whether the void generator is used"
 popup_chunk_count:
   other: "{{.Chunks}} Chunks\n{{.Entities}} Entities\nName: {{.Name}}"
 warn_window_closed_not_open:
-  other: "Closed window that wasnt open"
+  other: "Closed a window that wasn't open"
 saved_block_inv:
-  other: "Saved Block Inventory"
-save_packs_with_world:
-  other: "save resourcepacks to the worlds"
+  other: "Saved block inventory"
 enable_void:
   other: "Leave unloaded areas empty instead of generating terrain"
 save_image:
   other: "Also save a PNG of the map next to the world"
-test_block_inv:
-  other: "enable experimental block inventory saving"
 saved:
   other: "Saved: {{.Name}}"
 empty_chunk:
-  other: "Empty Chunk."
-
-only_with_geometry:
-  other: "only save skins with geometry"
-name_prefix:
-  other: "only save players starting with this"
+  other: "Empty chunk."
 failed_write:
-  other: "failed to write {{.Part}} {{.Path}}: {{.Err}}"
-packet_filter:
-  other: "packets to not show"
+  other: "Failed to write {{.Part}} {{.Path}}: {{.Err}}"
 
-save_encrypted:
-  other: "save encrypted resourcepacks"
-only_keys:
-  other: "only dump keys, dont decrypt the pack"
-decrypting_packs:
-  other: "Decrypting Resource Packs"
+# Resource pack keys
 no_resourcepacks:
-  other: "No Resourcepack sent"
+  other: "No resource pack sent"
 writing_keys:
   other: "Writing keys to {{.Path}}"
 warn_key_exists:
-  other: "key {{.Id}} exists already"
+  other: "Key {{.Id}} exists already"
 compare_key:
   other: "uuid: {{.Id}}, key in db: {{.Prev}} != new key {{.Now}}"
-decrypting:
-  other: "Decrypting..."
 
-
+# Subcommand descriptions (also the mode cards in the GUI)
 list_realms_synopsis:
-  other: "prints all realms you have access to"
+  other: "Print all Realms you have access to"
 capture_synopsis:
-  other: "capture packets in a pcap file"
+  other: "Capture packets in a pcap file"
 chat_log_synopsis:
-  other: "logs chat to a file"
+  other: "Log chat to a file"
 debug_proxy_synopsis:
-  other: "verbose debug packets"
+  other: "Verbose debug packets"
 merge_synopsis:
-  other: "merge 2 or more worlds"
+  other: "Merge 2 or more worlds"
 update_synopsis:
-  other: "self updates to latest version"
-skins_proxy_synopsis:
-  other: "download skins from players on a server with proxy"
+  other: "Update to the latest version"
 skins_synopsis:
   other: "Save the skins of the players you see on a server"
 world_synopsis:
   other: "Save the world you play in, with its entities and add-ons, as a .mcworld"
 pack_synopsis:
   other: "Download a server's resource packs, decrypted"
+
+# GUI: general
+gui_window_title:
+  other: "Bedrocktool {{.Version}} (Minecraft {{.McVersion}})"
+gui_closing:
+  other: "Closing"
+gui_close:
+  other: "Close"
+gui_cancel:
+  other: "Cancel"
+gui_back:
+  other: "Back"
+gui_return:
+  other: "Return"
+gui_done:
+  other: "Done"
+gui_copied:
+  other: "Copied!"
+gui_copy_logs:
+  other: "Copy Logs"
+gui_appbar_menu:
+  other: "Menu"
+gui_appbar_actions:
+  other: "Actions"
+gui_nav_title:
+  other: "Navigation"
+gui_login:
+  other: "Login"
+gui_logout:
+  other: "Logout"
+gui_account_named:
+  other: "{{.Action}} ({{.Name}})"
+gui_switch_account:
+  other: "Switch"
+gui_logs:
+  other: "Logs"
+
+# GUI: settings
+gui_settings_title:
+  other: "Settings"
+gui_settings_pick_mode:
+  other: "What do you want to save?"
+gui_start:
+  other: "Start"
+gui_mode_worlds:
+  other: "Worlds"
+gui_mode_skins:
+  other: "Skins"
+gui_mode_packs:
+  other: "Packs"
+gui_section_server:
+  other: "Server"
+gui_section_options:
+  other: "Options"
+gui_section_connection:
+  other: "Connection & debugging"
+gui_address_placeholder:
+  other: "Enter Server Address"
+gui_address_realms:
+  other: "Realms"
+gui_address_experiences:
+  other: "Experiences"
+gui_address_featured:
+  other: "Featured"
+gui_address_worlds:
+  other: "Worlds"
+gui_browse:
+  other: "Browse"
+
+# GUI: world downloader
+gui_worlds_title:
+  other: "World Downloader"
+gui_worlds_saving:
+  other: "Saving {{.Name}}"
+gui_save_step_preparing:
+  other: "Preparing"
+gui_save_step_chunks:
+  other: "Storing chunks"
+gui_save_step_entities:
+  other: "Storing entities"
+gui_save_step_resource_packs:
+  other: "Adding resource packs"
+gui_save_step_resource_pack:
+  other: "Adding resource pack {{.Name}}"
+gui_save_step_behavior_pack:
+  other: "Adding the behavior pack"
+gui_save_step_mcworld:
+  other: "Writing the .mcworld file"
+gui_worlds_counts:
+  other: "{{.Chunks}} chunks  ·  {{.Entities}} entities"
+gui_worlds_saved_title:
+  other: "Saved worlds"
+gui_worlds_saved_in:
+  other: "In {{.Dir}}"
+gui_worlds_nothing_saved:
+  other: "Nothing was saved: no chunks were loaded."
+gui_worlds_waiting:
+  other: "Waiting for chunks"
+gui_worlds_waiting_hint:
+  other: "The map fills in as you walk around in Minecraft."
+
+# GUI: skins, packs, update page
+gui_skins_title:
+  other: "Skin Grabber"
+gui_packs_title:
+  other: "Pack Download"
+gui_packs_downloading_title:
+  other: "Downloading Packs"
+gui_packs_downloaded_title:
+  other: "Downloaded Packs"
+gui_pack_processing:
+  other: "Processing"
+gui_pack_downloaded:
+  other: "Downloaded"
+gui_pack_downloading:
+  other: "Downloading"
+gui_pack_show:
+  other: "Show"
+gui_update_downloading_percent:
+  other: "downloading ({{.Percent}}%)"
+
+# GUI: popups
+gui_auth_at:
+  other: "Authenticate at: "
+gui_auth_code:
+  other: "Using Code: "
+gui_connect_starting:
+  other: "Starting"
+gui_connect_starting_detail:
+  other: "Logging in and finding the server..."
+gui_connect_title:
+  other: "Join from Minecraft"
+gui_connect_connecting:
+  other: "Connecting to the server"
+gui_connect_connecting_detail:
+  other: "Hold on in Minecraft: the server's resource packs are downloaded first, which can take a minute the first time."
+gui_connect_resources:
+  other: "Downloading resource packs"
+gui_connect_resources_detail:
+  other: "Hold on in Minecraft, this can take a minute the first time."
+gui_connect_connected:
+  other: "Connected"
+gui_connect_connected_detail:
+  other: "Play as usual. The world is saved when you leave."
+gui_connect_instructions:
+  other: "In Minecraft, go to Servers, Add Server, and use:"
+gui_connect_this_computer:
+  other: "On this computer"
+gui_connect_other_device:
+  other: "On another device"
+gui_connect_address_port:
+  other: "{{.Ip}}   port {{.Port}}"
+gui_connect_hide:
+  other: "Hide"
+gui_connect_open_minecraft:
+  other: "Open Minecraft"
+gui_error_title:
+  other: "Error"
+gui_error_fatal_title:
+  other: "Fatal Panic"
+gui_error_more_info:
+  other: "More info was printed to the console; including it in a bug report helps."
+gui_experiences_title:
+  other: "Experiences"
+gui_experiences_none:
+  other: "Couldn't find any experiences"
+gui_featured_title:
+  other: "Featured Servers"
+gui_featured_none:
+  other: "Couldn't find any featured servers"
+gui_world_list_title:
+  other: "Worlds"
+gui_world_list_none:
+  other: "Couldn't find any worlds"
+gui_realms_title:
+  other: "Realms"
+gui_realms_none:
+  other: "You aren't in any Realms"
+gui_realm_expired:
+  other: "Expired: the owner's subscription ran out, it can't be joined"
+gui_realm_closed:
+  other: "Closed by its owner"
+gui_realm_open:
+  other: "Open"
+gui_select_account_title:
+  other: "Select Account Instance"
+gui_select_account_placeholder:
+  other: "enter instance name"
+gui_stories_title:
+  other: "Realm Stories"
+gui_stories_text:
+  other: "{{.Realm}} won't let this account join until it answers the Realm's Stories prompt, the one Minecraft asks the first time you join a Realm."
+gui_stories_detail:
+  other: "Opting in shares your activity on this Realm's Stories timeline; opting out doesn't. Either answer lets you join, and you can change it later in Minecraft."
+gui_stories_opt_in:
+  other: "Opt in"
+gui_stories_opt_out:
+  other: "Opt out"
+gui_update_title:
+  other: "Update"
+gui_update_installed:
+  other: "Installed: {{.Version}}"
+gui_update_latest:
+  other: "Latest:    {{.Version}}"
+gui_update_up_to_date:
+  other: "You already have the latest version."
+gui_update_start:
+  other: "Update and restart"
+gui_update_downloading:
+  other: "Downloading the update..."
+gui_update_failed:
+  other: "Update failed"
+gui_update_failed_err:
+  other: "Update failed: {{.Err}}"
+gui_update_restarting:
+  other: "Restarting..."
+
+# Settings: option names (opt) and descriptions (desc)
+opt_worlds_void:
+  other: "Void Generator"
+opt_worlds_image:
+  other: "Map Image"
+opt_worlds_save_entities:
+  other: "Entities"
+desc_worlds_save_entities:
+  other: "Mobs, armor stands, item frames and other entities"
+opt_worlds_save_players:
+  other: "Players"
+desc_worlds_save_players:
+  other: "Other players, as statues wearing their skins"
+opt_worlds_map_art:
+  other: "Map Art"
+desc_worlds_map_art:
+  other: "Also save maps hanging in item frames as PNGs"
+opt_worlds_save_inventories:
+  other: "Inventories"
+desc_worlds_save_inventories:
+  other: "What is in chests you open, and your own inventory"
+opt_worlds_block_updates:
+  other: "Block Updates"
+desc_worlds_block_updates:
+  other: "Keep blocks the server changes after a chunk loaded"
+opt_worlds_entity_culling:
+  other: "Entity Culling"
+desc_worlds_entity_culling:
+  other: "Leave out entities that died or despawned (experimental)"
+opt_worlds_exclude_mobs:
+  other: "Exclude Mobs"
+desc_worlds_exclude_mobs:
+  other: "Entity IDs to leave out, comma separated; * works, e.g. minecraft:bat,hive:*"
+opt_worlds_chunk_radius:
+  other: "Chunk Radius"
+desc_worlds_chunk_radius:
+  other: "View distance to ask the server for, in chunks (76 if empty)"
+opt_worlds_script:
+  other: "Script"
+desc_worlds_script:
+  other: "A JavaScript file that decides what gets saved"
+opt_worlds_record_ui:
+  other: "Record Menus"
+desc_worlds_record_ui:
+  other: "Rebuild the menus you open and the scoreboards as a script in the world"
+opt_proxy_address:
+  other: "Address"
+opt_proxy_debug:
+  other: "Debug"
+opt_proxy_extra_debug:
+  other: "Extra Debug"
+desc_proxy_extra_debug:
+  other: "Also log every packet to packet.log (large)"
+opt_proxy_capture:
+  other: "Record Session"
+desc_proxy_capture:
+  other: "Save a .pcap2 recording you can replay later"
+opt_proxy_client_cache:
+  other: "Client Cache"
+desc_proxy_client_cache:
+  other: "Let Minecraft cache chunks, so they load faster"
+opt_proxy_listen:
+  other: "Listen Address"
+desc_proxy_listen:
+  other: "Where Minecraft joins the proxy, e.g. :19133 for another port"
+opt_skins_filter:
+  other: "Name Filter"
+desc_skins_filter:
+  other: "Only save players whose name matches this regex"
+opt_skins_no_proxy:
+  other: "Without Minecraft"
+desc_skins_no_proxy:
+  other: "Join by itself and save the skins of whoever is online"
+opt_skins_texture_only:
+  other: "Texture Only"
+desc_skins_texture_only:
+  other: "Save just the skin images, not skin packs with models"
+opt_skins_timestamped:
+  other: "Dated Folders"
+desc_skins_timestamped:
+  other: "Put each session in its own dated folder"
+opt_packs_save_encrypted:
+  other: "Keep Encrypted Copy"
+desc_packs_save_encrypted:
+  other: "Also save encrypted packs as they were sent"
+opt_packs_folders:
+  other: "As Folders"
+desc_packs_folders:
+  other: "Save packs as folders instead of .mcpack files"
+opt_chat_log_verbose:
+  other: "Verbose"
+opt_merge_bounds:
+  other: "Show Bounds"
+opt_merge_out:
+  other: "Out Path"
+opt_merge_args:
+  other: "Input Worlds"
+opt_render_world:
+  other: "World Path"
+opt_render_out:
+  other: "Output filename"
+opt_dump_actors_world:
+  other: "World Folder"
+opt_dump_actors_write:
+  other: "Write Back"
+opt_dump_actors_json:
+  other: "json file"
+opt_trans_auth:
+  other: "Auth"
+
+# Subcommands
+render_synopsis:
+  other: "Render a saved world to a PNG"
+dump_actors_synopsis:
+  other: "Dump a world's entities to JSON and write them back"
+render_wrote:
+  other: "Wrote {{.Path}}"
+merge_out_required:
+  other: "-out must be specified"
+dump_actors_extracted:
+  one: "Extracted {{.Count}} actor to json"
+  other: "Extracted {{.Count}} actors to json"
+dump_actors_removed_digp:
+  one: "Removed {{.Count}} digp entry"
+  other: "Removed {{.Count}} digp entries"
+dump_actors_removed:
+  one: "Removed {{.Count}} actor"
+  other: "Removed {{.Count}} actors"
+dump_actors_writing:
+  one: "Writing actors in {{.Count}} chunk"
+  other: "Writing actors in {{.Count}} chunks"
+dump_actors_wrote:
+  one: "Wrote {{.Count}} actor"
+  other: "Wrote {{.Count}} actors"
+pack_icon_parse_failed:
+  other: "Failed to parse pack_icon.png of {{.Name}}"
+dump_keys_failed:
+  other: "Error dumping keys: {{.Err}}"
+
+# CLI
+ui_init_failed:
+  other: "Failed to start the UI: {{.Err}}"
+already_logged_in:
+  other: "Already logged in"
+unknown_subcommand:
+  other: "{{.Name}} is not a known subcommand"
+cli_usage_for:
+  other: "Usage for {{.Name}}:"
+cli_stories_text:
+  other: "{{.Realm}} won't let this account join until it answers the Realm's Stories prompt\n(the one Minecraft asks the first time you join a Realm). Opting in shares your\nactivity on its Stories timeline; either answer lets you join."
+cli_stories_prompt:
+  other: "Opt in, opt out or cancel? [in/out/cancel]: "
+
+# Accounts and connection
+account_switched:
+  other: "Switched account"
+auth_refreshing_ms_token:
+  other: "Refreshing Microsoft token"
+auth_invalid_mctoken:
+  other: "Invalid Minecraft token, refreshing"
+auth_old_mctoken:
+  other: "Minecraft token is for an older version, refreshing"
+transferring:
+  other: "Transferring to {{.Address}}"
+forced_pack_added:
+  other: "Added {{.Name}} to the forced packs"
+forced_pack_unknown_file:
+  other: "Unrecognized file {{.Path}} in forcedpacks"
+replay_reading:
+  other: "Reading replay {{.File}}"
+replay_end:
+  other: "Reached the end of the replay"
+disconnecting:
+  other: "Disconnecting"
+client_connected:
+  other: "Client connected"
+already_connected:
+  other: "You are already connected!"
+realm_not_found:
+  other: "Realm {{.Name}} not found"
+stories_unanswered:
+  other: "{{.Realm}}: the Realm's Stories prompt was never answered, so it won't let you join yet"
+stories_save_failed:
+  other: "Saving the Stories answer: {{.Err}}"
+stories_saved:
+  other: "Stories answer saved ({{.Answer}}), joining again"
+realm_expired_error:
+  other: "{{.Realm}} has expired (its owner's subscription ran out), so it can't be joined"
+realm_refused_join:
+  other: "{{.Realm}} refused the join. If you've never joined it from Minecraft, join it there once and answer its prompts, then try again"
+
+# Resource packs
+downloading_pack:
+  other: "Downloading resource pack: {{.Url}}"
+pack_duplicate_entry:
+  other: "Duplicate texture pack entry {{.Id}} in the resource pack info"
+pack_download_failed:
+  other: "Failed to download {{.Url}}: {{.Err}}"
+pack_size_mismatch:
+  other: "Pack {{.Id}} had a different size in the ResourcePacksInfo packet than in the ResourcePackDataInfo packet"
+packs_sent_to_client:
+  other: "Finished sending resource packs to the client"
+bp_invalid_block_component:
+  other: "Invalid block component {{.Block}} {{.Component}}"
+
+# Skins
+skins_creating_pack:
+  other: "Creating skin pack for {{.Name}}"
+skins_added:
+  other: "Added a skin {{.Name}}"
+skins_write_texture_failed:
+  other: "Failed to write skin texture"
+skins_write_cape_failed:
+  other: "Failed to write cape texture"
+skins_no_skin:
+  other: "{{.Name}} has no skin"
+skin_missing_for_player:
+  other: "No skin for player {{.Id}}"
+skin_default_model:
+  other: "Player {{.Id}}: {{.Err}}, drawing it with the default model"
+skin_empty_texture:
+  other: "Skin {{.Name}}-{{.Index}} has an empty texture"
+skin_geometry_decode_failed:
+  other: "Failed to decode geometry {{.Name}}: {{.Err}}"
+skin_geometry_write_failed:
+  other: "Failed to write geometry {{.Name}}: {{.Err}}"
+
+# Worlds
+worlds_hive_detected:
+  other: "The Hive: sheep are saved as hive:text, and its NPC players are kept"
+worlds_hive_detected_packs:
+  other: "The Hive (by its resource packs): sheep are saved as hive:text, and its NPC players are kept"
+worlds_recording_ui:
+  other: "Recording menus and scoreboards into the behavior pack's script"
+worlds_excluding:
+  other: "Excluding: {{.List}}"
+exclude_mob_desc:
+  other: "add a mob to the list of mobs to ignore"
+save_world_desc:
+  other: "immediately save and reset the world state"
+worlds_map_art_failed:
+  other: "Map art: {{.Err}}"
+worlds_map_art_saved:
+  other: "Map art: {{.Maps}} maps, {{.Walls}} walls saved to {{.Dir}}"
+worlds_invalid_block_data:
+  other: "The server sent invalid block data"
+worlds_block_hash_collisions:
+  one: "{{.Count}} custom block state shares a network hash with another, and shows up as that one: {{.List}}"
+  other: "{{.Count}} custom block states share a network hash with another, and show up as that one: {{.List}}"
+worlds_biome_id_clash:
+  other: "Biome {{.Biome}} has the same ID ({{.Id}}) as {{.Other}}, keeping {{.Other}}"
+worlds_ignoring_entity:
+  other: "Ignoring entity: {{.Type}} {{.Id}}"
+worlds_bp_skipping:
+  other: "Skipping {{.What}} for the behavior pack: {{.Err}}"
+worlds_pack_encrypted:
+  other: "Can't add this pack, it is encrypted"
+worlds_hive_name_tags:
+  other: "Hive: {{.Tags}} name tags ({{.Entity}}), {{.Sheep}} of them sheep"
+worlds_saving_players:
+  one: "Saving {{.Count}} player"
+  other: "Saving {{.Count}} players"
+worlds_block_hash_missing:
+  other: "Couldn't find the block hash for a block update"
+worlds_chunk_update_missing:
+  other: "Chunk update for a chunk that wasn't loaded, pos = {{.Pos}}"
+worlds_chunk_load_failed:
+  other: "Failed loading chunk {{.Pos}}: {{.Err}}"
+worlds_chunk_store_failed:
+  other: "Failed storing chunk {{.Pos}}: {{.Err}}"
+script_unknown_event:
+  other: "events.register: unknown event {{.Name}}"
+
+# Crashes
+panic_fatal_error:
+  other: "Fatal error: {{.Err}}"
+crash_report_written:
+  other: "Crash report written to {{.Path}}"

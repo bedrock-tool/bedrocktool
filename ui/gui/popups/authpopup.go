@@ -3,6 +3,7 @@ package popups
 import (
 	"bytes"
 	"fmt"
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"image/color"
 	"io"
 
@@ -51,7 +52,7 @@ func (g *guiAuth) Layout(gtx C, th *material.Theme) D {
 			Type: "text",
 			Data: io.NopCloser(bytes.NewReader([]byte(g.code))),
 		})
-		g.g.Toast(gtx, "Copied!")
+		g.g.Toast(gtx, locale.Loc("gui_copied", nil))
 	}
 
 	if g.close.Clicked(gtx) {
@@ -66,7 +67,7 @@ func (g *guiAuth) Layout(gtx C, th *material.Theme) D {
 			layout.Flexed(1, func(gtx C) D {
 				return layout.Center.Layout(gtx, func(gtx C) D {
 					return layout.Flex{Axis: layout.Vertical, Alignment: layout.Middle}.Layout(gtx,
-						layout.Rigid(material.Body1(th, "Authenticate at: ").Layout),
+						layout.Rigid(material.Body1(th, locale.Loc("gui_auth_at", nil)).Layout),
 						layout.Rigid(func(gtx C) D {
 							uri := material.Body1(th, g.uri)
 							uri.Color = color.NRGBA{R: 0x06, G: 0x4c, B: 0xa6, A: 0xff}
@@ -76,7 +77,7 @@ func (g *guiAuth) Layout(gtx C, th *material.Theme) D {
 							return layout.Flex{
 								Axis: layout.Horizontal,
 							}.Layout(gtx,
-								layout.Rigid(material.Body1(th, "Using Code: ").Layout),
+								layout.Rigid(material.Body1(th, locale.Loc("gui_auth_code", nil)).Layout),
 								layout.Rigid(func(gtx C) D {
 									t := material.Body1(th, g.code)
 									t.State = &g.codeSelect
@@ -89,7 +90,7 @@ func (g *guiAuth) Layout(gtx C, th *material.Theme) D {
 			}),
 			layout.Rigid(func(gtx C) D {
 				gtx.Constraints.Max.X /= 4
-				b := material.Button(th, &g.close, "Close")
+				b := material.Button(th, &g.close, locale.Loc("gui_close", nil))
 				b.CornerRadius = Radius
 				return b.Layout(gtx)
 			}),

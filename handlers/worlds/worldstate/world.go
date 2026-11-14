@@ -426,7 +426,7 @@ func (w *World) BlockByID(rid uint32) (runtimeID uint32, name string, properties
 		var ok bool
 		rid, ok = w.BlockRegistry.HashToRuntimeID(rid)
 		if !ok {
-			w.log.Warn("couldnt find block hash for block update")
+			w.log.Warn(locale.Loc("worlds_block_hash_missing", nil))
 		}
 	}
 	name, properties, found = w.BlockRegistry.RuntimeIDToState(rid)
@@ -440,11 +440,11 @@ func (w *World) applyBlockUpdates() {
 		delete(w.blockUpdates, pos)
 		ch, ok, err := w.loadChunkLocked(world.ChunkPos(pos))
 		if !ok {
-			w.log.Warnf("Chunk updates for a chunk we dont have pos = %v", pos)
+			w.log.Warn(locale.Loc("worlds_chunk_update_missing", locale.Strmap{"Pos": pos}))
 			continue
 		}
 		if err != nil {
-			w.log.Warnf("Failed loading chunk %v %s", pos, err)
+			w.log.Warn(locale.Loc("worlds_chunk_load_failed", locale.Strmap{"Pos": pos, "Err": err}))
 			continue
 		}
 
@@ -454,7 +454,7 @@ func (w *World) applyBlockUpdates() {
 		}
 		err = w.storeChunkLocked(pos, ch)
 		if err != nil {
-			w.log.Warnf("Failed storing chunk %v %s", pos, err)
+			w.log.Warn(locale.Loc("worlds_chunk_store_failed", locale.Strmap{"Pos": pos, "Err": err}))
 			continue
 		}
 	}
@@ -564,7 +564,7 @@ func (w *World) Save(
 	// entity (Hive's packs are encrypted and left out).
 	var playerResourcePack *resourcepack.Pack
 	if tags > 0 {
-		w.log.Infof("Hive: %d name tags (%s), %d of them sheep", tags, HiveTextEntity, sheep)
+		w.log.Info(locale.Loc("worlds_hive_name_tags", locale.Strmap{"Tags": tags, "Entity": HiveTextEntity, "Sheep": sheep}))
 		behaviorPack.AddEntityDefinition(HiveTextEntity, HiveTextFormatVersion, HiveTextComponents, HiveTextGroups, HiveTextEvents)
 		playerResourcePack = resourcepack.New()
 		playerResourcePack.Files["entity/hive_text.entity.json"], _ = json.Marshal(HiveTextClientEntity)
@@ -577,7 +577,7 @@ func (w *World) Save(
 			behaviorPack.AddComponents(p.Identifier, playerNPCComponents)
 			playerEntities = append(playerEntities, p.EntityPlayer)
 		}
-		w.log.Infof("saving %d players", len(players))
+		w.log.Info(locale.Locm("worlds_saving_players", nil, len(players)))
 
 		if playerResourcePack == nil {
 			playerResourcePack = resourcepack.New()

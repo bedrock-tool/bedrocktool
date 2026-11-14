@@ -2,6 +2,7 @@ package scripting
 
 import (
 	"fmt"
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"os"
 	"sync"
 
@@ -92,7 +93,7 @@ func New() *VM {
 		case "PlayerAdd":
 			err = v.runtime.ExportTo(callback, &v.CB.OnPlayerAdd)
 		default:
-			v.log.Warnf("events.register: unknown event %q", name)
+			v.log.Warn(locale.Loc("script_unknown_event", locale.Strmap{"Name": fmt.Sprintf("%q", name)}))
 		}
 		return err
 	})

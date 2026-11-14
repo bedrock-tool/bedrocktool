@@ -4,6 +4,7 @@ import (
 	"gioui.org/layout"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/guim"
 )
 
@@ -41,9 +42,9 @@ func (e *errorPopup) Layout(gtx C, th *material.Theme) D {
 		return D{}
 	}
 
-	title := "Error"
+	title := locale.Loc("gui_error_title", nil)
 	if e.isPanic {
-		title = "Fatal Panic"
+		title = locale.Loc("gui_error_fatal_title", nil)
 	}
 
 	return LayoutPopupBackground(gtx, th, "error", func(gtx C) D {
@@ -56,7 +57,7 @@ func (e *errorPopup) Layout(gtx C, th *material.Theme) D {
 				if !e.isPanic {
 					return D{}
 				}
-				return layout.Inset{Top: 8}.Layout(gtx, material.Body2(th, "More info was printed to the console; including it in a bug report helps.").Layout)
+				return layout.Inset{Top: 8}.Layout(gtx, material.Body2(th, locale.Loc("gui_error_more_info", nil)).Layout)
 			}),
 			layout.Rigid(layout.Spacer{Height: 24}.Layout),
 			layout.Rigid(func(gtx C) D { return CloseButton(gtx, th, &e.close) }),

@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"fmt"
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"io"
 	"net"
 	"net/http"
@@ -150,7 +151,7 @@ var httpClient = http.Client{
 }
 
 func (r *ResourcePackHandler) downloadFromUrl(pack protocol.TexturePackInfo) error {
-	r.log.Infof("Downloading Resourcepack: %s", pack.DownloadURL)
+	r.log.Info(locale.Loc("downloading_pack", locale.Strmap{"Url": pack.DownloadURL}))
 
 	f, err := r.cache.Create(pack.UUID, pack.Version)
 	if err != nil {
@@ -241,7 +242,7 @@ func (r *ResourcePackHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) 
 
 		_, alreadyDownloading := r.downloadingPacks[pack.UUID]
 		if alreadyDownloading {
-			r.log.Warnf("duplicate texture pack entry %v in resource pack info", pack.UUID)
+			r.log.Warn(locale.Loc("pack_duplicate_entry", locale.Strmap{"Id": pack.UUID}))
 			continue
 		}
 
@@ -291,7 +292,7 @@ func (r *ResourcePackHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) 
 		go func() {
 			for _, dl := range urlDownloads {
 				if err := r.downloadFromUrl(dl); err != nil {
-					r.log.Errorf("download %s %s", dl.DownloadURL, err)
+					r.log.Error(locale.Loc("pack_download_failed", locale.Strmap{"Url": dl.DownloadURL, "Err": err}))
 				}
 			}
 		}()
@@ -357,7 +358,7 @@ func (r *ResourcePackHandler) downloadResourcePack(pk *packet.ResourcePackDataIn
 	if pack.Size != pk.Size {
 		// Size mismatch: The ResourcePacksInfo packet had a size for the pack that did not match with the
 		// size sent here.
-		r.log.Infof("pack %v had a different size in the ResourcePacksInfo packet than the ResourcePackDataInfo packet", pk.UUID)
+		r.log.Info(locale.Loc("pack_size_mismatch", locale.Strmap{"Id": pk.UUID}))
 		pack.Size = pk.Size
 	}
 
@@ -699,7 +700,7 @@ func (r *ResourcePackHandler) OnResourcePackClientResponse(pk *packet.ResourcePa
 				select {
 				case pack, ok := <-r.nextPackToClient:
 					if !ok {
-						r.log.Info("finished sending client resource packs")
+						r.log.Info(locale.Loc("packs_sent_to_client", nil))
 						return
 					}
 

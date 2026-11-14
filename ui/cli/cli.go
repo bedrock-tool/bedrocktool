@@ -106,7 +106,7 @@ func (c *CLI) Start(ctx context.Context, cancel context.CancelCauseFunc) error {
 
 	subcommand, ok := commands.Registered[subcommandName]
 	if !ok {
-		logrus.Errorf("%s is not a known subcommand", subcommandName)
+		logrus.Error(locale.Loc("unknown_subcommand", locale.Strmap{"Name": subcommandName}))
 		printCommands()
 		return nil
 	}
@@ -117,7 +117,7 @@ func (c *CLI) Start(ctx context.Context, cancel context.CancelCauseFunc) error {
 	}
 	if err != nil {
 		if flags != nil {
-			fmt.Printf("Usage for %s:\n", subcommandName)
+			fmt.Println(locale.Loc("cli_usage_for", locale.Strmap{"Name": subcommandName}))
 			flags.PrintDefaults()
 		}
 		return err
@@ -142,10 +142,8 @@ func (c *CLI) eventHandler(event any) error {
 	switch event := event.(type) {
 	case *messages.EventStoriesPrompt:
 		go func() {
-			fmt.Printf("\n%s won't let this account join until it answers the Realm's Stories prompt\n"+
-				"(the one Minecraft asks the first time you join a Realm). Opting in shares your\n"+
-				"activity on its Stories timeline; either answer lets you join.\n", event.RealmName)
-			answer, cancelled := utils.UserInput(context.Background(), "Opt in, opt out or cancel? [in/out/cancel]: ", nil)
+			fmt.Printf("\n%s\n", locale.Loc("cli_stories_text", locale.Strmap{"Realm": event.RealmName}))
+			answer, cancelled := utils.UserInput(context.Background(), locale.Loc("cli_stories_prompt", nil), nil)
 			switch strings.ToLower(strings.TrimSpace(answer)) {
 			case "in", "i", "opt in", "yes", "y":
 				event.Reply <- messages.StoriesOptIn

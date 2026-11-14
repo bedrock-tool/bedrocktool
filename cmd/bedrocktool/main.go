@@ -114,7 +114,7 @@ func main() {
 
 	ui := selectUI()
 	if err := ui.Init(); err != nil {
-		log.Errorf("Failed to init UI %s", err)
+		log.Error(locale.Loc("ui_init_failed", locale.Strmap{"Err": err}))
 		return
 	}
 	err := ui.Start(ctx, cancel)
@@ -124,7 +124,7 @@ func main() {
 }
 
 type TransSettings struct {
-	Auth bool `opt:"Auth" flag:"auth" desc:"locale.should_login_xbox"`
+	Auth bool `opt:"locale.opt_trans_auth" flag:"auth" desc:"locale.should_login_xbox"`
 }
 
 type TransCMD struct{}
@@ -153,7 +153,7 @@ func (TransCMD) Run(ctx context.Context, settings any) error {
 	)
 	if transSettings.Auth {
 		if auth.Auth.LoggedIn() {
-			logrus.Info("Already Logged in")
+			logrus.Info(locale.Loc("already_logged_in", nil))
 		} else {
 			auth.Auth.Login(ctx, nil, "")
 		}

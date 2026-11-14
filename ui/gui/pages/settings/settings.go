@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"image"
 	"image/color"
 	"runtime"
@@ -117,7 +118,7 @@ func (p *Page) Overflow() []component.OverflowAction {
 
 func (p *Page) NavItem() component.NavItem {
 	return component.NavItem{
-		Name: "Settings",
+		Name: locale.Loc("gui_settings_title", nil),
 		//Icon: icon.OtherIcon,
 	}
 }
@@ -213,7 +214,7 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 						gtx.Constraints.Min.X = gtx.Constraints.Max.X
 						children := []layout.FlexChild{
 							layout.Rigid(func(gtx C) D {
-								l := material.Label(th, th.TextSize*1.5, "What do you want to save?")
+								l := material.Label(th, th.TextSize*1.5, locale.Loc("gui_settings_pick_mode", nil))
 								return layout.Inset{Bottom: 14}.Layout(gtx, l.Layout)
 							}),
 						}
@@ -253,7 +254,7 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 					}.Layout(gtx, func(gtx C) D {
 						width := min(gtx.Constraints.Max.X, max(gtx.Dp(260), gtx.Constraints.Max.X/3))
 						gtx.Constraints = layout.Exact(image.Pt(width, gtx.Dp(44)))
-						b := material.Button(th, &p.startButton, "Start")
+						b := material.Button(th, &p.startButton, locale.Loc("gui_start", nil))
 						b.CornerRadius = popups.Radius
 						b.Background = th.ContrastBg
 						b.Color = color.NRGBA{0xff, 0xff, 0xff, 0xff}
@@ -307,7 +308,14 @@ func (p *Page) HandleEvent(event any) error {
 
 // modeTitle is a mode's name as its button shows it ("worlds" -> "Worlds").
 func modeTitle(name string) string {
-	if name == "" {
+	switch name {
+	case "worlds":
+		return locale.Loc("gui_mode_worlds", nil)
+	case "skins":
+		return locale.Loc("gui_mode_skins", nil)
+	case "packs":
+		return locale.Loc("gui_mode_packs", nil)
+	case "":
 		return name
 	}
 	return strings.ToUpper(name[:1]) + name[1:]

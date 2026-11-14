@@ -2,6 +2,7 @@ package popups
 
 import (
 	"context"
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"image"
 
 	"gioui.org/layout"
@@ -142,7 +143,7 @@ func (fs *FeaturedServers) Layout(gtx C, th *material.Theme) D {
 			Axis: layout.Vertical,
 		}.Layout(gtx,
 			layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-				t := material.Label(th, th.TextSize*1.4, "Featured Servers")
+				t := material.Label(th, th.TextSize*1.4, locale.Loc("gui_featured_title", nil))
 				return layout.Inset{
 					Top:    8,
 					Bottom: 8,
@@ -157,7 +158,7 @@ func (fs *FeaturedServers) Layout(gtx C, th *material.Theme) D {
 					})
 				}
 				if len(fs.servers) == 0 {
-					return layout.Center.Layout(gtx, material.H5(th, "couldnt find any featured servers ?!?").Layout)
+					return layout.Center.Layout(gtx, material.H5(th, locale.Loc("gui_featured_none", nil)).Layout)
 				}
 
 				list := material.List(th, &fs.list)
@@ -171,7 +172,7 @@ func (fs *FeaturedServers) Layout(gtx C, th *material.Theme) D {
 			}),
 			layout.Rigid(func(gtx C) D {
 				gtx.Constraints.Max.X /= 4
-				b := material.Button(th, &fs.close, "Close")
+				b := material.Button(th, &fs.close, locale.Loc("gui_close", nil))
 				b.CornerRadius = Radius
 				return b.Layout(gtx)
 			}),

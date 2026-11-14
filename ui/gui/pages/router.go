@@ -3,6 +3,7 @@ package pages
 import (
 	"context"
 	"errors"
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"image/color"
 	"log"
 	"sync"
@@ -60,7 +61,7 @@ type Router struct {
 
 func NewRouter(g guim.Guim, ctx context.Context) *Router {
 	modal := component.NewModal()
-	nav := component.NewNav("Navigation Drawer", "This is an example.")
+	nav := component.NewNav(locale.Loc("gui_nav_title", nil), "")
 
 	r := &Router{
 		ctx: ctx,
@@ -189,7 +190,7 @@ func (r *Router) Layout(gtx layout.Context, th *material.Theme) layout.Dimension
 		)
 	})
 	bar := layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-		return r.AppBar.Layout(gtx, th, "Menu", "Actions")
+		return r.AppBar.Layout(gtx, th, locale.Loc("gui_appbar_menu", nil), locale.Loc("gui_appbar_actions", nil))
 	})
 	layout.Flex{Axis: layout.Vertical}.Layout(gtx, bar, content)
 	r.ModalLayer.Layout(gtx, th)
@@ -219,12 +220,12 @@ func (r *Router) layoutLoginButton(gtx layout.Context, fg, bg color.NRGBA) layou
 		}
 	}
 
-	var text = "Login"
+	var text = locale.Loc("gui_login", nil)
 	if account != nil {
-		text = "Logout"
+		text = locale.Loc("gui_logout", nil)
 	}
 	if account != nil && account.Name() != "" {
-		text += " (" + account.Name() + ")"
+		text = locale.Loc("gui_account_named", locale.Strmap{"Action": text, "Name": account.Name()})
 	}
 	button := material.Button(r.th, &r.loginButton, text)
 	button.Background.R -= 20
@@ -237,7 +238,7 @@ func (r *Router) layoutSwitchInstance(gtx layout.Context, fg, bg color.NRGBA) la
 	if r.switchButton.Clicked(gtx) {
 		r.PushPopup(popups.NewSelectAccount(r.g))
 	}
-	button := material.Button(r.th, &r.switchButton, "Switch")
+	button := material.Button(r.th, &r.switchButton, locale.Loc("gui_switch_account", nil))
 	button.Background.R -= 20
 	button.Background.G -= 20
 	button.Background.B -= 32
@@ -248,7 +249,7 @@ func (r *Router) setActions() {
 	var extra []component.AppBarAction
 	extra = append(extra, component.AppBarAction{Layout: r.layoutLoginButton})
 	extra = append(extra, component.AppBarAction{Layout: r.layoutSwitchInstance})
-	extra = append(extra, AppBarSwitch(&r.logToggle, "Logs", &r.th))
+	extra = append(extra, AppBarSwitch(&r.logToggle, locale.Loc("gui_logs", nil), &r.th))
 
 	if r.updateAvailable {
 		extra = append(extra, component.SimpleIconAction(&r.updateButton, &icons.ActionUpdate, component.OverflowAction{}))

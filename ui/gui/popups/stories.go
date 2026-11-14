@@ -1,7 +1,7 @@
 package popups
 
 import (
-	"fmt"
+	"github.com/bedrock-tool/bedrocktool/locale"
 
 	"gioui.org/layout"
 	"gioui.org/widget"
@@ -60,24 +60,21 @@ func (p *StoriesPopup) Layout(gtx C, th *material.Theme) D {
 	return LayoutPopupBackground(gtx, th, p.ID(), func(gtx C) D {
 		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
 			layout.Rigid(func(gtx C) D {
-				return layout.Inset{Top: 4, Bottom: 10}.Layout(gtx, material.Label(th, th.TextSize*1.4, "Realm Stories").Layout)
+				return layout.Inset{Top: 4, Bottom: 10}.Layout(gtx, material.Label(th, th.TextSize*1.4, locale.Loc("gui_stories_title", nil)).Layout)
 			}),
-			layout.Rigid(material.Body1(th, fmt.Sprintf(
-				"%s won't let this account join until it answers the Realm's Stories prompt, the one Minecraft asks the first time you join a Realm.",
-				p.event.RealmName)).Layout),
+			layout.Rigid(material.Body1(th, locale.Loc("gui_stories_text", locale.Strmap{"Realm": p.event.RealmName})).Layout),
 			layout.Rigid(layout.Spacer{Height: 8}.Layout),
-			layout.Rigid(material.Body2(th,
-				"Opting in shares your activity on this Realm's Stories timeline; opting out doesn't. Either answer lets you join, and you can change it later in Minecraft.").Layout),
+			layout.Rigid(material.Body2(th, locale.Loc("gui_stories_detail", nil)).Layout),
 			layout.Rigid(layout.Spacer{Height: 24}.Layout),
 			layout.Rigid(func(gtx C) D {
 				return layout.Flex{Axis: layout.Horizontal, Spacing: layout.SpaceBetween}.Layout(gtx,
-					layout.Rigid(func(gtx C) D { return CloseButtonText(gtx, th, &p.cancel, "Cancel") }),
+					layout.Rigid(func(gtx C) D { return CloseButtonText(gtx, th, &p.cancel, locale.Loc("gui_cancel", nil)) }),
 					layout.Rigid(func(gtx C) D {
 						return layout.Flex{Axis: layout.Horizontal}.Layout(gtx,
-							layout.Rigid(func(gtx C) D { return CloseButtonText(gtx, th, &p.optIn, "Opt in") }),
+							layout.Rigid(func(gtx C) D { return CloseButtonText(gtx, th, &p.optIn, locale.Loc("gui_stories_opt_in", nil)) }),
 							layout.Rigid(layout.Spacer{Width: 8}.Layout),
 							layout.Rigid(func(gtx C) D {
-								b := material.Button(th, &p.optOut, "Opt out")
+								b := material.Button(th, &p.optOut, locale.Loc("gui_stories_opt_out", nil))
 								b.CornerRadius = Radius
 								gtx.Constraints.Min.X = gtx.Dp(110)
 								return b.Layout(gtx)

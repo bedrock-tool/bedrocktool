@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"image"
 	"image/draw"
 	"image/png"
@@ -28,8 +29,8 @@ import (
 )
 
 type RenderSettings struct {
-	WorldPath string `opt:"World Path" flag:"world"`
-	Out       string `opt:"Output filename" flag:"out" default:"world.png"`
+	WorldPath string `opt:"locale.opt_render_world" flag:"world"`
+	Out       string `opt:"locale.opt_render_out" flag:"out" default:"world.png"`
 }
 
 type RenderCMD struct{}
@@ -39,7 +40,7 @@ func (RenderCMD) Name() string {
 }
 
 func (RenderCMD) Description() string {
-	return "render a world to png"
+	return locale.Loc("render_synopsis", nil)
 }
 
 func (RenderCMD) Settings() any {
@@ -208,7 +209,7 @@ func (RenderCMD) Run(ctx context.Context, settings any) error {
 		return err
 	}
 
-	logrus.Infof("Wrote %s", outPath)
+	logrus.Info(locale.Loc("render_wrote", locale.Strmap{"Path": outPath}))
 
 	return nil
 }

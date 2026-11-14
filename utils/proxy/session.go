@@ -139,7 +139,7 @@ func (s *Session) resolveServerName(ctx context.Context) error {
 			return err
 		}
 		if realm == nil {
-			return fmt.Errorf("realm %q not found", parsed.RealmName)
+			return errors.New(locale.Loc("realm_not_found", locale.Strmap{"Name": parsed.RealmName}))
 		}
 		s.ServerName = realm.Name
 	case connectinfo.KindExperience:
@@ -439,7 +439,7 @@ func (s *Session) Run() (err error) {
 	}
 
 	if s.handlers.OnConnect(s) {
-		logrus.Info("Disconnecting")
+		logrus.Info(locale.Loc("disconnecting", nil))
 		return nil
 	}
 	messages.SendEvent(&messages.EventConnectStateUpdate{
@@ -768,7 +768,7 @@ func (s *Session) connectClient(ctx context.Context, rpHandler *resourcepacks.Re
 		},
 		EarlyConnHandler: func(c *minecraft.Conn) {
 			if s.Client != nil {
-				s.listener.Disconnect(c, "You are Already connected!")
+				s.listener.Disconnect(c, locale.Loc("already_connected", nil))
 				return
 			}
 			s.Client = c
@@ -807,7 +807,7 @@ func (s *Session) connectClient(ctx context.Context, rpHandler *resourcepacks.Re
 	}
 	ep.Close()
 	accepted = true
-	logrus.Info("Client Connected")
+	logrus.Info(locale.Loc("client_connected", nil))
 	return nil
 }
 
