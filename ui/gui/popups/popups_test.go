@@ -24,6 +24,7 @@ import (
 	"gioui.org/widget/material"
 	"gioui.org/x/explorer"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
+	"github.com/bedrock-tool/bedrocktool/utils/auth"
 	"github.com/bedrock-tool/bedrocktool/utils/updater"
 	"github.com/sandertv/gophertunnel/minecraft/realms"
 )
@@ -161,6 +162,8 @@ func setGuim(p Popup, g *fakeGuim) {
 		p.g = g
 	case *errorPopup:
 		p.g = g
+	case *guiAuth:
+		p.g = g
 	}
 }
 
@@ -243,4 +246,21 @@ func TestConnectPopupCloses(t *testing.T) {
 func TestErrorPopupCloses(t *testing.T) {
 	p := NewErrorPopup(nil, os.ErrNotExist, false, nil)
 	closes(t, p, "Close", "error")
+}
+
+// The login popup shows the #348 anti-cheat note, and closes.
+func TestAuthPopup(t *testing.T) {
+	p := NewGuiAuth(nil, "https://www.microsoft.com/link", "ABCD1234")
+	th := darkTheme()
+	r := new(input.Router)
+	frame(r, th, p)
+	var labels []string
+	for _, n := range r.AppendSemantics(nil) {
+		labels = append(labels, n.Desc.Label)
+	}
+	all := strings.Join(labels, "\n")
+	if !strings.Contains(all, auth.AntiCheatNotice) {
+		t.Error("login popup doesn't show the anti-cheat note")
+	}
+	closes(t, p, "Close", "auth")
 }
