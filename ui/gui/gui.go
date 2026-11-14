@@ -3,7 +3,7 @@ package gui
 import (
 	"context"
 	"errors"
-	"fmt"
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"image/color"
 	"net/url"
 	"os"
@@ -123,7 +123,7 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelCauseFunc) (err er
 	logrus.AddHook(&g.logger)
 
 	settings.AddressInput.SetGuim(g)
-	g.window.Option(app.Title(fmt.Sprintf("Bedrocktool %s (Minecraft %s)", utils.Version, protocol.CurrentVersion)))
+	g.window.Option(app.Title(locale.Loc("gui_window_title", locale.Strmap{"Version": utils.Version, "McVersion": protocol.CurrentVersion})))
 	g.window.Option(app.Size(800, 700))
 	g.window.Option(app.MinSize(600, 700))
 
@@ -133,6 +133,9 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelCauseFunc) (err er
 
 	utils.ErrorHandler = func(err error) {
 		utils.PrintPanic(err)
+		// the session can't be trusted after a panic: stop it rather than
+		// let it run on half set up (and crash for real later)
+		g.router.ExitSubcommand()
 		g.router.RemovePopup("connect")
 		g.router.PushPopup(popups.NewErrorPopup(g, err, true, func() {
 			g.router.SwitchTo("settings")
@@ -165,7 +168,7 @@ func (g *GUI) loop() error {
 		g.explorer.ListenEvents(event)
 
 		if g.ctx.Err() != nil && !closing {
-			logrus.Infof("Closing %s", context.Cause(g.ctx))
+			logrus.Infof("%s: %s", locale.Loc("gui_closing", nil), context.Cause(g.ctx))
 			g.cancel(errors.New("Closing"))
 			g.router.Wait()
 			closing = true
@@ -173,7 +176,7 @@ func (g *GUI) loop() error {
 		switch event := event.(type) {
 		case app.DestroyEvent:
 			g.router.ShuttingDown = true
-			logrus.Info("Closing")
+			logrus.Info(locale.Loc("gui_closing", nil))
 			g.cancel(errors.New("Closing"))
 			g.router.Wait()
 			return event.Err

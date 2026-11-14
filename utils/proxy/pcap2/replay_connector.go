@@ -3,6 +3,7 @@ package pcap2
 import (
 	"context"
 	"errors"
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"net"
 	"os"
 	"sync/atomic"
@@ -46,7 +47,7 @@ func CreateReplayConnector(ctx context.Context, filename string, packetFunc Pack
 	}
 	r.ctx, r.cancelCtx = context.WithCancelCause(ctx)
 
-	logrus.Infof("Reading replay %s", filename)
+	logrus.Info(locale.Loc("replay_reading", locale.Strmap{"File": filename}))
 	r.f, err = os.Open(filename)
 	if err != nil {
 		return nil, err

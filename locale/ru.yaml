@@ -1,0 +1,796 @@
+# General and CLI
+bedrocktool_version:
+  other: "Bedrocktool версия {{.Version}}"
+available_commands:
+  other: "Доступные команды:"
+use_to_run_command:
+  other: "Используйте 'bedrocktool <команда>', чтобы запустить команду"
+input_command:
+  other: "Введите команду: "
+fatal_error:
+  other: "Произошла критическая ошибка."
+report_issue:
+  other: |
+    Если хотите сообщить об этой ошибке, откройте issue на
+    https://github.com/bedrock-tool/bedrocktool/issues
+    и приложите информацию об ошибке, опишите, что вы делали, и, если можно, приложите файл bedrocktool.log.
+    Спасибо!
+used_extra_debug_report:
+  other: |
+    ВНИМАНИЕ: вы использовали extra-debug, который создаёт файлы packets.log и packets.log.gpg.
+    Если хотите отправить issue, загружайте только файл packets.log.gpg.
+    packets.log и packets.log.gpg могут содержать данные аккаунта (но никогда данные для входа), поэтому безопаснее загружать зашифрованный файл.
+    Этот файл может прочитать только разработчик, а не те, кто смотрит публичную страницу issue.
+enter_to_exit:
+  other: "Нажмите Enter, чтобы выйти."
+should_login_xbox:
+  other: "Войти в Xbox Live"
+debug_mode:
+  other: "Больше логов, для отчётов об ошибках"
+done:
+  other: "Готово"
+
+# Connecting
+enter_server:
+  other: "Введите сервер: "
+listening_on:
+  other: "Ожидание подключений на {{.Address}}"
+connecting:
+  other: "Подключение к {{.Address}}"
+connected:
+  other: "Подключено к серверу."
+help_connect:
+  other: "Откройте Minecraft и подключитесь к локальному IP-адресу этого компьютера, чтобы продолжить"
+remote_address:
+  other: "Адрес сервера"
+realm_list_line:
+  other: "Название: {{.Name}}\tid: {{.Id}}"
+
+# Updates
+update_available:
+  other: "Доступно обновление: {{.Version}}  установите его командой update."
+no_update:
+  other: "Обновлений нет."
+updating:
+  other: "Обновление до {{.Version}}"
+updated:
+  other: "Обновлено!"
+
+# Worlds (log and in-game)
+worldname_set:
+  other: "Название мира теперь {{.Name}}"
+void_generator_true:
+  other: "Используется пустой генератор"
+zoom_level:
+  other: "Масштаб: {{.Level}}"
+saving_world:
+  one: "Сохранение мира {{.Name}}: {{.Count}} чанк"
+  few: "Сохранение мира {{.Name}}: {{.Count}} чанка"
+  many: "Сохранение мира {{.Name}}: {{.Count}} чанков"
+  other: "Сохранение мира {{.Name}}: {{.Count}} чанка"
+unknown_gamerule:
+  other: "Неизвестное правило игры: {{.Name}}"
+adding_pack:
+  other: "Добавление набора ресурсов {{.Name}}"
+using_customblocks:
+  other: "Используются пользовательские блоки"
+use_setname:
+  other: "Используйте /setname <название>,\nчтобы задать название мира"
+setname_desc:
+  other: "задать название этого мира"
+void_desc:
+  other: "включить или выключить пустой генератор"
+popup_chunk_count:
+  other: "Чанков: {{.Chunks}}\nСущностей: {{.Entities}}\nНазвание: {{.Name}}"
+warn_window_closed_not_open:
+  other: "Закрыто окно, которое не было открыто"
+saved_block_inv:
+  other: "Инвентарь блока сохранён"
+save_image:
+  other: "Также сохранить PNG карты рядом с миром"
+saved:
+  other: "Сохранено: {{.Name}}"
+empty_chunk:
+  other: "Пустой чанк."
+failed_write:
+  other: "Не удалось записать {{.Part}} {{.Path}}: {{.Err}}"
+
+# Resource pack keys
+no_resourcepacks:
+  other: "Наборы ресурсов не отправлены"
+writing_keys:
+  other: "Запись ключей в {{.Path}}"
+warn_key_exists:
+  other: "Ключ {{.Id}} уже существует"
+compare_key:
+  other: "uuid: {{.Id}}, ключ в базе: {{.Prev}} != новый ключ {{.Now}}"
+
+# Subcommand descriptions (also the mode cards in the GUI)
+list_realms_synopsis:
+  other: "Показать все Realms, к которым у вас есть доступ"
+capture_synopsis:
+  other: "Записать пакеты в файл pcap"
+chat_log_synopsis:
+  other: "Записать чат в файл"
+debug_proxy_synopsis:
+  other: "Подробные отладочные пакеты"
+merge_synopsis:
+  other: "Объединить 2 и более мира"
+update_synopsis:
+  other: "Обновиться до последней версии"
+skins_synopsis:
+  other: "Сохранить скины игроков, которых вы видите на сервере"
+world_synopsis:
+  other: "Сохранить мир, в котором вы играете, с сущностями и аддонами, как .mcworld"
+pack_synopsis:
+  other: "Скачать наборы ресурсов сервера в расшифрованном виде"
+
+# GUI: general
+gui_window_title:
+  other: "Bedrocktool {{.Version}} (Minecraft {{.McVersion}})"
+gui_closing:
+  other: "Закрытие"
+gui_close:
+  other: "Закрыть"
+gui_cancel:
+  other: "Отмена"
+gui_back:
+  other: "Назад"
+gui_return:
+  other: "Вернуться"
+gui_done:
+  other: "Готово"
+gui_copied:
+  other: "Скопировано!"
+gui_copy_logs:
+  other: "Копировать логи"
+gui_appbar_menu:
+  other: "Меню"
+gui_appbar_actions:
+  other: "Действия"
+gui_nav_title:
+  other: "Навигация"
+gui_login:
+  other: "Войти"
+gui_logout:
+  other: "Выйти"
+gui_account_named:
+  other: "{{.Action}} ({{.Name}})"
+gui_switch_account:
+  other: "Сменить"
+gui_logs:
+  other: "Логи"
+
+# GUI: settings
+gui_settings_title:
+  other: "Настройки"
+gui_settings_pick_mode:
+  other: "Что вы хотите сохранить?"
+gui_start:
+  other: "Начать"
+gui_mode_worlds:
+  other: "Миры"
+gui_mode_skins:
+  other: "Скины"
+gui_mode_packs:
+  other: "Наборы"
+gui_section_server:
+  other: "Сервер"
+gui_section_options:
+  other: "Параметры"
+gui_section_connection:
+  other: "Подключение и отладка"
+gui_address_placeholder:
+  other: "Введите адрес сервера"
+gui_address_realms:
+  other: "Realms"
+gui_address_experiences:
+  other: "Режимы"
+gui_address_featured:
+  other: "Рекомендуемые"
+gui_browse:
+  other: "Обзор"
+
+# GUI: world downloader
+gui_worlds_title:
+  other: "Загрузка мира"
+gui_worlds_saving:
+  other: "Сохранение {{.Name}}"
+gui_save_step_preparing:
+  other: "Подготовка"
+gui_save_step_chunks:
+  other: "Сохранение чанков"
+gui_save_step_entities:
+  other: "Сохранение сущностей"
+gui_save_step_resource_packs:
+  other: "Добавление наборов ресурсов"
+gui_save_step_resource_pack:
+  other: "Добавление набора ресурсов {{.Name}}"
+gui_save_step_behavior_pack:
+  other: "Добавление набора поведения"
+gui_save_step_mcworld:
+  other: "Запись файла .mcworld"
+gui_worlds_counts:
+  other: "Чанков: {{.Chunks}}  ·  сущностей: {{.Entities}}"
+gui_worlds_saved_title:
+  other: "Сохранённые миры"
+gui_worlds_saved_in:
+  other: "В {{.Dir}}"
+gui_worlds_nothing_saved:
+  other: "Ничего не сохранено: не было загружено ни одного чанка."
+gui_worlds_waiting:
+  other: "Ожидание чанков"
+gui_worlds_waiting_hint:
+  other: "Карта заполняется по мере того, как вы ходите в Minecraft."
+
+# GUI: skins, packs, update page
+gui_skins_title:
+  other: "Сбор скинов"
+gui_packs_title:
+  other: "Загрузка наборов"
+gui_packs_downloading_title:
+  other: "Загрузка наборов"
+gui_packs_downloaded_title:
+  other: "Загруженные наборы"
+gui_pack_processing:
+  other: "Обработка"
+gui_pack_downloaded:
+  other: "Загружено"
+gui_pack_downloading:
+  other: "Загрузка"
+gui_pack_show:
+  other: "Показать"
+gui_update_downloading_percent:
+  other: "загрузка ({{.Percent}}%)"
+
+# GUI: popups
+gui_connect_starting:
+  other: "Запуск"
+gui_connect_starting_detail:
+  other: "Вход в аккаунт и поиск сервера..."
+gui_connect_title:
+  other: "Подключитесь из Minecraft"
+gui_connect_connecting:
+  other: "Подключение к серверу"
+gui_connect_connecting_detail:
+  other: "Подождите в Minecraft: сначала скачиваются наборы ресурсов сервера, в первый раз это может занять минуту."
+gui_connect_resources:
+  other: "Загрузка наборов ресурсов"
+gui_connect_resources_detail:
+  other: "Подождите в Minecraft, в первый раз это может занять минуту."
+gui_connect_connected:
+  other: "Подключено"
+gui_connect_connected_detail:
+  other: "Играйте как обычно. Мир сохранится, когда вы выйдете."
+gui_connect_instructions:
+  other: "В Minecraft откройте Серверы, Добавить сервер и укажите:"
+gui_connect_this_computer:
+  other: "На этом компьютере"
+gui_connect_other_device:
+  other: "На другом устройстве"
+gui_connect_address_port:
+  other: "{{.Ip}}   порт {{.Port}}"
+gui_connect_hide:
+  other: "Скрыть"
+gui_connect_open_minecraft:
+  other: "Открыть Minecraft"
+gui_error_title:
+  other: "Ошибка"
+gui_error_fatal_title:
+  other: "Критическая ошибка"
+gui_error_more_info:
+  other: "Подробности выведены в консоль; приложите их к отчёту об ошибке."
+gui_experiences_title:
+  other: "Режимы"
+gui_experiences_none:
+  other: "Режимы не найдены"
+gui_featured_title:
+  other: "Рекомендуемые серверы"
+gui_featured_none:
+  other: "Рекомендуемые серверы не найдены"
+gui_realms_title:
+  other: "Realms"
+gui_realms_none:
+  other: "Вы не состоите ни в одном Realm"
+gui_realm_expired:
+  other: "Истёк: подписка владельца закончилась, войти нельзя"
+gui_realm_closed:
+  other: "Закрыт владельцем"
+gui_realm_open:
+  other: "Открыт"
+gui_select_account_title:
+  other: "Выбор экземпляра аккаунта"
+gui_select_account_placeholder:
+  other: "название экземпляра"
+gui_stories_title:
+  other: "Истории Realm"
+gui_stories_text:
+  other: "{{.Realm}} не пустит этот аккаунт, пока он не ответит на вопрос об Историях Realm, который Minecraft задаёт при первом входе в Realm."
+gui_stories_detail:
+  other: "Если участвовать, ваши действия попадут в ленту Историй этого Realm; если нет, то нет. Любой ответ позволяет войти, а изменить его можно позже в Minecraft."
+gui_stories_opt_in:
+  other: "Участвовать"
+gui_stories_opt_out:
+  other: "Не участвовать"
+gui_update_title:
+  other: "Обновление"
+gui_update_installed:
+  other: "Установлено: {{.Version}}"
+gui_update_latest:
+  other: "Последняя:   {{.Version}}"
+gui_update_up_to_date:
+  other: "У вас уже последняя версия."
+gui_update_start:
+  other: "Обновить и перезапустить"
+gui_update_downloading:
+  other: "Загрузка обновления..."
+gui_update_failed:
+  other: "Не удалось обновиться"
+gui_update_failed_err:
+  other: "Не удалось обновиться: {{.Err}}"
+gui_update_restarting:
+  other: "Перезапуск..."
+
+# Settings: option names (opt) and descriptions (desc)
+opt_worlds_image:
+  other: "Изображение карты"
+opt_worlds_save_entities:
+  other: "Сущности"
+desc_worlds_save_entities:
+  other: "Мобы, стойки для брони, рамки и другие сущности"
+opt_worlds_save_players:
+  other: "Игроки"
+desc_worlds_save_players:
+  other: "Другие игроки, в виде статуй в своих скинах"
+opt_worlds_map_art:
+  other: "Арт на картах"
+desc_worlds_map_art:
+  other: "Также сохранить карты в рамках как PNG"
+opt_worlds_save_inventories:
+  other: "Инвентари"
+desc_worlds_save_inventories:
+  other: "Содержимое открытых вами сундуков и ваш инвентарь"
+opt_worlds_block_updates:
+  other: "Изменения блоков"
+desc_worlds_block_updates:
+  other: "Сохранять блоки, которые сервер меняет после загрузки чанка"
+opt_worlds_entity_culling:
+  other: "Отсев сущностей"
+desc_worlds_entity_culling:
+  other: "Не сохранять погибшие или исчезнувшие сущности (экспериментально)"
+opt_worlds_exclude_mobs:
+  other: "Исключить мобов"
+desc_worlds_exclude_mobs:
+  other: "ID сущностей, которые не сохранять, через запятую; работает *, например minecraft:bat,hive:*"
+opt_worlds_chunk_radius:
+  other: "Радиус чанков"
+desc_worlds_chunk_radius:
+  other: "Дальность прорисовки, запрашиваемая у сервера, в чанках (76, если пусто)"
+opt_worlds_script:
+  other: "Скрипт"
+desc_worlds_script:
+  other: "Файл JavaScript, который решает, что сохранять"
+opt_worlds_record_ui:
+  other: "Запись меню"
+desc_worlds_record_ui:
+  other: "Воссоздать открытые вами меню и табло как скрипт в мире"
+opt_proxy_address:
+  other: "Адрес"
+opt_proxy_debug:
+  other: "Отладка"
+opt_proxy_extra_debug:
+  other: "Расширенная отладка"
+desc_proxy_extra_debug:
+  other: "Также записывать каждый пакет в packet.log (много места)"
+opt_proxy_capture:
+  other: "Запись сессии"
+desc_proxy_capture:
+  other: "Сохранить запись .pcap2, которую можно воспроизвести позже"
+opt_proxy_client_cache:
+  other: "Кэш клиента"
+desc_proxy_client_cache:
+  other: "Разрешить Minecraft кэшировать чанки, чтобы они грузились быстрее"
+opt_proxy_listen:
+  other: "Адрес прослушивания"
+desc_proxy_listen:
+  other: "Где Minecraft подключается к прокси, например :19133 для другого порта"
+opt_skins_filter:
+  other: "Фильтр имён"
+desc_skins_filter:
+  other: "Сохранять только игроков, чьё имя подходит под это регулярное выражение"
+opt_skins_no_proxy:
+  other: "Без Minecraft"
+desc_skins_no_proxy:
+  other: "Подключиться самостоятельно и сохранить скины всех, кто онлайн"
+opt_skins_texture_only:
+  other: "Только текстуры"
+desc_skins_texture_only:
+  other: "Сохранять только изображения скинов, без наборов скинов с моделями"
+opt_skins_timestamped:
+  other: "Папки с датой"
+desc_skins_timestamped:
+  other: "Сохранять каждую сессию в отдельную папку с датой"
+opt_packs_save_encrypted:
+  other: "Сохранить зашифрованную копию"
+desc_packs_save_encrypted:
+  other: "Также сохранять зашифрованные наборы в том виде, в каком они пришли"
+opt_packs_folders:
+  other: "Папками"
+desc_packs_folders:
+  other: "Сохранять наборы папками, а не файлами .mcpack"
+opt_chat_log_verbose:
+  other: "Подробно"
+opt_merge_bounds:
+  other: "Показать границы"
+opt_merge_out:
+  other: "Путь вывода"
+opt_merge_args:
+  other: "Исходные миры"
+opt_render_world:
+  other: "Мир"
+opt_render_out:
+  other: "Вывод"
+opt_dump_actors_world:
+  other: "Папка мира"
+opt_dump_actors_write:
+  other: "Записать обратно"
+opt_dump_actors_json:
+  other: "файл json"
+opt_trans_auth:
+  other: "Авторизация"
+
+# Subcommands
+render_synopsis:
+  other: "Нарисовать сохранённый мир (папку или .mcworld) сверху в PNG и экспортировать арт на его картах"
+dump_actors_synopsis:
+  other: "Выгрузить сущности мира в JSON и записать их обратно"
+render_wrote:
+  other: "Записано: {{.Path}}"
+merge_out_required:
+  other: "нужно указать -out"
+dump_actors_extracted:
+  one: "В json выгружена {{.Count}} сущность"
+  few: "В json выгружено {{.Count}} сущности"
+  many: "В json выгружено {{.Count}} сущностей"
+  other: "В json выгружено {{.Count}} сущности"
+dump_actors_removed_digp:
+  one: "Удалена {{.Count}} запись digp"
+  few: "Удалено {{.Count}} записи digp"
+  many: "Удалено {{.Count}} записей digp"
+  other: "Удалено {{.Count}} записи digp"
+dump_actors_removed:
+  one: "Удалена {{.Count}} сущность"
+  few: "Удалено {{.Count}} сущности"
+  many: "Удалено {{.Count}} сущностей"
+  other: "Удалено {{.Count}} сущности"
+dump_actors_writing:
+  one: "Запись сущностей в {{.Count}} чанк"
+  few: "Запись сущностей в {{.Count}} чанка"
+  many: "Запись сущностей в {{.Count}} чанков"
+  other: "Запись сущностей в {{.Count}} чанка"
+dump_actors_wrote:
+  one: "Записана {{.Count}} сущность"
+  few: "Записано {{.Count}} сущности"
+  many: "Записано {{.Count}} сущностей"
+  other: "Записано {{.Count}} сущности"
+pack_icon_parse_failed:
+  other: "Не удалось прочитать pack_icon.png набора {{.Name}}"
+dump_keys_failed:
+  other: "Ошибка при выгрузке ключей: {{.Err}}"
+
+# CLI
+ui_init_failed:
+  other: "Не удалось запустить интерфейс: {{.Err}}"
+already_logged_in:
+  other: "Вход уже выполнен"
+unknown_subcommand:
+  other: "{{.Name}} — неизвестная подкоманда"
+cli_usage_for:
+  other: "Использование {{.Name}}:"
+cli_stories_text:
+  other: "{{.Realm}} не пустит этот аккаунт, пока он не ответит на вопрос об Историях Realm\n(его Minecraft задаёт при первом входе в Realm). Если участвовать, ваши\nдействия попадут в ленту Историй; любой ответ позволяет войти."
+cli_stories_prompt:
+  other: "Участвовать, не участвовать или отмена? [in/out/cancel]: "
+
+# Accounts and connection
+account_switched:
+  other: "Аккаунт сменён"
+auth_refreshing_ms_token:
+  other: "Обновление токена Microsoft"
+auth_invalid_mctoken:
+  other: "Недействительный токен Minecraft, обновление"
+auth_old_mctoken:
+  other: "Токен Minecraft от старой версии, обновление"
+transferring:
+  other: "Переход на {{.Address}}"
+forced_pack_added:
+  other: "{{.Name}} добавлен в принудительные наборы"
+forced_pack_unknown_file:
+  other: "Неизвестный файл {{.Path}} в forcedpacks"
+replay_reading:
+  other: "Чтение записи {{.File}}"
+replay_end:
+  other: "Достигнут конец записи"
+disconnecting:
+  other: "Отключение"
+client_connected:
+  other: "Клиент подключён"
+already_connected:
+  other: "Вы уже подключены!"
+realm_not_found:
+  other: "Realm {{.Name}} не найден"
+stories_unanswered:
+  other: "{{.Realm}}: на вопрос об Историях Realm так и не ответили, поэтому он пока не пускает"
+stories_save_failed:
+  other: "Сохранение ответа об Историях: {{.Err}}"
+stories_saved:
+  other: "Ответ об Историях сохранён ({{.Answer}}), повторный вход"
+realm_expired_error:
+  other: "Срок {{.Realm}} истёк (подписка владельца закончилась), войти нельзя"
+realm_refused_join:
+  other: "{{.Realm}} отказал во входе. Если вы ни разу не заходили в него из Minecraft, зайдите туда один раз и ответьте на его вопросы, затем попробуйте снова"
+
+# Resource packs
+downloading_pack:
+  other: "Загрузка набора ресурсов: {{.Url}}"
+pack_duplicate_entry:
+  other: "Повторяющаяся запись набора текстур {{.Id}} в информации о наборах"
+pack_download_failed:
+  other: "Не удалось скачать {{.Url}}: {{.Err}}"
+pack_size_mismatch:
+  other: "Размер набора {{.Id}} в пакете ResourcePacksInfo отличается от размера в ResourcePackDataInfo"
+packs_sent_to_client:
+  other: "Отправка наборов ресурсов клиенту завершена"
+bp_invalid_block_component:
+  other: "Недопустимый компонент блока {{.Block}} {{.Component}}"
+
+# Skins
+skins_creating_pack:
+  other: "Создание набора скинов для {{.Name}}"
+skins_added:
+  other: "Добавлен скин {{.Name}}"
+skins_write_texture_failed:
+  other: "Не удалось записать текстуру скина"
+skins_write_cape_failed:
+  other: "Не удалось записать текстуру плаща"
+skins_no_skin:
+  other: "У {{.Name}} нет скина"
+skin_missing_for_player:
+  other: "Нет скина для игрока {{.Id}}"
+skin_default_model:
+  other: "Игрок {{.Id}}: {{.Err}}, рисуется стандартной моделью"
+skin_empty_texture:
+  other: "У скина {{.Name}}-{{.Index}} пустая текстура"
+skin_geometry_decode_failed:
+  other: "Не удалось прочитать геометрию {{.Name}}: {{.Err}}"
+skin_geometry_write_failed:
+  other: "Не удалось записать геометрию {{.Name}}: {{.Err}}"
+
+# Worlds
+worlds_hive_detected:
+  other: "The Hive: овцы сохраняются как hive:text, а его NPC-игроки сохраняются"
+worlds_hive_detected_packs:
+  other: "The Hive (по его наборам ресурсов): овцы сохраняются как hive:text, а его NPC-игроки сохраняются"
+worlds_recording_ui:
+  other: "Запись меню и табло в скрипт набора поведения"
+worlds_excluding:
+  other: "Исключаются: {{.List}}"
+exclude_mob_desc:
+  other: "добавить моба в список игнорируемых"
+save_world_desc:
+  other: "сразу сохранить и сбросить состояние мира"
+worlds_map_art_failed:
+  other: "Арт на картах: {{.Err}}"
+worlds_map_art_saved:
+  other: "Арт на картах: карт {{.Maps}}, стен {{.Walls}}, сохранено в {{.Dir}}"
+worlds_invalid_block_data:
+  other: "Сервер прислал неверные данные блока"
+worlds_block_hash_collisions:
+  one: "{{.Count}} состояние пользовательского блока совпадает по сетевому хешу с другим и отображается как оно: {{.List}}"
+  few: "{{.Count}} состояния пользовательских блоков совпадают по сетевому хешу с другими и отображаются как они: {{.List}}"
+  many: "{{.Count}} состояний пользовательских блоков совпадают по сетевому хешу с другими и отображаются как они: {{.List}}"
+  other: "{{.Count}} состояния пользовательских блоков совпадают по сетевому хешу с другими и отображаются как они: {{.List}}"
+worlds_biome_id_clash:
+  other: "У биома {{.Biome}} тот же ID ({{.Id}}), что у {{.Other}}, оставлен {{.Other}}"
+worlds_ignoring_entity:
+  other: "Сущность пропущена: {{.Type}} {{.Id}}"
+worlds_bp_skipping:
+  other: "{{.What}} пропущено в наборе поведения: {{.Err}}"
+worlds_pack_encrypted:
+  other: "Этот набор нельзя добавить, он зашифрован"
+worlds_hive_name_tags:
+  other: "Hive: табличек с именами {{.Tags}} ({{.Entity}}), из них овец {{.Sheep}}"
+worlds_saving_players:
+  one: "Сохранение {{.Count}} игрока"
+  few: "Сохранение {{.Count}} игроков"
+  many: "Сохранение {{.Count}} игроков"
+  other: "Сохранение {{.Count}} игрока"
+worlds_block_hash_missing:
+  other: "Не найден хеш блока для изменения блока"
+worlds_chunk_update_missing:
+  other: "Изменение в незагруженном чанке, pos = {{.Pos}}"
+worlds_chunk_load_failed:
+  other: "Не удалось загрузить чанк {{.Pos}}: {{.Err}}"
+worlds_chunk_store_failed:
+  other: "Не удалось сохранить чанк {{.Pos}}: {{.Err}}"
+script_unknown_event:
+  other: "events.register: неизвестное событие {{.Name}}"
+
+# Crashes
+panic_fatal_error:
+  other: "Критическая ошибка: {{.Err}}"
+crash_report_written:
+  other: "Отчёт о сбое сохранён в {{.Path}}"
+
+# Replays, render, recording, sign-in
+opt_worlds_replay_join:
+  other: "Смотреть запись"
+desc_worlds_replay_join:
+  other: "При воспроизведении .pcap2 ждать подключения Minecraft, чтобы смотреть"
+desc_render_world:
+  other: "Мир для отрисовки: папка мира или файл .mcworld"
+desc_render_out:
+  other: "Куда записать карту сверху"
+opt_render_no_image:
+  other: "Без изображения карты"
+desc_render_no_image:
+  other: "Не рисовать карту сверху (только для -map-art)"
+opt_render_map_art:
+  other: "Арт на картах"
+desc_render_map_art:
+  other: "Также экспортировать карты из рамок и сундуков как PNG"
+opt_render_map_art_out:
+  other: "Папка для арта"
+desc_render_map_art_out:
+  other: "Куда положить арт на картах (рядом с -out, как <имя>_mapart, если пусто)"
+render_world_prompt:
+  other: "Папка мира или .mcworld: "
+render_map_art_none:
+  other: "Арт на картах: в мире нет карт в рамках или сундуках"
+render_map_art_no_pixels:
+  other: "Арт на картах: найдено карт: {{.Count}}, но ни у одной нет сохранённых пикселей"
+render_map_art_written:
+  other: "Арт на картах: карт {{.Maps}}, стен {{.Walls}}, записано в {{.Dir}}"
+capture_confirm_title:
+  other: "Выключить запись сессии?"
+capture_confirm_body:
+  other: "Запись .pcap2 содержит каждый пакет, который сервер отправил за сессию."
+capture_confirm_detail:
+  other: "С ней мир можно сохранить заново в любой момент, не возвращаясь на сервер: с другими настройками или будущей версией bedrocktool, где исправлены ошибки или есть новые функции. Без неё всё упущенное пропадёт навсегда."
+capture_confirm_keep:
+  other: "Продолжить запись"
+capture_confirm_off:
+  other: "Всё равно выключить (больше не показывать!)"
+capture_off_warning:
+  other: "Запись сессии выключена (-capture=false): не будет .pcap2, чтобы позже сохранить этот мир заново с другими настройками или новым bedrocktool"
+anti_cheat_notice:
+  other: "Перед входом: на серверах со строгим античитом (известные случаи — Cubecraft и The Hive) использование bedrocktool в редких случаях может привести к отметке или бану аккаунта. Он подключается через gophertunnel, который двигается и отправляет ввод не совсем как настоящая игра, поэтому некоторые античиты его распознают. Для таких серверов используйте второй аккаунт; Realms, ваши собственные миры и большинство серверов — без проблем."
+gui_auth_title:
+  other: "Вход через Microsoft"
+gui_auth_steps:
+  other: "Откройте эту страницу и введите код ниже:"
+gui_auth_copy_hint:
+  other: "Нажмите, чтобы скопировать"
+gui_auth_open:
+  other: "Открыть страницу"
+gui_auth_notice_title:
+  other: "Серверы с античитом"
+
+# World generator (#303) and saved settings / recent servers (#220)
+opt_worlds_generator:
+  other: "Несохранённые чанки"
+desc_worlds_generator:
+  other: "Чем Minecraft заполнит чанки, которые вы не загрузили: пустота, плоский мир (суперплоская земля) или обычный (ландшафт по сиду сервера)"
+desc_worlds_void_old:
+  other: "Старый переключатель: -void=false то же, что -generator flat"
+choice_void:
+  other: "Пустота"
+choice_flat:
+  other: "Плоский"
+choice_normal:
+  other: "Обычный"
+generator_current:
+  other: "Несохранённые чанки генерируются как: {{.Generator}}. Используйте /generator void, flat или normal"
+generator_desc:
+  other: "Выбрать, чем заполнять несохранённые чанки: void, flat или normal"
+generator_flat:
+  other: "Несохранённые чанки будут плоской землёй"
+generator_normal:
+  other: "Несохранённые чанки будут обычным ландшафтом по сиду сервера (часто не совпадает: многие серверы присылают ненастоящий сид)"
+settings_read_failed:
+  other: "Не удалось прочитать сохранённые настройки, используются стандартные: {{.Err}}"
+settings_save_failed:
+  other: "Не удалось сохранить настройки: {{.Err}}"
+gui_address_recent:
+  other: "Недавние"
+gui_remove:
+  other: "Удалить"
+recent_title:
+  other: "Недавние серверы"
+recent_empty:
+  other: "Здесь появятся серверы, с которыми вы запускаете"
+recent_kind_realm:
+  other: "Realm"
+recent_kind_experience:
+  other: "Режим"
+recent_kind_friend:
+  other: "Мир друга"
+recent_kind_server:
+  other: "Сервер"
+
+# GUI: friends' worlds
+gui_address_friends:
+  other: "Друзья ({{.Count}})"
+gui_friends_title:
+  other: "Миры друзей"
+gui_friends_select:
+  other: "Выбрать"
+gui_friends_players:
+  other: "Игроки: {{.Count}}/{{.Max}}"
+gui_friends_players_count:
+  other: "Игроки: {{.Count}}"
+gui_friends_none:
+  other: "Сейчас никто из друзей не играет в мир, к которому можно присоединиться."
+gui_friends_none_hint:
+  other: "Мир друга появляется здесь, пока в нём идёт игра и сетевая игра открыта для друзей."
+gui_friends_error:
+  other: "Не удалось проверить миры друзей: {{.Err}}"
+gui_friends_signed_out:
+  other: "Войдите, чтобы видеть миры, в которые играют ваши друзья."
+gui_refresh:
+  other: "Обновить"
+friend_status_full:
+  other: "Заполнен"
+friend_status_invite_only:
+  other: "Только по приглашению"
+friend_status_closed:
+  other: "Не принимает новых игроков"
+friend_status_version:
+  other: "Работает на Minecraft {{.Version}}, bedrocktool поддерживает {{.Supported}}"
+friend_status_no_connection:
+  other: "Нельзя подключиться через bedrocktool"
+friend_world_gone:
+  other: "Мир этого друга больше не открыт. Выберите его снова в разделе «Друзья», когда он снова откроется."
+friend_world_unjoinable:
+  other: "Нельзя войти в мир {{.Name}} игрока {{.Host}}: {{.Reason}}"
+friend_world_timeout:
+  other: "Мир друга не впустил вас за {{.Seconds}} с. Возможно, игра закрыта или друзьям больше нельзя входить."
+# Merged dimensions (-merge-dimensions) and render -dimension
+opt_worlds_merge_dimensions:
+  other: "Объединить в один мир"
+desc_worlds_merge_dimensions:
+  other: "Сохранять каждый мир после первого как пользовательское измерение первого, с пакетом для перемещения между ними (Minecraft 1.26.30 или новее)"
+worlds_merge_on:
+  other: "Миры после первого будут объединены с ним как пользовательские измерения"
+worlds_merging_dimension:
+  other: "Объединение {{.Name}} с {{.Main}} как измерение {{.Dimension}}"
+worlds_merged_dimension:
+  other: "{{.Name}} объединён как {{.Dimension}} в {{.File}}; телепорт туда: {{.Command}}"
+worlds_merge_requirements:
+  other: "Пользовательским измерениям нужен Minecraft Bedrock 1.26.30 или новее. В мире {{.Command}} показывает их список, а {{.Command}} <имя> телепортирует; если команды нет, включите эксперимент «Бета-API»"
+worlds_merge_failed:
+  other: "Не удалось объединить {{.Name}}: {{.Err}}"
+dims_pack_description:
+  other: "Позволяет перемещаться между мирами, которые bedrocktool объединил в этот мир"
+dims_cmd_desc:
+  other: "Телепортироваться в другой мир, сохранённый в этом, или показать их список"
+dims_list:
+  other: "Миры в этом мире ({{.Command}} <имя>, чтобы перейти):"
+dims_teleported:
+  other: "Телепортировано в {{.Name}}"
+dims_unknown:
+  other: "Нет мира с именем {{.Name}}."
+dims_not_loaded:
+  other: "Измерение {{.Name}} не загружено: нужен Minecraft 1.26.30 или новее (или эксперимент «Бета-API»)"
+dims_not_player:
+  other: "Телепортировать можно только игрока"
+dims_teleport_failed:
+  other: "Не удалось телепортироваться в {{.Name}}:"
+opt_render_dimension:
+  other: "Измерение"
+desc_render_dimension:
+  other: "Измерение для отрисовки: overworld, nether, end или имя объединённого мира (если пусто — первое, где есть чанки)"
+render_dimension:
+  other: "Отрисовка измерения {{.Name}}"
+render_dimension_unknown:
+  other: "В мире нет измерения {{.Name}}; есть: {{.List}}"

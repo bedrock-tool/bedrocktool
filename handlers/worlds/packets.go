@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds/entity"
+	"github.com/bedrock-tool/bedrocktool/handlers/worlds/scripting"
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds/worldstate"
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils"
@@ -67,7 +68,7 @@ func (w *worldsHandler) packetHandlerPreLogin(_pk packet.Packet, timeReceived ti
 			if len(pk.Blocks) > 0 {
 				w.log.Info(locale.Loc("using_customblocks", nil))
 				for _, be := range pk.Blocks {
-					w.serverState.behaviorPack.AddBlock(be)
+					w.addonSafely("block "+be.Name, func() { w.serverState.behaviorPack.AddBlock(be) })
 				}
 				err := AddCustomBlocks(br, pk.Blocks)
 				if err != nil {
@@ -76,6 +77,10 @@ func (w *worldsHandler) packetHandlerPreLogin(_pk packet.Packet, timeReceived ti
 				w.serverState.customBlocks = pk.Blocks
 			}
 			br.Finalize()
+			if c, ok := br.(interface{ NetworkHashCollisions() []string }); ok && len(c.NetworkHashCollisions()) > 0 {
+				collisions := c.NetworkHashCollisions()
+				w.log.Warn(locale.Locm("worlds_block_hash_collisions", locale.Strmap{"List": strings.Join(collisions, "; ")}, len(collisions)))
+			}
 			w.serverState.blocks = br
 			w.serverState.worldName = pk.WorldName
 
@@ -85,6 +90,7 @@ func (w *worldsHandler) packetHandlerPreLogin(_pk packet.Packet, timeReceived ti
 				w.worldState.Name = pk.WorldName
 			}
 			w.worldState.SetDimension(dim)
+			w.worldState.StartPos = pk.PlayerPosition
 			w.worldState.SetTime(timeReceived, int(pk.Time))
 			w.openWorldState()
 			w.worldStateMu.Unlock()
@@ -100,9 +106,9 @@ func (w *worldsHandler) packetHandlerPreLogin(_pk packet.Packet, timeReceived ti
 	case *packet.ItemRegistry:
 		world.InsertCustomItems(pk.Items)
 		for _, ie := range pk.Items {
-			w.serverState.behaviorPack.AddItem(ie)
+			w.addonSafely("item "+ie.Name, func() { w.serverState.behaviorPack.AddItem(ie) })
 		}
-		w.serverState.behaviorPack.ApplyComponentEntries(pk.Items)
+		w.addonSafely("item components", func() { w.serverState.behaviorPack.ApplyComponentEntries(pk.Items) })
 
 	case *packet.BiomeDefinitionList:
 		for _, biome := range pk.BiomeDefinitions {
@@ -114,11 +120,17 @@ func (w *worldsHandler) packetHandlerPreLogin(_pk packet.Packet, timeReceived ti
 					biomeName = sp[1]
 				}
 			}
-			_, ok := w.serverState.biomes.BiomeByName(biomeName)
-			if !ok {
-				w.serverState.biomes.Register(&customBiome{name: biomeName, biome: biome, pk: pk})
-				w.serverState.behaviorPack.AddBiome(biomeName, biome)
+			if _, ok := w.serverState.biomes.BiomeByName(biomeName); ok {
+				continue
 			}
+			custom := &customBiome{name: biomeName, biome: biome, pk: pk}
+			if other, ok := w.serverState.biomes.BiomeByID(custom.EncodeBiome()); ok {
+				// two definitions with one ID: the server's own mistake
+				w.log.Warn(locale.Loc("worlds_biome_id_clash", locale.Strmap{"Biome": biomeName, "Id": custom.EncodeBiome(), "Other": other.String()}))
+				continue
+			}
+			w.serverState.biomes.Register(custom)
+			w.addonSafely("biome "+biomeName, func() { w.serverState.behaviorPack.AddBiome(biomeName, biome) })
 		}
 
 	}
@@ -149,6 +161,11 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 	case *packet.ChangeDimension:
 		dim, _ := world.DimensionByID(int(pk.Dimension))
 		w.SaveAndReset(false, dim)
+		w.currentWorld(func(world *worldstate.World) {
+			if world != nil {
+				world.StartPos = pk.Position
+			}
+		})
 
 	case *packet.LevelChunk:
 		err := w.handleLevelChunk(pk, timeReceived)
@@ -169,9 +186,12 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 		})
 
 	case *packet.ClientBoundMapItemData:
-		w.currentWorld(func(world *worldstate.World) {
-			world.StoreMap(pk)
-		})
+		if pk.MapID != ViewMapID {
+			w.storeKnownMap(pk)
+			w.currentWorld(func(world *worldstate.World) {
+				world.StoreMap(pk)
+			})
+		}
 
 	case *packet.MapInfoRequest:
 		if pk.MapID == ViewMapID {
@@ -193,10 +213,31 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 		w.currentWorld(func(world *worldstate.World) {
 			world.AddPlayer(pk)
 		})
+		if w.scripting != nil {
+			_, hasSkin := w.serverState.playerSkins[pk.UUID]
+			save, decided := w.scripting.OnPlayerAdd(scripting.PlayerInfo{
+				UUID:      pk.UUID.String(),
+				Username:  pk.Username,
+				XUID:      w.serverState.playerXUIDs[pk.UUID],
+				IsNPC:     isNPCPlayer(w.serverState.playerXUIDs, pk.UUID),
+				HasSkin:   hasSkin,
+				RuntimeID: pk.EntityRuntimeID,
+				UniqueID:  pk.AbilityData.EntityUniqueID,
+				Position:  pk.Position,
+				Metadata:  pk.EntityMetadata,
+			}, timeReceived)
+			if decided {
+				w.serverState.scriptPlayerKeep[pk.UUID] = save
+			}
+		}
 
 	case *packet.PlayerList:
 		for _, player := range pk.Entries {
+			if player.ActionType != protocol.PlayerListActionAdd {
+				continue // a removal carries no skin or XUID
+			}
 			w.serverState.playerSkins[player.UUID] = &player.Skin
+			w.serverState.playerXUIDs[player.UUID] = player.XUID
 		}
 
 	case *packet.PlayerSkin:
@@ -238,7 +279,7 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 
 				if w.scripting != nil {
 					if !w.scripting.OnEntityAdd(ent, isNew, timeReceived) {
-						logrus.Infof("Ignoring Entity: %s %d", ent.EntityType, ent.UniqueID)
+						logrus.Info(locale.Loc("worlds_ignoring_entity", locale.Strmap{"Type": ent.EntityType, "Id": ent.UniqueID}))
 						return worldstate.ErrIgnoreEntity
 					}
 					for name, previous := range changes {
@@ -270,9 +311,24 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 
 	case *packet.MovePlayer:
 		entityRenderDistance := w.serverState.getEntityRenderDistance()
-		if pk.EntityRuntimeID == w.session.Player.RuntimeID && pk.Mode == packet.MoveModeTeleport {
+		if pk.EntityRuntimeID == w.session.Player.RuntimeID {
+			if pk.Mode == packet.MoveModeTeleport {
+				w.currentWorld(func(world *worldstate.World) {
+					world.PlayerMove(w.session.Player.TeleportLocation, entityRenderDistance, w.session.Player.Teleports)
+				})
+			}
+		} else {
+			// another player: MovePlayer has its eyes, the entity its feet
 			w.currentWorld(func(world *worldstate.World) {
-				world.PlayerMove(w.session.Player.TeleportLocation, entityRenderDistance, w.session.Player.Teleports)
+				world.ActEntity(pk.EntityRuntimeID, false, func(ent *entity.Entity) error {
+					prevPosition := ent.Position
+					ent.Position = pk.Position.Sub(mgl32.Vec3{0, worldstate.PlayerEyeHeight, 0})
+					ent.Pitch = pk.Pitch
+					ent.Yaw = pk.Yaw
+					ent.HeadYaw = pk.HeadYaw
+					w.onEntityUpdate(ent, &prevPosition, nil)
+					return nil
+				})
 			})
 		}
 
@@ -405,10 +461,13 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 					ent.Position[0] = posX
 				}
 				if posY, ok := pk.PositionY.Value(); ok {
-					ent.Position[0] = posY
+					if ent.EntityType == worldstate.PlayerEntityType {
+						posY -= worldstate.PlayerEyeHeight
+					}
+					ent.Position[1] = posY
 				}
 				if posZ, ok := pk.PositionZ.Value(); ok {
-					ent.Position[0] = posZ
+					ent.Position[2] = posZ
 				}
 
 				if rotationX, ok := pk.RotationX.Value(); ok {
@@ -433,6 +492,9 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 			world.ActEntity(pk.EntityRuntimeID, false, func(ent *entity.Entity) error {
 				prevPosition := ent.Position
 				ent.Position = pk.Position
+				if ent.EntityType == worldstate.PlayerEntityType {
+					ent.Position[1] -= worldstate.PlayerEyeHeight
+				}
 				ent.Pitch = pk.Rotation.X()
 				ent.Yaw = pk.Rotation.Y()
 				if !ent.Velocity.ApproxEqual(mgl32.Vec3{}) {
@@ -457,6 +519,12 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 					ent.Inventory[pk.WindowID] = window
 				}
 				window[pk.HotBarSlot] = pk.NewItem
+				item := pk.NewItem
+				if pk.WindowID == protocol.WindowIDOffHand {
+					ent.OffHand = &item
+				} else {
+					ent.MainHand = &item
+				}
 				w.onEntityUpdate(ent, nil, nil)
 				return nil
 			})
@@ -467,8 +535,9 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 			world.ActEntity(pk.EntityRuntimeID, false, func(ent *entity.Entity) error {
 				ent.Helmet = &pk.Helmet
 				ent.Chestplate = &pk.Chestplate
-				ent.Leggings = &pk.Chestplate
+				ent.Leggings = &pk.Leggings
 				ent.Boots = &pk.Boots
+				ent.Body = &pk.Body
 				w.onEntityUpdate(ent, nil, nil)
 				return nil
 			})
@@ -653,6 +722,9 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 }
 
 func (w *worldsHandler) packetHandler(_ *proxy.Session, pk packet.Packet, toServer bool, timeReceived time.Time, preLogin bool) (packet.Packet, error) {
+	if w.uiRecorder != nil {
+		w.uiRecorder.OnPacket(pk, toServer, timeReceived)
+	}
 	if w.scripting != nil {
 		if !w.scripting.OnPacket(pk, toServer, timeReceived) {
 			return nil, nil
@@ -816,4 +888,16 @@ func containsStackNetworkID(action protocol.StackRequestAction, target int32) bo
 		return false
 	}
 	return false
+}
+
+// addonSafely runs f, which turns one of the server's add-on definitions
+// into the behavior pack. Add-ons come in shapes the parsers don't know, and
+// one of them failing should cost that definition, not the session.
+func (w *worldsHandler) addonSafely(what string, f func()) {
+	defer func() {
+		if r := recover(); r != nil {
+			w.log.Warn(locale.Loc("worlds_bp_skipping", locale.Strmap{"What": what, "Err": r}))
+		}
+	}()
+	f()
 }

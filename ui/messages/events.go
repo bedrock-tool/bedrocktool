@@ -1,6 +1,7 @@
 package messages
 
 import (
+	"context"
 	"image"
 
 	"github.com/go-gl/mathgl/mgl32"
@@ -159,4 +160,34 @@ func (a *AuthHandler) DisplayCode(VerificationURI string, UserCode string) {
 // Successful implements [auth.AuthCodeHandler].
 func (a *AuthHandler) Successful() {
 	SendEvent(&EventAuthFinished{})
+}
+
+// StoriesAnswer is how the player answered a Realm's Stories prompt.
+type StoriesAnswer uint8
+
+const (
+	StoriesCancel StoriesAnswer = iota
+	StoriesOptIn
+	StoriesOptOut
+)
+
+// EventStoriesPrompt asks the player to answer a Realm's Stories timeline
+// prompt, which the game asks on the first join: until it's answered, the
+// Realm won't let the account join. The UI sends the answer on Reply.
+type EventStoriesPrompt struct {
+	RealmName string
+	Reply     chan<- StoriesAnswer
+}
+
+// AskStoriesPrompt asks the UI to answer a Realm's Stories prompt and waits
+// for the answer (StoriesCancel if ctx ends first).
+func AskStoriesPrompt(ctx context.Context, realmName string) StoriesAnswer {
+	reply := make(chan StoriesAnswer, 1)
+	SendEvent(&EventStoriesPrompt{RealmName: realmName, Reply: reply})
+	select {
+	case a := <-reply:
+		return a
+	case <-ctx.Done():
+		return StoriesCancel
+	}
 }

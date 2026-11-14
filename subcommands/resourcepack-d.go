@@ -28,8 +28,8 @@ import (
 type ResourcePacksSettings struct {
 	ProxySettings proxy.ProxySettings `without:"listen"`
 
-	SaveEncrypted bool `opt:"Save Encrypted" flag:"save-encrypted"`
-	Folders       bool `opt:"Write Folders" flag:"folders"`
+	SaveEncrypted bool `opt:"locale.opt_packs_save_encrypted" flag:"save-encrypted" desc:"locale.desc_packs_save_encrypted"`
+	Folders       bool `opt:"locale.opt_packs_folders" flag:"folders" desc:"locale.desc_packs_folders"`
 }
 
 type ResourcePackCMD struct{}
@@ -109,7 +109,7 @@ func processPack(outputDir string, packNameCounts map[string]int, pack resource.
 		defer f.Close()
 		iconDec, err := png.Decode(f)
 		if err != nil {
-			logrus.Warnf("Failed to Parse pack_icon.png %s", pack.Name())
+			logrus.Warn(locale.Loc("pack_icon_parse_failed", locale.Strmap{"Name": pack.Name()}))
 		}
 		var ok bool
 		icon, ok = iconDec.(*image.RGBA)
@@ -190,7 +190,7 @@ func (r *resourcePackHandler) onPacket(s *proxy.Session, pk packet.Packet, toSer
 			logrus.WithField("Count", len(keys)).Info(locale.Loc("writing_keys", locale.Strmap{"Path": keysFile}))
 			err := dumpKeys(keys)
 			if err != nil {
-				logrus.Errorf("Error Dumping Keys: %s", err)
+				logrus.Error(locale.Loc("dump_keys_failed", locale.Strmap{"Err": err}))
 			}
 		}
 
@@ -260,7 +260,7 @@ func (r *resourcePackHandler) Handler() *proxy.Handler {
 		OnSessionEnd: func(s *proxy.Session, _wg *sync.WaitGroup) {
 			close(packChannel)
 			wg.Wait()
-			logrus.Info("Done!")
+			logrus.Info(locale.Loc("done", nil))
 		},
 	}
 }

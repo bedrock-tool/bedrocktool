@@ -5,7 +5,9 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/tls"
+	"errors"
 	"fmt"
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"io"
 	"net"
 	"net/http"
@@ -150,7 +152,7 @@ var httpClient = http.Client{
 }
 
 func (r *ResourcePackHandler) downloadFromUrl(pack protocol.TexturePackInfo) error {
-	r.log.Infof("Downloading Resourcepack: %s", pack.DownloadURL)
+	r.log.Info(locale.Loc("downloading_pack", locale.Strmap{"Url": pack.DownloadURL}))
 
 	f, err := r.cache.Create(pack.UUID, pack.Version)
 	if err != nil {
@@ -241,16 +243,25 @@ func (r *ResourcePackHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) 
 
 		_, alreadyDownloading := r.downloadingPacks[pack.UUID]
 		if alreadyDownloading {
-			r.log.Warnf("duplicate texture pack entry %v in resource pack info", pack.UUID)
+			r.log.Warn(locale.Loc("pack_duplicate_entry", locale.Strmap{"Id": pack.UUID}))
 			continue
 		}
 
+		var cached resource.Pack
 		if r.cache.Has(pack.UUID, pack.Version) {
-			newPack, err := r.cache.Get(pack.UUID, pack.Version)
-			if err != nil {
+			var err error
+			cached, err = r.cache.Get(pack.UUID, pack.Version)
+			if errors.Is(err, errBadCachedPack) {
+				// Get removed the broken file: download the pack again
+				r.log.Warnf("cached copy of pack %s was broken, downloading it again: %s", packID, err)
+				cached = nil
+			} else if err != nil {
 				return fmt.Errorf("opening cached Resourcepack: %s (delete packcache as a fix)", err)
 			}
-
+		}
+		if cached != nil {
+			newPack := cached
+			var err error
 			if len(pack.ContentKey) > 0 {
 				newPack = newPack.WithContentKey(pack.ContentKey)
 			}
@@ -291,7 +302,7 @@ func (r *ResourcePackHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) 
 		go func() {
 			for _, dl := range urlDownloads {
 				if err := r.downloadFromUrl(dl); err != nil {
-					r.log.Errorf("download %s %s", dl.DownloadURL, err)
+					r.log.Error(locale.Loc("pack_download_failed", locale.Strmap{"Url": dl.DownloadURL, "Err": err}))
 				}
 			}
 		}()
@@ -340,9 +351,16 @@ func (r *ResourcePackHandler) OnResourcePacksInfo(pk *packet.ResourcePacksInfo) 
 	return nil
 }
 
+// parsePackID reads the pack UUID from a pack ID in a resource pack packet.
+// The game sends it either as a bare UUID or as "<uuid>_<version>"
+// (42 characters for version 1.0.0), so both have to be accepted.
+func parsePackID(s string) (uuid.UUID, error) {
+	id, _, _ := strings.Cut(s, "_")
+	return uuid.Parse(id)
+}
+
 func (r *ResourcePackHandler) downloadResourcePack(pk *packet.ResourcePackDataInfo) error {
-	uuid_ver := strings.Split(pk.UUID, "_")
-	packID, err := uuid.Parse(uuid_ver[0])
+	packID, err := parsePackID(pk.UUID)
 	if err != nil {
 		return err
 	}
@@ -357,7 +375,7 @@ func (r *ResourcePackHandler) downloadResourcePack(pk *packet.ResourcePackDataIn
 	if pack.Size != pk.Size {
 		// Size mismatch: The ResourcePacksInfo packet had a size for the pack that did not match with the
 		// size sent here.
-		r.log.Infof("pack %v had a different size in the ResourcePacksInfo packet than the ResourcePackDataInfo packet", pk.UUID)
+		r.log.Info(locale.Loc("pack_size_mismatch", locale.Strmap{"Id": pk.UUID}))
 		pack.Size = pk.Size
 	}
 
@@ -380,25 +398,52 @@ func (r *ResourcePackHandler) downloadResourcePack(pk *packet.ResourcePackDataIn
 	h := sha256.New()
 	w := io.MultiWriter(f, h)
 
+	// Several chunks are asked for at once: one at a time, each costs a
+	// round trip, which over a Realm's connection made big packs take
+	// minutes (long enough for the game waiting on the proxy to give up).
+	// They're written in order whatever order they come in.
+	const chunksInFlight = 8
+	nextRequest := int32(0)
+	requestMore := func(upTo int32) error {
+		for ; nextRequest < chunkCount && nextRequest < upTo; nextRequest++ {
+			err := r.Server.WritePacket(&packet.ResourcePackChunkRequest{
+				UUID:       pk.UUID,
+				ChunkIndex: nextRequest,
+			})
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	if err = requestMore(chunksInFlight); err != nil {
+		return err
+	}
+	early := make(map[uint32]*packet.ResourcePackChunkData)
+
 	dataWritten := 0
 	for chunkIndex := range chunkCount {
-		err = r.Server.WritePacket(&packet.ResourcePackChunkRequest{
-			UUID:       pk.UUID,
-			ChunkIndex: chunkIndex,
-		})
-		if err != nil {
+		frag, ok := early[uint32(chunkIndex)]
+		delete(early, uint32(chunkIndex))
+		for !ok {
+			var got *packet.ResourcePackChunkData
+			var open bool
+			select {
+			case <-r.Server.Context().Done():
+				return net.ErrClosed
+			case got, open = <-pack.newFrag:
+			}
+			if !open {
+				return fmt.Errorf("resource pack %s: download ended early", pk.UUID)
+			}
+			if got.ChunkIndex == uint32(chunkIndex) {
+				frag, ok = got, true
+			} else if got.ChunkIndex > uint32(chunkIndex) && got.ChunkIndex < uint32(chunkCount) {
+				early[got.ChunkIndex] = got
+			}
+		}
+		if err = requestMore(chunkIndex + 1 + chunksInFlight); err != nil {
 			return err
-		}
-
-		var frag *packet.ResourcePackChunkData
-		var ok bool
-		select {
-		case <-r.Server.Context().Done():
-			return net.ErrClosed
-		case frag, ok = <-pack.newFrag:
-		}
-		if !ok {
-			break
 		}
 
 		// Write the fragment to the full buffer of the downloading resource pack.
@@ -479,10 +524,8 @@ func (r *ResourcePackHandler) OnResourcePackChunkData(pk *packet.ResourcePackChu
 		return fmt.Errorf("resource pack chunk data for resource pack that was not being downloaded")
 	}
 
-	if pk.ChunkIndex != pack.expectedIndex {
-		return fmt.Errorf("resource pack chunk data had chunk index %v, but expected %v", pk.ChunkIndex, pack.expectedIndex)
-	}
-	pack.expectedIndex++
+	// with several chunks asked for at once they can come in any order:
+	// downloadResourcePack puts them back in order
 	pack.newFrag <- pk
 	return nil
 }
@@ -528,7 +571,7 @@ func (r *ResourcePackHandler) OnResourcePackStack(pk *packet.ResourcePackStack) 
 
 // from client
 func (r *ResourcePackHandler) OnResourcePackChunkRequest(pk *packet.ResourcePackChunkRequest) error {
-	packID, err := uuid.Parse(pk.UUID)
+	packID, err := parsePackID(pk.UUID)
 	if err != nil {
 		return err
 	}
@@ -674,7 +717,7 @@ func (r *ResourcePackHandler) OnResourcePackClientResponse(pk *packet.ResourcePa
 				select {
 				case pack, ok := <-r.nextPackToClient:
 					if !ok {
-						r.log.Info("finished sending client resource packs")
+						r.log.Info(locale.Loc("packs_sent_to_client", nil))
 						return
 					}
 

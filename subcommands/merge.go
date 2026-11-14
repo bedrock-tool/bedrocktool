@@ -2,7 +2,9 @@ package subcommands
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"log/slog"
 	"math"
 	"math/rand/v2"
@@ -19,9 +21,9 @@ import (
 )
 
 type MergeSettings struct {
-	Bounds      bool     `opt:"Show Bounds" flag:"bounds"`
-	OutPath     string   `opt:"Out Path" flag:"out"`
-	InputWorlds []string `opt:"Input Worlds" flag:"-args"`
+	Bounds      bool     `opt:"locale.opt_merge_bounds" flag:"bounds"`
+	OutPath     string   `opt:"locale.opt_merge_out" flag:"out"`
+	InputWorlds []string `opt:"locale.opt_merge_args" flag:"-args"`
 }
 
 type MergeCMD struct{}
@@ -31,7 +33,7 @@ func (MergeCMD) Name() string {
 }
 
 func (MergeCMD) Description() string {
-	return "merge worlds"
+	return locale.Loc("merge_synopsis", nil)
 }
 
 func (MergeCMD) Settings() any {
@@ -47,7 +49,7 @@ type worldInstance struct {
 func (c MergeCMD) Run(ctx context.Context, settings any) error {
 	mergeSettings := settings.(*MergeSettings)
 	if mergeSettings.OutPath == "" && !mergeSettings.Bounds {
-		return fmt.Errorf("-out must be specified")
+		return errors.New(locale.Loc("merge_out_required", nil))
 	}
 
 	blockReg := &merge.BlockRegistry{

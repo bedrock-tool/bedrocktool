@@ -2,6 +2,7 @@ package behaviourpack
 
 import (
 	"fmt"
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"slices"
 	"strings"
 
@@ -424,19 +425,26 @@ func parseBlock(block protocol.BlockEntry) (MinecraftBlock, string) {
 		}
 
 		for _, v := range permutations {
-			v := v.(map[string]any)
+			v, ok := v.(map[string]any)
+			if !ok {
+				continue
+			}
+			condition, _ := v["condition"].(string)
 			perm := permutation{
 				Components: make(map[string]any),
-				Condition:  v["condition"].(string),
+				Condition:  condition,
 			}
 
 			if strings.Contains(perm.Condition, "query.block_property") && version > "1.19.80" {
 				version = "1.19.80"
 			}
 
-			components := v["components"].(map[string]any)
+			components, _ := v["components"].(map[string]any)
 			for componentName, component := range components {
-				component := component.(map[string]any)
+				component, ok := component.(map[string]any)
+				if !ok {
+					continue
+				}
 				name, value := processComponent(componentName, component, &version)
 				if name == "" {
 					continue
@@ -452,7 +460,7 @@ func parseBlock(block protocol.BlockEntry) (MinecraftBlock, string) {
 		for componentName, component := range components {
 			component, ok := component.(map[string]any)
 			if !ok {
-				logrus.Warnf("invalid block component %s %s", block.Name, componentName)
+				logrus.Warn(locale.Loc("bp_invalid_block_component", locale.Strmap{"Block": block.Name, "Component": componentName}))
 				continue
 			}
 			name, value := processComponent(componentName, component, &version)

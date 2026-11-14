@@ -2,6 +2,7 @@ package worldstate
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -69,11 +70,25 @@ type World struct {
 
 	players map[uuid.UUID]*player
 
-	VoidGen  bool
-	timeSync time.Time
-	time     int
-	Name     string
-	Folder   string
+	// maps held by item frames and containers, per chunk
+	mapRefs  map[world.ChunkPos]*chunkMaps
+	seenMaps map[int64]struct{}
+	// OnMapSeen is called (with the world locked) the first time a chunk
+	// shows a map in an item frame or container.
+	OnMapSeen func(id int64)
+
+	// StartPos is where the player was when this world started (with the
+	// eye height, as in packets).
+	StartPos mgl32.Vec3
+	spawn    mgl32.Vec3
+	spawnSet bool
+
+	// Generator is what fills the chunks that weren't saved.
+	Generator Generator
+	timeSync  time.Time
+	time      int
+	Name      string
+	Folder    string
 
 	UseHashedRids    bool
 	blockUpdatesLock sync.Mutex
@@ -116,6 +131,8 @@ func New(ctx context.Context, dimensionDefinitions map[int]protocol.DimensionDef
 		dimensionDefinitions: dimensionDefinitions,
 		memState:             newWorldState(),
 		players:              make(map[uuid.UUID]*player),
+		mapRefs:              make(map[world.ChunkPos]*chunkMaps),
+		seenMaps:             make(map[int64]struct{}),
 		blockUpdates:         make(map[world.ChunkPos][]blockUpdate),
 		onChunkUpdate:        onChunkUpdate,
 		IgnoredChunks:        make(map[world.ChunkPos]bool),
@@ -249,6 +266,7 @@ func (w *World) storeChunkLocked(pos world.ChunkPos, ch *Chunk) (err error) {
 		})
 	}
 	w.memState.StoreChunk(pos, ch)
+	w.scanMapsLocked(pos, ch)
 	return nil
 }
 
@@ -415,7 +433,7 @@ func (w *World) BlockByID(rid uint32) (runtimeID uint32, name string, properties
 		var ok bool
 		rid, ok = w.BlockRegistry.HashToRuntimeID(rid)
 		if !ok {
-			w.log.Warn("couldnt find block hash for block update")
+			w.log.Warn(locale.Loc("worlds_block_hash_missing", nil))
 		}
 	}
 	name, properties, found = w.BlockRegistry.RuntimeIDToState(rid)
@@ -429,11 +447,11 @@ func (w *World) applyBlockUpdates() {
 		delete(w.blockUpdates, pos)
 		ch, ok, err := w.loadChunkLocked(world.ChunkPos(pos))
 		if !ok {
-			w.log.Warnf("Chunk updates for a chunk we dont have pos = %v", pos)
+			w.log.Warn(locale.Loc("worlds_chunk_update_missing", locale.Strmap{"Pos": pos}))
 			continue
 		}
 		if err != nil {
-			w.log.Warnf("Failed loading chunk %v %s", pos, err)
+			w.log.Warn(locale.Loc("worlds_chunk_load_failed", locale.Strmap{"Pos": pos, "Err": err}))
 			continue
 		}
 
@@ -443,7 +461,7 @@ func (w *World) applyBlockUpdates() {
 		}
 		err = w.storeChunkLocked(pos, ch)
 		if err != nil {
-			w.log.Warnf("Failed storing chunk %v %s", pos, err)
+			w.log.Warn(locale.Loc("worlds_chunk_store_failed", locale.Strmap{"Pos": pos, "Err": err}))
 			continue
 		}
 	}
@@ -495,26 +513,85 @@ func (w *World) Rename(name, folder string) error {
 
 var errFinished = errors.New("finished")
 
+// SaveOptions are the extras a save can do.
+type SaveOptions struct {
+	// KeepPlayer says which other players are saved (as entities drawn with
+	// their skins); nil saves none.
+	KeepPlayer  func(uuid.UUID) bool
+	PlayerSkins map[uuid.UUID]*protocol.Skin
+	// Hive turns sheep into hive:text, as Hive's pack does.
+	Hive bool
+	// KnownMaps are maps received while earlier worlds were captured, added
+	// when this world's item frames or containers hold them.
+	KnownMaps map[int64]*Map
+}
+
+// playerNPCComponents make a saved player like the game's player, without
+// moving on its own: its family (so player-only seats and filters take
+// it), its name always shown, hidden when invisible, gravity and collision,
+// and 20 health it can lose.
+var playerNPCComponents = map[string]any{
+	"minecraft:type_family":              map[string]any{"family": []string{"player", "bedrocktool_player"}},
+	"minecraft:nameable":                 map[string]any{"always_show": true, "allow_name_tag_renaming": false},
+	"minecraft:is_hidden_when_invisible": map[string]any{},
+	"minecraft:physics":                  map[string]any{"has_gravity": true, "has_collision": true},
+	"minecraft:health":                   map[string]any{"value": 20, "max": 20},
+	"minecraft:persistent":               map[string]any{},
+}
+
 func (w *World) Save(
 	player proxy.Player, playerData map[string]any,
 	behaviorPack *behaviourpack.Pack,
 	excludedMobs []string,
-	withPlayers bool, playerSkins map[uuid.UUID]*protocol.Skin,
+	opts SaveOptions,
 	gameData minecraft.GameData, serverName string,
 	entityCulling bool, entityRenderDistance float32,
 ) error {
 	spawnPos := cube.Pos{int(player.Position.X()), int(player.Position.Y()), int(player.Position.Z())}
 
+	w.Spawn() // while the chunks can still be read
+
+	w.stateLock.Lock()
+	players := w.preparePlayers(func(id uuid.UUID) bool {
+		return opts.KeepPlayer != nil && opts.PlayerSkins[id] != nil && opts.KeepPlayer(id)
+	})
+	var sheep, tags int
+	if opts.Hive {
+		sheep, tags = w.convertHiveSheep()
+	}
+	w.importMapsLocked(opts.KnownMaps)
+	mounts := w.mountSeatsLocked()
+	w.stateLock.Unlock()
+
+	// Custom entities something rides need seats, or the game can't put
+	// the rider back on when the world loads.
+	for id, seats := range mounts {
+		behaviorPack.AddComponents(id, map[string]any{"minecraft:rideable": rideable(seats)})
+	}
+
+	// The world's own resource pack: saved players, and hive:text's client
+	// entity (Hive's packs are encrypted and left out).
 	var playerResourcePack *resourcepack.Pack
-	if withPlayers {
-		playerEntities := w.playersToEntities()
-
-		for _, player := range playerEntities {
-			behaviorPack.AddEntity(player.Identifier, nil, protocol.EntityMetadata{}, nil)
-		}
-
+	if tags > 0 {
+		w.log.Info(locale.Loc("worlds_hive_name_tags", locale.Strmap{"Tags": tags, "Entity": HiveTextEntity, "Sheep": sheep}))
+		behaviorPack.AddEntityDefinition(HiveTextEntity, HiveTextFormatVersion, HiveTextComponents, HiveTextGroups, HiveTextEvents)
 		playerResourcePack = resourcepack.New()
-		err := playerResourcePack.MakePlayers(playerEntities, playerSkins)
+		playerResourcePack.Files["entity/hive_text.entity.json"], _ = json.Marshal(HiveTextClientEntity)
+	}
+
+	if len(players) > 0 {
+		var playerEntities []resourcepack.EntityPlayer
+		for _, p := range players {
+			behaviorPack.AddEntity(p.Identifier, nil, p.Metadata, nil)
+			behaviorPack.AddComponents(p.Identifier, playerNPCComponents)
+			playerEntities = append(playerEntities, p.EntityPlayer)
+		}
+		w.log.Info(locale.Locm("worlds_saving_players", nil, len(players)))
+
+		if playerResourcePack == nil {
+			playerResourcePack = resourcepack.New()
+		}
+		err := playerResourcePack.MakePlayers(playerEntities, opts.PlayerSkins)
 		if err != nil {
 			return err
 		}
@@ -523,10 +600,9 @@ func (w *World) Save(
 	err := w.finalizeProvider(
 		playerData,
 		excludedMobs,
-		withPlayers,
 		spawnPos,
 		gameData,
-		behaviorPack.HasContent(),
+		behaviorPack.HasBlocks() || behaviorPack.HasItems(),
 		entityCulling,
 		entityRenderDistance,
 	)
@@ -552,7 +628,9 @@ func (w *World) Save(
 		}
 
 		if playerResourcePack != nil {
-			packFolder := path.Join("resource_packs", "bedrocktool_players")
+			// Named after its ID, so a world copied over an older one gets
+			// this pack beside the old one, not mixed into it.
+			packFolder := path.Join("resource_packs", "bedrocktool_players_"+playerResourcePack.Manifest.Header.UUID.String()[:8])
 			if err := playerResourcePack.WriteToFS(utils.SubFS(fs, packFolder)); err != nil {
 				return nil, err
 			}
@@ -575,7 +653,6 @@ func (w *World) Save(
 func (w *World) finalizeProvider(
 	playerData map[string]any,
 	excludedMobs []string,
-	withPlayers bool,
 	spawn cube.Pos,
 	gd minecraft.GameData,
 	experimental bool,
@@ -621,7 +698,8 @@ func (w *World) finalizeProvider(
 		}
 
 		var diff float32
-		shouldCull := entityCull(ent, entityRenderDistance, &diff)
+		// Hive's name tags stay, even ones Hive took away in front of us
+		shouldCull := ent.EntityType != HiveTextEntity && entityCull(ent, entityRenderDistance, &diff)
 
 		if shouldCull {
 			if entityCulling {
@@ -633,7 +711,9 @@ func (w *World) finalizeProvider(
 		}
 		cp := world.ChunkPos{int32(ent.Position.X()) >> 4, int32(ent.Position.Z()) >> 4}
 		links := maps.Keys(w.memState.entityLinks[ent.UniqueID])
-		chunkEntities[cp] = append(chunkEntities[cp], ent.ToChunkEntity(links))
+		ce := ent.ToChunkEntity(links)
+		w.writeEquipment(ent, ce.Data)
+		chunkEntities[cp] = append(chunkEntities[cp], ce)
 	}
 
 	for cp, v := range chunkEntities {
@@ -750,11 +830,7 @@ func (w *World) finalizeProvider(
 		}
 	}
 
-	// void world
-	if w.VoidGen {
-		ld.FlatWorldLayers = `{"biome_id":1,"block_layers":[{"block_data":0,"block_id":0,"count":1},{"block_data":0,"block_id":0,"count":2},{"block_data":0,"block_id":0,"count":1}],"encoding_version":3,"structure_options":null}`
-		ld.Generator = 2
-	}
+	applyGenerator(ld, w.Generator)
 
 	ld.RandomTickSpeed = 0
 	s.CurrentTick = gd.Time
@@ -765,6 +841,9 @@ func (w *World) finalizeProvider(
 		s.Time += ticksSince
 		s.TimeCycle = true
 	}
+
+	// No mobs spawning into a saved map, whatever the server had.
+	ld.DoMobSpawning = false
 
 	if experimental {
 		if ld.Experiments == nil {

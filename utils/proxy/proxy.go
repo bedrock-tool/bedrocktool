@@ -15,13 +15,13 @@ import (
 )
 
 type ProxySettings struct {
-	ConnectInfo *connectinfo.ConnectInfo `opt:"Address" flag:"address" desc:"locale.remote_address"`
+	ConnectInfo *connectinfo.ConnectInfo `opt:"locale.opt_proxy_address" flag:"address" desc:"locale.remote_address"`
 
-	Debug         bool   `opt:"Debug" flag:"debug" desc:"locale.debug_mode"`
-	ExtraDebug    bool   `opt:"Extra Debug" flag:"extra-debug" desc:"extra debug info (packet.log)"`
-	Capture       bool   `opt:"Packet Capture" flag:"capture" default:"true" desc:"Capture pcap2 file"`
-	ClientCache   bool   `opt:"Client Cache" flag:"client-cache" default:"true" desc:"Enable Client Cache"`
-	ListenAddress string `opt:"Listen Address" flag:"listen" default:"0.0.0.0:19132" desc:"example :19132 or 127.0.0.1:19132"`
+	Debug         bool   `opt:"locale.opt_proxy_debug" flag:"debug" desc:"locale.debug_mode"`
+	ExtraDebug    bool   `opt:"locale.opt_proxy_extra_debug" flag:"extra-debug" desc:"locale.desc_proxy_extra_debug"`
+	Capture       bool   `opt:"locale.opt_proxy_capture" flag:"capture" default:"true" desc:"locale.desc_proxy_capture"`
+	ClientCache   bool   `opt:"locale.opt_proxy_client_cache" flag:"client-cache" default:"true" desc:"locale.desc_proxy_client_cache"`
+	ListenAddress string `opt:"locale.opt_proxy_listen" flag:"listen" default:"0.0.0.0:19132" desc:"locale.desc_proxy_listen"`
 }
 
 type PacketFunc func(header packet.Header, payload []byte, src, dst net.Addr, timeReceived time.Time)

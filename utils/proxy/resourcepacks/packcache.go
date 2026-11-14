@@ -1,6 +1,8 @@
 package resourcepacks
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -16,6 +18,11 @@ type PackCache interface {
 	Create(id uuid.UUID, ver string) (*closeMoveWriter, error)
 }
 
+// errBadCachedPack is returned by packCache.Get when the cached file isn't a
+// readable pack (cut off by a crash, or saved from a server that sent a
+// broken pack). Get removes the file, so the pack is downloaded again.
+var errBadCachedPack = errors.New("cached pack is broken")
+
 type packCache struct {
 	Ignore bool
 }
@@ -28,12 +35,23 @@ func (c *packCache) Get(id uuid.UUID, ver string) (resource.Pack, error) {
 	if c.Ignore {
 		panic("not allowed")
 	}
-	f, err := utils.OpenShared(c.cachedPath(id, ver))
+	p := c.cachedPath(id, ver)
+	f, err := utils.OpenShared(p)
 	if err != nil {
 		return nil, err
 	}
-	stat, _ := f.Stat()
-	return resource.FromReaderAt(f, stat.Size())
+	stat, err := f.Stat()
+	if err != nil {
+		f.Close()
+		return nil, err
+	}
+	pack, err := resource.FromReaderAt(f, stat.Size())
+	if err != nil {
+		f.Close()
+		_ = os.Remove(p)
+		return nil, fmt.Errorf("%w: %w", errBadCachedPack, err)
+	}
+	return pack, nil
 }
 
 func (c *packCache) Has(id uuid.UUID, ver string) bool {

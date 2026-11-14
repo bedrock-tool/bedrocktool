@@ -1,0 +1,780 @@
+# General and CLI
+bedrocktool_version:
+  other: "Bedrocktool 版本 {{.Version}}"
+available_commands:
+  other: "可用命令："
+use_to_run_command:
+  other: "使用 'bedrocktool <命令>' 运行命令"
+input_command:
+  other: "输入命令："
+fatal_error:
+  other: "发生严重错误。"
+report_issue:
+  other: |
+    如果你想报告这个错误，请在以下地址提交 issue：
+    https://github.com/bedrock-tool/bedrocktool/issues
+    附上错误信息，描述你做了什么导致了这个错误，如果可以，请附上 bedrocktool.log 文件。
+    谢谢！
+used_extra_debug_report:
+  other: |
+    注意：你使用了 extra-debug，它会生成 packets.log 和 packets.log.gpg 文件。
+    如果要提交 issue，请只上传 packets.log.gpg 文件。
+    packets.log 和 packets.log.gpg 可能包含账号信息（绝不包含登录信息），所以上传加密文件更安全。
+    这个文件只有开发者能读，查看公开 issue 页面的人读不了。
+enter_to_exit:
+  other: "按 Enter 退出。"
+should_login_xbox:
+  other: "登录 Xbox Live"
+debug_mode:
+  other: "更多日志，用于错误报告"
+done:
+  other: "完成"
+
+# Connecting
+enter_server:
+  other: "输入服务器："
+listening_on:
+  other: "正在监听 {{.Address}}"
+connecting:
+  other: "正在连接 {{.Address}}"
+connected:
+  other: "已连接到服务器。"
+help_connect:
+  other: "打开 Minecraft 并连接到这台电脑的局域网 IP 地址以继续"
+remote_address:
+  other: "服务器地址"
+realm_list_line:
+  other: "名称：{{.Name}}\tid：{{.Id}}"
+
+# Updates
+update_available:
+  other: "有可用更新：{{.Version}}  使用 update 命令安装。"
+no_update:
+  other: "没有可用的更新。"
+updating:
+  other: "正在更新到 {{.Version}}"
+updated:
+  other: "已更新！"
+
+# Worlds (log and in-game)
+worldname_set:
+  other: "世界名称现在是 {{.Name}}"
+void_generator_true:
+  other: "正在使用虚空生成器"
+zoom_level:
+  other: "缩放：{{.Level}}"
+saving_world:
+  one: "正在保存世界 {{.Name}}，共 {{.Count}} 个区块"
+  other: "正在保存世界 {{.Name}}，共 {{.Count}} 个区块"
+unknown_gamerule:
+  other: "未知的游戏规则：{{.Name}}"
+adding_pack:
+  other: "正在添加资源包 {{.Name}}"
+using_customblocks:
+  other: "正在使用自定义方块"
+use_setname:
+  other: "使用 /setname <名称>\n设置世界名称"
+setname_desc:
+  other: "为这个世界设置名称"
+void_desc:
+  other: "开关虚空生成器"
+popup_chunk_count:
+  other: "{{.Chunks}} 个区块\n{{.Entities}} 个实体\n名称：{{.Name}}"
+warn_window_closed_not_open:
+  other: "关闭了一个没有打开的窗口"
+saved_block_inv:
+  other: "已保存方块物品栏"
+save_image:
+  other: "同时在世界旁边保存一张地图 PNG"
+saved:
+  other: "已保存：{{.Name}}"
+empty_chunk:
+  other: "空区块。"
+failed_write:
+  other: "无法写入 {{.Part}} {{.Path}}：{{.Err}}"
+
+# Resource pack keys
+no_resourcepacks:
+  other: "没有发送资源包"
+writing_keys:
+  other: "正在把密钥写入 {{.Path}}"
+warn_key_exists:
+  other: "密钥 {{.Id}} 已存在"
+compare_key:
+  other: "uuid：{{.Id}}，数据库中的密钥：{{.Prev}} != 新密钥 {{.Now}}"
+
+# Subcommand descriptions (also the mode cards in the GUI)
+list_realms_synopsis:
+  other: "列出你能访问的所有 Realm"
+capture_synopsis:
+  other: "把数据包捕获到 pcap 文件"
+chat_log_synopsis:
+  other: "把聊天记录到文件"
+debug_proxy_synopsis:
+  other: "详细的调试数据包"
+merge_synopsis:
+  other: "合并 2 个或更多世界"
+update_synopsis:
+  other: "更新到最新版本"
+skins_synopsis:
+  other: "保存你在服务器上看到的玩家的皮肤"
+world_synopsis:
+  other: "把你所在的世界连同实体和附加包保存为 .mcworld"
+pack_synopsis:
+  other: "下载服务器的资源包（已解密）"
+
+# GUI: general
+gui_window_title:
+  other: "Bedrocktool {{.Version}}（Minecraft {{.McVersion}}）"
+gui_closing:
+  other: "正在关闭"
+gui_close:
+  other: "关闭"
+gui_cancel:
+  other: "取消"
+gui_back:
+  other: "返回"
+gui_return:
+  other: "返回"
+gui_done:
+  other: "完成"
+gui_copied:
+  other: "已复制！"
+gui_copy_logs:
+  other: "复制日志"
+gui_appbar_menu:
+  other: "菜单"
+gui_appbar_actions:
+  other: "操作"
+gui_nav_title:
+  other: "导航"
+gui_login:
+  other: "登录"
+gui_logout:
+  other: "退出登录"
+gui_account_named:
+  other: "{{.Action}}（{{.Name}}）"
+gui_switch_account:
+  other: "切换"
+gui_logs:
+  other: "日志"
+
+# GUI: settings
+gui_settings_title:
+  other: "设置"
+gui_settings_pick_mode:
+  other: "你想保存什么？"
+gui_start:
+  other: "开始"
+gui_mode_worlds:
+  other: "世界"
+gui_mode_skins:
+  other: "皮肤"
+gui_mode_packs:
+  other: "资源包"
+gui_section_server:
+  other: "服务器"
+gui_section_options:
+  other: "选项"
+gui_section_connection:
+  other: "连接与调试"
+gui_address_placeholder:
+  other: "输入服务器地址"
+gui_address_realms:
+  other: "Realm"
+gui_address_experiences:
+  other: "体验"
+gui_address_featured:
+  other: "精选"
+gui_browse:
+  other: "浏览"
+
+# GUI: world downloader
+gui_worlds_title:
+  other: "世界下载"
+gui_worlds_saving:
+  other: "正在保存 {{.Name}}"
+gui_save_step_preparing:
+  other: "准备中"
+gui_save_step_chunks:
+  other: "正在保存区块"
+gui_save_step_entities:
+  other: "正在保存实体"
+gui_save_step_resource_packs:
+  other: "正在添加资源包"
+gui_save_step_resource_pack:
+  other: "正在添加资源包 {{.Name}}"
+gui_save_step_behavior_pack:
+  other: "正在添加行为包"
+gui_save_step_mcworld:
+  other: "正在写入 .mcworld 文件"
+gui_worlds_counts:
+  other: "{{.Chunks}} 个区块  ·  {{.Entities}} 个实体"
+gui_worlds_saved_title:
+  other: "已保存的世界"
+gui_worlds_saved_in:
+  other: "位于 {{.Dir}}"
+gui_worlds_nothing_saved:
+  other: "什么都没保存：没有加载任何区块。"
+gui_worlds_waiting:
+  other: "正在等待区块"
+gui_worlds_waiting_hint:
+  other: "你在 Minecraft 里走动时，地图会逐渐填满。"
+
+# GUI: skins, packs, update page
+gui_skins_title:
+  other: "皮肤抓取"
+gui_packs_title:
+  other: "资源包下载"
+gui_packs_downloading_title:
+  other: "正在下载资源包"
+gui_packs_downloaded_title:
+  other: "已下载的资源包"
+gui_pack_processing:
+  other: "处理中"
+gui_pack_downloaded:
+  other: "已下载"
+gui_pack_downloading:
+  other: "下载中"
+gui_pack_show:
+  other: "显示"
+gui_update_downloading_percent:
+  other: "正在下载（{{.Percent}}%）"
+
+# GUI: popups
+gui_connect_starting:
+  other: "正在启动"
+gui_connect_starting_detail:
+  other: "正在登录并查找服务器..."
+gui_connect_title:
+  other: "从 Minecraft 加入"
+gui_connect_connecting:
+  other: "正在连接服务器"
+gui_connect_connecting_detail:
+  other: "请在 Minecraft 中等待：会先下载服务器的资源包，第一次可能需要一分钟。"
+gui_connect_resources:
+  other: "正在下载资源包"
+gui_connect_resources_detail:
+  other: "请在 Minecraft 中等待，第一次可能需要一分钟。"
+gui_connect_connected:
+  other: "已连接"
+gui_connect_connected_detail:
+  other: "像平常一样玩就行。离开时会保存世界。"
+gui_connect_instructions:
+  other: "在 Minecraft 中打开 服务器 > 添加服务器，然后填写："
+gui_connect_this_computer:
+  other: "在这台电脑上"
+gui_connect_other_device:
+  other: "在其他设备上"
+gui_connect_address_port:
+  other: "{{.Ip}}   端口 {{.Port}}"
+gui_connect_hide:
+  other: "隐藏"
+gui_connect_open_minecraft:
+  other: "打开 Minecraft"
+gui_error_title:
+  other: "错误"
+gui_error_fatal_title:
+  other: "严重错误"
+gui_error_more_info:
+  other: "更多信息已输出到控制台；在错误报告中附上它会很有帮助。"
+gui_experiences_title:
+  other: "体验"
+gui_experiences_none:
+  other: "没有找到任何体验"
+gui_featured_title:
+  other: "精选服务器"
+gui_featured_none:
+  other: "没有找到精选服务器"
+gui_realms_title:
+  other: "Realm"
+gui_realms_none:
+  other: "你没有加入任何 Realm"
+gui_realm_expired:
+  other: "已过期：所有者的订阅已结束，无法加入"
+gui_realm_closed:
+  other: "已被所有者关闭"
+gui_realm_open:
+  other: "开放"
+gui_select_account_title:
+  other: "选择账号实例"
+gui_select_account_placeholder:
+  other: "实例名称"
+gui_stories_title:
+  other: "Realm 故事"
+gui_stories_text:
+  other: "{{.Realm}} 不会让这个账号加入，直到它回答了 Realm 故事的问题，也就是 Minecraft 在你第一次加入 Realm 时问的那个问题。"
+gui_stories_detail:
+  other: "选择加入会在这个 Realm 的故事时间线上分享你的活动；选择退出则不会。两种回答都能让你加入，之后也可以在 Minecraft 里更改。"
+gui_stories_opt_in:
+  other: "加入"
+gui_stories_opt_out:
+  other: "退出"
+gui_update_title:
+  other: "更新"
+gui_update_installed:
+  other: "已安装：{{.Version}}"
+gui_update_latest:
+  other: "最新：  {{.Version}}"
+gui_update_up_to_date:
+  other: "你已经是最新版本了。"
+gui_update_start:
+  other: "更新并重启"
+gui_update_downloading:
+  other: "正在下载更新..."
+gui_update_failed:
+  other: "更新失败"
+gui_update_failed_err:
+  other: "更新失败：{{.Err}}"
+gui_update_restarting:
+  other: "正在重启..."
+
+# Settings: option names (opt) and descriptions (desc)
+opt_worlds_image:
+  other: "地图图片"
+opt_worlds_save_entities:
+  other: "实体"
+desc_worlds_save_entities:
+  other: "生物、盔甲架、物品展示框和其他实体"
+opt_worlds_save_players:
+  other: "玩家"
+desc_worlds_save_players:
+  other: "其他玩家，以穿着自己皮肤的雕像形式保存"
+opt_worlds_map_art:
+  other: "地图画"
+desc_worlds_map_art:
+  other: "同时把挂在物品展示框里的地图保存为 PNG"
+opt_worlds_save_inventories:
+  other: "物品栏"
+desc_worlds_save_inventories:
+  other: "你打开的箱子里的物品，以及你自己的物品栏"
+opt_worlds_block_updates:
+  other: "方块更新"
+desc_worlds_block_updates:
+  other: "保留区块加载后服务器改动的方块"
+opt_worlds_entity_culling:
+  other: "实体剔除"
+desc_worlds_entity_culling:
+  other: "不保存已死亡或消失的实体（实验性）"
+opt_worlds_exclude_mobs:
+  other: "排除生物"
+desc_worlds_exclude_mobs:
+  other: "要排除的实体 ID，用逗号分隔；支持 *，例如 minecraft:bat,hive:*"
+opt_worlds_chunk_radius:
+  other: "区块半径"
+desc_worlds_chunk_radius:
+  other: "向服务器请求的视距，以区块为单位（留空为 76）"
+opt_worlds_script:
+  other: "脚本"
+desc_worlds_script:
+  other: "一个决定保存哪些内容的 JavaScript 文件"
+opt_worlds_record_ui:
+  other: "录制菜单"
+desc_worlds_record_ui:
+  other: "把你打开的菜单和计分板在世界里重建为脚本"
+opt_proxy_address:
+  other: "地址"
+opt_proxy_debug:
+  other: "调试"
+opt_proxy_extra_debug:
+  other: "额外调试"
+desc_proxy_extra_debug:
+  other: "同时把每个数据包记录到 packet.log（文件很大）"
+opt_proxy_capture:
+  other: "录制会话"
+desc_proxy_capture:
+  other: "保存一个以后可以回放的 .pcap2 录制文件"
+opt_proxy_client_cache:
+  other: "客户端缓存"
+desc_proxy_client_cache:
+  other: "让 Minecraft 缓存区块，加载更快"
+opt_proxy_listen:
+  other: "监听地址"
+desc_proxy_listen:
+  other: "Minecraft 加入代理的地址，例如用 :19133 换一个端口"
+opt_skins_filter:
+  other: "名称过滤"
+desc_skins_filter:
+  other: "只保存名字匹配这个正则表达式的玩家"
+opt_skins_no_proxy:
+  other: "不用 Minecraft"
+desc_skins_no_proxy:
+  other: "自己加入服务器并保存所有在线玩家的皮肤"
+opt_skins_texture_only:
+  other: "仅贴图"
+desc_skins_texture_only:
+  other: "只保存皮肤图片，不保存带模型的皮肤包"
+opt_skins_timestamped:
+  other: "带日期的文件夹"
+desc_skins_timestamped:
+  other: "每次会话放在单独的带日期文件夹里"
+opt_packs_save_encrypted:
+  other: "保留加密副本"
+desc_packs_save_encrypted:
+  other: "同时按原样保存加密的资源包"
+opt_packs_folders:
+  other: "保存为文件夹"
+desc_packs_folders:
+  other: "把资源包保存为文件夹，而不是 .mcpack 文件"
+opt_chat_log_verbose:
+  other: "详细"
+opt_merge_bounds:
+  other: "显示边界"
+opt_merge_out:
+  other: "输出路径"
+opt_merge_args:
+  other: "输入世界"
+opt_render_world:
+  other: "世界"
+opt_render_out:
+  other: "输出"
+opt_dump_actors_world:
+  other: "世界文件夹"
+opt_dump_actors_write:
+  other: "写回"
+opt_dump_actors_json:
+  other: "json 文件"
+opt_trans_auth:
+  other: "认证"
+
+# Subcommands
+render_synopsis:
+  other: "把已保存的世界（文件夹或 .mcworld）俯视绘制成 PNG，并导出其中的地图画"
+dump_actors_synopsis:
+  other: "把世界的实体导出为 JSON 并写回"
+render_wrote:
+  other: "已写入 {{.Path}}"
+merge_out_required:
+  other: "必须指定 -out"
+dump_actors_extracted:
+  one: "已把 {{.Count}} 个实体导出为 json"
+  other: "已把 {{.Count}} 个实体导出为 json"
+dump_actors_removed_digp:
+  one: "已删除 {{.Count}} 条 digp 记录"
+  other: "已删除 {{.Count}} 条 digp 记录"
+dump_actors_removed:
+  one: "已删除 {{.Count}} 个实体"
+  other: "已删除 {{.Count}} 个实体"
+dump_actors_writing:
+  one: "正在把实体写入 {{.Count}} 个区块"
+  other: "正在把实体写入 {{.Count}} 个区块"
+dump_actors_wrote:
+  one: "已写入 {{.Count}} 个实体"
+  other: "已写入 {{.Count}} 个实体"
+pack_icon_parse_failed:
+  other: "无法读取 {{.Name}} 的 pack_icon.png"
+dump_keys_failed:
+  other: "导出密钥时出错：{{.Err}}"
+
+# CLI
+ui_init_failed:
+  other: "无法启动界面：{{.Err}}"
+already_logged_in:
+  other: "已经登录"
+unknown_subcommand:
+  other: "{{.Name}} 不是已知的子命令"
+cli_usage_for:
+  other: "{{.Name}} 的用法："
+cli_stories_text:
+  other: "{{.Realm}} 不会让这个账号加入，直到它回答了 Realm 故事的问题\n（Minecraft 在你第一次加入 Realm 时问的那个问题）。选择加入会在故事\n时间线上分享你的活动；两种回答都能让你加入。"
+cli_stories_prompt:
+  other: "加入、退出还是取消？[in/out/cancel]："
+
+# Accounts and connection
+account_switched:
+  other: "已切换账号"
+auth_refreshing_ms_token:
+  other: "正在刷新 Microsoft 令牌"
+auth_invalid_mctoken:
+  other: "Minecraft 令牌无效，正在刷新"
+auth_old_mctoken:
+  other: "Minecraft 令牌来自旧版本，正在刷新"
+transferring:
+  other: "正在转移到 {{.Address}}"
+forced_pack_added:
+  other: "已把 {{.Name}} 加入强制资源包"
+forced_pack_unknown_file:
+  other: "forcedpacks 中有无法识别的文件 {{.Path}}"
+replay_reading:
+  other: "正在读取回放 {{.File}}"
+replay_end:
+  other: "回放已结束"
+disconnecting:
+  other: "正在断开连接"
+client_connected:
+  other: "客户端已连接"
+already_connected:
+  other: "你已经连接了！"
+realm_not_found:
+  other: "找不到 Realm {{.Name}}"
+stories_unanswered:
+  other: "{{.Realm}}：从未回答过 Realm 故事的问题，所以暂时不让你加入"
+stories_save_failed:
+  other: "保存故事回答时出错：{{.Err}}"
+stories_saved:
+  other: "故事回答已保存（{{.Answer}}），正在重新加入"
+realm_expired_error:
+  other: "{{.Realm}} 已过期（所有者的订阅已结束），无法加入"
+realm_refused_join:
+  other: "{{.Realm}} 拒绝了加入。如果你从没用 Minecraft 加入过它，先在游戏里加入一次并回答它的问题，然后再试"
+
+# Resource packs
+downloading_pack:
+  other: "正在下载资源包：{{.Url}}"
+pack_duplicate_entry:
+  other: "资源包信息中有重复的材质包条目 {{.Id}}"
+pack_download_failed:
+  other: "无法下载 {{.Url}}：{{.Err}}"
+pack_size_mismatch:
+  other: "资源包 {{.Id}} 在 ResourcePacksInfo 数据包和 ResourcePackDataInfo 中的大小不同"
+packs_sent_to_client:
+  other: "已把资源包全部发送给客户端"
+bp_invalid_block_component:
+  other: "无效的方块组件 {{.Block}} {{.Component}}"
+
+# Skins
+skins_creating_pack:
+  other: "正在为 {{.Name}} 创建皮肤包"
+skins_added:
+  other: "已添加皮肤 {{.Name}}"
+skins_write_texture_failed:
+  other: "无法写入皮肤贴图"
+skins_write_cape_failed:
+  other: "无法写入披风贴图"
+skins_no_skin:
+  other: "{{.Name}} 没有皮肤"
+skin_missing_for_player:
+  other: "玩家 {{.Id}} 没有皮肤"
+skin_default_model:
+  other: "玩家 {{.Id}}：{{.Err}}，改用默认模型绘制"
+skin_empty_texture:
+  other: "皮肤 {{.Name}}-{{.Index}} 的贴图是空的"
+skin_geometry_decode_failed:
+  other: "无法读取几何体 {{.Name}}：{{.Err}}"
+skin_geometry_write_failed:
+  other: "无法写入几何体 {{.Name}}：{{.Err}}"
+
+# Worlds
+worlds_hive_detected:
+  other: "The Hive：羊会保存为 hive:text，并保留它的 NPC 玩家"
+worlds_hive_detected_packs:
+  other: "The Hive（根据它的资源包）：羊会保存为 hive:text，并保留它的 NPC 玩家"
+worlds_recording_ui:
+  other: "正在把菜单和计分板录制到行为包的脚本中"
+worlds_excluding:
+  other: "排除：{{.List}}"
+exclude_mob_desc:
+  other: "把一种生物加入忽略列表"
+save_world_desc:
+  other: "立即保存并重置世界状态"
+worlds_map_art_failed:
+  other: "地图画：{{.Err}}"
+worlds_map_art_saved:
+  other: "地图画：{{.Maps}} 张地图、{{.Walls}} 面墙，已保存到 {{.Dir}}"
+worlds_invalid_block_data:
+  other: "服务器发送了无效的方块数据"
+worlds_block_hash_collisions:
+  one: "{{.Count}} 个自定义方块状态与其他方块的网络哈希相同，会显示为那个方块：{{.List}}"
+  other: "{{.Count}} 个自定义方块状态与其他方块的网络哈希相同，会显示为那个方块：{{.List}}"
+worlds_biome_id_clash:
+  other: "生物群系 {{.Biome}} 与 {{.Other}} 的 ID（{{.Id}}）相同，保留 {{.Other}}"
+worlds_ignoring_entity:
+  other: "忽略实体：{{.Type}} {{.Id}}"
+worlds_bp_skipping:
+  other: "跳过行为包中的 {{.What}}：{{.Err}}"
+worlds_pack_encrypted:
+  other: "无法添加这个资源包，它是加密的"
+worlds_hive_name_tags:
+  other: "Hive：{{.Tags}} 个名牌（{{.Entity}}），其中 {{.Sheep}} 个是羊"
+worlds_saving_players:
+  one: "正在保存 {{.Count}} 名玩家"
+  other: "正在保存 {{.Count}} 名玩家"
+worlds_block_hash_missing:
+  other: "找不到方块更新对应的方块哈希"
+worlds_chunk_update_missing:
+  other: "更新了一个未加载的区块，pos = {{.Pos}}"
+worlds_chunk_load_failed:
+  other: "无法加载区块 {{.Pos}}：{{.Err}}"
+worlds_chunk_store_failed:
+  other: "无法保存区块 {{.Pos}}：{{.Err}}"
+script_unknown_event:
+  other: "events.register：未知事件 {{.Name}}"
+
+# Crashes
+panic_fatal_error:
+  other: "严重错误：{{.Err}}"
+crash_report_written:
+  other: "崩溃报告已写入 {{.Path}}"
+
+# Replays, render, recording, sign-in
+opt_worlds_replay_join:
+  other: "观看回放"
+desc_worlds_replay_join:
+  other: "回放 .pcap2 时，等待 Minecraft 加入以便观看"
+desc_render_world:
+  other: "要绘制的世界：世界文件夹或 .mcworld 文件"
+desc_render_out:
+  other: "俯视地图的输出位置"
+opt_render_no_image:
+  other: "不生成地图图片"
+desc_render_no_image:
+  other: "跳过俯视地图（只用 -map-art 时）"
+opt_render_map_art:
+  other: "地图画"
+desc_render_map_art:
+  other: "同时把展示框和箱子里的地图导出为 PNG"
+opt_render_map_art_out:
+  other: "地图画文件夹"
+desc_render_map_art_out:
+  other: "地图画的存放位置（留空则放在 -out 旁边，名为 <名称>_mapart）"
+render_world_prompt:
+  other: "世界文件夹或 .mcworld："
+render_map_art_none:
+  other: "地图画：这个世界的展示框和箱子里没有地图"
+render_map_art_no_pixels:
+  other: "地图画：找到 {{.Count}} 张地图，但都没有保存像素"
+render_map_art_written:
+  other: "地图画：{{.Maps}} 张地图、{{.Walls}} 面墙，已写入 {{.Dir}}"
+capture_confirm_title:
+  other: "要关闭会话录制吗？"
+capture_confirm_body:
+  other: ".pcap2 录制文件保存了服务器在会话期间发送的每个数据包。"
+capture_confirm_detail:
+  other: "有了它，随时都能重新保存这个世界，不用回到服务器：可以换别的设置，也可以用将来修复了错误或增加了功能的 bedrocktool 版本。没有它，缺失的内容就永远找不回了。"
+capture_confirm_keep:
+  other: "继续录制"
+capture_confirm_off:
+  other: "仍然关闭（不再显示！）"
+capture_off_warning:
+  other: "会话录制已关闭（-capture=false）：以后将没有 .pcap2 可以用别的设置或更新的 bedrocktool 重新保存这个世界"
+anti_cheat_notice:
+  other: "登录前提醒：在反作弊严格的服务器上（已知的有 Cubecraft 和 The Hive），使用 bedrocktool 在极少数情况下可能导致账号被标记或封禁。它通过 gophertunnel 连接，而 gophertunnel 的移动和输入发送方式与真正的游戏并不完全一样，所以有些反作弊能分辨出来。在这些服务器上请使用小号；Realm、你自己的世界以及大多数服务器都没问题。"
+gui_auth_title:
+  other: "使用 Microsoft 登录"
+gui_auth_steps:
+  other: "打开这个页面并输入下面的代码："
+gui_auth_copy_hint:
+  other: "点击复制"
+gui_auth_open:
+  other: "打开页面"
+gui_auth_notice_title:
+  other: "有反作弊的服务器"
+
+# World generator (#303) and saved settings / recent servers (#220)
+opt_worlds_generator:
+  other: "未保存的区块"
+desc_worlds_generator:
+  other: "Minecraft 用什么填充你没加载的区块：虚空（空的）、平坦（超平坦地形）或普通（按服务器种子生成的地形）"
+desc_worlds_void_old:
+  other: "旧开关：-void=false 等于 -generator flat"
+choice_void:
+  other: "虚空"
+choice_flat:
+  other: "平坦"
+choice_normal:
+  other: "普通"
+generator_current:
+  other: "未保存的区块生成为：{{.Generator}}。使用 /generator void、flat 或 normal"
+generator_desc:
+  other: "设置用什么填充未保存的区块：void、flat 或 normal"
+generator_flat:
+  other: "未保存的区块将是平坦地形"
+generator_normal:
+  other: "未保存的区块将是按服务器种子生成的普通地形（经常对不上：很多服务器会发送假的种子）"
+settings_read_failed:
+  other: "无法读取已保存的设置，改用默认值：{{.Err}}"
+settings_save_failed:
+  other: "无法保存设置：{{.Err}}"
+gui_address_recent:
+  other: "最近"
+gui_remove:
+  other: "移除"
+recent_title:
+  other: "最近的服务器"
+recent_empty:
+  other: "你开始使用的服务器会显示在这里"
+recent_kind_realm:
+  other: "Realm"
+recent_kind_experience:
+  other: "体验"
+recent_kind_friend:
+  other: "好友的世界"
+recent_kind_server:
+  other: "服务器"
+
+# GUI: friends' worlds
+gui_address_friends:
+  other: "好友 ({{.Count}})"
+gui_friends_title:
+  other: "好友的世界"
+gui_friends_select:
+  other: "选择"
+gui_friends_players:
+  other: "玩家：{{.Count}}/{{.Max}}"
+gui_friends_players_count:
+  other: "玩家：{{.Count}}"
+gui_friends_none:
+  other: "目前没有好友在玩你可以加入的世界。"
+gui_friends_none_hint:
+  other: "好友的世界在游玩中且多人游戏对好友开放时，会显示在这里。"
+gui_friends_error:
+  other: "无法查询好友的世界：{{.Err}}"
+gui_friends_signed_out:
+  other: "登录后即可查看好友正在玩的世界。"
+gui_refresh:
+  other: "刷新"
+friend_status_full:
+  other: "已满"
+friend_status_invite_only:
+  other: "仅限邀请"
+friend_status_closed:
+  other: "不接受新玩家"
+friend_status_version:
+  other: "运行 Minecraft {{.Version}}，bedrocktool 支持 {{.Supported}}"
+friend_status_no_connection:
+  other: "无法通过 bedrocktool 加入"
+friend_world_gone:
+  other: "该好友的世界已不再开放。等世界重新开放后，请在“好友”中重新选择。"
+friend_world_unjoinable:
+  other: "无法加入 {{.Host}} 的世界 {{.Name}}：{{.Reason}}"
+friend_world_timeout:
+  other: "好友的世界在 {{.Seconds}} 秒内没有让你进入。世界可能已关闭，或不再允许好友加入。"
+# Merged dimensions (-merge-dimensions) and render -dimension
+opt_worlds_merge_dimensions:
+  other: "合并为一个世界"
+desc_worlds_merge_dimensions:
+  other: "将第一个之后的每个世界保存为第一个世界的自定义维度，并附带用于在它们之间穿梭的包（需要 Minecraft 1.26.30 或更高版本）"
+worlds_merge_on:
+  other: "第一个之后的世界将作为自定义维度合并到其中"
+worlds_merging_dimension:
+  other: "正在将 {{.Name}} 合并到 {{.Main}}，作为维度 {{.Dimension}}"
+worlds_merged_dimension:
+  other: "已将 {{.Name}} 作为 {{.Dimension}} 合并到 {{.File}}；使用 {{.Command}} 传送过去"
+worlds_merge_requirements:
+  other: "自定义维度需要 Minecraft 基岩版 1.26.30 或更高版本。在世界中，{{.Command}} 会列出它们，{{.Command}} <名称> 会传送；如果没有该命令，请开启“测试版 API”实验"
+worlds_merge_failed:
+  other: "合并 {{.Name}} 失败：{{.Err}}"
+dims_pack_description:
+  other: "让你在 bedrocktool 合并到此世界的各个世界之间穿梭"
+dims_cmd_desc:
+  other: "传送到保存在此世界中的另一个世界，或列出它们"
+dims_list:
+  other: "此世界中的世界（使用 {{.Command}} <名称> 前往）："
+dims_teleported:
+  other: "已传送到 {{.Name}}"
+dims_unknown:
+  other: "没有名为 {{.Name}} 的世界。"
+dims_not_loaded:
+  other: "维度 {{.Name}} 未加载：需要 Minecraft 1.26.30 或更高版本（或“测试版 API”实验）"
+dims_not_player:
+  other: "只能传送玩家"
+dims_teleport_failed:
+  other: "无法传送到 {{.Name}}："
+opt_render_dimension:
+  other: "维度"
+desc_render_dimension:
+  other: "要绘制的维度：overworld、nether、end 或合并世界的名称（为空时：第一个有区块的维度）"
+render_dimension:
+  other: "正在绘制维度 {{.Name}}"
+render_dimension_unknown:
+  other: "该世界没有维度 {{.Name}}；现有：{{.List}}"

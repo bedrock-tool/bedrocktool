@@ -1,0 +1,780 @@
+# General and CLI
+bedrocktool_version:
+  other: "Bedrocktool バージョン {{.Version}}"
+available_commands:
+  other: "使えるコマンド:"
+use_to_run_command:
+  other: "コマンドを実行するには 'bedrocktool <コマンド>' を使います"
+input_command:
+  other: "コマンドを入力: "
+fatal_error:
+  other: "致命的なエラーが発生しました。"
+report_issue:
+  other: |
+    このエラーを報告する場合は、次のページで issue を作成してください:
+    https://github.com/bedrock-tool/bedrocktool/issues
+    エラー情報を添付し、エラーが出るまでに何をしたかを書いて、できれば bedrocktool.log ファイルも添付してください。
+    ありがとうございます!
+used_extra_debug_report:
+  other: |
+    注意: extra-debug を使ったため、packets.log と packets.log.gpg ファイルが作られています。
+    issue を送る場合は、packets.log.gpg ファイルだけをアップロードしてください。
+    packets.log と packets.log.gpg にはアカウント情報が含まれることがあります(ログイン情報は含まれません)。暗号化されたファイルをアップロードするほうが安全です。
+    そのファイルは開発者だけが読めて、公開の issue ページを見る人には読めません。
+enter_to_exit:
+  other: "Enter キーで終了します。"
+should_login_xbox:
+  other: "Xbox Live にログイン"
+debug_mode:
+  other: "ログを増やす(バグ報告用)"
+done:
+  other: "完了"
+
+# Connecting
+enter_server:
+  other: "サーバーを入力: "
+listening_on:
+  other: "{{.Address}} で待ち受け中"
+connecting:
+  other: "{{.Address}} に接続中"
+connected:
+  other: "サーバーに接続しました。"
+help_connect:
+  other: "続けるには Minecraft を開いて、このパソコンのローカル IP アドレスに接続してください"
+remote_address:
+  other: "サーバーアドレス"
+realm_list_line:
+  other: "名前: {{.Name}}\tid: {{.Id}}"
+
+# Updates
+update_available:
+  other: "アップデートがあります: {{.Version}}  update コマンドでインストールできます。"
+no_update:
+  other: "アップデートはありません。"
+updating:
+  other: "{{.Version}} にアップデート中"
+updated:
+  other: "アップデートしました!"
+
+# Worlds (log and in-game)
+worldname_set:
+  other: "ワールド名を {{.Name}} にしました"
+void_generator_true:
+  other: "虚無ジェネレーターを使用中"
+zoom_level:
+  other: "ズーム: {{.Level}}"
+saving_world:
+  one: "ワールド {{.Name}} を保存中({{.Count}} チャンク)"
+  other: "ワールド {{.Name}} を保存中({{.Count}} チャンク)"
+unknown_gamerule:
+  other: "不明なゲームルール: {{.Name}}"
+adding_pack:
+  other: "リソースパック {{.Name}} を追加中"
+using_customblocks:
+  other: "カスタムブロックを使用中"
+use_setname:
+  other: "/setname <名前> で\nワールド名を設定できます"
+setname_desc:
+  other: "このワールドに名前をつける"
+void_desc:
+  other: "虚無ジェネレーターを使うかどうかを切り替える"
+popup_chunk_count:
+  other: "チャンク: {{.Chunks}}\nエンティティ: {{.Entities}}\n名前: {{.Name}}"
+warn_window_closed_not_open:
+  other: "開いていないウィンドウが閉じられました"
+saved_block_inv:
+  other: "ブロックのインベントリを保存しました"
+save_image:
+  other: "ワールドの横にマップの PNG も保存する"
+saved:
+  other: "保存しました: {{.Name}}"
+empty_chunk:
+  other: "空のチャンクです。"
+failed_write:
+  other: "{{.Part}} {{.Path}} を書き込めませんでした: {{.Err}}"
+
+# Resource pack keys
+no_resourcepacks:
+  other: "リソースパックは送られてきませんでした"
+writing_keys:
+  other: "キーを {{.Path}} に書き込み中"
+warn_key_exists:
+  other: "キー {{.Id}} はすでにあります"
+compare_key:
+  other: "uuid: {{.Id}}、DB のキー: {{.Prev}} != 新しいキー {{.Now}}"
+
+# Subcommand descriptions (also the mode cards in the GUI)
+list_realms_synopsis:
+  other: "アクセスできる Realm をすべて表示する"
+capture_synopsis:
+  other: "パケットを pcap ファイルに記録する"
+chat_log_synopsis:
+  other: "チャットをファイルに記録する"
+debug_proxy_synopsis:
+  other: "詳しいデバッグ用パケット"
+merge_synopsis:
+  other: "2 つ以上のワールドを結合する"
+update_synopsis:
+  other: "最新バージョンにアップデートする"
+skins_synopsis:
+  other: "サーバーで見かけたプレイヤーのスキンを保存する"
+world_synopsis:
+  other: "プレイ中のワールドを、エンティティやアドオンごと .mcworld として保存する"
+pack_synopsis:
+  other: "サーバーのリソースパックを復号してダウンロードする"
+
+# GUI: general
+gui_window_title:
+  other: "Bedrocktool {{.Version}}(Minecraft {{.McVersion}})"
+gui_closing:
+  other: "終了中"
+gui_close:
+  other: "閉じる"
+gui_cancel:
+  other: "キャンセル"
+gui_back:
+  other: "戻る"
+gui_return:
+  other: "戻る"
+gui_done:
+  other: "完了"
+gui_copied:
+  other: "コピーしました!"
+gui_copy_logs:
+  other: "ログをコピー"
+gui_appbar_menu:
+  other: "メニュー"
+gui_appbar_actions:
+  other: "操作"
+gui_nav_title:
+  other: "ナビゲーション"
+gui_login:
+  other: "ログイン"
+gui_logout:
+  other: "ログアウト"
+gui_account_named:
+  other: "{{.Action}}({{.Name}})"
+gui_switch_account:
+  other: "切り替え"
+gui_logs:
+  other: "ログ"
+
+# GUI: settings
+gui_settings_title:
+  other: "設定"
+gui_settings_pick_mode:
+  other: "何を保存しますか?"
+gui_start:
+  other: "開始"
+gui_mode_worlds:
+  other: "ワールド"
+gui_mode_skins:
+  other: "スキン"
+gui_mode_packs:
+  other: "パック"
+gui_section_server:
+  other: "サーバー"
+gui_section_options:
+  other: "オプション"
+gui_section_connection:
+  other: "接続とデバッグ"
+gui_address_placeholder:
+  other: "サーバーアドレスを入力"
+gui_address_realms:
+  other: "Realm"
+gui_address_experiences:
+  other: "エクスペリエンス"
+gui_address_featured:
+  other: "おすすめ"
+gui_browse:
+  other: "参照"
+
+# GUI: world downloader
+gui_worlds_title:
+  other: "ワールドダウンローダー"
+gui_worlds_saving:
+  other: "{{.Name}} を保存中"
+gui_save_step_preparing:
+  other: "準備中"
+gui_save_step_chunks:
+  other: "チャンクを保存中"
+gui_save_step_entities:
+  other: "エンティティを保存中"
+gui_save_step_resource_packs:
+  other: "リソースパックを追加中"
+gui_save_step_resource_pack:
+  other: "リソースパック {{.Name}} を追加中"
+gui_save_step_behavior_pack:
+  other: "ビヘイビアパックを追加中"
+gui_save_step_mcworld:
+  other: ".mcworld ファイルを書き込み中"
+gui_worlds_counts:
+  other: "{{.Chunks}} チャンク  ·  {{.Entities}} エンティティ"
+gui_worlds_saved_title:
+  other: "保存したワールド"
+gui_worlds_saved_in:
+  other: "保存先: {{.Dir}}"
+gui_worlds_nothing_saved:
+  other: "何も保存されませんでした: チャンクが 1 つも読み込まれていません。"
+gui_worlds_waiting:
+  other: "チャンクを待っています"
+gui_worlds_waiting_hint:
+  other: "Minecraft で歩き回るとマップが埋まっていきます。"
+
+# GUI: skins, packs, update page
+gui_skins_title:
+  other: "スキン取得"
+gui_packs_title:
+  other: "パックのダウンロード"
+gui_packs_downloading_title:
+  other: "パックをダウンロード中"
+gui_packs_downloaded_title:
+  other: "ダウンロードしたパック"
+gui_pack_processing:
+  other: "処理中"
+gui_pack_downloaded:
+  other: "ダウンロード済み"
+gui_pack_downloading:
+  other: "ダウンロード中"
+gui_pack_show:
+  other: "表示"
+gui_update_downloading_percent:
+  other: "ダウンロード中({{.Percent}}%)"
+
+# GUI: popups
+gui_connect_starting:
+  other: "起動中"
+gui_connect_starting_detail:
+  other: "ログインしてサーバーを探しています..."
+gui_connect_title:
+  other: "Minecraft から参加してください"
+gui_connect_connecting:
+  other: "サーバーに接続中"
+gui_connect_connecting_detail:
+  other: "Minecraft でそのままお待ちください: 先にサーバーのリソースパックをダウンロードします。初回は 1 分ほどかかることがあります。"
+gui_connect_resources:
+  other: "リソースパックをダウンロード中"
+gui_connect_resources_detail:
+  other: "Minecraft でそのままお待ちください。初回は 1 分ほどかかることがあります。"
+gui_connect_connected:
+  other: "接続しました"
+gui_connect_connected_detail:
+  other: "いつも通り遊んでください。抜けるとワールドが保存されます。"
+gui_connect_instructions:
+  other: "Minecraft で サーバー → サーバーを追加 を開き、次を入力:"
+gui_connect_this_computer:
+  other: "このパソコンでは"
+gui_connect_other_device:
+  other: "別のデバイスでは"
+gui_connect_address_port:
+  other: "{{.Ip}}   ポート {{.Port}}"
+gui_connect_hide:
+  other: "隠す"
+gui_connect_open_minecraft:
+  other: "Minecraft を開く"
+gui_error_title:
+  other: "エラー"
+gui_error_fatal_title:
+  other: "致命的なエラー"
+gui_error_more_info:
+  other: "詳しい情報をコンソールに出力しました。バグ報告に含めてもらえると助かります。"
+gui_experiences_title:
+  other: "エクスペリエンス"
+gui_experiences_none:
+  other: "エクスペリエンスが見つかりませんでした"
+gui_featured_title:
+  other: "おすすめサーバー"
+gui_featured_none:
+  other: "おすすめサーバーが見つかりませんでした"
+gui_realms_title:
+  other: "Realm"
+gui_realms_none:
+  other: "参加している Realm はありません"
+gui_realm_expired:
+  other: "期限切れ: オーナーのサブスクリプションが終了したため参加できません"
+gui_realm_closed:
+  other: "オーナーが閉鎖中"
+gui_realm_open:
+  other: "オープン"
+gui_select_account_title:
+  other: "アカウントのインスタンスを選択"
+gui_select_account_placeholder:
+  other: "インスタンス名"
+gui_stories_title:
+  other: "Realm ストーリー"
+gui_stories_text:
+  other: "{{.Realm}} は、このアカウントが Realm ストーリーの質問に答えるまで参加させてくれません。Minecraft で初めて Realm に参加するときに聞かれる質問です。"
+gui_stories_detail:
+  other: "参加すると、この Realm のストーリーのタイムラインにあなたの活動が共有されます。参加しなければ共有されません。どちらを選んでも参加でき、あとで Minecraft から変更できます。"
+gui_stories_opt_in:
+  other: "参加する"
+gui_stories_opt_out:
+  other: "参加しない"
+gui_update_title:
+  other: "アップデート"
+gui_update_installed:
+  other: "インストール済み: {{.Version}}"
+gui_update_latest:
+  other: "最新:           {{.Version}}"
+gui_update_up_to_date:
+  other: "すでに最新バージョンです。"
+gui_update_start:
+  other: "アップデートして再起動"
+gui_update_downloading:
+  other: "アップデートをダウンロード中..."
+gui_update_failed:
+  other: "アップデートに失敗しました"
+gui_update_failed_err:
+  other: "アップデートに失敗しました: {{.Err}}"
+gui_update_restarting:
+  other: "再起動中..."
+
+# Settings: option names (opt) and descriptions (desc)
+opt_worlds_image:
+  other: "マップ画像"
+opt_worlds_save_entities:
+  other: "エンティティ"
+desc_worlds_save_entities:
+  other: "モブ、防具立て、額縁などのエンティティ"
+opt_worlds_save_players:
+  other: "プレイヤー"
+desc_worlds_save_players:
+  other: "ほかのプレイヤーを、スキンを着た像として保存"
+opt_worlds_map_art:
+  other: "地図アート"
+desc_worlds_map_art:
+  other: "額縁に飾られた地図も PNG として保存"
+opt_worlds_save_inventories:
+  other: "インベントリ"
+desc_worlds_save_inventories:
+  other: "開いたチェストの中身と、自分のインベントリ"
+opt_worlds_block_updates:
+  other: "ブロックの変更"
+desc_worlds_block_updates:
+  other: "チャンクの読み込み後にサーバーが変えたブロックを残す"
+opt_worlds_entity_culling:
+  other: "エンティティの除外"
+desc_worlds_entity_culling:
+  other: "死んだり消えたりしたエンティティを保存しない(実験的)"
+opt_worlds_exclude_mobs:
+  other: "モブを除外"
+desc_worlds_exclude_mobs:
+  other: "保存しないエンティティ ID をカンマ区切りで。* も使えます。例: minecraft:bat,hive:*"
+opt_worlds_chunk_radius:
+  other: "チャンク半径"
+desc_worlds_chunk_radius:
+  other: "サーバーに要求する描画距離(チャンク単位、空なら 76)"
+opt_worlds_script:
+  other: "スクリプト"
+desc_worlds_script:
+  other: "何を保存するかを決める JavaScript ファイル"
+opt_worlds_record_ui:
+  other: "メニューを記録"
+desc_worlds_record_ui:
+  other: "開いたメニューとスコアボードを、ワールド内のスクリプトとして再現"
+opt_proxy_address:
+  other: "アドレス"
+opt_proxy_debug:
+  other: "デバッグ"
+opt_proxy_extra_debug:
+  other: "詳細デバッグ"
+desc_proxy_extra_debug:
+  other: "すべてのパケットも packet.log に記録(大きくなります)"
+opt_proxy_capture:
+  other: "セッションを記録"
+desc_proxy_capture:
+  other: "あとで再生できる .pcap2 の記録を保存"
+opt_proxy_client_cache:
+  other: "クライアントキャッシュ"
+desc_proxy_client_cache:
+  other: "Minecraft にチャンクをキャッシュさせて読み込みを速くする"
+opt_proxy_listen:
+  other: "待ち受けアドレス"
+desc_proxy_listen:
+  other: "Minecraft がプロキシに参加する場所。例: 別ポートなら :19133"
+opt_skins_filter:
+  other: "名前フィルター"
+desc_skins_filter:
+  other: "名前がこの正規表現に一致するプレイヤーだけ保存"
+opt_skins_no_proxy:
+  other: "Minecraft なし"
+desc_skins_no_proxy:
+  other: "自分で参加して、オンラインの人全員のスキンを保存"
+opt_skins_texture_only:
+  other: "テクスチャのみ"
+desc_skins_texture_only:
+  other: "スキン画像だけを保存し、モデル付きのスキンパックは作らない"
+opt_skins_timestamped:
+  other: "日付つきフォルダー"
+desc_skins_timestamped:
+  other: "セッションごとに日付つきのフォルダーへ保存"
+opt_packs_save_encrypted:
+  other: "暗号化されたコピーも保存"
+desc_packs_save_encrypted:
+  other: "暗号化されたパックも送られてきたまま保存"
+opt_packs_folders:
+  other: "フォルダーで保存"
+desc_packs_folders:
+  other: "パックを .mcpack ファイルではなくフォルダーとして保存"
+opt_chat_log_verbose:
+  other: "詳細"
+opt_merge_bounds:
+  other: "範囲を表示"
+opt_merge_out:
+  other: "出力先"
+opt_merge_args:
+  other: "入力ワールド"
+opt_render_world:
+  other: "ワールド"
+opt_render_out:
+  other: "出力"
+opt_dump_actors_world:
+  other: "ワールドフォルダー"
+opt_dump_actors_write:
+  other: "書き戻す"
+opt_dump_actors_json:
+  other: "json ファイル"
+opt_trans_auth:
+  other: "認証"
+
+# Subcommands
+render_synopsis:
+  other: "保存したワールド(フォルダーか .mcworld)を真上から見た PNG に描き、地図アートを書き出す"
+dump_actors_synopsis:
+  other: "ワールドのエンティティを JSON に書き出し、書き戻す"
+render_wrote:
+  other: "{{.Path}} を書き込みました"
+merge_out_required:
+  other: "-out を指定してください"
+dump_actors_extracted:
+  one: "{{.Count}} 個のエンティティを json に書き出しました"
+  other: "{{.Count}} 個のエンティティを json に書き出しました"
+dump_actors_removed_digp:
+  one: "digp エントリを {{.Count}} 件削除しました"
+  other: "digp エントリを {{.Count}} 件削除しました"
+dump_actors_removed:
+  one: "{{.Count}} 個のエンティティを削除しました"
+  other: "{{.Count}} 個のエンティティを削除しました"
+dump_actors_writing:
+  one: "{{.Count}} チャンクにエンティティを書き込み中"
+  other: "{{.Count}} チャンクにエンティティを書き込み中"
+dump_actors_wrote:
+  one: "{{.Count}} 個のエンティティを書き込みました"
+  other: "{{.Count}} 個のエンティティを書き込みました"
+pack_icon_parse_failed:
+  other: "{{.Name}} の pack_icon.png を読めませんでした"
+dump_keys_failed:
+  other: "キーの書き出しでエラー: {{.Err}}"
+
+# CLI
+ui_init_failed:
+  other: "画面を起動できませんでした: {{.Err}}"
+already_logged_in:
+  other: "すでにログインしています"
+unknown_subcommand:
+  other: "{{.Name}} は不明なサブコマンドです"
+cli_usage_for:
+  other: "{{.Name}} の使い方:"
+cli_stories_text:
+  other: "{{.Realm}} は、このアカウントが Realm ストーリーの質問に答えるまで参加させてくれません\n(Minecraft で初めて Realm に参加するときに聞かれる質問です)。参加すると活動が\nストーリーのタイムラインに共有されます。どちらを選んでも参加できます。"
+cli_stories_prompt:
+  other: "参加する、参加しない、キャンセルのどれにしますか? [in/out/cancel]: "
+
+# Accounts and connection
+account_switched:
+  other: "アカウントを切り替えました"
+auth_refreshing_ms_token:
+  other: "Microsoft トークンを更新中"
+auth_invalid_mctoken:
+  other: "Minecraft トークンが無効なので更新中"
+auth_old_mctoken:
+  other: "Minecraft トークンが古いバージョンのものなので更新中"
+transferring:
+  other: "{{.Address}} に移動中"
+forced_pack_added:
+  other: "{{.Name}} を強制パックに追加しました"
+forced_pack_unknown_file:
+  other: "forcedpacks に不明なファイル {{.Path}} があります"
+replay_reading:
+  other: "リプレイ {{.File}} を読み込み中"
+replay_end:
+  other: "リプレイの最後まで来ました"
+disconnecting:
+  other: "切断中"
+client_connected:
+  other: "クライアントが接続しました"
+already_connected:
+  other: "すでに接続しています!"
+realm_not_found:
+  other: "Realm {{.Name}} が見つかりません"
+stories_unanswered:
+  other: "{{.Realm}}: Realm ストーリーの質問にまだ答えていないので、まだ参加できません"
+stories_save_failed:
+  other: "ストーリーの回答の保存: {{.Err}}"
+stories_saved:
+  other: "ストーリーの回答を保存しました({{.Answer}})。もう一度参加します"
+realm_expired_error:
+  other: "{{.Realm}} は期限切れです(オーナーのサブスクリプションが終了)。参加できません"
+realm_refused_join:
+  other: "{{.Realm}} に参加を拒否されました。Minecraft から一度も参加したことがない場合は、一度そちらで参加して質問に答えてから、もう一度試してください"
+
+# Resource packs
+downloading_pack:
+  other: "リソースパックをダウンロード中: {{.Url}}"
+pack_duplicate_entry:
+  other: "パック情報にテクスチャパック {{.Id}} の重複があります"
+pack_download_failed:
+  other: "{{.Url}} をダウンロードできませんでした: {{.Err}}"
+pack_size_mismatch:
+  other: "パック {{.Id}} のサイズが ResourcePacksInfo パケットと ResourcePackDataInfo で違います"
+packs_sent_to_client:
+  other: "クライアントへのリソースパック送信が完了しました"
+bp_invalid_block_component:
+  other: "無効なブロックコンポーネント {{.Block}} {{.Component}}"
+
+# Skins
+skins_creating_pack:
+  other: "{{.Name}} のスキンパックを作成中"
+skins_added:
+  other: "スキンを追加しました: {{.Name}}"
+skins_write_texture_failed:
+  other: "スキンのテクスチャを書き込めませんでした"
+skins_write_cape_failed:
+  other: "マントのテクスチャを書き込めませんでした"
+skins_no_skin:
+  other: "{{.Name}} にはスキンがありません"
+skin_missing_for_player:
+  other: "プレイヤー {{.Id}} のスキンがありません"
+skin_default_model:
+  other: "プレイヤー {{.Id}}: {{.Err}}、標準モデルで描きます"
+skin_empty_texture:
+  other: "スキン {{.Name}}-{{.Index}} のテクスチャが空です"
+skin_geometry_decode_failed:
+  other: "ジオメトリ {{.Name}} を読めませんでした: {{.Err}}"
+skin_geometry_write_failed:
+  other: "ジオメトリ {{.Name}} を書き込めませんでした: {{.Err}}"
+
+# Worlds
+worlds_hive_detected:
+  other: "The Hive: ヒツジは hive:text として保存し、NPC プレイヤーは残します"
+worlds_hive_detected_packs:
+  other: "The Hive(リソースパックで判定): ヒツジは hive:text として保存し、NPC プレイヤーは残します"
+worlds_recording_ui:
+  other: "メニューとスコアボードをビヘイビアパックのスクリプトに記録中"
+worlds_excluding:
+  other: "除外: {{.List}}"
+exclude_mob_desc:
+  other: "無視するモブのリストにモブを追加する"
+save_world_desc:
+  other: "今すぐワールドの状態を保存してリセットする"
+worlds_map_art_failed:
+  other: "地図アート: {{.Err}}"
+worlds_map_art_saved:
+  other: "地図アート: 地図 {{.Maps}} 枚、壁 {{.Walls}} 面を {{.Dir}} に保存しました"
+worlds_invalid_block_data:
+  other: "サーバーが無効なブロックデータを送ってきました"
+worlds_block_hash_collisions:
+  one: "{{.Count}} 個のカスタムブロック状態が別のブロックとネットワークハッシュが重なっていて、そのブロックとして表示されます: {{.List}}"
+  other: "{{.Count}} 個のカスタムブロック状態が別のブロックとネットワークハッシュが重なっていて、そのブロックとして表示されます: {{.List}}"
+worlds_biome_id_clash:
+  other: "バイオーム {{.Biome}} の ID({{.Id}})が {{.Other}} と同じなので、{{.Other}} を残します"
+worlds_ignoring_entity:
+  other: "エンティティを無視: {{.Type}} {{.Id}}"
+worlds_bp_skipping:
+  other: "ビヘイビアパックの {{.What}} をスキップ: {{.Err}}"
+worlds_pack_encrypted:
+  other: "このパックは暗号化されているので追加できません"
+worlds_hive_name_tags:
+  other: "Hive: 名札 {{.Tags}} 個({{.Entity}})、うちヒツジ {{.Sheep}} 匹"
+worlds_saving_players:
+  one: "プレイヤー {{.Count}} 人を保存中"
+  other: "プレイヤー {{.Count}} 人を保存中"
+worlds_block_hash_missing:
+  other: "ブロック変更のブロックハッシュが見つかりません"
+worlds_chunk_update_missing:
+  other: "読み込まれていないチャンクの変更です、pos = {{.Pos}}"
+worlds_chunk_load_failed:
+  other: "チャンク {{.Pos}} を読み込めませんでした: {{.Err}}"
+worlds_chunk_store_failed:
+  other: "チャンク {{.Pos}} を保存できませんでした: {{.Err}}"
+script_unknown_event:
+  other: "events.register: 不明なイベント {{.Name}}"
+
+# Crashes
+panic_fatal_error:
+  other: "致命的なエラー: {{.Err}}"
+crash_report_written:
+  other: "クラッシュレポートを {{.Path}} に書き込みました"
+
+# Replays, render, recording, sign-in
+opt_worlds_replay_join:
+  other: "リプレイを見る"
+desc_worlds_replay_join:
+  other: ".pcap2 の再生時に Minecraft の参加を待って、様子を見る"
+desc_render_world:
+  other: "描くワールド: ワールドフォルダーか .mcworld ファイル"
+desc_render_out:
+  other: "真上から見たマップの書き込み先"
+opt_render_no_image:
+  other: "マップ画像なし"
+desc_render_no_image:
+  other: "真上から見たマップを描かない(-map-art だけのとき)"
+opt_render_map_art:
+  other: "地図アート"
+desc_render_map_art:
+  other: "額縁とチェストの中の地図も PNG として書き出す"
+opt_render_map_art_out:
+  other: "地図アートのフォルダー"
+desc_render_map_art_out:
+  other: "地図アートの保存先(空なら -out の横に <名前>_mapart として)"
+render_world_prompt:
+  other: "ワールドフォルダーか .mcworld: "
+render_map_art_none:
+  other: "地図アート: ワールドの額縁やチェストに地図がありません"
+render_map_art_no_pixels:
+  other: "地図アート: 地図が {{.Count}} 枚見つかりましたが、どれもピクセルが保存されていません"
+render_map_art_written:
+  other: "地図アート: 地図 {{.Maps}} 枚、壁 {{.Walls}} 面を {{.Dir}} に書き込みました"
+capture_confirm_title:
+  other: "セッションの記録をオフにしますか?"
+capture_confirm_body:
+  other: ".pcap2 の記録には、セッション中にサーバーが送ったすべてのパケットが入っています。"
+capture_confirm_detail:
+  other: "これがあれば、サーバーに戻らなくてもいつでもワールドを保存し直せます。別の設定でも、バグを直したり機能を追加したりした将来の bedrocktool でも使えます。これがないと、足りなかった部分は二度と取り戻せません。"
+capture_confirm_keep:
+  other: "記録を続ける"
+capture_confirm_off:
+  other: "それでもオフにする(今後は表示しない!)"
+capture_off_warning:
+  other: "セッションの記録がオフです(-capture=false): あとで別の設定や新しい bedrocktool でこのワールドを保存し直すための .pcap2 は残りません"
+anti_cheat_notice:
+  other: "ログインする前にお知らせ: アンチチートが厳しいサーバー(Cubecraft と The Hive が知られています)では、bedrocktool を使うと、まれにアカウントがフラグ付けされたり BAN されたりすることがあります。bedrocktool は gophertunnel 経由で接続しますが、gophertunnel の動きや入力の送り方は本物のゲームと完全には同じではないため、見分けられるアンチチートがあります。そういうサーバーではサブアカウントを使ってください。Realm、自分のワールド、ほとんどのサーバーでは問題ありません。"
+gui_auth_title:
+  other: "Microsoft でサインイン"
+gui_auth_steps:
+  other: "このページを開いて、下のコードを入力してください:"
+gui_auth_copy_hint:
+  other: "クリックでコピー"
+gui_auth_open:
+  other: "ページを開く"
+gui_auth_notice_title:
+  other: "アンチチートのあるサーバー"
+
+# World generator (#303) and saved settings / recent servers (#220)
+opt_worlds_generator:
+  other: "保存されていないチャンク"
+desc_worlds_generator:
+  other: "読み込まなかったチャンクを Minecraft が何で埋めるか: 虚無(空っぽ)、フラット(スーパーフラットの地面)、ノーマル(サーバーのシード値の地形)"
+desc_worlds_void_old:
+  other: "古いスイッチ: -void=false は -generator flat と同じ"
+choice_void:
+  other: "虚無"
+choice_flat:
+  other: "フラット"
+choice_normal:
+  other: "ノーマル"
+generator_current:
+  other: "保存されていないチャンクの生成方法: {{.Generator}}。/generator void、flat、normal で変更できます"
+generator_desc:
+  other: "保存されていないチャンクを何で埋めるか設定する: void、flat、normal"
+generator_flat:
+  other: "保存されていないチャンクは平らな地面になります"
+generator_normal:
+  other: "保存されていないチャンクはサーバーのシード値による通常の地形になります(偽のシード値を送るサーバーが多いので、合わないことがよくあります)"
+settings_read_failed:
+  other: "保存した設定を読めなかったので、初期値を使います: {{.Err}}"
+settings_save_failed:
+  other: "設定を保存できませんでした: {{.Err}}"
+gui_address_recent:
+  other: "最近"
+gui_remove:
+  other: "削除"
+recent_title:
+  other: "最近のサーバー"
+recent_empty:
+  other: "開始したサーバーがここに表示されます"
+recent_kind_realm:
+  other: "Realm"
+recent_kind_experience:
+  other: "エクスペリエンス"
+recent_kind_friend:
+  other: "フレンドのワールド"
+recent_kind_server:
+  other: "サーバー"
+
+# GUI: friends' worlds
+gui_address_friends:
+  other: "フレンド ({{.Count}})"
+gui_friends_title:
+  other: "フレンドのワールド"
+gui_friends_select:
+  other: "選択"
+gui_friends_players:
+  other: "プレイヤー: {{.Count}}/{{.Max}}"
+gui_friends_players_count:
+  other: "プレイヤー: {{.Count}}"
+gui_friends_none:
+  other: "今参加できるワールドをプレイしているフレンドはいません。"
+gui_friends_none_hint:
+  other: "フレンドがマルチプレイをフレンドに公開してプレイしている間、そのワールドがここに表示されます。"
+gui_friends_error:
+  other: "フレンドのワールドを確認できませんでした: {{.Err}}"
+gui_friends_signed_out:
+  other: "サインインすると、フレンドがプレイ中のワールドが表示されます。"
+gui_refresh:
+  other: "更新"
+friend_status_full:
+  other: "満員"
+friend_status_invite_only:
+  other: "招待のみ"
+friend_status_closed:
+  other: "新しいプレイヤーを受け付けていません"
+friend_status_version:
+  other: "Minecraft {{.Version}} で動作中です。bedrocktool が対応しているのは {{.Supported}} です"
+friend_status_no_connection:
+  other: "bedrocktool からは参加できません"
+friend_world_gone:
+  other: "このフレンドのワールドはもう開いていません。再び開いたら「フレンド」から選び直してください。"
+friend_world_unjoinable:
+  other: "{{.Host}} のワールド {{.Name}} に参加できません: {{.Reason}}"
+friend_world_timeout:
+  other: "フレンドのワールドに {{.Seconds}} 秒以内に入れませんでした。ワールドが閉じられたか、フレンドの参加が止められた可能性があります。"
+# Merged dimensions (-merge-dimensions) and render -dimension
+opt_worlds_merge_dimensions:
+  other: "1つのワールドにまとめる"
+desc_worlds_merge_dimensions:
+  other: "最初のワールド以降の各ワールドを、最初のワールドのカスタムディメンションとして保存し、行き来するためのパックを追加します (Minecraft 1.26.30 以降)"
+worlds_merge_on:
+  other: "最初以降のワールドはカスタムディメンションとして最初のワールドにまとめられます"
+worlds_merging_dimension:
+  other: "{{.Name}} をディメンション {{.Dimension}} として {{.Main}} にまとめています"
+worlds_merged_dimension:
+  other: "{{.Name}} を {{.Dimension}} として {{.File}} にまとめました。{{.Command}} でテレポートできます"
+worlds_merge_requirements:
+  other: "カスタムディメンションには Minecraft 統合版 1.26.30 以降が必要です。ワールド内で {{.Command}} は一覧を表示し、{{.Command}} <名前> でテレポートします。コマンドがない場合は「ベータ API」の実験的機能をオンにしてください"
+worlds_merge_failed:
+  other: "{{.Name}} をまとめられませんでした: {{.Err}}"
+dims_pack_description:
+  other: "bedrocktool がこのワールドにまとめたワールド間を行き来できます"
+dims_cmd_desc:
+  other: "このワールドに保存された別のワールドへテレポート、または一覧表示"
+dims_list:
+  other: "このワールド内のワールド ({{.Command}} <名前> で移動):"
+dims_teleported:
+  other: "{{.Name}} にテレポートしました"
+dims_unknown:
+  other: "{{.Name}} という名前のワールドはありません。"
+dims_not_loaded:
+  other: "ディメンション {{.Name}} が読み込まれていません: Minecraft 1.26.30 以降 (または「ベータ API」の実験的機能) が必要です"
+dims_not_player:
+  other: "テレポートできるのはプレイヤーだけです"
+dims_teleport_failed:
+  other: "{{.Name}} にテレポートできませんでした:"
+opt_render_dimension:
+  other: "ディメンション"
+desc_render_dimension:
+  other: "描画するディメンション: overworld、nether、end、またはまとめたワールドの名前 (空欄ならチャンクのある最初のもの)"
+render_dimension:
+  other: "ディメンション {{.Name}} を描画中"
+render_dimension_unknown:
+  other: "ワールドにディメンション {{.Name}} はありません。あるもの: {{.List}}"

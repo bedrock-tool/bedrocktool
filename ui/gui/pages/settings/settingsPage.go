@@ -3,29 +3,38 @@ package settings
 import (
 	"errors"
 	"fmt"
+	"github.com/bedrock-tool/bedrocktool/locale"
+	"github.com/bedrock-tool/bedrocktool/utils"
 	"image"
-	"math"
+	"image/color"
+	"os"
 	"reflect"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 	"unsafe"
 
+	"gioui.org/font"
 	"gioui.org/layout"
+	"gioui.org/op"
 	"gioui.org/op/clip"
 	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
 	"gioui.org/x/component"
-	"gioui.org/x/outlay"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/guim"
+	"github.com/bedrock-tool/bedrocktool/ui/gui/popups"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/sirupsen/logrus"
 )
 
 type settingsArg struct {
-	widget  any
-	tooltip component.TipArea
-	usage   string
+	widget any
+	name   string
+	usage  string
+	// advanced is a proxy setting (connection, debugging), shown last
+	advanced bool
 }
 
 type settingsPage struct {
@@ -37,7 +46,6 @@ type settingsPage struct {
 
 	flagsNamesOrdered []string
 
-	grid outlay.Grid
 	list widget.List
 }
 
@@ -55,6 +63,9 @@ func (s *settingsPage) Init() {
 
 	hasAddress := false
 	for _, arg := range args {
+		if arg.Hidden {
+			continue
+		}
 		extType := strings.Split(arg.ExtType, ",")
 		if len(extType) > 0 && extType[0] == "file" {
 			var ext string
@@ -67,6 +78,8 @@ func (s *settingsPage) Init() {
 						SingleLine: true,
 					},
 				}, Hint: arg.Name, Ext: ext},
+				name:  argName(arg),
+				usage: argDesc(arg),
 			}
 			s.flagsNamesOrdered = append(s.flagsNamesOrdered, arg.Flag)
 			continue
@@ -75,31 +88,55 @@ func (s *settingsPage) Init() {
 		case "connectInfo":
 			s.widgets[arg.Flag] = &settingsArg{
 				widget: AddressInput,
-				usage:  "target server address",
+				usage:  locale.Loc("remote_address", nil),
 			}
 			hasAddress = true
 			continue
 
+		case "string":
+			if len(arg.Choices) == 0 {
+				e := &component.TextField{Editor: widget.Editor{SingleLine: true}}
+				e.SetText(arg.Default)
+				s.widgets[arg.Flag] = &settingsArg{widget: e, name: argName(arg), usage: argDesc(arg)}
+				break
+			}
+			s.widgets[arg.Flag] = &settingsArg{
+				widget: newChoiceInput(arg.Choices, arg.Default),
+				name:   argName(arg),
+				usage:  argDesc(arg),
+			}
+
 		case "bool":
 			e := &widget.Bool{}
 			e.Value = arg.Default == "true"
-			s.widgets[arg.Flag] = &settingsArg{widget: e, usage: arg.Desc}
+			s.widgets[arg.Flag] = &settingsArg{widget: e, name: argName(arg), usage: argDesc(arg)}
 
 		default:
 			e := &component.TextField{
-				Helper: arg.Name,
 				Editor: widget.Editor{
 					SingleLine: true,
 				},
 			}
 			e.SetText(arg.Default)
-			s.widgets[arg.Flag] = &settingsArg{widget: e, usage: arg.Desc}
+			s.widgets[arg.Flag] = &settingsArg{widget: e, name: argName(arg), usage: argDesc(arg)}
 		}
 		s.flagsNamesOrdered = append(s.flagsNamesOrdered, arg.Flag)
+	}
+	for _, arg := range args {
+		if w, ok := s.widgets[arg.Flag]; ok && arg.Type != "connectInfo" && len(arg.Path) > 1 && arg.Path[0] == "ProxySettings" {
+			w.advanced = true
+		}
 	}
 	if hasAddress {
 		s.flagsNamesOrdered = append([]string{"address"}, s.flagsNamesOrdered...)
 	}
+}
+
+func argName(arg commands.Arg) string {
+	if arg.Name != "" {
+		return arg.Name
+	}
+	return arg.Flag
 }
 
 func (s *settingsPage) Valid() bool {
@@ -124,26 +161,22 @@ func (e settingError) Error() string {
 
 func (s *settingsPage) Apply() (any, error) {
 	for _, arg := range s.args {
-		flagWidget := s.widgets[arg.Flag]
-		var value string
-		switch flagWidget := flagWidget.widget.(type) {
-		case *widget.Bool:
-			value = "false"
-			if flagWidget.Value {
-				value = "true"
+		flagWidget, ok := s.widgets[arg.Flag]
+		if !ok {
+			// hidden: keeps its default
+			if arg.Default != "" {
+				if err := arg.Set(arg.Default); err != nil {
+					return nil, settingError{name: arg.Flag, err: err}
+				}
 			}
-
-		case *component.TextField:
-			value = flagWidget.Text()
-
-		case *fileInputWidget:
-			value = flagWidget.textField.Text()
-
-		case *addressInput:
-			arg.SetConnectInfo(flagWidget.GetConnectInfo())
 			continue
-
-		default:
+		}
+		if addr, ok := flagWidget.widget.(*addressInput); ok {
+			arg.SetConnectInfo(addr.GetConnectInfo())
+			continue
+		}
+		value, ok := widgetValue(flagWidget.widget)
+		if !ok {
 			return nil, errors.New("unknown widget " + arg.Name)
 		}
 		if arg.Type == "int" && value == "" {
@@ -158,6 +191,61 @@ func (s *settingsPage) Apply() (any, error) {
 		}
 	}
 	return s.settings, nil
+}
+
+// widgetValue is a setting widget's value as its flag takes it.
+func widgetValue(w any) (string, bool) {
+	switch w := w.(type) {
+	case *widget.Bool:
+		if w.Value {
+			return "true", true
+		}
+		return "false", true
+	case *component.TextField:
+		return w.Text(), true
+	case *fileInputWidget:
+		return w.textField.Text(), true
+	case *choiceInput:
+		return w.Value(), true
+	}
+	return "", false
+}
+
+// Values are the settings as they are now, by flag, without the address.
+func (s *settingsPage) Values() map[string]string {
+	values := make(map[string]string)
+	for flag, w := range s.widgets {
+		if v, ok := widgetValue(w.widget); ok {
+			values[flag] = v
+		}
+	}
+	return values
+}
+
+// Restore puts saved values back; ones that no longer exist or don't fit
+// are left at their defaults.
+func (s *settingsPage) Restore(values map[string]string) {
+	for flag, value := range values {
+		w, ok := s.widgets[flag]
+		if !ok {
+			continue
+		}
+		switch w := w.widget.(type) {
+		case *widget.Bool:
+			switch value {
+			case "true":
+				w.Value = true
+			case "false":
+				w.Value = false
+			}
+		case *component.TextField:
+			w.SetText(value)
+		case *fileInputWidget:
+			w.textField.SetText(value)
+		case *choiceInput:
+			w.SetValue(value)
+		}
+	}
 }
 
 func textFieldIsActive(w *component.TextField) bool {
@@ -184,7 +272,7 @@ func (s *settingsPage) PopupActive() bool {
 }
 
 func (s *settingsPage) LayoutPopupInput(gtx C, th *material.Theme) D {
-	cornerRadius := 8
+	cornerRadius := 4
 	return layout.UniformInset(8).Layout(gtx, func(gtx C) D {
 		return layout.Stack{}.Layout(gtx,
 			layout.Expanded(func(gtx C) D {
@@ -213,8 +301,9 @@ func (s *settingsPage) LayoutPopupInput(gtx C, th *material.Theme) D {
 							continue
 						case *component.TextField:
 							if textFieldIsActive(w) {
-								w.Update(gtx, th, w.Helper)
-								return w.Layout(gtx, th, w.Helper)
+								hint := s.widgets[name].name
+								w.Update(gtx, th, hint)
+								return w.Layout(gtx, th, hint)
 							}
 						case *fileInputWidget:
 							if textFieldIsActive(&w.textField) {
@@ -229,78 +318,307 @@ func (s *settingsPage) LayoutPopupInput(gtx C, th *material.Theme) D {
 	})
 }
 
-func (s *settingsPage) Layout(gtx C, th *material.Theme) D {
-	return layout.Flex{
-		Axis:      layout.Horizontal,
-		Alignment: layout.Middle,
-	}.Layout(gtx,
-		layout.Flexed(1, layout.Spacer{Width: 1000}.Layout),
-		layout.Rigid(func(gtx C) D {
-			gtx.Constraints.Max.X = min(gtx.Constraints.Max.X, gtx.Dp(138*4))
-			return material.List(th, &s.list).Layout(gtx, len(s.flagsNamesOrdered)+2, func(gtx C, index int) D {
-				switch index {
-				case 0: // address
-					w, ok := s.widgets["address"].widget.(*addressInput)
-					if ok {
-						gtx.Constraints.Min.X = gtx.Constraints.Max.X
-						return w.Layout(gtx, th)
-					}
-					return D{}
+// muted is th.Fg faded, for secondary text.
+func muted(th *material.Theme) color.NRGBA {
+	c := th.Fg
+	c.A = 170
+	return c
+}
 
-				case 1: // checkboxes
-					var widgets []layout.Widget
-					for _, name := range s.flagsNamesOrdered {
-						w := s.widgets[name]
-						if ww, ok := w.widget.(*widget.Bool); ok {
-							widgets = append(widgets, func(gtx C) D {
-								return w.tooltip.Layout(gtx,
-									component.PlatformTooltip(th, w.usage),
-									material.CheckBox(th, ww, name).Layout,
-								)
-							})
-						}
-					}
+// surface is a card background a little apart from th.Bg.
+func surface(th *material.Theme, alpha uint8) color.NRGBA {
+	c := th.Fg
+	c.A = alpha
+	return c
+}
 
-					boxWidth := gtx.Dp(130)
-					rows, cols := max(1, int(math.Ceil(float64(len(widgets))/4))), min(len(widgets), 4)
-					if cols*boxWidth > gtx.Constraints.Max.X {
-						cols = max(gtx.Constraints.Max.X/boxWidth, 1)
-						rows = len(widgets) / cols
-					}
+func sectionTitle(gtx C, th *material.Theme, title string) D {
+	return layout.Inset{Top: 18, Bottom: 8}.Layout(gtx, func(gtx C) D {
+		l := material.Subtitle1(th, title)
+		l.Font.Weight = font.Bold
+		return l.Layout(gtx)
+	})
+}
 
-					return s.grid.Layout(gtx, rows, cols, func(axis layout.Axis, index, constraint int) int {
-						switch axis {
-						case layout.Horizontal:
-							return boxWidth
-						case layout.Vertical:
-							return gtx.Dp(40)
-						}
-						return 0
-					}, func(gtx C, row, col int) D {
-						idx := col + cols*row
-						if idx >= len(widgets) {
+// optionCard is a bool setting: its name, and its description below, which
+// wraps instead of being cut off.
+func optionCard(gtx C, th *material.Theme, name, desc string, value bool) D {
+	return layout.UniformInset(12).Layout(gtx, func(gtx C) D {
+		return layout.Flex{Axis: layout.Horizontal, Alignment: layout.Start}.Layout(gtx,
+			layout.Rigid(func(gtx C) D {
+				icon := th.Icon.CheckBoxUnchecked
+				col := muted(th)
+				if value {
+					icon = th.Icon.CheckBoxChecked
+					col = th.ContrastBg
+				}
+				size := gtx.Dp(22)
+				gtx.Constraints = layout.Exact(image.Pt(size, size))
+				return icon.Layout(gtx, col)
+			}),
+			layout.Rigid(layout.Spacer{Width: 10}.Layout),
+			layout.Flexed(1, func(gtx C) D {
+				return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+					layout.Rigid(func(gtx C) D {
+						l := material.Body1(th, name)
+						l.Font.Weight = font.SemiBold
+						return l.Layout(gtx)
+					}),
+					layout.Rigid(func(gtx C) D {
+						if desc == "" || desc == name {
 							return D{}
 						}
-						return widgets[idx](gtx)
-					})
+						return layout.Inset{Top: 3}.Layout(gtx, func(gtx C) D {
+							l := material.Body2(th, desc)
+							l.Color = muted(th)
+							return l.Layout(gtx)
+						})
+					}),
+				)
+			}),
+		)
+	})
+}
 
-				default:
-					name := s.flagsNamesOrdered[index-2]
-					w := s.widgets[name]
-					switch w := w.widget.(type) {
-					case *widget.Bool:
-						return D{}
-					case *component.TextField:
-						w.Update(gtx, th, w.Helper)
-						return w.Layout(gtx, th, w.Helper)
-					case *fileInputWidget:
-						return w.Layout(gtx, th)
-					default:
-						return D{}
-					}
-				}
+// layoutOptions lays bool settings out as cards, two to a row when there's
+// room, each row as tall as its tallest card. An option that's on gets a
+// tint and an accent bar down its left side.
+func (s *settingsPage) layoutOptions(gtx C, th *material.Theme, names []string) D {
+	if len(names) == 0 {
+		return D{}
+	}
+
+	gap := gtx.Dp(8)
+	width := gtx.Constraints.Max.X
+	cols := 1
+	if width >= gtx.Dp(480) {
+		cols = 2
+	}
+	colW := (width - gap*(cols-1)) / cols
+	radius := gtx.Dp(popups.Radius)
+	bar := gtx.Dp(3)
+
+	type card struct {
+		call op.CallOp
+		b    *widget.Bool
+	}
+
+	y := 0
+	for i := 0; i < len(names); i += cols {
+		var cards []card
+		rowH := 0
+		for j := i; j < min(i+cols, len(names)); j++ {
+			w := s.widgets[names[j]]
+			b := w.widget.(*widget.Bool)
+			if b.Update(gtx) {
+				s.onToggle(names[j], b)
+			}
+			cgtx := gtx
+			cgtx.Constraints = layout.Constraints{Min: image.Pt(colW, 0), Max: image.Pt(colW, gtx.Constraints.Max.Y)}
+			m := op.Record(gtx.Ops)
+			d := optionCard(cgtx, th, w.name, w.usage, b.Value)
+			cards = append(cards, card{call: m.Stop(), b: b})
+			rowH = max(rowH, d.Size.Y)
+		}
+		for k, c := range cards {
+			off := op.Offset(image.Pt(k*(colW+gap), y)).Push(gtx.Ops)
+			rect := image.Rect(0, 0, colW, rowH)
+			bg := surface(th, 10)
+			if c.b.Value {
+				bg = th.ContrastBg
+				bg.A = 18
+			}
+			if c.b.Hovered() {
+				bg.A += 12
+			}
+			rr := clip.UniformRRect(rect, radius).Push(gtx.Ops)
+			paint.Fill(gtx.Ops, bg)
+			if c.b.Value {
+				accent := clip.Rect(image.Rect(0, 0, bar, rowH)).Push(gtx.Ops)
+				paint.Fill(gtx.Ops, th.ContrastBg)
+				accent.Pop()
+			}
+			rr.Pop()
+			cgtx := gtx
+			cgtx.Constraints = layout.Exact(rect.Size())
+			c.b.Layout(cgtx, func(gtx C) D {
+				c.call.Add(gtx.Ops)
+				return D{Size: rect.Size()}
 			})
-		}),
-		layout.Flexed(1, layout.Spacer{Width: 1000}.Layout),
-	)
+			off.Pop()
+		}
+		y += rowH + gap
+	}
+	return D{Size: image.Pt(width, y)}
+}
+
+// layoutField is a text or file setting with its name and description
+// above it.
+func (s *settingsPage) layoutField(gtx C, th *material.Theme, w *settingsArg) D {
+	return layout.Inset{Bottom: 12}.Layout(gtx, func(gtx C) D {
+		return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+			layout.Rigid(func(gtx C) D {
+				l := material.Body1(th, w.name)
+				l.Font.Weight = font.SemiBold
+				return l.Layout(gtx)
+			}),
+			layout.Rigid(func(gtx C) D {
+				if w.usage == "" || w.usage == w.name {
+					return D{}
+				}
+				l := material.Body2(th, w.usage)
+				l.Color = muted(th)
+				return layout.Inset{Top: 2, Bottom: 2}.Layout(gtx, l.Layout)
+			}),
+			layout.Rigid(func(gtx C) D {
+				switch ww := w.widget.(type) {
+				case *component.TextField:
+					ww.Update(gtx, th, w.name)
+					return ww.Layout(gtx, th, w.name)
+				case *fileInputWidget:
+					return ww.Layout(gtx, th)
+				case *choiceInput:
+					return layout.Inset{Top: 4}.Layout(gtx, func(gtx C) D {
+						return ww.Layout(gtx, th)
+					})
+				}
+				return D{}
+			}),
+		)
+	})
+}
+
+func (s *settingsPage) Layout(gtx C, th *material.Theme) D {
+	// the command's own settings first; the proxy's connection and
+	// debugging ones last
+	var bools, advBools []string
+	var choices, fields, advFields []*settingsArg
+	for _, name := range s.flagsNamesOrdered {
+		w := s.widgets[name]
+		switch w.widget.(type) {
+		case *choiceInput:
+			if w.advanced {
+				advFields = append(advFields, w)
+			} else {
+				choices = append(choices, w)
+			}
+		case *widget.Bool:
+			if w.advanced {
+				advBools = append(advBools, name)
+			} else {
+				bools = append(bools, name)
+			}
+		case *component.TextField, *fileInputWidget:
+			if w.advanced {
+				advFields = append(advFields, w)
+			} else {
+				fields = append(fields, w)
+			}
+		}
+	}
+
+	var items []layout.Widget
+	section := func(title string) {
+		items = append(items, func(gtx C) D { return sectionTitle(gtx, th, title) })
+	}
+	if addr, ok := s.widgets["address"]; ok {
+		if input, ok := addr.widget.(*addressInput); ok {
+			section(locale.Loc("gui_section_server", nil))
+			items = append(items, func(gtx C) D {
+				gtx.Constraints.Min.X = gtx.Constraints.Max.X
+				return input.Layout(gtx, th)
+			})
+		}
+	}
+	if len(bools) > 0 || len(fields) > 0 || len(choices) > 0 {
+		section(locale.Loc("gui_section_options", nil))
+		for _, f := range choices {
+			items = append(items, func(gtx C) D { return s.layoutField(gtx, th, f) })
+		}
+		items = append(items, func(gtx C) D { return s.layoutOptions(gtx, th, bools) })
+		if len(fields) > 0 {
+			items = append(items, layout.Spacer{Height: 10}.Layout)
+		}
+		for _, f := range fields {
+			items = append(items, func(gtx C) D { return s.layoutField(gtx, th, f) })
+		}
+	}
+	if len(advBools) > 0 || len(advFields) > 0 {
+		section(locale.Loc("gui_section_connection", nil))
+		items = append(items, func(gtx C) D { return s.layoutOptions(gtx, th, advBools) })
+		if len(advFields) > 0 {
+			items = append(items, layout.Spacer{Height: 10}.Layout)
+		}
+		for _, f := range advFields {
+			items = append(items, func(gtx C) D { return s.layoutField(gtx, th, f) })
+		}
+	}
+
+	return layout.N.Layout(gtx, func(gtx C) D {
+		gtx.Constraints.Max.X = min(gtx.Constraints.Max.X, gtx.Dp(760))
+		gtx.Constraints.Min.X = gtx.Constraints.Max.X
+		return material.List(th, &s.list).Layout(gtx, len(items), func(gtx C, index int) D {
+			return layout.Inset{Right: 12, Left: 2}.Layout(gtx, items[index])
+		})
+	})
+}
+
+// argDesc is an argument's description starting with a capital letter.
+func argDesc(arg commands.Arg) string {
+	d := strings.TrimSpace(arg.Desc)
+	if d == "" {
+		return d
+	}
+	return upperFirst(d)
+}
+
+// upperFirst capitalizes the first letter, whole: slicing off the first
+// byte broke any description starting with a non-ASCII letter (Cyrillic,
+// CJK, "É"...).
+func upperFirst(s string) string {
+	r, size := utf8.DecodeRuneInString(s)
+	if r == utf8.RuneError {
+		return s
+	}
+	return string(unicode.ToUpper(r)) + s[size:]
+}
+
+// captureWarning is why Record Session should stay on, shown before it is
+// turned off.
+func captureWarning() []string {
+	return []string{locale.Loc("capture_confirm_body", nil), locale.Loc("capture_confirm_detail", nil)}
+}
+
+// onToggle runs when an option is clicked. Turning off Record Session asks
+// first: the switch stays on until the user confirms.
+func (s *settingsPage) onToggle(flag string, b *widget.Bool) {
+	if flag != "capture" || b.Value || s.g == nil || captureWarningDismissed() {
+		return
+	}
+	b.Value = true
+	s.g.ShowPopup(popups.NewConfirm(s.g, "confirm-capture-off",
+		locale.Loc("capture_confirm_title", nil), captureWarning(),
+		locale.Loc("capture_confirm_keep", nil), locale.Loc("capture_confirm_off", nil),
+		func(proceed bool) {
+			if proceed {
+				b.Value = false
+				dismissCaptureWarning()
+			}
+			s.g.Invalidate()
+		}))
+}
+
+// captureWarningFile marks that the user turned recording off with "don't
+// show again". A variable so tests can put it somewhere else.
+var captureWarningFile = func() string { return utils.PathData(".capture-warning-dismissed") }
+
+func captureWarningDismissed() bool {
+	_, err := os.Stat(captureWarningFile())
+	return err == nil
+}
+
+func dismissCaptureWarning() {
+	if err := os.WriteFile(captureWarningFile(), nil, 0o644); err != nil {
+		logrus.Warn(err)
+	}
 }

@@ -194,6 +194,7 @@ func (m *MapUI) Start(ctx context.Context) {
 
 	m.ticker = time.NewTicker(33 * time.Millisecond)
 	m.ChunkRenderer = utils.NewChunkRenderer(m.w.serverState.blocks)
+	m.ChunkRenderer.Biomes = m.w.serverState.biomes
 	go func() {
 		m.ChunkRenderer.ResolveColors(
 			m.w.serverState.customBlocks,
@@ -201,8 +202,8 @@ func (m *MapUI) Start(ctx context.Context) {
 		)
 		close(m.haveColors)
 	}()
-	go m.mapUpdater(ctx)
-	go m.itemSender()
+	go utils.RecoverGo(func() { m.mapUpdater(ctx) })
+	go utils.RecoverGo(m.itemSender)
 }
 
 func (m *MapUI) Stop() {
@@ -216,6 +217,9 @@ func (m *MapUI) Reset() {
 	m.mu.Lock()
 	m.renderedChunks = make(map[protocol.ChunkPos]*image.RGBA)
 	m.oldRendered = make(map[protocol.ChunkPos]*image.RGBA)
+	if m.ChunkRenderer != nil {
+		m.ChunkRenderer.Reset()
+	}
 	messages.SendEvent(&messages.EventResetMap{})
 	m.mu.Unlock()
 	m.SchedRedraw()
@@ -241,7 +245,7 @@ func (m *MapUI) processQueue() []protocol.ChunkPos {
 	updatedChunks := make([]protocol.ChunkPos, 0, len(m.renderQueue))
 	for _, r := range m.renderQueue {
 		if r.ch != nil {
-			img := m.ChunkRenderer.Chunk2Img(r.ch)
+			img := m.ChunkRenderer.ChunkImage(world.ChunkPos{r.pos[0], r.pos[1]}, r.ch)
 			m.renderedChunks[r.pos] = img
 			updatedChunks = append(updatedChunks, r.pos)
 		} else {

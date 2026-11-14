@@ -78,7 +78,7 @@ func (v *VM) OnEntityPropertyChange(
 	previous any,
 	newValue any,
 ) bool {
-	if v.CB.OnEntityUpdate == nil {
+	if v.CB.OnEntityPropertyChange == nil {
 		return true
 	}
 
@@ -185,4 +185,51 @@ func (v *VM) OnPacket(pk packet.Packet, toServer bool, timeReceived time.Time) (
 		return true
 	}
 	return apply
+}
+
+// PlayerInfo is what a PlayerAdd callback gets to decide whether a player is
+// saved.
+type PlayerInfo struct {
+	UUID      string
+	Username  string
+	XUID      string
+	IsNPC     bool
+	HasSkin   bool
+	RuntimeID uint64
+	UniqueID  int64
+	Position  mgl32.Vec3
+	Metadata  protocol.EntityMetadata
+}
+
+// OnPlayerAdd asks the script whether to save a player. ok is false when
+// the script leaves it to the usual rules (no callback, or it returned
+// nothing).
+func (v *VM) OnPlayerAdd(p PlayerInfo, timeReceived time.Time) (save bool, ok bool) {
+	if v.CB.OnPlayerAdd == nil {
+		return false, false
+	}
+
+	v.lock.Lock()
+	defer v.lock.Unlock()
+	err := utils.RecoverCall(func() error {
+		obj := v.runtime.NewObject()
+		obj.Set("UUID", p.UUID)
+		obj.Set("Username", p.Username)
+		obj.Set("XUID", p.XUID)
+		obj.Set("IsNPC", p.IsNPC)
+		obj.Set("HasSkin", p.HasSkin)
+		obj.Set("RuntimeID", p.RuntimeID)
+		obj.Set("UniqueID", p.UniqueID)
+		obj.Set("Position", p.Position)
+		res := v.CB.OnPlayerAdd(obj, newEntityDataObject(v.runtime, p.Metadata), float64(timeReceived.UnixMilli()))
+		if res != nil && !goja.IsUndefined(res) && !goja.IsNull(res) {
+			save, ok = res.ToBoolean(), true
+		}
+		return nil
+	})
+	if err != nil {
+		v.log.Error(err)
+		return false, false
+	}
+	return save, ok
 }

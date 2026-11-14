@@ -13,6 +13,7 @@ import (
 
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds/entity"
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds/scripting"
+	"github.com/bedrock-tool/bedrocktool/handlers/worlds/uirecord"
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds/worldstate"
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
@@ -31,7 +32,7 @@ import (
 )
 
 type WorldSettings struct {
-	VoidGen         bool
+	Generator       worldstate.Generator
 	SaveImage       bool
 	SaveEntities    bool
 	SaveInventories bool
@@ -39,8 +40,13 @@ type WorldSettings struct {
 	ChunkRadius     int32
 	Script          string
 	Players         bool
+	MapArt          bool
 	BlockUpdates    bool
 	EntityCulling   bool
+	RecordUI        bool
+	// MergeDimensions saves every world after the first into the first,
+	// as a custom dimension.
+	MergeDimensions bool
 }
 
 type serverState struct {
@@ -62,10 +68,20 @@ type serverState struct {
 	playerInventory      []protocol.ItemInstance
 	dimensions           map[int]protocol.DimensionDefinition
 	playerSkins          map[uuid.UUID]*protocol.Skin
+	playerXUIDs          map[uuid.UUID]string
+	scriptPlayerKeep     map[uuid.UUID]bool
+	isHive               bool
 	entityProperties     map[string][]entity.EntityPropertyDef
 	playerPropertyValues map[string]any
 
 	entityRenderDistances []float32
+
+	// merge is the world the others are merged into, with -merge-dimensions.
+	merge *dimensionMerge
+
+	mapsMu        sync.Mutex
+	knownMaps     map[int64]*worldstate.Map
+	requestedMaps map[int64]struct{}
 }
 
 func (s *serverState) getEntityRenderDistance() float32 {
@@ -87,7 +103,8 @@ type worldsHandler struct {
 	mapUI   *MapUI
 	log     *logrus.Entry
 
-	scripting *scripting.VM
+	scripting  *scripting.VM
+	uiRecorder *uirecord.Recorder
 
 	// lock used for when the worldState gets swapped
 	worldStateMu sync.Mutex
@@ -109,6 +126,9 @@ func NewWorldsHandler(ctx context.Context, settings WorldSettings) func() *proxy
 
 	if settings.ChunkRadius == 0 {
 		settings.ChunkRadius = 76
+	}
+	if settings.Generator == "" {
+		settings.Generator = worldstate.GeneratorVoid
 	}
 
 	return func() *proxy.Handler {
@@ -143,6 +163,9 @@ func NewWorldsHandler(ctx context.Context, settings WorldSettings) func() *proxy
 				playerPos := s.Player.Position
 				w.currentWorld(func(world *worldstate.World) {
 					world.PlayerMove(playerPos, w.serverState.getEntityRenderDistance(), 0)
+					if w.serverState.merge != nil {
+						world.NotePlayerPosition(playerPos)
+					}
 				})
 			},
 		}
@@ -157,14 +180,32 @@ func (w *worldsHandler) onSessionStart(session *proxy.Session, serverName string
 		openItemContainers:   make(map[byte]*itemContainer),
 		dimensions:           make(map[int]protocol.DimensionDefinition),
 		playerSkins:          make(map[uuid.UUID]*protocol.Skin),
+		playerXUIDs:          make(map[uuid.UUID]string),
+		scriptPlayerKeep:     make(map[uuid.UUID]bool),
+		isHive:               isHiveServer(session.ServerAddress(), serverName),
+		knownMaps:            make(map[int64]*worldstate.Map),
+		requestedMaps:        make(map[int64]struct{}),
 		biomes:               world.DefaultBiomes.Clone(),
 		entityProperties:     make(map[string][]entity.EntityPropertyDef),
 		behaviorPack:         behaviourpack.New(serverName),
 		resourcePack:         resourcepack.New(),
 		playerPropertyValues: make(map[string]any),
 	}
+	if w.settings.MergeDimensions {
+		w.serverState.merge = &dimensionMerge{taken: make(map[string]bool)}
+		w.log.Info(locale.Loc("worlds_merge_on", nil))
+	}
 
 	w.mapUI = NewMapUI(w)
+	if w.serverState.isHive {
+		w.log.Info(locale.Loc("worlds_hive_detected", nil))
+	}
+
+	w.uiRecorder = nil
+	if w.settings.RecordUI {
+		w.uiRecorder = uirecord.New(w.entityInfo)
+		w.log.Info(locale.Loc("worlds_recording_ui", nil))
+	}
 
 	w.scripting = nil
 	if w.settings.Script != "" {
@@ -192,19 +233,36 @@ func (w *worldsHandler) onSessionStart(session *proxy.Session, serverName string
 	})
 
 	session.AddCommand(func(cmdline []string) bool {
-		return w.setVoidGen(w.worldState.VoidGen)
+		// void on and off; off is flat, as it always was
+		gen := worldstate.GeneratorVoid
+		if w.settings.Generator == worldstate.GeneratorVoid {
+			gen = worldstate.GeneratorFlat
+		}
+		return w.setGenerator(gen)
 	}, protocol.Command{
 		Name:        "void",
 		Description: locale.Loc("void_desc", nil),
 	})
 
 	session.AddCommand(func(args []string) bool {
+		gen, err := worldstate.ParseGenerator(strings.Join(args, " "))
+		if err != nil || len(args) == 0 {
+			session.SendMessage(locale.Loc("generator_current", locale.Strmap{"Generator": w.settings.Generator}))
+			return true
+		}
+		return w.setGenerator(gen)
+	}, protocol.Command{
+		Name:        "generator",
+		Description: locale.Loc("generator_desc", nil),
+	})
+
+	session.AddCommand(func(args []string) bool {
 		w.settings.ExcludedMobs = append(w.settings.ExcludedMobs, args...)
-		session.SendMessage(fmt.Sprintf("Exluding: %s", strings.Join(w.settings.ExcludedMobs, ", ")))
+		session.SendMessage(locale.Loc("worlds_excluding", locale.Strmap{"List": strings.Join(w.settings.ExcludedMobs, ", ")}))
 		return true
 	}, protocol.Command{
 		Name:        "exclude-mob",
-		Description: "add a mob to the list of mobs to ignore",
+		Description: locale.Loc("exclude_mob_desc", nil),
 	})
 
 	session.AddCommand(func(args []string) bool {
@@ -212,7 +270,7 @@ func (w *worldsHandler) onSessionStart(session *proxy.Session, serverName string
 		return true
 	}, protocol.Command{
 		Name:        "save-world",
-		Description: "immediately save and reset the world state",
+		Description: locale.Loc("save_world_desc", nil),
 	})
 
 	// initialize a worldstate
@@ -220,7 +278,7 @@ func (w *worldsHandler) onSessionStart(session *proxy.Session, serverName string
 	if err != nil {
 		return err
 	}
-	worldState.VoidGen = w.settings.VoidGen
+	worldState.Generator = w.settings.Generator
 	w.worldState = worldState
 	return nil
 }
@@ -256,26 +314,25 @@ func (w *worldsHandler) currentWorld(fn func(world *worldstate.World)) {
 	w.worldStateMu.Unlock()
 }
 
-func (w *worldsHandler) setVoidGen(val bool) bool {
+// setGenerator changes the generator of the world being saved, and of the
+// ones after it.
+func (w *worldsHandler) setGenerator(gen worldstate.Generator) bool {
 	w.currentWorld(func(world *worldstate.World) {
-		world.VoidGen = val
+		world.Generator = gen
 	})
-	var s = locale.Loc("void_generator_false", nil)
-	if val {
-		s = locale.Loc("void_generator_true", nil)
-	}
-	w.session.SendMessage(s)
-
-	var voidGen = "false"
-	if val {
-		voidGen = "true"
-	}
-
-	messages.SendEvent(&messages.EventSetValue{
-		Name:  "voidGen",
-		Value: voidGen,
-	})
+	w.settings.Generator = gen
+	w.session.SendMessage(generatorMessage(gen))
 	return true
+}
+
+func generatorMessage(gen worldstate.Generator) string {
+	switch gen {
+	case worldstate.GeneratorFlat:
+		return locale.Loc("generator_flat", nil)
+	case worldstate.GeneratorNormal:
+		return locale.Loc("generator_normal", nil)
+	}
+	return locale.Loc("void_generator_true", nil)
 }
 
 func (w *worldsHandler) setWorldName(val string) bool {
@@ -319,10 +376,29 @@ func (w *worldsHandler) SaveAndReset(end bool, dim world.Dimension) {
 		w.serverState.worldCounter += 1
 		w.mapUI.Reset()
 
+		if w.uiRecorder != nil && w.uiRecorder.HasContent() {
+			w.serverState.behaviorPack.SetScript(w.uiRecorder.Script())
+		}
+
+		// taken now: the packet loop keeps changing these while it saves
+		keepPlayer := w.keepPlayer()
+		playerSkins := make(map[uuid.UUID]*protocol.Skin)
+		maps.Copy(playerSkins, w.serverState.playerSkins)
+
+		// merged worlds are saved one after another, in order
+		var prev, done chan struct{}
+		if m := w.serverState.merge; m != nil {
+			prev, done = m.lastSave, make(chan struct{})
+			m.lastSave = done
+		}
+
 		w.wg.Add(1)
 		go func() {
 			defer w.wg.Done()
-			err := w.saveWorldState(worldState, w.session.Player, w.serverState.behaviorPack)
+			if done != nil {
+				defer close(done)
+			}
+			err := w.saveWorldState(worldState, w.session.Player, w.serverState.behaviorPack, keepPlayer, playerSkins, prev)
 			if err != nil {
 				w.log.Error(err)
 			}
@@ -334,15 +410,16 @@ func (w *worldsHandler) SaveAndReset(end bool, dim world.Dimension) {
 		if err != nil {
 			w.log.Error(err)
 		}
-		worldState.VoidGen = w.settings.VoidGen
+		worldState.Generator = w.settings.Generator
 		worldState.SetDimension(dim)
+		worldState.StartPos = w.session.Player.Position
 		w.worldState = worldState
 		w.openWorldState()
 	}
 }
 
-func (w *worldsHandler) saveWorldState(worldState *worldstate.World, player proxy.Player, behaviorPack *behaviourpack.Pack) error {
-	text := locale.Loc("saving_world", locale.Strmap{"Name": worldState.Name, "Count": len(worldState.StoredChunks)})
+func (w *worldsHandler) saveWorldState(worldState *worldstate.World, player proxy.Player, behaviorPack *behaviourpack.Pack, keepPlayer func(uuid.UUID) bool, playerSkins map[uuid.UUID]*protocol.Skin, prevSave <-chan struct{}) error {
+	text := locale.Locm("saving_world", locale.Strmap{"Name": worldState.Name}, len(worldState.StoredChunks))
 	w.log.Info(text)
 	w.session.SendMessage(text)
 
@@ -351,14 +428,16 @@ func (w *worldsHandler) saveWorldState(worldState *worldstate.World, player prox
 		State:     "Saving",
 	})
 
-	var playerSkins = make(map[uuid.UUID]*protocol.Skin)
-	maps.Copy(playerSkins, w.serverState.playerSkins)
-
 	err := worldState.Save(
 		player, w.playerData(),
 		w.serverState.behaviorPack,
 		w.settings.ExcludedMobs,
-		w.settings.Players, playerSkins,
+		worldstate.SaveOptions{
+			KeepPlayer:  keepPlayer,
+			PlayerSkins: playerSkins,
+			Hive:        w.serverState.isHive,
+			KnownMaps:   w.knownMapsSnapshot(),
+		},
 		w.session.Server.GameData(), w.serverState.serverName,
 		w.settings.EntityCulling,
 		w.serverState.getEntityRenderDistance(),
@@ -367,27 +446,31 @@ func (w *worldsHandler) saveWorldState(worldState *worldstate.World, player prox
 		return err
 	}
 
+	if m := w.serverState.merge; m != nil {
+		if prevSave != nil {
+			<-prevSave
+		}
+		merged, err := w.mergeSavedWorld(m, worldState)
+		if err != nil {
+			w.log.Error(locale.Loc("worlds_merge_failed", locale.Strmap{"Name": worldState.Name, "Err": err}))
+		}
+		if merged {
+			w.exportMapArt(worldState)
+			return nil
+		}
+	}
+
 	messages.SendEvent(&messages.EventProcessingWorldUpdate{
 		WorldName: worldState.Name,
 		State:     "Writing mcworld file",
 	})
 
 	filename := worldState.Folder + ".mcworld"
-	f, err := os.Create(filename)
-	if err != nil {
+	if err := zipWorld(worldState.Folder, filename); err != nil {
 		return err
 	}
-	defer f.Close()
-	zw := zip.NewWriter(f)
-	utils.ZipCompressPool(zw)
-	err = zw.AddFS(os.DirFS(worldState.Folder))
-	if err != nil {
-		return err
-	}
-	err = zw.Close()
-	if err != nil {
-		return err
-	}
+	w.exportMapArt(worldState)
+
 	total, active := worldState.EntityCounts(w.serverState.getEntityRenderDistance())
 	w.log.WithFields(logrus.Fields{
 		"Entities": fmt.Sprintf("%d (%d)", total, active),
@@ -400,6 +483,33 @@ func (w *worldsHandler) saveWorldState(worldState *worldstate.World, player prox
 		Entities:  total,
 	})
 	return nil
+}
+
+// zipWorld writes the world in folder to an .mcworld file.
+func zipWorld(folder, filename string) error {
+	f, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	zw := zip.NewWriter(f)
+	utils.ZipCompressPool(zw)
+	if err := zw.AddFS(os.DirFS(folder)); err != nil {
+		return err
+	}
+	return zw.Close()
+}
+
+func (w *worldsHandler) exportMapArt(worldState *worldstate.World) {
+	if w.settings.MapArt {
+		dir := worldState.Folder + "_mapart"
+		grids, tiles, err := worldState.ExportMapArt(dir)
+		if err != nil {
+			w.log.Error(locale.Loc("worlds_map_art_failed", locale.Strmap{"Err": err}))
+		} else if tiles > 0 {
+			w.log.Info(locale.Loc("worlds_map_art_saved", locale.Strmap{"Maps": tiles, "Walls": grids, "Dir": dir}))
+		}
+	}
 }
 
 func (w *worldsHandler) defaultWorldName() string {
@@ -421,6 +531,11 @@ func (w *worldsHandler) openWorldState() {
 	w.worldState.BlockRegistry = w.serverState.blocks
 	w.worldState.ResourcePacks = w.session.Server.ResourcePacks()
 	w.worldState.UseHashedRids = w.serverState.useHashedRids
+	w.worldState.OnMapSeen = w.onMapSeen
+	if !w.serverState.isHive && hasHivePacks(w.worldState.ResourcePacks) {
+		w.serverState.isHive = true
+		w.log.Info(locale.Loc("worlds_hive_detected_packs", nil))
+	}
 	w.worldState.Open(w.defaultWorldName(), folder)
 }
 
@@ -434,4 +549,21 @@ func (w *worldsHandler) renameWorldState(name string) error {
 		err = world.Rename(name, folder)
 	})
 	return err
+}
+
+// entityInfo gives the recorder an entity's type and name tag.
+func (w *worldsHandler) entityInfo(rid uint64) (typeID, nameTag string, ok bool) {
+	w.currentWorld(func(world *worldstate.World) {
+		if world == nil {
+			return
+		}
+		world.ActEntity(rid, false, func(ent *entity.Entity) error {
+			typeID, ok = ent.EntityType, true
+			if name, isStr := ent.Metadata[protocol.EntityDataKeyName].(string); isStr {
+				nameTag = name
+			}
+			return nil
+		})
+	})
+	return
 }

@@ -1,14 +1,19 @@
 package settings
 
 import (
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"image"
+	"image/color"
 	"runtime"
 	"slices"
 	"sort"
 	"time"
 
+	"gioui.org/font"
 	"gioui.org/io/key"
 	"gioui.org/layout"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
 	"gioui.org/unit"
 	"gioui.org/widget"
 	"gioui.org/widget/material"
@@ -16,7 +21,10 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui/gui/guim"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/pages"
 	"github.com/bedrock-tool/bedrocktool/ui/gui/popups"
+	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
+	"github.com/bedrock-tool/bedrocktool/utils/connectinfo"
+	"github.com/bedrock-tool/bedrocktool/utils/savedsettings"
 	"github.com/sirupsen/logrus"
 )
 
@@ -26,6 +34,9 @@ type (
 )
 
 const ID = "settings"
+
+// SavedPath is where the last used settings and recent servers are kept.
+var SavedPath = func() string { return utils.PathData("saved-settings.json") }
 
 type cmdItem struct {
 	Clickable *widget.Clickable
@@ -40,11 +51,18 @@ type Page struct {
 		names      []string
 		state      component.GridState
 		selected   string
+		// pick are the mode cards shown before a mode is picked
+		pick map[string]*widget.Clickable
 	}
 
 	settings    map[string]*settingsPage
 	startButton widget.Clickable
-	closePopup  *component.ScrimStyle
+
+	saved *savedsettings.Saved
+	// filledAddress is the address put in for the mode picked, so picking
+	// another mode can replace it, but not one typed in.
+	filledAddress string
+	closePopup    *component.ScrimStyle
 }
 
 func New(g guim.Guim) pages.Page {
@@ -73,8 +91,18 @@ func New(g guim.Guim) pages.Page {
 		p.settings[k] = settingUI
 		p.cmdMenu.names = append(p.cmdMenu.names, k)
 	}
-	sort.Strings(p.cmdMenu.names)
+	// worlds first: it's what most people come for
+	order := map[string]int{"worlds": 0, "skins": 1, "packs": 2}
+	sort.Slice(p.cmdMenu.names, func(i, j int) bool {
+		return order[p.cmdMenu.names[i]] < order[p.cmdMenu.names[j]]
+	})
 
+	p.loadSaved()
+
+	p.cmdMenu.pick = make(map[string]*widget.Clickable)
+	for _, name := range p.cmdMenu.names {
+		p.cmdMenu.pick[name] = &widget.Clickable{}
+	}
 	p.cmdMenu.clickables = make(map[string]cmdItem, len(commands.Registered))
 	for _, name := range p.cmdMenu.names {
 		p.cmdMenu.clickables[name] = cmdItem{
@@ -87,6 +115,67 @@ func New(g guim.Guim) pages.Page {
 }
 
 var _ pages.Page = &Page{}
+
+// loadSaved puts back the settings each mode was last started with. A
+// missing or broken file leaves the defaults.
+func (p *Page) loadSaved() {
+	saved, err := savedsettings.Load(SavedPath())
+	if err != nil {
+		logrus.Warn(locale.Loc("settings_read_failed", locale.Strmap{"Err": err}))
+	}
+	p.saved = saved
+	for name, s := range p.settings {
+		if m, ok := saved.Mode(name); ok {
+			s.Restore(m.Options)
+		}
+	}
+	AddressInput.SetRecent(func() []string {
+		return slices.Clone(p.saved.Recent)
+	}, func(address string) {
+		p.saved.RemoveRecent(address)
+		p.writeSaved()
+	})
+}
+
+func (p *Page) writeSaved() {
+	if err := p.saved.Save(SavedPath()); err != nil {
+		logrus.Warn(locale.Loc("settings_save_failed", locale.Strmap{"Err": err}))
+	}
+}
+
+// remember saves what mode is started with, and its server as a recent one.
+func (p *Page) remember(mode string, s *settingsPage) {
+	m := savedsettings.Mode{Options: s.Values()}
+	if _, ok := s.widgets["address"]; ok {
+		m.Address = AddressInput.Text()
+		if kind, err := (&connectinfo.ConnectInfo{Value: m.Address}).Kind(); err == nil && kind != connectinfo.KindReplay {
+			p.saved.AddRecent(m.Address)
+		}
+	}
+	p.saved.SetMode(mode, m)
+	p.writeSaved()
+}
+
+// selectMode switches to a mode, filling in the address it last used (or
+// the latest server) unless one was typed in.
+func (p *Page) selectMode(mode string) {
+	p.cmdMenu.selected = mode
+	current := AddressInput.Text()
+	if current != "" && current != p.filledAddress {
+		return
+	}
+	address := ""
+	if m, ok := p.saved.Mode(mode); ok {
+		address = m.Address
+	}
+	if address == "" && len(p.saved.Recent) > 0 {
+		address = p.saved.Recent[0]
+	}
+	if address != "" && address != current {
+		AddressInput.SetText(address)
+	}
+	p.filledAddress = AddressInput.Text()
+}
 
 func (p *Page) ID() string {
 	return ID
@@ -102,7 +191,7 @@ func (p *Page) Overflow() []component.OverflowAction {
 
 func (p *Page) NavItem() component.NavItem {
 	return component.NavItem{
-		Name: "Settings",
+		Name: locale.Loc("gui_settings_title", nil),
 		//Icon: icon.OtherIcon,
 	}
 }
@@ -126,6 +215,7 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 			if err != nil {
 				p.g.ShowPopup(popups.NewErrorPopup(p.g, err, false, nil))
 			} else {
+				p.remember(p.cmdMenu.selected, settingsUI)
 				p.g.StartSubcommand(p.cmdMenu.selected, settings)
 			}
 		}
@@ -133,7 +223,12 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 
 	for k, c := range p.cmdMenu.clickables {
 		if c.Clickable.Clicked(gtx) {
-			p.cmdMenu.selected = k
+			p.selectMode(k)
+		}
+	}
+	for k, c := range p.cmdMenu.pick {
+		if c.Clicked(gtx) {
+			p.selectMode(k)
 		}
 	}
 
@@ -144,9 +239,11 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 		}.Layout(gtx,
 			// Select Command Button
 			layout.Rigid(func(gtx C) D {
+				if p.cmdMenu.selected == "" {
+					return D{} // the mode cards below do this
+				}
 				maxWidth := gtx.Constraints.Max.X
 				maxButtonWidth := min(maxWidth, gtx.Dp(150))
-				//minButtonWidth := maxButtonWidth
 
 				return layout.Center.Layout(gtx, func(gtx layout.Context) layout.Dimensions {
 					return layout.Inset{
@@ -157,13 +254,18 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 						for _, name := range p.cmdMenu.names {
 							clickable := p.cmdMenu.clickables[name]
 							children = append(children, layout.Rigid(func(gtx layout.Context) layout.Dimensions {
-								button := material.Button(th, clickable.Clickable, clickable.Text)
+								button := material.Button(th, clickable.Clickable, modeTitle(clickable.Text))
+								button.CornerRadius = popups.Radius
+								button.Inset = layout.Inset{Top: 9, Bottom: 9, Left: 14, Right: 14}
 								if p.cmdMenu.selected == name {
-									button.Background = th.Fg
-									button.Color = th.Bg
+									button.Background = th.ContrastBg
+									button.Color = color.NRGBA{0xff, 0xff, 0xff, 0xff}
+								} else {
+									button.Background = surface(th, 22)
+									button.Color = th.Fg
 								}
 
-								gtx.Constraints.Min.X = maxButtonWidth / 2
+								gtx.Constraints.Min.X = maxButtonWidth * 2 / 3
 								gtx.Constraints.Max.X = maxButtonWidth
 								return layout.Inset{
 									Left:  5,
@@ -181,7 +283,26 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 
 			layout.Flexed(1, func(gtx C) (d D) {
 				if p.cmdMenu.selected == "" {
-					d = layout.Center.Layout(gtx, material.H5(th, "Select a Mode").Layout)
+					d = layout.Center.Layout(gtx, func(gtx C) D {
+						gtx.Constraints.Max.X = min(gtx.Constraints.Max.X, gtx.Dp(520))
+						gtx.Constraints.Min.X = gtx.Constraints.Max.X
+						children := []layout.FlexChild{
+							layout.Rigid(func(gtx C) D {
+								l := material.Label(th, th.TextSize*1.5, locale.Loc("gui_settings_pick_mode", nil))
+								return layout.Inset{Bottom: 14}.Layout(gtx, l.Layout)
+							}),
+						}
+						for _, name := range p.cmdMenu.names {
+							click := p.cmdMenu.pick[name]
+							desc := p.settings[name].cmd.Description()
+							children = append(children, layout.Rigid(func(gtx C) D {
+								return layout.Inset{Bottom: 8}.Layout(gtx, func(gtx C) D {
+									return modeCard(gtx, th, click, modeTitle(name), desc)
+								})
+							}))
+						}
+						return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
+					})
 					d.Size.Y = gtx.Constraints.Max.Y
 				} else {
 					s := p.settings[p.cmdMenu.selected]
@@ -197,17 +318,23 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 
 			// Start Button
 			layout.Rigid(func(gtx C) D {
+				if p.cmdMenu.selected == "" {
+					return D{}
+				}
 				return layout.Center.Layout(gtx, func(gtx C) D {
 					return layout.Inset{
 						Top:    15,
 						Bottom: 15,
 					}.Layout(gtx, func(gtx C) D {
-						gtx.Constraints.Min = image.Pt(gtx.Dp(300), gtx.Dp(40))
-						gtx.Constraints.Max = image.Pt(gtx.Constraints.Max.X/3, gtx.Dp(40))
-						b := material.Button(th, &p.startButton, "Start")
+						width := min(gtx.Constraints.Max.X, max(gtx.Dp(260), gtx.Constraints.Max.X/3))
+						gtx.Constraints = layout.Exact(image.Pt(width, gtx.Dp(44)))
+						b := material.Button(th, &p.startButton, locale.Loc("gui_start", nil))
+						b.CornerRadius = popups.Radius
+						b.Background = th.ContrastBg
+						b.Color = color.NRGBA{0xff, 0xff, 0xff, 0xff}
 						if !validSettings {
-							b.Color = th.Bg
-							b.Background = th.Fg
+							b.Background = surface(th, 30)
+							b.Color = muted(th)
 						}
 						return b.Layout(gtx)
 					})
@@ -251,4 +378,56 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 
 func (p *Page) HandleEvent(event any) error {
 	return nil
+}
+
+// modeTitle is a mode's name as its button shows it ("worlds" -> "Worlds").
+func modeTitle(name string) string {
+	switch name {
+	case "worlds":
+		return locale.Loc("gui_mode_worlds", nil)
+	case "skins":
+		return locale.Loc("gui_mode_skins", nil)
+	case "packs":
+		return locale.Loc("gui_mode_packs", nil)
+	case "":
+		return name
+	}
+	return upperFirst(name)
+}
+
+// modeCard is a mode to pick: its name and what it does, the whole card
+// clickable.
+func modeCard(gtx C, th *material.Theme, click *widget.Clickable, title, desc string) D {
+	return click.Layout(gtx, func(gtx C) D {
+		return layout.Background{}.Layout(gtx,
+			func(gtx C) D {
+				bg := surface(th, 12)
+				if click.Hovered() {
+					bg = th.ContrastBg
+					bg.A = 40
+				}
+				rr := clip.UniformRRect(image.Rectangle{Max: gtx.Constraints.Min}, gtx.Dp(popups.Radius)).Push(gtx.Ops)
+				paint.Fill(gtx.Ops, bg)
+				rr.Pop()
+				return D{Size: gtx.Constraints.Min}
+			},
+			func(gtx C) D {
+				gtx.Constraints.Min.X = gtx.Constraints.Max.X
+				return layout.UniformInset(14).Layout(gtx, func(gtx C) D {
+					return layout.Flex{Axis: layout.Vertical}.Layout(gtx,
+						layout.Rigid(func(gtx C) D {
+							l := material.Body1(th, title)
+							l.Font.Weight = font.SemiBold
+							return l.Layout(gtx)
+						}),
+						layout.Rigid(func(gtx C) D {
+							l := material.Body2(th, desc)
+							l.Color = muted(th)
+							return layout.Inset{Top: 2}.Layout(gtx, l.Layout)
+						}),
+					)
+				})
+			},
+		)
+	})
 }

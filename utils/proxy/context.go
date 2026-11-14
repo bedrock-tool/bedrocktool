@@ -3,6 +3,7 @@ package proxy
 import (
 	"context"
 	"fmt"
+	"github.com/bedrock-tool/bedrocktool/locale"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -70,7 +71,7 @@ func (p *Context) connect(connectInfo *connectinfo.ConnectInfo, withClient bool)
 			return nil
 		}
 		address := fmt.Sprintf("%s:%d", terr.Address, terr.Port)
-		logrus.Infof("transferring to %s", address)
+		logrus.Info(locale.Loc("transferring", locale.Strmap{"Address": address}))
 		return p.connect(&connectinfo.ConnectInfo{Value: address, Account: connectInfo.Account}, withClient)
 	}
 	return err
@@ -105,6 +106,8 @@ func (p *Context) Run(ctx context.Context, withClient bool) (err error) {
 
 	if p.settings.Capture && !isReplay {
 		p.AddHandler(NewPacketCapturer)
+	} else if !isReplay {
+		logrus.Warn(locale.Loc("capture_off_warning", nil))
 	}
 	p.addedPacks, err = loadForcedPacks()
 	if err != nil {
@@ -134,9 +137,9 @@ func loadForcedPacks() ([]resource.Pack, error) {
 					return err
 				}
 				packs = append(packs, pack)
-				logrus.Infof("Added %s to the forced packs", pack.Name())
+				logrus.Info(locale.Loc("forced_pack_added", locale.Strmap{"Name": pack.Name()}))
 			default:
-				logrus.Warnf("Unrecognized file %s in forcedpacks", path)
+				logrus.Warn(locale.Loc("forced_pack_unknown_file", locale.Strmap{"Path": path}))
 			}
 			return nil
 		}); err != nil {

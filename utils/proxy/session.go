@@ -21,6 +21,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
 	"github.com/bedrock-tool/bedrocktool/utils/connectinfo"
+	"github.com/bedrock-tool/bedrocktool/utils/friendworlds"
 	"github.com/bedrock-tool/bedrocktool/utils/proxy/blobcache"
 	"github.com/bedrock-tool/bedrocktool/utils/proxy/pcap2"
 	"github.com/bedrock-tool/bedrocktool/utils/proxy/resourcepacks"
@@ -139,7 +140,7 @@ func (s *Session) resolveServerName(ctx context.Context) error {
 			return err
 		}
 		if realm == nil {
-			return fmt.Errorf("realm %q not found", parsed.RealmName)
+			return errors.New(locale.Loc("realm_not_found", locale.Strmap{"Name": parsed.RealmName}))
 		}
 		s.ServerName = realm.Name
 	case connectinfo.KindExperience:
@@ -156,6 +157,25 @@ func (s *Session) resolveServerName(ctx context.Context) error {
 	return nil
 }
 
+// ServerAddress is the address given to connect to a server, or "" when
+// connecting some other way (realm, replay...).
+func (s *Session) ServerAddress() string {
+	if s.connectInfo == nil {
+		return ""
+	}
+	parsed, err := s.connectInfo.Parsed()
+	if err != nil || parsed.Kind != connectinfo.KindServer {
+		return ""
+	}
+	return parsed.Address
+}
+
+// p2pJoinTimeout is how long a friend's world gets to let us in. Joining
+// waits for the host to hand out a nonce; a host that never does (it left,
+// or closed the world to friends meanwhile) used to leave the GUI at
+// "connecting" forever.
+const p2pJoinTimeout = 30 * time.Second
+
 func (s *Session) joinP2P(ctx context.Context, id uuid.UUID) (*p2p.Session, error) {
 	if s.p2pSession != nil {
 		return s.p2pSession, nil
@@ -164,8 +184,29 @@ func (s *Session) joinP2P(ctx context.Context, id uuid.UUID) (*p2p.Session, erro
 	if err != nil {
 		return nil, err
 	}
-	session, err := p2p.NewClient(xblClient).Join(ctx, id)
+
+	// Look the world up among the friends' worlds first, to say plainly
+	// why one can't be joined (full, invite only, another version) instead
+	// of failing somewhere in the join. A world that isn't listed may still
+	// be joinable (a friend of a friend's), so that only words the error.
+	world, lookupErr := friendworlds.Find(ctx, s.connectInfo.Account, id)
+	switch {
+	case lookupErr == nil && world.Status != friendworlds.Joinable:
+		return nil, &friendworlds.UnjoinableError{World: world}
+	case lookupErr != nil && !errors.Is(lookupErr, friendworlds.ErrGone):
+		s.log.Debugf("looking up friend world %s: %s", id, lookupErr)
+	}
+
+	joinCtx, cancel := context.WithTimeout(ctx, p2pJoinTimeout)
+	defer cancel()
+	session, err := p2p.NewClient(xblClient).Join(joinCtx, id)
 	if err != nil {
+		switch {
+		case errors.Is(lookupErr, friendworlds.ErrGone):
+			return nil, fmt.Errorf("%w (%s)", lookupErr, err)
+		case errors.Is(err, context.DeadlineExceeded) && ctx.Err() == nil:
+			return nil, errors.New(locale.Loc("friend_world_timeout", locale.Strmap{"Seconds": int(p2pJoinTimeout.Seconds())}))
+		}
 		return nil, fmt.Errorf("joining session: %w", err)
 	}
 	s.p2pSession = session
@@ -216,10 +257,12 @@ func (s *Session) SendMessage(text string) {
 	})
 }
 
-// SendPopup sends a toolbar popup to the client
+// SendPopup shows text above the client's hotbar. It is sent as a tip: the
+// game draws a popup under a line kept for a tip, so a popup showed a blank
+// line above the text (the world downloader's chunk counter).
 func (s *Session) SendPopup(text string) {
 	_ = s.ClientWritePacket(&packet.Text{
-		TextType: packet.TextTypePopup,
+		TextType: packet.TextTypeTip,
 		Message:  text,
 	})
 }
@@ -426,7 +469,7 @@ func (s *Session) Run() (err error) {
 	}
 
 	if s.handlers.OnConnect(s) {
-		logrus.Info("Disconnecting")
+		logrus.Info(locale.Loc("disconnecting", nil))
 		return nil
 	}
 	messages.SendEvent(&messages.EventConnectStateUpdate{
@@ -513,8 +556,11 @@ func (s *Session) resolveServerAddress(ctx context.Context, parsed *connectinfo.
 			return "", "", nil, err
 		}
 		addr, err := realm.Address(ctx)
+		if errors.Is(err, realms.ErrPlayerNotInRealm) && !realm.Expired && answerRealmStories(ctx, realm) {
+			addr, err = realm.Address(ctx)
+		}
 		if err != nil {
-			return "", "", nil, err
+			return "", "", nil, realmJoinError(realm, err)
 		}
 
 		tokenSource, err := s.connectInfo.Account.TokenSource(ctx)
@@ -533,6 +579,11 @@ func (s *Session) resolveServerAddress(ctx context.Context, parsed *connectinfo.
 			signalingConn, err = d.DialContext(ctx, tokenSource)
 		default:
 			return "", "", nil, fmt.Errorf("unimplemented signaling type %q", networkProto)
+		}
+		if err != nil {
+			// without this the join went on with no signaling and failed
+			// later with an error about the address
+			return "", "", nil, fmt.Errorf("realm %q: connecting to the signaling service: %w", realm.Name, err)
 		}
 		return addr.Address, "", signalingConn, nil
 
@@ -613,6 +664,11 @@ func (s *Session) resolveServerAddress(ctx context.Context, parsed *connectinfo.
 	}
 }
 
+// maxBatchSize is the most a packet batch may decompress to. gophertunnel's
+// default of 16MB is too little for some servers: Realms send batches past
+// it when you join, which ended the session ("size exceeds limit").
+const maxBatchSize = 256 << 20
+
 func (s *Session) connectServer(ctx context.Context, rpHandler *resourcepacks.ResourcePackHandler) (err error) {
 	if s.withClient {
 		select {
@@ -643,6 +699,7 @@ func (s *Session) connectServer(ctx context.Context, rpHandler *resourcepacks.Re
 		PlayFabClient: playfabClient,
 
 		DisconnectOnUnknownPackets: false,
+		MaxDecompressedLen:         maxBatchSize,
 		ErrorLog:                   slog.Default(),
 		PacketFunc:                 s.packetFunc,
 		EnableClientCache:          s.settings.ClientCache,
@@ -734,6 +791,7 @@ func (s *Session) connectClient(ctx context.Context, rpHandler *resourcepacks.Re
 	s.listener, err = minecraft.ListenConfig{
 		AuthenticationDisabled: true,
 		AllowUnknownPackets:    true,
+		MaxDecompressedLen:     maxBatchSize,
 		StatusProvider:         minecraft.NewStatusProvider(fmt.Sprintf("%s Proxy", serverName), "Bedrocktool"),
 		ErrorLog:               slog.Default(),
 		PacketFunc:             clientPacketFunc,
@@ -745,7 +803,7 @@ func (s *Session) connectClient(ctx context.Context, rpHandler *resourcepacks.Re
 		},
 		EarlyConnHandler: func(c *minecraft.Conn) {
 			if s.Client != nil {
-				s.listener.Disconnect(c, "You are Already connected!")
+				s.listener.Disconnect(c, locale.Loc("already_connected", nil))
 				return
 			}
 			s.Client = c
@@ -784,7 +842,7 @@ func (s *Session) connectClient(ctx context.Context, rpHandler *resourcepacks.Re
 	}
 	ep.Close()
 	accepted = true
-	logrus.Info("Client Connected")
+	logrus.Info(locale.Loc("client_connected", nil))
 	return nil
 }
 
