@@ -58,6 +58,9 @@ func (s *settingsPage) Init() {
 
 	hasAddress := false
 	for _, arg := range args {
+		if arg.Hidden {
+			continue
+		}
 		extType := strings.Split(arg.ExtType, ",")
 		if len(extType) > 0 && extType[0] == "file" {
 			var ext string
@@ -84,6 +87,19 @@ func (s *settingsPage) Init() {
 			}
 			hasAddress = true
 			continue
+
+		case "string":
+			if len(arg.Choices) == 0 {
+				e := &component.TextField{Editor: widget.Editor{SingleLine: true}}
+				e.SetText(arg.Default)
+				s.widgets[arg.Flag] = &settingsArg{widget: e, name: argName(arg), usage: argDesc(arg)}
+				break
+			}
+			s.widgets[arg.Flag] = &settingsArg{
+				widget: newChoiceInput(arg.Choices, arg.Default),
+				name:   argName(arg),
+				usage:  argDesc(arg),
+			}
 
 		case "bool":
 			e := &widget.Bool{}
@@ -140,7 +156,16 @@ func (e settingError) Error() string {
 
 func (s *settingsPage) Apply() (any, error) {
 	for _, arg := range s.args {
-		flagWidget := s.widgets[arg.Flag]
+		flagWidget, ok := s.widgets[arg.Flag]
+		if !ok {
+			// hidden: keeps its default
+			if arg.Default != "" {
+				if err := arg.Set(arg.Default); err != nil {
+					return nil, settingError{name: arg.Flag, err: err}
+				}
+			}
+			continue
+		}
 		var value string
 		switch flagWidget := flagWidget.widget.(type) {
 		case *widget.Bool:
@@ -154,6 +179,9 @@ func (s *settingsPage) Apply() (any, error) {
 
 		case *fileInputWidget:
 			value = flagWidget.textField.Text()
+
+		case *choiceInput:
+			value = flagWidget.Value()
 
 		case *addressInput:
 			arg.SetConnectInfo(flagWidget.GetConnectInfo())
@@ -403,6 +431,10 @@ func (s *settingsPage) layoutField(gtx C, th *material.Theme, w *settingsArg) D 
 					return ww.Layout(gtx, th, w.name)
 				case *fileInputWidget:
 					return ww.Layout(gtx, th)
+				case *choiceInput:
+					return layout.Inset{Top: 4}.Layout(gtx, func(gtx C) D {
+						return ww.Layout(gtx, th)
+					})
 				}
 				return D{}
 			}),
@@ -414,10 +446,16 @@ func (s *settingsPage) Layout(gtx C, th *material.Theme) D {
 	// the command's own settings first; the proxy's connection and
 	// debugging ones last
 	var bools, advBools []string
-	var fields, advFields []*settingsArg
+	var choices, fields, advFields []*settingsArg
 	for _, name := range s.flagsNamesOrdered {
 		w := s.widgets[name]
 		switch w.widget.(type) {
+		case *choiceInput:
+			if w.advanced {
+				advFields = append(advFields, w)
+			} else {
+				choices = append(choices, w)
+			}
 		case *widget.Bool:
 			if w.advanced {
 				advBools = append(advBools, name)
@@ -446,8 +484,11 @@ func (s *settingsPage) Layout(gtx C, th *material.Theme) D {
 			})
 		}
 	}
-	if len(bools) > 0 || len(fields) > 0 {
+	if len(bools) > 0 || len(fields) > 0 || len(choices) > 0 {
 		section("Options")
+		for _, f := range choices {
+			items = append(items, func(gtx C) D { return s.layoutField(gtx, th, f) })
+		}
 		items = append(items, func(gtx C) D { return s.layoutOptions(gtx, th, bools) })
 		if len(fields) > 0 {
 			items = append(items, layout.Spacer{Height: 10}.Layout)

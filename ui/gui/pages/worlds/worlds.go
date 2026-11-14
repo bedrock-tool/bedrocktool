@@ -47,7 +47,6 @@ type Page struct {
 	haveConnected      bool
 
 	State     messages.UIState
-	voidGen   bool
 	worldName string
 	back      widget.Clickable
 }
@@ -421,13 +420,6 @@ func (u *Page) HandleEvent(event any) error {
 
 func (p *Page) SetValue(name, value string) {
 	switch name {
-	case "voidGen":
-		switch value {
-		case "true":
-			p.voidGen = true
-		case "false":
-			p.voidGen = true
-		}
 	case "worldName":
 		p.worldName = value
 	}

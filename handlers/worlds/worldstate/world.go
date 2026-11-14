@@ -77,11 +77,12 @@ type World struct {
 	// shows a map in an item frame or container.
 	OnMapSeen func(id int64)
 
-	VoidGen  bool
-	timeSync time.Time
-	time     int
-	Name     string
-	Folder   string
+	// Generator is what fills the chunks that weren't saved.
+	Generator Generator
+	timeSync  time.Time
+	time      int
+	Name      string
+	Folder    string
 
 	UseHashedRids    bool
 	blockUpdatesLock sync.Mutex
@@ -821,11 +822,7 @@ func (w *World) finalizeProvider(
 		}
 	}
 
-	// void world
-	if w.VoidGen {
-		ld.FlatWorldLayers = `{"biome_id":1,"block_layers":[{"block_data":0,"block_id":0,"count":1},{"block_data":0,"block_id":0,"count":2},{"block_data":0,"block_id":0,"count":1}],"encoding_version":3,"structure_options":null}`
-		ld.Generator = 2
-	}
+	applyGenerator(ld, w.Generator)
 
 	ld.RandomTickSpeed = 0
 	s.CurrentTick = gd.Time

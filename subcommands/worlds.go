@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds"
+	"github.com/bedrock-tool/bedrocktool/handlers/worlds/worldstate"
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
 	"github.com/bedrock-tool/bedrocktool/utils/connectinfo"
@@ -13,7 +14,8 @@ import (
 
 type WorldSettings struct {
 	ProxySettings proxy.ProxySettings
-	Void          bool     `opt:"Void Generator" flag:"void" default:"true" desc:"locale.enable_void"`
+	Generator     string   `opt:"Unsaved Chunks" flag:"generator" default:"void" choices:"void,flat,normal" desc:"What Minecraft fills the chunks you didn't load with: void (empty), flat (superflat land) or normal (terrain from the server's seed). Many servers send a fake seed or 0, so normal terrain often won't match the saved area"`
+	Void          bool     `flag:"void" default:"true" hidden:"true" desc:"Old switch: -void=false is -generator flat"`
 	Image         bool     `opt:"Map Image" flag:"image" desc:"locale.save_image"`
 	Entities      bool     `opt:"Entities" flag:"save-entities" default:"true" desc:"Mobs, armor stands, item frames and other entities"`
 	Players       bool     `opt:"Players" flag:"save-players" default:"false" desc:"Other players, as statues wearing their skins"`
@@ -26,6 +28,18 @@ type WorldSettings struct {
 	ScriptPath    string   `opt:"Script" flag:"script" desc:"A JavaScript file that decides what gets saved" type:"file,js"`
 	ReplayJoin    bool     `opt:"Watch Replay" flag:"replay-join" desc:"When replaying a .pcap2, wait for Minecraft to join and watch it"`
 	RecordUI      bool     `opt:"Record Menus" flag:"record-ui" default:"false" desc:"Rebuild the menus you open and the scoreboards as a script in the world"`
+}
+
+// generator is -generator, or flat for the old -void=false.
+func (s *WorldSettings) generator() (worldstate.Generator, error) {
+	generator, err := worldstate.ParseGenerator(s.Generator)
+	if err != nil {
+		return "", err
+	}
+	if !s.Void && generator == worldstate.GeneratorVoid {
+		generator = worldstate.GeneratorFlat
+	}
+	return generator, nil
 }
 
 type WorldCMD struct{}
@@ -54,13 +68,18 @@ func (WorldCMD) Run(ctx context.Context, settings any) error {
 		scriptSource = string(data)
 	}
 
+	generator, err := worldSettings.generator()
+	if err != nil {
+		return err
+	}
+
 	p, err := proxy.New(ctx, worldSettings.ProxySettings)
 	if err != nil {
 		return err
 	}
 
 	p.AddHandler(worlds.NewWorldsHandler(ctx, worlds.WorldSettings{
-		VoidGen:         worldSettings.Void,
+		Generator:       generator,
 		SaveEntities:    worldSettings.Entities,
 		SaveInventories: worldSettings.Inventories,
 		SaveImage:       worldSettings.Image,
