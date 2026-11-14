@@ -14,6 +14,7 @@ rejoining the server.
 - [Downloading worlds](#downloading-worlds)
 - [Capturing and replaying with pcap2](#capturing-and-replaying-with-pcap2)
 - [Scripting](#scripting)
+- [Drawing worlds and exporting map art](#drawing-worlds-and-exporting-map-art)
 - [Other commands](#other-commands)
 - [Where files are saved](#where-files-are-saved)
 - [Building from source](#building-from-source)
@@ -71,7 +72,7 @@ Running the CLI build with no arguments asks for a command interactively.
 | `capture` | Only record a session to a `.pcap2` file |
 | `chat-log` | Write the chat to a file |
 | `list-realms` | List the Realms your account can join |
-| `render` | Draw a saved world's map to a PNG |
+| `render` | Draw any saved world (folder or `.mcworld`) from above as a PNG, and export its map art |
 | `merge` | Merge several saved worlds into one |
 | `dump-actors` | Dump a saved world's entities to JSON (and write them back) |
 | `update` | Update bedrocktool to the latest version |
@@ -122,7 +123,7 @@ bedrocktool packs -address play.example.net -folders
 ```
 
 ```bash
-bedrocktool render -world "worlds/play.example.net/world" -out map.png
+bedrocktool render -world "worlds/play.example.net/world.mcworld" -out map.png -map-art
 ```
 
 ## Server addresses
@@ -159,6 +160,7 @@ bedrocktool worlds -address <server> [flags]
 | `-chunk-radius` | `76` | The render distance to ask the server for |
 | `-script` | | A JavaScript file to customise what's saved (see [Scripting](#scripting)) |
 | `-record-ui` | `false` | Record the server's menus and scoreboards into the world (see below) |
+| `-replay-join` | `false` | When replaying a `.pcap2`, wait for Minecraft to join so you can watch it |
 
 ### In-game commands
 
@@ -212,9 +214,12 @@ any command later, as if it were the server:
 bedrocktool worlds -address "captures/play.example.net-2026-01-01_12-00-00.pcap2"
 ```
 
-Join the proxy from Minecraft the same way as for a live server; the server
-side is played back from the file instead of connecting anywhere (no Xbox
-login is needed). This is how to:
+The server side is played back from the file instead of connecting anywhere,
+so no Xbox login is needed. With `worlds`, the replay runs by itself without
+Minecraft, as fast as it can be read (a 7 minute session takes seconds); add
+`-replay-join` to join it from Minecraft and watch instead. The other
+commands wait for Minecraft to join, the same as with a live server. This is
+how to:
 
 - save a world again with other settings (`-save-players`, `-map-art`, a
   different `-script` or `-exclude-mobs`...) without going back to the
@@ -263,12 +268,57 @@ read loaded chunks with `chunks.get(x, z)` and write files with
 for every type, and [scripting/example.js](scripting/example.js) to start
 from. Point your editor at the `scripting` folder for completions.
 
+## Drawing worlds and exporting map art
+
+The CLI's `render` command works on any saved Bedrock world, not just ones
+bedrocktool downloaded: a world folder (the one with `db/` and `level.dat`
+in it) or a `.mcworld` file.
+
+```bash
+bedrocktool render -world "C:/path/to/My World.mcworld" -out "my world.png"
+```
+
+**The top-down map** is drawn the same way as the live map: every block's
+colour comes from its texture (the server's own for custom blocks, when the
+world has its resource packs), grass, leaves and water take their biome's
+colours, water shows the ground under it and gets darker the deeper it is,
+and the land is lit from the north like a map item, so hills and buildings
+stand out. One pixel is one block.
+
+**Map art** is every filled map in the world's item frames and chests,
+saved as pictures:
+
+```bash
+bedrocktool render -world "C:/path/to/My World.mcworld" -out "my world.png" -map-art
+```
+
+This writes a `my world_mapart` folder next to the PNG with:
+
+- `tiles/<map id>.png`: each map as a 128x128 picture;
+- `grid_x<x>_y<y>_z<z>.png`: each wall of maps (two or more frames side by
+  side, facing the same way) stitched into one picture, the way you see it
+  standing in front of the wall. Floors and ceilings of maps work too.
+
+| Flag | Default | Description |
+|---|---|---|
+| `-world` | | The world: a folder or a `.mcworld` file |
+| `-out` | `world.png` | Where to write the top-down map |
+| `-map-art` | `false` | Also export the map art |
+| `-map-art-out` | `<out>_mapart` | Where to put the map art |
+| `-no-image` | `false` | Skip the top-down map (to only export map art) |
+
+A map only has a picture if its pixels were saved in the world. Maps the
+game drew itself always have them. In worlds bedrocktool downloads, a map's
+pixels are there when the server sent them, which it does when the map is
+in view; `render -map-art` says when it finds maps without pixels. A world
+saved by a version of bedrocktool from before map saving won't have them,
+but replaying its `.pcap2` with `worlds` saves it again with them.
+
+`worlds -map-art` exports the same pictures straight away while
+downloading.
+
 ## Other commands
 
-- `render -world <world folder> -out <file.png>`: draws a saved world from
-  above, the same way as the live map: grass, leaves and water in their
-  biome's colours, water showing the ground under it, and the land lit from
-  the north so hills and buildings stand out.
 - `merge -out <folder> <world> <world>...`: merges worlds (for example the
   pieces of a map saved over several sessions). `-bounds` shows where each
   one is.

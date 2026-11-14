@@ -7,6 +7,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds"
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/utils/commands"
+	"github.com/bedrock-tool/bedrocktool/utils/connectinfo"
 	"github.com/bedrock-tool/bedrocktool/utils/proxy"
 )
 
@@ -23,6 +24,7 @@ type WorldSettings struct {
 	ExcludeMobs   []string `opt:"Exclude Mobs" flag:"exclude-mobs" desc:"Entity IDs to leave out, comma separated; * works, e.g. minecraft:bat,hive:*"`
 	ChunkRadius   int      `opt:"Chunk Radius" flag:"chunk-radius" desc:"View distance to ask the server for, in chunks (76 if empty)"`
 	ScriptPath    string   `opt:"Script" flag:"script" desc:"A JavaScript file that decides what gets saved" type:"file,js"`
+	ReplayJoin    bool     `opt:"Watch Replay" flag:"replay-join" desc:"When replaying a .pcap2, wait for Minecraft to join and watch it"`
 	RecordUI      bool     `opt:"Record Menus" flag:"record-ui" default:"false" desc:"Rebuild the menus you open and the scoreboards as a script in the world"`
 }
 
@@ -72,7 +74,15 @@ func (WorldCMD) Run(ctx context.Context, settings any) error {
 		RecordUI:        worldSettings.RecordUI,
 	}))
 
-	err = p.Run(ctx, true)
+	// a replay plays the recorded session back by itself: it doesn't need
+	// Minecraft to join (unless -replay-join is given, to watch it)
+	withClient := true
+	if ci := worldSettings.ProxySettings.ConnectInfo; ci != nil && !worldSettings.ReplayJoin {
+		if parsed, err := ci.Parsed(); err == nil && parsed.Kind == connectinfo.KindReplay {
+			withClient = false
+		}
+	}
+	err = p.Run(ctx, withClient)
 	if err != nil {
 		return err
 	}

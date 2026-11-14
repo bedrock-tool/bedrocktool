@@ -141,18 +141,9 @@ func nbtList(v any) []any {
 func (w *World) scanMapsLocked(pos world.ChunkPos, ch *Chunk) {
 	cm := &chunkMaps{}
 	for p, be := range ch.BlockEntities {
-		switch id, _ := be["id"].(string); id {
-		case "ItemFrame", "GlowItemFrame":
-			if mid, ok := mapUUID(be["Item"]); ok {
-				cm.frames = append(cm.frames, MapFrame{Pos: p, MapID: mid, Facing: w.frameFacing(ch, p)})
-			}
-		default:
-			for _, it := range nbtList(be["Items"]) {
-				if mid, ok := mapUUID(it); ok {
-					cm.loose = append(cm.loose, mid)
-				}
-			}
-		}
+		frame, loose := MapsIn(p, be, func(p cube.Pos) int32 { return w.frameFacing(ch, p) })
+		cm.frames = append(cm.frames, frame...)
+		cm.loose = append(cm.loose, loose...)
 	}
 	if len(cm.frames) == 0 && len(cm.loose) == 0 {
 		delete(w.mapRefs, pos)
@@ -185,13 +176,7 @@ func (w *World) frameFacing(ch *Chunk, p cube.Pos) int32 {
 	if !ok {
 		return -1
 	}
-	switch f := props["facing_direction"].(type) {
-	case int32:
-		return f
-	case uint8:
-		return int32(f)
-	}
-	return -1
+	return FacingDirection(props)
 }
 
 // referencedMapsLocked is every map the world's frames and containers hold.
@@ -221,7 +206,8 @@ func (w *World) importMapsLocked(known map[int64]*Map) {
 	}
 }
 
-func mapImage(m *Map) *image.NRGBA {
+// MapImage is a map's pixels, or nil for a blank map.
+func MapImage(m *Map) *image.NRGBA {
 	if m == nil {
 		return nil
 	}
@@ -267,10 +253,21 @@ func (w *World) ExportMapArt(dir string) (grids, tiles int, err error) {
 
 	images := make(map[int64]*image.NRGBA)
 	for id := range w.referencedMapsLocked() {
-		if img := mapImage(w.memState.maps[id]); img != nil {
+		if img := MapImage(w.memState.maps[id]); img != nil {
 			images[id] = img
 		}
 	}
+	var frames []MapFrame
+	for _, cm := range w.mapRefs {
+		frames = append(frames, cm.frames...)
+	}
+	return WriteMapArt(dir, images, frames)
+}
+
+// WriteMapArt writes maps as PNGs into dir: tiles/<id>.png for each image,
+// and grid_x_y_z.png for each wall of two or more of the frames that touch
+// and face the same way. Returns how many of each it wrote.
+func WriteMapArt(dir string, images map[int64]*image.NRGBA, frames []MapFrame) (grids, tiles int, err error) {
 	if len(images) == 0 {
 		return 0, 0, nil
 	}
@@ -288,11 +285,9 @@ func (w *World) ExportMapArt(dir string) (grids, tiles int, err error) {
 
 	// Walls: frames facing the same way that touch, side by side.
 	byPos := make(map[cube.Pos]MapFrame)
-	for _, cm := range w.mapRefs {
-		for _, f := range cm.frames {
-			if images[f.MapID] != nil {
-				byPos[f.Pos] = f
-			}
+	for _, f := range frames {
+		if images[f.MapID] != nil {
+			byPos[f.Pos] = f
 		}
 	}
 	seen := make(map[cube.Pos]bool)
@@ -377,4 +372,34 @@ func writePNG(name string, img image.Image) error {
 	}
 	defer f.Close()
 	return png.Encode(f, img)
+}
+
+// MapsIn is the maps a block entity holds: the one in an item frame (facing
+// gives the frame's facing_direction, or -1), or those in a container.
+func MapsIn(p cube.Pos, be map[string]any, facing func(cube.Pos) int32) (frames []MapFrame, loose []int64) {
+	switch id, _ := be["id"].(string); id {
+	case "ItemFrame", "GlowItemFrame":
+		if mid, ok := mapUUID(be["Item"]); ok {
+			frames = append(frames, MapFrame{Pos: p, MapID: mid, Facing: facing(p)})
+		}
+	default:
+		for _, it := range nbtList(be["Items"]) {
+			if mid, ok := mapUUID(it); ok {
+				loose = append(loose, mid)
+			}
+		}
+	}
+	return frames, loose
+}
+
+// FacingDirection is the facing_direction in a block state's properties,
+// or -1.
+func FacingDirection(props map[string]any) int32 {
+	switch f := props["facing_direction"].(type) {
+	case int32:
+		return f
+	case uint8:
+		return int32(f)
+	}
+	return -1
 }
