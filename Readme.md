@@ -49,9 +49,14 @@ Start the GUI build without arguments.
 
 1. Pick a mode at the top: **Worlds**, **Skins** or **Packs**.
 2. Under **Server**, type an address or use the buttons to pick a Realm,
-   a featured server, an experience or a friend's world.
+   a featured server, an experience or a friend's world. **Recent** lists
+   the last 10 you started with; **Remove** takes one off.
 3. Turn options on or off. Each one says what it does under its name.
 4. Press **Start**, then join from Minecraft as described above.
+
+Each mode remembers its address and options from the last time you pressed
+**Start**, in `saved-settings.json` next to the login token. Delete the file
+to go back to the defaults.
 
 The **Worlds** page shows a live map while you play, and lists each world as
 it's saved.

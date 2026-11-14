@@ -164,6 +164,61 @@ func setGuim(p Popup, g *fakeGuim) {
 		p.g = g
 	case *guiAuth:
 		p.g = g
+	case *RecentServers:
+		p.g = g
+	}
+}
+
+var recentAddresses = []string{
+	"play.example.com",
+	"realm:Magic Realm",
+	"experience:Hive Skywars",
+	"xbox:0b8e6a52-3c5f-4b11-9f0e-1a2b3c4d5e6f",
+	"mc.example.net:19133",
+}
+
+func TestRecentServersCloses(t *testing.T) {
+	closes(t, NewRecentServers(nil, recentAddresses, func(string) {}, func(string) {}), "Close", "recent_servers")
+	closes(t, NewRecentServers(nil, nil, func(string) {}, func(string) {}), "Close", "recent_servers_empty")
+}
+
+func TestRecentServersPickAndRemove(t *testing.T) {
+	var picked string
+	var removed []string
+	p := NewRecentServers(nil, recentAddresses, func(a string) { picked = a }, func(a string) { removed = append(removed, a) }).(*RecentServers)
+	g := &fakeGuim{}
+	p.g = g
+	th := darkTheme()
+	r := new(input.Router)
+	frame(r, th, p)
+
+	// the second row's Remove: the Realm goes, the popup stays open
+	var removes []f32.Point
+	for _, n := range r.AppendSemantics(nil) {
+		if n.Desc.Class == semantic.Button {
+			for _, c := range r.AppendSemantics(nil) {
+				if c.ParentID == n.ID && c.Desc.Label == "Remove" {
+					b := n.Desc.Bounds
+					removes = append(removes, f32.Pt(float32(b.Min.X+b.Max.X)/2, float32(b.Min.Y+b.Max.Y)/2))
+				}
+			}
+		}
+	}
+	if len(removes) != len(recentAddresses) {
+		t.Fatalf("%d Remove buttons, want %d", len(removes), len(recentAddresses))
+	}
+	click(r, removes[1])
+	ops := frame(r, th, p)
+	frame(r, th, p)
+	if len(removed) != 1 || removed[0] != "realm:Magic Realm" || len(g.closed) != 0 || len(p.rows) != len(recentAddresses)-1 {
+		t.Fatalf("remove: removed=%q closed=%v rows=%d", removed, g.closed, len(p.rows))
+	}
+	screenshot(t, ops, "recent_servers_removed")
+
+	click(r, buttonAt(t, r, "Hive Skywars"))
+	frame(r, th, p)
+	if picked != "experience:Hive Skywars" || len(g.closed) == 0 {
+		t.Fatalf("pick: picked=%q closed=%v", picked, g.closed)
 	}
 }
 

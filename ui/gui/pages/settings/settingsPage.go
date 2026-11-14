@@ -166,28 +166,12 @@ func (s *settingsPage) Apply() (any, error) {
 			}
 			continue
 		}
-		var value string
-		switch flagWidget := flagWidget.widget.(type) {
-		case *widget.Bool:
-			value = "false"
-			if flagWidget.Value {
-				value = "true"
-			}
-
-		case *component.TextField:
-			value = flagWidget.Text()
-
-		case *fileInputWidget:
-			value = flagWidget.textField.Text()
-
-		case *choiceInput:
-			value = flagWidget.Value()
-
-		case *addressInput:
-			arg.SetConnectInfo(flagWidget.GetConnectInfo())
+		if addr, ok := flagWidget.widget.(*addressInput); ok {
+			arg.SetConnectInfo(addr.GetConnectInfo())
 			continue
-
-		default:
+		}
+		value, ok := widgetValue(flagWidget.widget)
+		if !ok {
 			return nil, errors.New("unknown widget " + arg.Name)
 		}
 		if arg.Type == "int" && value == "" {
@@ -202,6 +186,61 @@ func (s *settingsPage) Apply() (any, error) {
 		}
 	}
 	return s.settings, nil
+}
+
+// widgetValue is a setting widget's value as its flag takes it.
+func widgetValue(w any) (string, bool) {
+	switch w := w.(type) {
+	case *widget.Bool:
+		if w.Value {
+			return "true", true
+		}
+		return "false", true
+	case *component.TextField:
+		return w.Text(), true
+	case *fileInputWidget:
+		return w.textField.Text(), true
+	case *choiceInput:
+		return w.Value(), true
+	}
+	return "", false
+}
+
+// Values are the settings as they are now, by flag, without the address.
+func (s *settingsPage) Values() map[string]string {
+	values := make(map[string]string)
+	for flag, w := range s.widgets {
+		if v, ok := widgetValue(w.widget); ok {
+			values[flag] = v
+		}
+	}
+	return values
+}
+
+// Restore puts saved values back; ones that no longer exist or don't fit
+// are left at their defaults.
+func (s *settingsPage) Restore(values map[string]string) {
+	for flag, value := range values {
+		w, ok := s.widgets[flag]
+		if !ok {
+			continue
+		}
+		switch w := w.widget.(type) {
+		case *widget.Bool:
+			switch value {
+			case "true":
+				w.Value = true
+			case "false":
+				w.Value = false
+			}
+		case *component.TextField:
+			w.SetText(value)
+		case *fileInputWidget:
+			w.textField.SetText(value)
+		case *choiceInput:
+			w.SetValue(value)
+		}
+	}
 }
 
 func textFieldIsActive(w *component.TextField) bool {
