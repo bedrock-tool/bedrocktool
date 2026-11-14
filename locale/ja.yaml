@@ -707,3 +707,42 @@ recent_kind_friend:
   other: "フレンドのワールド"
 recent_kind_server:
   other: "サーバー"
+# Merged dimensions (-merge-dimensions) and render -dimension
+opt_worlds_merge_dimensions:
+  other: "1つのワールドにまとめる"
+desc_worlds_merge_dimensions:
+  other: "最初のワールド以降の各ワールドを、最初のワールドのカスタムディメンションとして保存し、行き来するためのパックを追加します (Minecraft 1.26.30 以降)"
+worlds_merge_on:
+  other: "最初以降のワールドはカスタムディメンションとして最初のワールドにまとめられます"
+worlds_merging_dimension:
+  other: "{{.Name}} をディメンション {{.Dimension}} として {{.Main}} にまとめています"
+worlds_merged_dimension:
+  other: "{{.Name}} を {{.Dimension}} として {{.File}} にまとめました。{{.Command}} でテレポートできます"
+worlds_merge_requirements:
+  other: "カスタムディメンションには Minecraft 統合版 1.26.30 以降が必要です。ワールド内で {{.Command}} は一覧を表示し、{{.Command}} <名前> でテレポートします。コマンドがない場合は「ベータ API」の実験的機能をオンにしてください"
+worlds_merge_failed:
+  other: "{{.Name}} をまとめられませんでした: {{.Err}}"
+dims_pack_description:
+  other: "bedrocktool がこのワールドにまとめたワールド間を行き来できます"
+dims_cmd_desc:
+  other: "このワールドに保存された別のワールドへテレポート、または一覧表示"
+dims_list:
+  other: "このワールド内のワールド ({{.Command}} <名前> で移動):"
+dims_teleported:
+  other: "{{.Name}} にテレポートしました"
+dims_unknown:
+  other: "{{.Name}} という名前のワールドはありません。"
+dims_not_loaded:
+  other: "ディメンション {{.Name}} が読み込まれていません: Minecraft 1.26.30 以降 (または「ベータ API」の実験的機能) が必要です"
+dims_not_player:
+  other: "テレポートできるのはプレイヤーだけです"
+dims_teleport_failed:
+  other: "{{.Name}} にテレポートできませんでした:"
+opt_render_dimension:
+  other: "ディメンション"
+desc_render_dimension:
+  other: "描画するディメンション: overworld、nether、end、またはまとめたワールドの名前 (空欄ならチャンクのある最初のもの)"
+render_dimension:
+  other: "ディメンション {{.Name}} を描画中"
+render_dimension_unknown:
+  other: "ワールドにディメンション {{.Name}} はありません。あるもの: {{.List}}"

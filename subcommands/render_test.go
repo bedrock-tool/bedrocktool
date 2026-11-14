@@ -63,7 +63,7 @@ func TestExportWorldMapArt(t *testing.T) {
 	}
 
 	out := t.TempDir()
-	err = exportWorldMapArt(db, br, &RenderSettings{Out: filepath.Join(out, "world.png")})
+	err = exportWorldMapArt(db, br, &RenderSettings{Out: filepath.Join(out, "world.png")}, nil)
 	db.Close()
 	if err != nil {
 		t.Fatal(err)

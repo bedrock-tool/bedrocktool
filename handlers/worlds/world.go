@@ -44,6 +44,9 @@ type WorldSettings struct {
 	BlockUpdates    bool
 	EntityCulling   bool
 	RecordUI        bool
+	// MergeDimensions saves every world after the first into the first,
+	// as a custom dimension.
+	MergeDimensions bool
 }
 
 type serverState struct {
@@ -72,6 +75,9 @@ type serverState struct {
 	playerPropertyValues map[string]any
 
 	entityRenderDistances []float32
+
+	// merge is the world the others are merged into, with -merge-dimensions.
+	merge *dimensionMerge
 
 	mapsMu        sync.Mutex
 	knownMaps     map[int64]*worldstate.Map
@@ -157,6 +163,9 @@ func NewWorldsHandler(ctx context.Context, settings WorldSettings) func() *proxy
 				playerPos := s.Player.Position
 				w.currentWorld(func(world *worldstate.World) {
 					world.PlayerMove(playerPos, w.serverState.getEntityRenderDistance(), 0)
+					if w.serverState.merge != nil {
+						world.NotePlayerPosition(playerPos)
+					}
 				})
 			},
 		}
@@ -181,6 +190,10 @@ func (w *worldsHandler) onSessionStart(session *proxy.Session, serverName string
 		behaviorPack:         behaviourpack.New(serverName),
 		resourcePack:         resourcepack.New(),
 		playerPropertyValues: make(map[string]any),
+	}
+	if w.settings.MergeDimensions {
+		w.serverState.merge = &dimensionMerge{taken: make(map[string]bool)}
+		w.log.Info(locale.Loc("worlds_merge_on", nil))
 	}
 
 	w.mapUI = NewMapUI(w)
@@ -372,10 +385,20 @@ func (w *worldsHandler) SaveAndReset(end bool, dim world.Dimension) {
 		playerSkins := make(map[uuid.UUID]*protocol.Skin)
 		maps.Copy(playerSkins, w.serverState.playerSkins)
 
+		// merged worlds are saved one after another, in order
+		var prev, done chan struct{}
+		if m := w.serverState.merge; m != nil {
+			prev, done = m.lastSave, make(chan struct{})
+			m.lastSave = done
+		}
+
 		w.wg.Add(1)
 		go func() {
 			defer w.wg.Done()
-			err := w.saveWorldState(worldState, w.session.Player, w.serverState.behaviorPack, keepPlayer, playerSkins)
+			if done != nil {
+				defer close(done)
+			}
+			err := w.saveWorldState(worldState, w.session.Player, w.serverState.behaviorPack, keepPlayer, playerSkins, prev)
 			if err != nil {
 				w.log.Error(err)
 			}
@@ -389,12 +412,13 @@ func (w *worldsHandler) SaveAndReset(end bool, dim world.Dimension) {
 		}
 		worldState.Generator = w.settings.Generator
 		worldState.SetDimension(dim)
+		worldState.StartPos = w.session.Player.Position
 		w.worldState = worldState
 		w.openWorldState()
 	}
 }
 
-func (w *worldsHandler) saveWorldState(worldState *worldstate.World, player proxy.Player, behaviorPack *behaviourpack.Pack, keepPlayer func(uuid.UUID) bool, playerSkins map[uuid.UUID]*protocol.Skin) error {
+func (w *worldsHandler) saveWorldState(worldState *worldstate.World, player proxy.Player, behaviorPack *behaviourpack.Pack, keepPlayer func(uuid.UUID) bool, playerSkins map[uuid.UUID]*protocol.Skin, prevSave <-chan struct{}) error {
 	text := locale.Locm("saving_world", locale.Strmap{"Name": worldState.Name}, len(worldState.StoredChunks))
 	w.log.Info(text)
 	w.session.SendMessage(text)
@@ -422,36 +446,30 @@ func (w *worldsHandler) saveWorldState(worldState *worldstate.World, player prox
 		return err
 	}
 
+	if m := w.serverState.merge; m != nil {
+		if prevSave != nil {
+			<-prevSave
+		}
+		merged, err := w.mergeSavedWorld(m, worldState)
+		if err != nil {
+			w.log.Error(locale.Loc("worlds_merge_failed", locale.Strmap{"Name": worldState.Name, "Err": err}))
+		}
+		if merged {
+			w.exportMapArt(worldState)
+			return nil
+		}
+	}
+
 	messages.SendEvent(&messages.EventProcessingWorldUpdate{
 		WorldName: worldState.Name,
 		State:     "Writing mcworld file",
 	})
 
 	filename := worldState.Folder + ".mcworld"
-	f, err := os.Create(filename)
-	if err != nil {
+	if err := zipWorld(worldState.Folder, filename); err != nil {
 		return err
 	}
-	defer f.Close()
-	zw := zip.NewWriter(f)
-	utils.ZipCompressPool(zw)
-	err = zw.AddFS(os.DirFS(worldState.Folder))
-	if err != nil {
-		return err
-	}
-	err = zw.Close()
-	if err != nil {
-		return err
-	}
-	if w.settings.MapArt {
-		dir := worldState.Folder + "_mapart"
-		grids, tiles, err := worldState.ExportMapArt(dir)
-		if err != nil {
-			w.log.Error(locale.Loc("worlds_map_art_failed", locale.Strmap{"Err": err}))
-		} else if tiles > 0 {
-			w.log.Info(locale.Loc("worlds_map_art_saved", locale.Strmap{"Maps": tiles, "Walls": grids, "Dir": dir}))
-		}
-	}
+	w.exportMapArt(worldState)
 
 	total, active := worldState.EntityCounts(w.serverState.getEntityRenderDistance())
 	w.log.WithFields(logrus.Fields{
@@ -465,6 +483,33 @@ func (w *worldsHandler) saveWorldState(worldState *worldstate.World, player prox
 		Entities:  total,
 	})
 	return nil
+}
+
+// zipWorld writes the world in folder to an .mcworld file.
+func zipWorld(folder, filename string) error {
+	f, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	zw := zip.NewWriter(f)
+	utils.ZipCompressPool(zw)
+	if err := zw.AddFS(os.DirFS(folder)); err != nil {
+		return err
+	}
+	return zw.Close()
+}
+
+func (w *worldsHandler) exportMapArt(worldState *worldstate.World) {
+	if w.settings.MapArt {
+		dir := worldState.Folder + "_mapart"
+		grids, tiles, err := worldState.ExportMapArt(dir)
+		if err != nil {
+			w.log.Error(locale.Loc("worlds_map_art_failed", locale.Strmap{"Err": err}))
+		} else if tiles > 0 {
+			w.log.Info(locale.Loc("worlds_map_art_saved", locale.Strmap{"Maps": tiles, "Walls": grids, "Dir": dir}))
+		}
+	}
 }
 
 func (w *worldsHandler) defaultWorldName() string {

@@ -705,3 +705,42 @@ recent_kind_friend:
   other: "Welt eines Freundes"
 recent_kind_server:
   other: "Server"
+# Merged dimensions (-merge-dimensions) and render -dimension
+opt_worlds_merge_dimensions:
+  other: "Zu einer Welt zusammenführen"
+desc_worlds_merge_dimensions:
+  other: "Jede Welt nach der ersten als eigene Dimension der ersten speichern, mit einem Paket, um zwischen ihnen zu reisen (Minecraft 1.26.30 oder neuer)"
+worlds_merge_on:
+  other: "Welten nach der ersten werden als eigene Dimensionen in sie zusammengeführt"
+worlds_merging_dimension:
+  other: "Führe {{.Name}} als Dimension {{.Dimension}} in {{.Main}} zusammen"
+worlds_merged_dimension:
+  other: "{{.Name}} als {{.Dimension}} in {{.File}} zusammengeführt; Teleport dorthin mit {{.Command}}"
+worlds_merge_requirements:
+  other: "Eigene Dimensionen brauchen Minecraft Bedrock 1.26.30 oder neuer. In der Welt listet {{.Command}} sie auf und {{.Command}} <Name> teleportiert; fehlt der Befehl, schalte das Experiment Beta-APIs ein"
+worlds_merge_failed:
+  other: "Zusammenführen von {{.Name}} fehlgeschlagen: {{.Err}}"
+dims_pack_description:
+  other: "Damit kannst du zwischen den Welten reisen, die bedrocktool in diese Welt zusammengeführt hat"
+dims_cmd_desc:
+  other: "Zu einer anderen in dieser Welt gespeicherten Welt teleportieren oder sie auflisten"
+dims_list:
+  other: "Welten in dieser Welt ({{.Command}} <Name>, um dorthin zu gehen):"
+dims_teleported:
+  other: "Teleportiert nach {{.Name}}"
+dims_unknown:
+  other: "Keine Welt namens {{.Name}}."
+dims_not_loaded:
+  other: "Die Dimension {{.Name}} ist nicht geladen: Sie braucht Minecraft 1.26.30 oder neuer (oder das Experiment Beta-APIs)"
+dims_not_player:
+  other: "Nur ein Spieler kann teleportiert werden"
+dims_teleport_failed:
+  other: "Teleport nach {{.Name}} fehlgeschlagen:"
+opt_render_dimension:
+  other: "Dimension"
+desc_render_dimension:
+  other: "Die zu zeichnende Dimension: overworld, nether, end oder der Name einer zusammengeführten Welt (leer: die erste mit Chunks)"
+render_dimension:
+  other: "Zeichne Dimension {{.Name}}"
+render_dimension_unknown:
+  other: "Die Welt hat keine Dimension {{.Name}}; vorhanden: {{.List}}"

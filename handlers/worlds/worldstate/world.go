@@ -77,6 +77,12 @@ type World struct {
 	// shows a map in an item frame or container.
 	OnMapSeen func(id int64)
 
+	// StartPos is where the player was when this world started (with the
+	// eye height, as in packets).
+	StartPos mgl32.Vec3
+	spawn    mgl32.Vec3
+	spawnSet bool
+
 	// Generator is what fills the chunks that weren't saved.
 	Generator Generator
 	timeSync  time.Time
@@ -542,6 +548,8 @@ func (w *World) Save(
 	entityCulling bool, entityRenderDistance float32,
 ) error {
 	spawnPos := cube.Pos{int(player.Position.X()), int(player.Position.Y()), int(player.Position.Z())}
+
+	w.Spawn() // while the chunks can still be read
 
 	w.stateLock.Lock()
 	players := w.preparePlayers(func(id uuid.UUID) bool {

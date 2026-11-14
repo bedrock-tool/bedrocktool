@@ -40,6 +40,7 @@ type RenderSettings struct {
 	NoImage   bool   `opt:"locale.opt_render_no_image" flag:"no-image" desc:"locale.desc_render_no_image"`
 	MapArt    bool   `opt:"locale.opt_render_map_art" flag:"map-art" desc:"locale.desc_render_map_art"`
 	MapArtOut string `opt:"locale.opt_render_map_art_out" flag:"map-art-out" desc:"locale.desc_render_map_art_out"`
+	Dimension string `opt:"locale.opt_render_dimension" flag:"dimension" desc:"locale.desc_render_dimension"`
 }
 
 type RenderCMD struct{}
@@ -94,6 +95,12 @@ func (RenderCMD) Run(ctx context.Context, settings any) error {
 			return fmt.Errorf("opening %s: %w", renderSettings.WorldPath, err)
 		}
 		renderSettings.WorldPath = tmp
+	}
+
+	// custom dimensions (-merge-dimensions) must be known before reading
+	dims, err := worldstate.RegisterWorldDimensions(renderSettings.WorldPath)
+	if err != nil {
+		return err
 	}
 
 	db, err := mcdb.Config{
@@ -165,8 +172,17 @@ func (RenderCMD) Run(ctx context.Context, settings any) error {
 		}
 	}
 
+	dim, err := pickDimension(db, dims, renderSettings.Dimension)
+	if err != nil {
+		return err
+	}
+	if len(dims) > 3 || dim.ID != 0 {
+		logrus.Info(locale.Loc("render_dimension", locale.Strmap{"Name": dim.Identifier}))
+	}
+	dimRange := &mcdb.IteratorRange{Dimension: dim.Dimension}
+
 	if renderSettings.MapArt {
-		if err := exportWorldMapArt(db, blockReg, renderSettings); err != nil {
+		if err := exportWorldMapArt(db, blockReg, renderSettings, dimRange); err != nil {
 			return err
 		}
 	}
@@ -182,7 +198,7 @@ func (RenderCMD) Run(ctx context.Context, settings any) error {
 	boundsMax := world.ChunkPos{math.MinInt32, math.MinInt32}
 	// the first pass also notes each chunk's south edge, so every chunk's
 	// north row is lit from its neighbour's heights
-	it := db.NewColumnIterator(nil)
+	it := db.NewColumnIterator(dimRange)
 	for it.Next() {
 		pos := it.Position()
 		renderer.NoteHeights(pos, it.Column().Chunk)
@@ -202,7 +218,7 @@ func (RenderCMD) Run(ctx context.Context, settings any) error {
 	fmt.Printf("%dx%d pixels\n", r.Dx(), r.Dy())
 	img := image.NewRGBA(r)
 
-	it = db.NewColumnIterator(nil)
+	it = db.NewColumnIterator(dimRange)
 	for it.Next() {
 		col := it.Column()
 		pos := it.Position()
@@ -246,13 +262,37 @@ func init() {
 	commands.RegisterCommand(&RenderCMD{})
 }
 
+// pickDimension is the dimension -dimension names, or with none, the
+// overworld, or else the first dimension the world has chunks in.
+func pickDimension(db *mcdb.DB, dims []worldstate.WorldDimension, name string) (worldstate.WorldDimension, error) {
+	if name != "" {
+		if d, ok := worldstate.FindDimension(dims, name); ok {
+			return d, nil
+		}
+		var names []string
+		for _, d := range dims {
+			names = append(names, d.Identifier)
+		}
+		return worldstate.WorldDimension{}, errors.New(locale.Loc("render_dimension_unknown", locale.Strmap{"Name": name, "List": strings.Join(names, ", ")}))
+	}
+	for _, d := range dims {
+		it := db.NewColumnIterator(&mcdb.IteratorRange{Dimension: d.Dimension})
+		has := it.Next()
+		it.Release()
+		if has {
+			return d, nil
+		}
+	}
+	return dims[0], nil
+}
+
 // exportWorldMapArt writes the maps a saved world's item frames and chests
 // hold as PNGs, the same way the worlds downloader's -map-art does: each map
 // as tiles/<id>.png, and each wall of maps stitched into one picture.
-func exportWorldMapArt(db *mcdb.DB, br world.BlockRegistry, settings *RenderSettings) error {
+func exportWorldMapArt(db *mcdb.DB, br world.BlockRegistry, settings *RenderSettings, dimRange *mcdb.IteratorRange) error {
 	var frames []worldstate.MapFrame
 	ids := make(map[int64]struct{})
-	it := db.NewColumnIterator(nil)
+	it := db.NewColumnIterator(dimRange)
 	for it.Next() {
 		col := it.Column()
 		facing := func(p cube.Pos) int32 {

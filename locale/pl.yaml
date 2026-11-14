@@ -723,3 +723,42 @@ recent_kind_friend:
   other: "Świat znajomego"
 recent_kind_server:
   other: "Serwer"
+# Merged dimensions (-merge-dimensions) and render -dimension
+opt_worlds_merge_dimensions:
+  other: "Połącz w jeden świat"
+desc_worlds_merge_dimensions:
+  other: "Zapisz każdy świat po pierwszym jako własny wymiar pierwszego, z paczką do podróżowania między nimi (Minecraft 1.26.30 lub nowszy)"
+worlds_merge_on:
+  other: "Światy po pierwszym zostaną do niego dołączone jako własne wymiary"
+worlds_merging_dimension:
+  other: "Łączenie {{.Name}} z {{.Main}} jako wymiar {{.Dimension}}"
+worlds_merged_dimension:
+  other: "Połączono {{.Name}} jako {{.Dimension}} w {{.File}}; teleportuj się tam przez {{.Command}}"
+worlds_merge_requirements:
+  other: "Własne wymiary wymagają Minecraft Bedrock 1.26.30 lub nowszego. W świecie {{.Command}} je wypisuje, a {{.Command}} <nazwa> teleportuje; jeśli komendy brak, włącz eksperyment Beta API"
+worlds_merge_failed:
+  other: "Nie udało się połączyć {{.Name}}: {{.Err}}"
+dims_pack_description:
+  other: "Pozwala podróżować między światami, które bedrocktool połączył w ten świat"
+dims_cmd_desc:
+  other: "Teleportuj się do innego świata zapisanego w tym albo wypisz je"
+dims_list:
+  other: "Światy w tym świecie ({{.Command}} <nazwa>, aby tam przejść):"
+dims_teleported:
+  other: "Przeteleportowano do {{.Name}}"
+dims_unknown:
+  other: "Nie ma świata o nazwie {{.Name}}."
+dims_not_loaded:
+  other: "Wymiar {{.Name}} nie jest wczytany: wymaga Minecraft 1.26.30 lub nowszego (albo eksperymentu Beta API)"
+dims_not_player:
+  other: "Teleportować można tylko gracza"
+dims_teleport_failed:
+  other: "Nie udało się teleportować do {{.Name}}:"
+opt_render_dimension:
+  other: "Wymiar"
+desc_render_dimension:
+  other: "Wymiar do narysowania: overworld, nether, end albo nazwa połączonego świata (puste: pierwszy z chunkami)"
+render_dimension:
+  other: "Rysowanie wymiaru {{.Name}}"
+render_dimension_unknown:
+  other: "Świat nie ma wymiaru {{.Name}}; ma: {{.List}}"
