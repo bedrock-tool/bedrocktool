@@ -747,3 +747,42 @@ friend_world_unjoinable:
   other: "No se puede entrar al mundo {{.Name}} de {{.Host}}: {{.Reason}}"
 friend_world_timeout:
   other: "El mundo del amigo no te dejó entrar en {{.Seconds}} segundos. Puede que lo haya cerrado o que ya no deje entrar a amigos."
+# Merged dimensions (-merge-dimensions) and render -dimension
+opt_worlds_merge_dimensions:
+  other: "Unir en un solo mundo"
+desc_worlds_merge_dimensions:
+  other: "Guardar cada mundo después del primero como una dimensión personalizada del primero, con un paquete para viajar entre ellos (Minecraft 1.26.30 o posterior)"
+worlds_merge_on:
+  other: "Los mundos después del primero se unirán a él como dimensiones personalizadas"
+worlds_merging_dimension:
+  other: "Uniendo {{.Name}} a {{.Main}} como dimensión {{.Dimension}}"
+worlds_merged_dimension:
+  other: "{{.Name}} unido como {{.Dimension}} en {{.File}}; teletranspórtate con {{.Command}}"
+worlds_merge_requirements:
+  other: "Las dimensiones personalizadas necesitan Minecraft Bedrock 1.26.30 o posterior. En el mundo, {{.Command}} las lista y {{.Command}} <nombre> teletransporta; si falta el comando, activa el experimento API beta"
+worlds_merge_failed:
+  other: "Error al unir {{.Name}}: {{.Err}}"
+dims_pack_description:
+  other: "Permite viajar entre los mundos que bedrocktool unió en este mundo"
+dims_cmd_desc:
+  other: "Teletransportarse a otro mundo guardado en este, o listarlos"
+dims_list:
+  other: "Mundos en este mundo ({{.Command}} <nombre> para ir):"
+dims_teleported:
+  other: "Teletransportado a {{.Name}}"
+dims_unknown:
+  other: "No hay ningún mundo llamado {{.Name}}."
+dims_not_loaded:
+  other: "La dimensión {{.Name}} no está cargada: necesita Minecraft 1.26.30 o posterior (o el experimento API beta)"
+dims_not_player:
+  other: "Solo se puede teletransportar a un jugador"
+dims_teleport_failed:
+  other: "No se pudo teletransportar a {{.Name}}:"
+opt_render_dimension:
+  other: "Dimensión"
+desc_render_dimension:
+  other: "La dimensión a dibujar: overworld, nether, end o el nombre de un mundo unido (vacío: la primera con chunks)"
+render_dimension:
+  other: "Dibujando la dimensión {{.Name}}"
+render_dimension_unknown:
+  other: "El mundo no tiene la dimensión {{.Name}}; tiene: {{.List}}"

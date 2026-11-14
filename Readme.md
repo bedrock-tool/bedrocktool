@@ -167,6 +167,7 @@ bedrocktool worlds -address <server> [flags]
 | `-script` | | A JavaScript file to customise what's saved (see [Scripting](#scripting)) |
 | `-record-ui` | `false` | Record the server's menus and scoreboards into the world (see below) |
 | `-replay-join` | `false` | When replaying a `.pcap2`, wait for Minecraft to join so you can watch it |
+| `-merge-dimensions` | `false` | Save every world after the first into the first, as custom dimensions (see below) |
 
 ### In-game commands
 
@@ -209,6 +210,48 @@ still in the script; open it with:
 where `<key>` is the menu's key in the script's `FORMS` table. Menus
 don't do what the server did when a button was pressed (teleport you, give
 items...): they only lead to the next menu.
+
+### Merging worlds into one (`-merge-dimensions`)
+
+When a server sends you to another world (a mini hub, a game map, a
+dimension change), bedrocktool normally saves what you had so far and starts a
+new world, so a session on The Hive gives `Hive Games` plus `world-1`,
+`world-2`... With **Merge into one world** on, there is one world instead:
+
+- the first world saved (e.g. the main hub) is the Overworld;
+- every world after it becomes a custom dimension of it, named after the world:
+  `bedrocktool:world_2`, or after its `/setname` name (`/setname Bed Wars Lobby`
+  gives `bedrocktool:bed_wars_lobby`). Its chunks, block entities, entities,
+  saved players and maps go with it;
+- a behavior pack, `bedrocktool dimensions`, registers the dimensions and adds
+  a command to travel between them:
+
+```
+/bedrocktool:dim              lists the worlds
+/bedrocktool:dim world_2      teleports you to world_2
+/bedrocktool:dim overworld    back to the first world
+/scriptevent bedrocktool:dim world_2   the same, from a command block or function
+```
+
+You arrive where you first stood in that world while it was downloaded.
+
+What the game needs:
+
+- **Minecraft Bedrock 1.26.30 or newer.** The pack uses `@minecraft/server`
+  2.8.0, whose `DimensionRegistry` registers the dimensions (as in Microsoft's
+  custom dimensions sample). If `/bedrocktool:dim` is missing or the
+  dimensions are empty, turn on the **Beta APIs** experiment in the world's
+  settings.
+- Each dimension is also defined in `dimensions/<name>.json` (format
+  1.26.60, in Preview at the time of writing), for versions that read
+  dimensions from behavior packs.
+- Custom dimensions are void apart from what was saved, and -64 to 319 high
+  (a world saved in the Nether or the End is moved into that height as is).
+
+How it is stored, for tools that read the world: each dimension's chunks are
+under the usual keys with its id (1000, 1001...) in place of the 1 or 2 of the
+Nether and the End, and `DimensionNameIdTable` maps names to ids, as the game
+and Chunker write them. `render -dimension` draws one of them.
 
 ## Capturing and replaying with pcap2
 
@@ -313,6 +356,7 @@ This writes a `my world_mapart` folder next to the PNG with:
 | `-map-art` | `false` | Also export the map art |
 | `-map-art-out` | `<out>_mapart` | Where to put the map art |
 | `-no-image` | `false` | Skip the top-down map (to only export map art) |
+| `-dimension` | | The dimension to draw: `overworld`, `nether`, `end`, or a merged world's name like `world_2` (the first one with chunks if empty) |
 
 A map only has a picture if its pixels were saved in the world. Maps the
 game drew itself always have them. In worlds bedrocktool downloads, a map's

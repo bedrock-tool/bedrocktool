@@ -739,3 +739,42 @@ friend_world_unjoinable:
   other: "无法加入 {{.Host}} 的世界 {{.Name}}：{{.Reason}}"
 friend_world_timeout:
   other: "好友的世界在 {{.Seconds}} 秒内没有让你进入。世界可能已关闭，或不再允许好友加入。"
+# Merged dimensions (-merge-dimensions) and render -dimension
+opt_worlds_merge_dimensions:
+  other: "合并为一个世界"
+desc_worlds_merge_dimensions:
+  other: "将第一个之后的每个世界保存为第一个世界的自定义维度，并附带用于在它们之间穿梭的包（需要 Minecraft 1.26.30 或更高版本）"
+worlds_merge_on:
+  other: "第一个之后的世界将作为自定义维度合并到其中"
+worlds_merging_dimension:
+  other: "正在将 {{.Name}} 合并到 {{.Main}}，作为维度 {{.Dimension}}"
+worlds_merged_dimension:
+  other: "已将 {{.Name}} 作为 {{.Dimension}} 合并到 {{.File}}；使用 {{.Command}} 传送过去"
+worlds_merge_requirements:
+  other: "自定义维度需要 Minecraft 基岩版 1.26.30 或更高版本。在世界中，{{.Command}} 会列出它们，{{.Command}} <名称> 会传送；如果没有该命令，请开启“测试版 API”实验"
+worlds_merge_failed:
+  other: "合并 {{.Name}} 失败：{{.Err}}"
+dims_pack_description:
+  other: "让你在 bedrocktool 合并到此世界的各个世界之间穿梭"
+dims_cmd_desc:
+  other: "传送到保存在此世界中的另一个世界，或列出它们"
+dims_list:
+  other: "此世界中的世界（使用 {{.Command}} <名称> 前往）："
+dims_teleported:
+  other: "已传送到 {{.Name}}"
+dims_unknown:
+  other: "没有名为 {{.Name}} 的世界。"
+dims_not_loaded:
+  other: "维度 {{.Name}} 未加载：需要 Minecraft 1.26.30 或更高版本（或“测试版 API”实验）"
+dims_not_player:
+  other: "只能传送玩家"
+dims_teleport_failed:
+  other: "无法传送到 {{.Name}}："
+opt_render_dimension:
+  other: "维度"
+desc_render_dimension:
+  other: "要绘制的维度：overworld、nether、end 或合并世界的名称（为空时：第一个有区块的维度）"
+render_dimension:
+  other: "正在绘制维度 {{.Name}}"
+render_dimension_unknown:
+  other: "该世界没有维度 {{.Name}}；现有：{{.List}}"

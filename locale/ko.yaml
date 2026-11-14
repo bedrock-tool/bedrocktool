@@ -739,3 +739,42 @@ friend_world_unjoinable:
   other: "{{.Host}}님의 월드 {{.Name}}에 참가할 수 없습니다: {{.Reason}}"
 friend_world_timeout:
   other: "친구의 월드가 {{.Seconds}}초 안에 들여보내 주지 않았습니다. 월드가 닫혔거나 친구 참가가 막혔을 수 있습니다."
+# Merged dimensions (-merge-dimensions) and render -dimension
+opt_worlds_merge_dimensions:
+  other: "하나의 월드로 합치기"
+desc_worlds_merge_dimensions:
+  other: "첫 번째 이후의 모든 월드를 첫 번째 월드의 사용자 지정 차원으로 저장하고, 그 사이를 이동하는 팩을 추가합니다 (Minecraft 1.26.30 이상)"
+worlds_merge_on:
+  other: "첫 번째 이후의 월드는 사용자 지정 차원으로 첫 번째 월드에 합쳐집니다"
+worlds_merging_dimension:
+  other: "{{.Name}}을(를) {{.Main}}에 차원 {{.Dimension}}(으)로 합치는 중"
+worlds_merged_dimension:
+  other: "{{.Name}}을(를) {{.File}}에 {{.Dimension}}(으)로 합쳤습니다. {{.Command}}(으)로 텔레포트하세요"
+worlds_merge_requirements:
+  other: "사용자 지정 차원에는 Minecraft Bedrock 1.26.30 이상이 필요합니다. 월드에서 {{.Command}}은(는) 목록을 보여 주고 {{.Command}} <이름>은(는) 텔레포트합니다. 명령어가 없으면 '베타 API' 실험을 켜세요"
+worlds_merge_failed:
+  other: "{{.Name}} 합치기 실패: {{.Err}}"
+dims_pack_description:
+  other: "bedrocktool이 이 월드에 합친 월드 사이를 이동할 수 있게 합니다"
+dims_cmd_desc:
+  other: "이 월드에 저장된 다른 월드로 텔레포트하거나 목록을 봅니다"
+dims_list:
+  other: "이 월드의 월드 목록 ({{.Command}} <이름>(으)로 이동):"
+dims_teleported:
+  other: "{{.Name}}(으)로 텔레포트했습니다"
+dims_unknown:
+  other: "{{.Name}}(이)라는 월드가 없습니다."
+dims_not_loaded:
+  other: "차원 {{.Name}}이(가) 로드되지 않았습니다: Minecraft 1.26.30 이상(또는 '베타 API' 실험)이 필요합니다"
+dims_not_player:
+  other: "플레이어만 텔레포트할 수 있습니다"
+dims_teleport_failed:
+  other: "{{.Name}}(으)로 텔레포트할 수 없습니다:"
+opt_render_dimension:
+  other: "차원"
+desc_render_dimension:
+  other: "그릴 차원: overworld, nether, end 또는 합친 월드의 이름 (비우면 청크가 있는 첫 번째 차원)"
+render_dimension:
+  other: "차원 {{.Name}} 그리는 중"
+render_dimension_unknown:
+  other: "월드에 차원 {{.Name}}이(가) 없습니다. 있는 차원: {{.List}}"

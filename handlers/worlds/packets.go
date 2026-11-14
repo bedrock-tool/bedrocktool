@@ -90,6 +90,7 @@ func (w *worldsHandler) packetHandlerPreLogin(_pk packet.Packet, timeReceived ti
 				w.worldState.Name = pk.WorldName
 			}
 			w.worldState.SetDimension(dim)
+			w.worldState.StartPos = pk.PlayerPosition
 			w.worldState.SetTime(timeReceived, int(pk.Time))
 			w.openWorldState()
 			w.worldStateMu.Unlock()
@@ -160,6 +161,11 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 	case *packet.ChangeDimension:
 		dim, _ := world.DimensionByID(int(pk.Dimension))
 		w.SaveAndReset(false, dim)
+		w.currentWorld(func(world *worldstate.World) {
+			if world != nil {
+				world.StartPos = pk.Position
+			}
+		})
 
 	case *packet.LevelChunk:
 		err := w.handleLevelChunk(pk, timeReceived)

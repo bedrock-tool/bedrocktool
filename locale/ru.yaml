@@ -755,3 +755,42 @@ friend_world_unjoinable:
   other: "Нельзя войти в мир {{.Name}} игрока {{.Host}}: {{.Reason}}"
 friend_world_timeout:
   other: "Мир друга не впустил вас за {{.Seconds}} с. Возможно, игра закрыта или друзьям больше нельзя входить."
+# Merged dimensions (-merge-dimensions) and render -dimension
+opt_worlds_merge_dimensions:
+  other: "Объединить в один мир"
+desc_worlds_merge_dimensions:
+  other: "Сохранять каждый мир после первого как пользовательское измерение первого, с пакетом для перемещения между ними (Minecraft 1.26.30 или новее)"
+worlds_merge_on:
+  other: "Миры после первого будут объединены с ним как пользовательские измерения"
+worlds_merging_dimension:
+  other: "Объединение {{.Name}} с {{.Main}} как измерение {{.Dimension}}"
+worlds_merged_dimension:
+  other: "{{.Name}} объединён как {{.Dimension}} в {{.File}}; телепорт туда: {{.Command}}"
+worlds_merge_requirements:
+  other: "Пользовательским измерениям нужен Minecraft Bedrock 1.26.30 или новее. В мире {{.Command}} показывает их список, а {{.Command}} <имя> телепортирует; если команды нет, включите эксперимент «Бета-API»"
+worlds_merge_failed:
+  other: "Не удалось объединить {{.Name}}: {{.Err}}"
+dims_pack_description:
+  other: "Позволяет перемещаться между мирами, которые bedrocktool объединил в этот мир"
+dims_cmd_desc:
+  other: "Телепортироваться в другой мир, сохранённый в этом, или показать их список"
+dims_list:
+  other: "Миры в этом мире ({{.Command}} <имя>, чтобы перейти):"
+dims_teleported:
+  other: "Телепортировано в {{.Name}}"
+dims_unknown:
+  other: "Нет мира с именем {{.Name}}."
+dims_not_loaded:
+  other: "Измерение {{.Name}} не загружено: нужен Minecraft 1.26.30 или новее (или эксперимент «Бета-API»)"
+dims_not_player:
+  other: "Телепортировать можно только игрока"
+dims_teleport_failed:
+  other: "Не удалось телепортироваться в {{.Name}}:"
+opt_render_dimension:
+  other: "Измерение"
+desc_render_dimension:
+  other: "Измерение для отрисовки: overworld, nether, end или имя объединённого мира (если пусто — первое, где есть чанки)"
+render_dimension:
+  other: "Отрисовка измерения {{.Name}}"
+render_dimension_unknown:
+  other: "В мире нет измерения {{.Name}}; есть: {{.List}}"

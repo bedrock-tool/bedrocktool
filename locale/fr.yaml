@@ -747,3 +747,42 @@ friend_world_unjoinable:
   other: "Impossible de rejoindre le monde {{.Name}} de {{.Host}} : {{.Reason}}"
 friend_world_timeout:
   other: "Le monde de l'ami ne t'a pas laissé entrer en {{.Seconds}} secondes. La partie a peut-être été quittée ou n'est plus ouverte aux amis."
+# Merged dimensions (-merge-dimensions) and render -dimension
+opt_worlds_merge_dimensions:
+  other: "Fusionner en un seul monde"
+desc_worlds_merge_dimensions:
+  other: "Enregistrer chaque monde après le premier comme une dimension personnalisée du premier, avec un pack pour voyager entre eux (Minecraft 1.26.30 ou plus récent)"
+worlds_merge_on:
+  other: "Les mondes après le premier y seront fusionnés comme dimensions personnalisées"
+worlds_merging_dimension:
+  other: "Fusion de {{.Name}} dans {{.Main}} comme dimension {{.Dimension}}"
+worlds_merged_dimension:
+  other: "{{.Name}} fusionné comme {{.Dimension}} dans {{.File}} ; téléportez-vous avec {{.Command}}"
+worlds_merge_requirements:
+  other: "Les dimensions personnalisées nécessitent Minecraft Bedrock 1.26.30 ou plus récent. Dans le monde, {{.Command}} les liste et {{.Command}} <nom> téléporte ; si la commande manque, activez l'expérience API bêta"
+worlds_merge_failed:
+  other: "Échec de la fusion de {{.Name}} : {{.Err}}"
+dims_pack_description:
+  other: "Permet de voyager entre les mondes que bedrocktool a fusionnés dans ce monde"
+dims_cmd_desc:
+  other: "Se téléporter vers un autre monde enregistré dans celui-ci, ou les lister"
+dims_list:
+  other: "Mondes de ce monde ({{.Command}} <nom> pour y aller) :"
+dims_teleported:
+  other: "Téléporté vers {{.Name}}"
+dims_unknown:
+  other: "Aucun monde nommé {{.Name}}."
+dims_not_loaded:
+  other: "La dimension {{.Name}} n'est pas chargée : il faut Minecraft 1.26.30 ou plus récent (ou l'expérience API bêta)"
+dims_not_player:
+  other: "Seul un joueur peut être téléporté"
+dims_teleport_failed:
+  other: "Impossible de se téléporter vers {{.Name}} :"
+opt_render_dimension:
+  other: "Dimension"
+desc_render_dimension:
+  other: "La dimension à dessiner : overworld, nether, end ou le nom d'un monde fusionné (vide : la première avec des chunks)"
+render_dimension:
+  other: "Dessin de la dimension {{.Name}}"
+render_dimension_unknown:
+  other: "Le monde n'a pas de dimension {{.Name}} ; il a : {{.List}}"

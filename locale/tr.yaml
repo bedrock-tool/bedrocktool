@@ -739,3 +739,42 @@ friend_world_unjoinable:
   other: "{{.Host}} adlı oyuncunun {{.Name}} dünyasına katılınamıyor: {{.Reason}}"
 friend_world_timeout:
   other: "Arkadaşın dünyası seni {{.Seconds}} saniye içinde içeri almadı. Dünya kapatılmış ya da arkadaşlara kapatılmış olabilir."
+# Merged dimensions (-merge-dimensions) and render -dimension
+opt_worlds_merge_dimensions:
+  other: "Tek bir dünyada birleştir"
+desc_worlds_merge_dimensions:
+  other: "İlkinden sonraki her dünyayı ilkinin özel boyutu olarak kaydet; aralarında gezmek için bir paket ekle (Minecraft 1.26.30 veya daha yenisi)"
+worlds_merge_on:
+  other: "İlkinden sonraki dünyalar ona özel boyutlar olarak birleştirilecek"
+worlds_merging_dimension:
+  other: "{{.Name}}, {{.Main}} içine {{.Dimension}} boyutu olarak birleştiriliyor"
+worlds_merged_dimension:
+  other: "{{.Name}}, {{.File}} içine {{.Dimension}} olarak birleştirildi; oraya {{.Command}} ile ışınlan"
+worlds_merge_requirements:
+  other: "Özel boyutlar Minecraft Bedrock 1.26.30 veya daha yenisini gerektirir. Dünyada {{.Command}} onları listeler, {{.Command}} <ad> ışınlar; komut yoksa Beta API'ler deneyini aç"
+worlds_merge_failed:
+  other: "{{.Name}} birleştirilemedi: {{.Err}}"
+dims_pack_description:
+  other: "bedrocktool'un bu dünyaya birleştirdiği dünyalar arasında gezmeni sağlar"
+dims_cmd_desc:
+  other: "Bu dünyada kayıtlı başka bir dünyaya ışınlan veya onları listele"
+dims_list:
+  other: "Bu dünyadaki dünyalar (gitmek için {{.Command}} <ad>):"
+dims_teleported:
+  other: "{{.Name}} konumuna ışınlandın"
+dims_unknown:
+  other: "{{.Name}} adında bir dünya yok."
+dims_not_loaded:
+  other: "{{.Name}} boyutu yüklenmedi: Minecraft 1.26.30 veya daha yenisi (ya da Beta API'ler deneyi) gerekir"
+dims_not_player:
+  other: "Yalnızca bir oyuncu ışınlanabilir"
+dims_teleport_failed:
+  other: "{{.Name}} konumuna ışınlanılamadı:"
+opt_render_dimension:
+  other: "Boyut"
+desc_render_dimension:
+  other: "Çizilecek boyut: overworld, nether, end veya birleştirilmiş bir dünyanın adı (boşsa: chunk içeren ilk boyut)"
+render_dimension:
+  other: "{{.Name}} boyutu çiziliyor"
+render_dimension_unknown:
+  other: "Dünyada {{.Name}} boyutu yok; olanlar: {{.List}}"

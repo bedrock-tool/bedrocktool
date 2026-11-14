@@ -737,3 +737,42 @@ friend_world_unjoinable:
   other: "Can't join {{.Host}}'s world {{.Name}}: {{.Reason}}"
 friend_world_timeout:
   other: "The friend's world didn't let you in within {{.Seconds}} seconds. They may have left it or stopped letting friends join."
+# Merged dimensions (-merge-dimensions) and render -dimension
+opt_worlds_merge_dimensions:
+  other: "Merge into one world"
+desc_worlds_merge_dimensions:
+  other: "Save every world after the first as a custom dimension of the first, with a pack to travel between them (Minecraft 1.26.30 or newer)"
+worlds_merge_on:
+  other: "Worlds after the first will be merged into it as custom dimensions"
+worlds_merging_dimension:
+  other: "Merging {{.Name}} into {{.Main}} as dimension {{.Dimension}}"
+worlds_merged_dimension:
+  other: "Merged {{.Name}} as {{.Dimension}} into {{.File}}; teleport there with {{.Command}}"
+worlds_merge_requirements:
+  other: "Custom dimensions need Minecraft Bedrock 1.26.30 or newer. In the world, {{.Command}} lists them and {{.Command}} <name> teleports; if the command is missing, turn on the Beta APIs experiment"
+worlds_merge_failed:
+  other: "Merging {{.Name}} failed: {{.Err}}"
+dims_pack_description:
+  other: "Lets you travel between the worlds bedrocktool merged into this world"
+dims_cmd_desc:
+  other: "Teleport to another world saved in this one, or list them"
+dims_list:
+  other: "Worlds in this world ({{.Command}} <name> to go there):"
+dims_teleported:
+  other: "Teleported to {{.Name}}"
+dims_unknown:
+  other: "No world called {{.Name}}."
+dims_not_loaded:
+  other: "The dimension {{.Name}} isn't loaded: it needs Minecraft 1.26.30 or newer (or the Beta APIs experiment)"
+dims_not_player:
+  other: "Only a player can be teleported"
+dims_teleport_failed:
+  other: "Couldn't teleport to {{.Name}}:"
+opt_render_dimension:
+  other: "Dimension"
+desc_render_dimension:
+  other: "The dimension to draw: overworld, nether, end, or a merged world's name (the first with chunks if empty)"
+render_dimension:
+  other: "Drawing dimension {{.Name}}"
+render_dimension_unknown:
+  other: "The world has no dimension {{.Name}}; it has: {{.List}}"

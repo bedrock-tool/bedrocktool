@@ -28,6 +28,7 @@ type WorldSettings struct {
 	ScriptPath    string   `opt:"locale.opt_worlds_script" flag:"script" desc:"locale.desc_worlds_script" type:"file,js"`
 	ReplayJoin    bool     `opt:"locale.opt_worlds_replay_join" flag:"replay-join" desc:"locale.desc_worlds_replay_join"`
 	RecordUI      bool     `opt:"locale.opt_worlds_record_ui" flag:"record-ui" default:"false" desc:"locale.desc_worlds_record_ui"`
+	Merge         bool     `opt:"locale.opt_worlds_merge_dimensions" flag:"merge-dimensions" default:"false" desc:"locale.desc_worlds_merge_dimensions"`
 }
 
 // generator is -generator, or flat for the old -void=false.
@@ -91,6 +92,7 @@ func (WorldCMD) Run(ctx context.Context, settings any) error {
 		Players:         worldSettings.Players,
 		MapArt:          worldSettings.MapArt,
 		RecordUI:        worldSettings.RecordUI,
+		MergeDimensions: worldSettings.Merge,
 	}))
 
 	// a replay plays the recorded session back by itself: it doesn't need
