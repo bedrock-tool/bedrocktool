@@ -50,6 +50,7 @@ func main() {
 		}
 	}
 
+	platformInit()
 	setupLogging(utils.IsDebug())
 	log := logrus.WithField("part", "main")
 	ctx, cancel := context.WithCancelCause(context.Background())

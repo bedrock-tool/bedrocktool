@@ -70,6 +70,12 @@ func (p *UpdatePopup) Layout(gtx C, th *material.Theme) D {
 		p.state = stateDownloading
 		go func() {
 			p.err = updater.DoUpdate(p.update)
+			if p.err == nil && !updater.RestartsAfterUpdate {
+				// Android: its installer took over, and restarts the app
+				p.updating = false
+				p.g.ClosePopup(p.ID())
+				return
+			}
 			if p.err == nil {
 				p.state = stateFinished
 				p.err = updater.Restart()

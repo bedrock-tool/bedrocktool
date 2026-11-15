@@ -4,3 +4,7 @@
 [submodule "dragonfly"]
 	path = dragonfly
 	url = https://github.com/bedrock-tool/dragonfly.git
+[submodule "gio-cmd"]
+	path = gio-cmd
+	url = https://github.com/bedrock-tool/gio-cmd.git
+	branch = bedrocktool-android

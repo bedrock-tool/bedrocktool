@@ -63,6 +63,8 @@ type Page struct {
 	// another mode can replace it, but not one typed in.
 	filledAddress string
 	closePopup    *component.ScrimStyle
+
+	platform settingsPlatform
 }
 
 func New(g guim.Guim) pages.Page {
@@ -301,6 +303,7 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 								})
 							}))
 						}
+						children = append(children, p.platformCards(th)...)
 						return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
 					})
 					d.Size.Y = gtx.Constraints.Max.Y

@@ -25,6 +25,9 @@ type logger struct {
 
 	clickCopyLogs widget.Clickable
 	clickClose    widget.Clickable
+
+	// platform holds the state of the platform's extra buttons (logger_*.go)
+	platform loggerPlatform
 }
 
 type C = layout.Context
@@ -78,6 +81,7 @@ func (l *logger) Layout(gtx C, th *material.Theme) D {
 							return layout.Flex{
 								Axis: layout.Horizontal,
 							}.Layout(gtx,
+								layout.Rigid(func(gtx C) D { return l.platformButtons(gtx, th) }),
 								layout.Rigid(material.Button(th, &l.clickCopyLogs, locale.Loc("gui_copy_logs", nil)).Layout),
 								layout.Rigid(layout.Spacer{Width: 8}.Layout),
 								layout.Rigid(material.Button(th, &l.clickClose, locale.Loc("gui_close", nil)).Layout),
