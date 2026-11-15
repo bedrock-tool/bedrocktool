@@ -17,6 +17,7 @@ import (
 	"github.com/bedrock-tool/bedrocktool/utils/proxy/resourcepacks"
 	"github.com/klauspost/compress/s2"
 	"github.com/sandertv/gophertunnel/minecraft"
+	"github.com/sandertv/gophertunnel/minecraft/protocol"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
 	"github.com/sirupsen/logrus"
 )
@@ -154,6 +155,9 @@ func (r *Pcap2Reader) ReadPacket(skip bool) (pk packet.Packet, toServer bool, re
 		if err != nil {
 			return nil, toServer, receivedTime, err
 		}
+		if err := checkProtocol(pkData.Header.PacketID, pkData.Payload()); err != nil {
+			return nil, toServer, receivedTime, err
+		}
 		r.PacketFunc(*pkData.Header, pkData.Payload(), src, dst, receivedTime)
 
 		pks, err := pkData.Decode(r.pool, r.protocol, nil, false, false, r.shieldID.Load())
@@ -172,6 +176,35 @@ func (r *Pcap2Reader) ReadPacket(skip bool) (pk packet.Packet, toServer bool, re
 	}
 
 	return pk, toServer, receivedTime, nil
+}
+
+// ErrWrongProtocol is returned when a capture was recorded with a different
+// Minecraft protocol than this build of bedrocktool reads. A protocol is tied
+// to one Minecraft version, and a build only reads its own: the capture can be
+// replayed with a bedrocktool built for the version it was recorded with.
+type ErrWrongProtocol struct {
+	Protocol int32
+}
+
+func (e ErrWrongProtocol) Error() string {
+	return locale.Loc("replay_wrong_protocol", locale.Strmap{
+		"Protocol":        e.Protocol,
+		"CurrentProtocol": protocol.CurrentProtocol,
+		"CurrentVersion":  protocol.CurrentVersion,
+	})
+}
+
+// checkProtocol stops the replay at the client's RequestNetworkSettings when
+// it was sent by another protocol: every packet after it would decode wrongly.
+func checkProtocol(id uint32, payload []byte) error {
+	if id != packet.IDRequestNetworkSettings || len(payload) < 4 {
+		return nil
+	}
+	recorded := int32(binary.BigEndian.Uint32(payload))
+	if recorded != protocol.CurrentProtocol {
+		return ErrWrongProtocol{Protocol: recorded}
+	}
+	return nil
 }
 
 func (r *Pcap2Reader) Seek(packet int) error {

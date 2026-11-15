@@ -298,9 +298,14 @@ func ResolveColors(entries []protocol.BlockEntry, packs []resource.Pack) map[str
 	var blockPacks []resource.Pack
 	var merged mergedFS
 	for _, pack := range packs {
+		// An encrypted pack without its key reads as ciphertext.
+		if pack.Encrypted() && !pack.CanRead() {
+			log.WithField("pack", pack.Name()).Debug("encrypted, no block colours from it")
+			continue
+		}
 		blocksJson, err := readBlocksJson(pack)
 		if err != nil {
-			logrus.Error(err)
+			log.WithField("pack", pack.Name()).Errorf("blocks.json: %s", err)
 		}
 
 		for block, name := range blocksJson {
@@ -316,7 +321,7 @@ func ResolveColors(entries []protocol.BlockEntry, packs []resource.Pack) map[str
 	for _, pack := range blockPacks {
 		err := processPack(pack, &merged, textureNames)
 		if err != nil {
-			log.Warn(err)
+			log.WithField("pack", pack.Name()).Warn(err)
 		}
 	}
 

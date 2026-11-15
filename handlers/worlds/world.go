@@ -7,6 +7,7 @@ import (
 	"image/png"
 	"maps"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -59,6 +60,13 @@ type serverState struct {
 
 	biomes *world.BiomeRegistry
 	blocks world.BlockRegistry
+	// diskBlocks is blocks, saving the states the behavior pack adds
+	// (cardinal rotation). Chunks from the server are decoded with it, as
+	// a chunk is written to disk with the registry it was decoded with.
+	diskBlocks world.BlockRegistry
+	// formImages is the recorded forms' URL images (url -> texture path)
+	// when the menu recorder's script was last put in the pack.
+	formImages map[string]string
 
 	behaviorPack *behaviourpack.Pack
 	resourcePack *resourcepack.Pack
@@ -182,7 +190,6 @@ func (w *worldsHandler) onSessionStart(session *proxy.Session, serverName string
 		playerSkins:          make(map[uuid.UUID]*protocol.Skin),
 		playerXUIDs:          make(map[uuid.UUID]string),
 		scriptPlayerKeep:     make(map[uuid.UUID]bool),
-		isHive:               isHiveServer(session.ServerAddress(), serverName),
 		knownMaps:            make(map[int64]*worldstate.Map),
 		requestedMaps:        make(map[int64]struct{}),
 		biomes:               world.DefaultBiomes.Clone(),
@@ -197,10 +204,6 @@ func (w *worldsHandler) onSessionStart(session *proxy.Session, serverName string
 	}
 
 	w.mapUI = NewMapUI(w)
-	if w.serverState.isHive {
-		w.log.Info(locale.Loc("worlds_hive_detected", nil))
-	}
-
 	w.uiRecorder = nil
 	if w.settings.RecordUI {
 		w.uiRecorder = uirecord.New(w.entityInfo)
@@ -367,23 +370,34 @@ func (w *worldsHandler) SaveAndReset(end bool, dim world.Dimension) {
 	if len(worldState.StoredChunks) > 0 {
 		// save image of the map
 		if w.settings.SaveImage {
-			f, _ := os.Create(worldState.Folder + ".png")
-			png.Encode(f, w.mapUI.ToImage())
-			f.Close()
+			if err := w.saveMapImage(worldState.Folder + ".png"); err != nil {
+				w.log.Errorf("map image: %s", err)
+			}
 		}
 
 		// reset map, increase counter for
 		w.serverState.worldCounter += 1
 		w.mapUI.Reset()
 
+		if w.uiRecorder != nil {
+			// this world's scoreboard, shown in its dimension of the saved world
+			dimension := ""
+			if m := w.serverState.merge; m != nil {
+				dimension = m.scoreboardDimension(worldState.Name)
+			}
+			w.uiRecorder.FinishWorld(dimension)
+		}
 		if w.uiRecorder != nil && w.uiRecorder.HasContent() {
 			w.serverState.behaviorPack.SetScript(w.uiRecorder.Script())
+			w.serverState.formImages = w.uiRecorder.Images()
 		}
 
 		// taken now: the packet loop keeps changing these while it saves
 		keepPlayer := w.keepPlayer()
 		playerSkins := make(map[uuid.UUID]*protocol.Skin)
 		maps.Copy(playerSkins, w.serverState.playerSkins)
+		xuids := maps.Clone(w.serverState.playerXUIDs)
+		npcPlayer := func(id uuid.UUID) bool { return isNPCPlayer(xuids, id) }
 
 		// merged worlds are saved one after another, in order
 		var prev, done chan struct{}
@@ -398,7 +412,7 @@ func (w *worldsHandler) SaveAndReset(end bool, dim world.Dimension) {
 			if done != nil {
 				defer close(done)
 			}
-			err := w.saveWorldState(worldState, w.session.Player, w.serverState.behaviorPack, keepPlayer, playerSkins, prev)
+			err := w.saveWorldState(worldState, w.session.Player, w.serverState.behaviorPack, keepPlayer, npcPlayer, playerSkins, prev)
 			if err != nil {
 				w.log.Error(err)
 			}
@@ -418,7 +432,7 @@ func (w *worldsHandler) SaveAndReset(end bool, dim world.Dimension) {
 	}
 }
 
-func (w *worldsHandler) saveWorldState(worldState *worldstate.World, player proxy.Player, behaviorPack *behaviourpack.Pack, keepPlayer func(uuid.UUID) bool, playerSkins map[uuid.UUID]*protocol.Skin, prevSave <-chan struct{}) error {
+func (w *worldsHandler) saveWorldState(worldState *worldstate.World, player proxy.Player, behaviorPack *behaviourpack.Pack, keepPlayer, npcPlayer func(uuid.UUID) bool, playerSkins map[uuid.UUID]*protocol.Skin, prevSave <-chan struct{}) error {
 	text := locale.Locm("saving_world", locale.Strmap{"Name": worldState.Name}, len(worldState.StoredChunks))
 	w.log.Info(text)
 	w.session.SendMessage(text)
@@ -434,9 +448,11 @@ func (w *worldsHandler) saveWorldState(worldState *worldstate.World, player prox
 		w.settings.ExcludedMobs,
 		worldstate.SaveOptions{
 			KeepPlayer:  keepPlayer,
+			NPCPlayer:   npcPlayer,
 			PlayerSkins: playerSkins,
 			Hive:        w.serverState.isHive,
 			KnownMaps:   w.knownMapsSnapshot(),
+			FormImages:  w.serverState.formImages,
 		},
 		w.session.Server.GameData(), w.serverState.serverName,
 		w.settings.EntityCulling,
@@ -529,13 +545,10 @@ func (w *worldsHandler) openWorldState() {
 
 	w.worldState.BiomeRegistry = w.serverState.biomes
 	w.worldState.BlockRegistry = w.serverState.blocks
+	w.worldState.AddedBlockStates = w.serverState.behaviorPack.AddedBlockStates()
 	w.worldState.ResourcePacks = w.session.Server.ResourcePacks()
 	w.worldState.UseHashedRids = w.serverState.useHashedRids
 	w.worldState.OnMapSeen = w.onMapSeen
-	if !w.serverState.isHive && hasHivePacks(w.worldState.ResourcePacks) {
-		w.serverState.isHive = true
-		w.log.Info(locale.Loc("worlds_hive_detected_packs", nil))
-	}
 	w.worldState.Open(w.defaultWorldName(), folder)
 }
 
@@ -564,6 +577,34 @@ func (w *worldsHandler) entityInfo(rid uint64) (typeID, nameTag string, ok bool)
 			}
 			return nil
 		})
+		// A player (Hive's NPCs are players) is saved as an entity of its
+		// own type, which the saved world's menus are opened from.
+		if ok && typeID == worldstate.PlayerEntityType {
+			if id, found := world.PlayerUUID(rid); found {
+				typeID = worldstate.PlayerEntityID(id)
+			}
+		}
 	})
 	return
+}
+
+// saveMapImage writes the in-game map of the world being saved as a PNG.
+func (w *worldsHandler) saveMapImage(filename string) error {
+	img := w.mapUI.ToImage()
+	if img == nil {
+		return fmt.Errorf("no map image for %s", filename)
+	}
+	// The first worlds are saved before anything else made their folder.
+	if err := os.MkdirAll(filepath.Dir(filename), 0o777); err != nil {
+		return err
+	}
+	f, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	if err := png.Encode(f, img); err != nil {
+		f.Close()
+		return err
+	}
+	return f.Close()
 }

@@ -44,7 +44,9 @@ type Page struct {
 	finishedWorlds     []*savedWorld
 	finishedWorldsList widget.List
 	processingWorlds   []*processingWorld
-	haveConnected      bool
+	// processingList scrolls the cards of the worlds being saved
+	processingList layout.List
+	haveConnected  bool
 
 	State     messages.UIState
 	worldName string
@@ -231,6 +233,12 @@ func (p *Page) layoutFinished(gtx C, th *material.Theme) D {
 	// the folder every saved world is in, if they share one
 	p.finishedWorldsMu.Lock()
 	dir := ""
+	// several .mcworld files: the worlds weren't merged into one
+	files := make(map[string]bool)
+	for _, w := range p.finishedWorlds {
+		files[w.Filepath] = true
+	}
+	separate := len(files) > 1
 	for i, w := range p.finishedWorlds {
 		d := filepath.Dir(w.Filepath)
 		if i == 0 {
@@ -258,6 +266,20 @@ func (p *Page) layoutFinished(gtx C, th *material.Theme) D {
 								l.Color = muted(th)
 								l.MaxLines = 1
 								return layout.Inset{Top: 2}.Layout(gtx, l.Layout)
+							}),
+							// point out that they can be one world
+							layout.Rigid(func(gtx C) D {
+								if !separate {
+									return D{}
+								}
+								return layout.Inset{Top: 8}.Layout(gtx, func(gtx C) D {
+									return card(gtx, th, func(gtx C) D {
+										gtx.Constraints.Min.X = gtx.Constraints.Max.X
+										l := material.Body2(th, locale.Loc("gui_worlds_merge_tip", nil))
+										l.Color = th.ContrastBg
+										return l.Layout(gtx)
+									})
+								})
 							}),
 						)
 					})
@@ -332,27 +354,54 @@ func (p *Page) Layout(gtx C, th *material.Theme) D {
 				return D{}
 			}
 			gtx.Constraints.Min = gtx.Constraints.Max
-			return layout.Center.Layout(gtx, func(gtx C) D {
-				gtx.Constraints.Max.X = min(gtx.Constraints.Max.X-gtx.Dp(32), gtx.Dp(420))
-				gtx.Constraints.Min.X = gtx.Constraints.Max.X
-				var children []layout.FlexChild
-				for _, entry := range processing {
-					children = append(children, layout.Rigid(func(gtx C) D {
-						return layout.Inset{Bottom: 10}.Layout(gtx, func(gtx C) D {
-							// opaque, so the map doesn't show through
-							return layout.Background{}.Layout(gtx,
-								func(gtx C) D {
-									return component.Rect{Color: th.Bg, Size: gtx.Constraints.Min, Radii: gtx.Dp(popups.Radius)}.Layout(gtx)
-								},
-								func(gtx C) D { return displayWorldProcessing(gtx, th, entry) },
-							)
-						})
-					}))
-				}
-				return layout.Flex{Axis: layout.Vertical}.Layout(gtx, children...)
-			})
+			// cover what's behind, so it doesn't show between the cards
+			component.Rect{Color: th.Bg, Size: gtx.Constraints.Max}.Layout(gtx)
+			return p.layoutProcessing(gtx, th, processing)
 		}),
 	)
+}
+
+// layoutProcessing shows the worlds being saved in a grid: as many cards a
+// row as fit, in a list that scrolls when they don't all fit the window.
+func (p *Page) layoutProcessing(gtx C, th *material.Theme, processing []*processingWorld) D {
+	gap := gtx.Dp(10)
+	avail := gtx.Constraints.Max.X - gtx.Dp(32)
+	cols := max(1, min(len(processing), (avail+gap)/(gtx.Dp(180)+gap)))
+	cardW := max(1, min(gtx.Dp(420), (avail-gap*(cols-1))/cols))
+	rows := (len(processing) + cols - 1) / cols
+	width := cardW*cols + gap*(cols-1)
+
+	return layout.Center.Layout(gtx, func(gtx C) D {
+		gtx.Constraints.Min.X, gtx.Constraints.Max.X = width, width
+		gtx.Constraints.Min.Y = 0
+		p.processingList.Axis = layout.Vertical
+		return p.processingList.Layout(gtx, rows, func(gtx C, row int) D {
+			var children []layout.FlexChild
+			for c := range cols {
+				i := row*cols + c
+				if i >= len(processing) {
+					break
+				}
+				if c > 0 {
+					children = append(children, layout.Rigid(layout.Spacer{Width: 10}.Layout))
+				}
+				entry := processing[i]
+				children = append(children, layout.Rigid(func(gtx C) D {
+					gtx.Constraints.Min.X, gtx.Constraints.Max.X = cardW, cardW
+					return layout.Inset{Bottom: 10}.Layout(gtx, func(gtx C) D {
+						// opaque, so the map doesn't show through
+						return layout.Background{}.Layout(gtx,
+							func(gtx C) D {
+								return component.Rect{Color: th.Bg, Size: gtx.Constraints.Min, Radii: gtx.Dp(popups.Radius)}.Layout(gtx)
+							},
+							func(gtx C) D { return displayWorldProcessing(gtx, th, entry) },
+						)
+					})
+				}))
+			}
+			return layout.Flex{Axis: layout.Horizontal}.Layout(gtx, children...)
+		})
+	})
 }
 
 func (p *Page) HaveFinishScreen() bool {

@@ -28,6 +28,11 @@ type ReplayConnector struct {
 
 	expectedIDs     atomic.Value
 	deferredPackets []packet.Packet
+	// deferredToServer is, for each deferred packet, whether the recorded
+	// player's game sent it.
+	deferredToServer []bool
+	// lastToServer is whether the packet last read was the player's.
+	lastToServer bool
 
 	clientData login.ClientData
 	gameData   minecraft.GameData
@@ -132,7 +137,7 @@ func (r *ReplayConnector) handleLoginSequence(pk packet.Packet) (bool, bool, err
 func (r *ReplayConnector) ReadUntilLogin() error {
 	gameStarted := false
 	for !gameStarted {
-		pk, _, timeReceived, err := r.reader.ReadPacket(false)
+		pk, toServer, timeReceived, err := r.reader.ReadPacket(false)
 		if err != nil {
 			return err
 		}
@@ -145,6 +150,7 @@ func (r *ReplayConnector) ReadUntilLogin() error {
 		}
 		if !handled {
 			r.deferredPackets = append(r.deferredPackets, pk)
+			r.deferredToServer = append(r.deferredToServer, toServer)
 		}
 	}
 	return nil
@@ -233,7 +239,9 @@ func (r *ReplayConnector) ReadPacketWithTime() (pk packet.Packet, receivedAt tim
 
 	if len(r.deferredPackets) > 0 {
 		pk = r.deferredPackets[0]
+		r.lastToServer = r.deferredToServer[0]
 		r.deferredPackets = r.deferredPackets[1:]
+		r.deferredToServer = r.deferredToServer[1:]
 		receivedAt = time.Now() // fixme
 		return
 	}
@@ -242,8 +250,17 @@ func (r *ReplayConnector) ReadPacketWithTime() (pk packet.Packet, receivedAt tim
 	if err != nil {
 		return nil, time.Time{}, err
 	}
-	_ = toServer // proxy puts both from client and from server packets into the same callback so doesnt matter
+	r.lastToServer = toServer
 	return pk, receivedTime, nil
+}
+
+// LastPacketToServer says whether the packet ReadPacketWithTime last
+// returned was sent by the recorded player's game rather than the server.
+// A capture holds both, and handlers tell them apart: the menu recorder
+// learns what opened a menu from the player's item use, entity interaction
+// and form response.
+func (r *ReplayConnector) LastPacketToServer() bool {
+	return r.lastToServer
 }
 
 func (r *ReplayConnector) ReadPacket() (pk packet.Packet, err error) {

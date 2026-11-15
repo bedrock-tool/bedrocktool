@@ -144,6 +144,12 @@ func (bp *Pack) AddEntity(EntityType string, attr []protocol.AttributeValue, met
 		"has_gravity":   false,
 	}
 
+	// Saved entities are props of the world: nothing hurts or kills them
+	// (Hive's hive:text is the same).
+	entry.MinecraftEntity.Components["minecraft:damage_sensor"] = map[string]any{
+		"triggers": []any{map[string]any{"cause": "all", "deals_damage": "no"}},
+	}
+
 	entry.MinecraftEntity.Components["minecraft:is_stackable"] = map[string]any{}
 	entry.MinecraftEntity.Components["minecraft:push_through"] = 1
 

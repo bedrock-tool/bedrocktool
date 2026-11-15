@@ -390,9 +390,9 @@ opt_proxy_client_cache:
 desc_proxy_client_cache:
   other: "Laisser Minecraft mettre les chunks en cache pour qu'ils chargent plus vite"
 opt_proxy_listen:
-  other: "Adresse d'écoute"
+  other: "Adresse du proxy"
 desc_proxy_listen:
-  other: "Où Minecraft rejoint le proxy, ex. :19133 pour un autre port"
+  other: "Où Minecraft se connecte au proxy, ex. :19133 pour un autre port"
 opt_skins_filter:
   other: "Filtre de nom"
 desc_skins_filter:
@@ -505,6 +505,8 @@ replay_reading:
   other: "Lecture du replay {{.File}}"
 replay_end:
   other: "Fin du replay atteinte"
+replay_wrong_protocol:
+  other: "Cet enregistrement a été fait avec le protocole Minecraft {{.Protocol}}, mais ce bedrocktool ne lit que le protocole {{.CurrentProtocol}} (Minecraft {{.CurrentVersion}}). Un enregistrement ne se rejoue que dans un bedrocktool pour la version de Minecraft où il a été fait : utilisez la version de bedrocktool de cette époque."
 disconnecting:
   other: "Déconnexion"
 client_connected:
@@ -563,8 +565,6 @@ skin_geometry_write_failed:
 # Worlds
 worlds_hive_detected:
   other: "The Hive : les moutons sont enregistrés en hive:text, et ses joueurs PNJ sont conservés"
-worlds_hive_detected_packs:
-  other: "The Hive (d'après ses packs de ressources) : les moutons sont enregistrés en hive:text, et ses joueurs PNJ sont conservés"
 worlds_recording_ui:
   other: "Enregistrement des menus et tableaux de score dans le script du pack de comportement"
 worlds_excluding:
@@ -648,13 +648,13 @@ capture_confirm_title:
 capture_confirm_body:
   other: "L'enregistrement .pcap2 contient chaque paquet envoyé par le serveur pendant la session."
 capture_confirm_detail:
-  other: "Grâce à lui, le monde peut être réenregistré à tout moment sans retourner sur le serveur : avec d'autres paramètres, ou avec une future version de bedrocktool qui corrige des bugs ou ajoute des fonctions. Sans lui, ce qui manque est perdu pour de bon."
+  other: "Grâce à lui, le monde peut être réenregistré à tout moment sans retourner sur le serveur : avec d'autres paramètres, ou avec une mise à jour de bedrocktool qui corrige des bugs. Un enregistrement ne se rejoue que dans un bedrocktool pour la même version de Minecraft que celle où il a été fait, alors gardez aussi ce bedrocktool. Sans lui, ce qui manque est perdu pour de bon."
 capture_confirm_keep:
   other: "Continuer l'enregistrement"
 capture_confirm_off:
   other: "Désactiver quand même (ne plus afficher !)"
 capture_off_warning:
-  other: "L'enregistrement de la session est désactivé (-capture=false) : il n'y aura pas de .pcap2 pour réenregistrer ce monde plus tard, avec d'autres paramètres ou un bedrocktool plus récent"
+  other: "L'enregistrement de la session est désactivé (-capture=false) : il n'y aura pas de .pcap2 pour réenregistrer ce monde plus tard, avec d'autres paramètres ou une mise à jour de bedrocktool pour cette version de Minecraft"
 anti_cheat_notice:
   other: "Une remarque avant de te connecter : sur les serveurs à anti-triche strict (Cubecraft et The Hive sont des cas connus), utiliser bedrocktool peut, dans de rares cas, faire signaler ou bannir le compte. Il se connecte via gophertunnel, qui ne se déplace pas et n'envoie pas les entrées exactement comme le vrai jeu, donc certains anti-triche peuvent le repérer. Pour ces serveurs, utilise un compte secondaire ; les Realms, tes propres mondes et la plupart des serveurs ne posent aucun problème."
 gui_auth_title:
@@ -700,7 +700,7 @@ gui_remove:
 recent_title:
   other: "Serveurs récents"
 recent_empty:
-  other: "Les serveurs avec lesquels tu démarres apparaissent ici"
+  other: "Les serveurs que tu lances apparaissent ici"
 recent_kind_realm:
   other: "Realm"
 recent_kind_experience:
@@ -749,9 +749,11 @@ friend_world_timeout:
   other: "Le monde de l'ami ne t'a pas laissé entrer en {{.Seconds}} secondes. La partie a peut-être été quittée ou n'est plus ouverte aux amis."
 # Merged dimensions (-merge-dimensions) and render -dimension
 opt_worlds_merge_dimensions:
-  other: "Fusionner en un seul monde"
+  other: "Fusionner tous les mondes en un"
 desc_worlds_merge_dimensions:
-  other: "Enregistrer chaque monde après le premier comme une dimension personnalisée du premier, avec un pack pour voyager entre eux (Minecraft 1.26.30 ou plus récent)"
+  other: "Quand le serveur t'envoie dans d'autres mondes (lobbies, cartes de jeu), les enregistre tous comme un seul monde avec des dimensions personnalisées au lieu de fichiers séparés world-1, world-2… (Minecraft 1.26.30 ou plus récent)"
+gui_worlds_merge_tip:
+  other: "Ils ont été enregistrés comme mondes séparés. Active « Fusionner tous les mondes en un » dans les paramètres pour les avoir en un seul monde avec des dimensions personnalisées, ou rejoue l'enregistrement avec cette option."
 worlds_merge_on:
   other: "Les mondes après le premier y seront fusionnés comme dimensions personnalisées"
 worlds_merging_dimension:

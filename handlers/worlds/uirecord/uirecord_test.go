@@ -88,3 +88,40 @@ func TestFormOpenedLateIsUntriggered(t *testing.T) {
 		t.Fatalf("a form long after the item use shouldn't be tied to it: %v", r.items)
 	}
 }
+
+// Hive's NPCs open their menus on a hit; its invisible sheep hitboxes
+// aren't saved, so no menu is tied to unnamed sheep.
+func TestHitTriggers(t *testing.T) {
+	r := New(func(rid uint64) (string, string, bool) {
+		switch rid {
+		case 1:
+			return "hivehub:npc_questmaster", "§dQuest Master", true
+		case 2:
+			return "minecraft:sheep", "", true
+		}
+		return "", "", false
+	})
+	now := time.Now()
+	step := func() time.Time { now = now.Add(200 * time.Millisecond); return now }
+	hit := func(rid uint64) {
+		r.OnPacket(&packet.InventoryTransaction{TransactionData: &protocol.UseItemOnEntityTransactionData{
+			TargetEntityRuntimeID: rid,
+			ActionType:            protocol.UseItemOnEntityActionAttack,
+		}}, true, step())
+	}
+
+	hit(1)
+	r.OnPacket(&packet.ModalFormRequest{FormID: 1, FormData: []byte(`{"type":"form","title":"Pick Quest","content":"","buttons":[]}`)}, false, step())
+	hit(2)
+	r.OnPacket(&packet.ModalFormRequest{FormID: 2, FormData: []byte(`{"type":"form","title":"Store§m§0","content":"","buttons":[]}`)}, false, step())
+
+	if r.entities["hivehub:npc_questmaster|§dQuest Master"] != r.formIDs[1] {
+		t.Errorf("hit NPC trigger: %v", r.entities)
+	}
+	if _, ok := r.entities["minecraft:sheep|"]; ok {
+		t.Errorf("unnamed sheep opens a menu: %v", r.entities)
+	}
+	if !strings.Contains(r.Script(), "entityHitEntity") {
+		t.Error("script doesn't open menus on hits")
+	}
+}

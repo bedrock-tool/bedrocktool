@@ -51,7 +51,10 @@ type World struct {
 	ChunkFunc func(pos world.ChunkPos, ch *chunk.Chunk)
 
 	BlockRegistry world.BlockRegistry
-	BiomeRegistry *world.BiomeRegistry
+	// AddedBlockStates is the states the behavior pack gives blocks on top
+	// of the server's, saved with each such block (see withAddedStates).
+	AddedBlockStates map[string]map[string]any
+	BiomeRegistry    *world.BiomeRegistry
 
 	dimension            world.Dimension
 	dimRange             cube.Range
@@ -155,7 +158,7 @@ func (w *World) storeMemToProvider() error {
 			LDBOptions: &opt.Options{
 				Compression: opt.DefaultCompression,
 			},
-			Blocks: w.BlockRegistry,
+			Blocks: WithAddedStates(w.BlockRegistry, w.AddedBlockStates),
 		}.Open(w.Folder)
 		if err != nil {
 			return err
@@ -401,6 +404,17 @@ func (w *World) PlayerMove(playerPos mgl32.Vec3, entityRenderDistance float32, t
 	}
 }
 
+// KeepRemovedSince takes entities the server removed since t as still in
+// the world, so entity culling keeps them: when we leave a world, the
+// server removes everything in it, wherever it was.
+func (w *World) KeepRemovedSince(t time.Time) {
+	for _, ent := range w.memState.entities {
+		if ent.DeletedDistance > 0 && !ent.DeletedAt.Before(t) {
+			ent.DeletedDistance = -1
+		}
+	}
+}
+
 func entityCull(ent *entity.Entity, entityRenderDistance float32, diffOut *float32) bool {
 	if ent.DeletedDistance > 0 && entityRenderDistance != 0 {
 		diff := math.Abs(float64(ent.DeletedDistance - entityRenderDistance))
@@ -499,7 +513,7 @@ func (w *World) Rename(name, folder string) error {
 			LDBOptions: &opt.Options{
 				Compression: opt.DefaultCompression,
 			},
-			Blocks: w.BlockRegistry,
+			Blocks: WithAddedStates(w.BlockRegistry, w.AddedBlockStates),
 		}.Open(folder)
 		if err != nil {
 			return err
@@ -517,19 +531,25 @@ var errFinished = errors.New("finished")
 type SaveOptions struct {
 	// KeepPlayer says which other players are saved (as entities drawn with
 	// their skins); nil saves none.
-	KeepPlayer  func(uuid.UUID) bool
+	KeepPlayer func(uuid.UUID) bool
+	// NPCPlayer says which players the server made up (Hive's NPCs): they
+	// stand where they were put, without gravity, so they don't fall.
+	NPCPlayer   func(uuid.UUID) bool
 	PlayerSkins map[uuid.UUID]*protocol.Skin
 	// Hive turns sheep into hive:text, as Hive's pack does.
 	Hive bool
 	// KnownMaps are maps received while earlier worlds were captured, added
 	// when this world's item frames or containers hold them.
 	KnownMaps map[int64]*Map
+	// FormImages are the images recorded forms show from URLs, by URL,
+	// with the texture path the pack's script shows each from.
+	FormImages map[string]string
 }
 
 // playerNPCComponents make a saved player like the game's player, without
 // moving on its own: its family (so player-only seats and filters take
 // it), its name always shown, hidden when invisible, gravity and collision,
-// and 20 health it can lose.
+// and 20 health it can lose. NPC players get npcPlayerComponents instead.
 var playerNPCComponents = map[string]any{
 	"minecraft:type_family":              map[string]any{"family": []string{"player", "bedrocktool_player"}},
 	"minecraft:nameable":                 map[string]any{"always_show": true, "allow_name_tag_renaming": false},
@@ -538,6 +558,15 @@ var playerNPCComponents = map[string]any{
 	"minecraft:health":                   map[string]any{"value": 20, "max": 20},
 	"minecraft:persistent":               map[string]any{},
 }
+
+// npcPlayerComponents are playerNPCComponents for a player the server made
+// up (Hive's NPCs): no gravity, so one placed in the air (on a ledge, in a
+// car) stays where the server had it instead of falling.
+var npcPlayerComponents = func() map[string]any {
+	c := maps.Clone(playerNPCComponents)
+	c["minecraft:physics"] = map[string]any{"has_gravity": false, "has_collision": true}
+	return c
+}()
 
 func (w *World) Save(
 	player proxy.Player, playerData map[string]any,
@@ -583,7 +612,11 @@ func (w *World) Save(
 		var playerEntities []resourcepack.EntityPlayer
 		for _, p := range players {
 			behaviorPack.AddEntity(p.Identifier, nil, p.Metadata, nil)
-			behaviorPack.AddComponents(p.Identifier, playerNPCComponents)
+			components := playerNPCComponents
+			if opts.NPCPlayer != nil && opts.NPCPlayer(p.UUID) {
+				components = npcPlayerComponents
+			}
+			behaviorPack.AddComponents(p.Identifier, components)
 			playerEntities = append(playerEntities, p.EntityPlayer)
 		}
 		w.log.Info(locale.Locm("worlds_saving_players", nil, len(players)))
@@ -595,6 +628,25 @@ func (w *World) Save(
 		if err != nil {
 			return err
 		}
+	}
+
+	// Images the recorded forms show from URLs, at the texture paths the
+	// pack's script shows them from, in a pack of their own: every world of
+	// a session has the same menus, so merged worlds share one copy.
+	var formImagePack *resourcepack.Pack
+	if len(opts.FormImages) > 0 {
+		files := fetchFormImages(context.Background(), opts.FormImages, w.log)
+		if len(files) > 0 {
+			formImagePack = resourcepack.New()
+			h := &formImagePack.Manifest.Header
+			h.Name = "bedrocktool form images"
+			h.Description = "Images the server's menus showed, for the recorded menus"
+			h.UUID = uuid.MustParse(utils.RandSeededUUID(serverName + "_form_images"))
+			formImagePack.Manifest.Modules[0].UUID = utils.RandSeededUUID(serverName + "_form_images_module")
+			formImagePack.Manifest.Modules[0].Description = h.Description
+			maps.Copy(formImagePack.Files, files)
+		}
+		w.log.Infof("form images: %d of %d saved", len(files), len(opts.FormImages))
 	}
 
 	err := w.finalizeProvider(
@@ -637,6 +689,16 @@ func (w *World) Save(
 			headers = append(headers, addedPack{
 				BehaviorPack: false,
 				Header:       &playerResourcePack.Manifest.Header,
+			})
+		}
+
+		if formImagePack != nil {
+			if err := formImagePack.WriteToFS(utils.SubFS(fs, path.Join("resource_packs", "bedrocktool_forms"))); err != nil {
+				return nil, err
+			}
+			headers = append(headers, addedPack{
+				BehaviorPack: false,
+				Header:       &formImagePack.Manifest.Header,
 			})
 		}
 
@@ -831,6 +893,10 @@ func (w *World) finalizeProvider(
 	}
 
 	applyGenerator(ld, w.Generator)
+	if w.Generator == GeneratorVoid {
+		// No mobs spawning into a void world, whatever the server had.
+		ld.DoMobSpawning = false
+	}
 
 	ld.RandomTickSpeed = 0
 	s.CurrentTick = gd.Time
@@ -841,9 +907,6 @@ func (w *World) finalizeProvider(
 		s.Time += ticksSince
 		s.TimeCycle = true
 	}
-
-	// No mobs spawning into a saved map, whatever the server had.
-	ld.DoMobSpawning = false
 
 	if experimental {
 		if ld.Experiments == nil {

@@ -505,6 +505,8 @@ replay_reading:
   other: "Lendo o replay {{.File}}"
 replay_end:
   other: "Chegou ao fim do replay"
+replay_wrong_protocol:
+  other: "Esta gravação foi feita com o protocolo {{.Protocol}} do Minecraft, mas este bedrocktool só lê o protocolo {{.CurrentProtocol}} (Minecraft {{.CurrentVersion}}). Uma gravação só é reproduzida num bedrocktool para a versão do Minecraft em que foi feita: use a versão do bedrocktool daquela época."
 disconnecting:
   other: "Desconectando"
 client_connected:
@@ -563,8 +565,6 @@ skin_geometry_write_failed:
 # Worlds
 worlds_hive_detected:
   other: "The Hive: as ovelhas são salvas como hive:text, e os jogadores NPC são mantidos"
-worlds_hive_detected_packs:
-  other: "The Hive (pelos pacotes de recursos): as ovelhas são salvas como hive:text, e os jogadores NPC são mantidos"
 worlds_recording_ui:
   other: "Gravando menus e placares no script do pacote de comportamento"
 worlds_excluding:
@@ -648,13 +648,13 @@ capture_confirm_title:
 capture_confirm_body:
   other: "A gravação .pcap2 guarda cada pacote que o servidor enviou durante a sessão."
 capture_confirm_detail:
-  other: "Com ela, o mundo pode ser salvo de novo a qualquer momento sem voltar ao servidor: com outras configurações, ou com uma versão futura do bedrocktool que corrija bugs ou traga novidades. Sem ela, o que faltar se perde para sempre."
+  other: "Com ela, o mundo pode ser salvo de novo a qualquer momento sem voltar ao servidor: com outras configurações, ou com uma atualização do bedrocktool que corrija bugs. Uma gravação só é reproduzida num bedrocktool para a mesma versão do Minecraft em que foi feita, então guarde esse bedrocktool também. Sem ela, o que faltar se perde para sempre."
 capture_confirm_keep:
   other: "Continuar gravando"
 capture_confirm_off:
   other: "Desligar mesmo assim (não mostrar de novo!)"
 capture_off_warning:
-  other: "A gravação da sessão está desligada (-capture=false): não haverá um .pcap2 para salvar este mundo de novo depois, com outras configurações ou um bedrocktool mais novo"
+  other: "A gravação da sessão está desligada (-capture=false): não haverá um .pcap2 para salvar este mundo de novo depois, com outras configurações ou uma atualização do bedrocktool para esta versão do Minecraft"
 anti_cheat_notice:
   other: "Um aviso antes de entrar: em servidores com anticheat rigoroso (Cubecraft e The Hive são casos conhecidos), usar o bedrocktool pode, em casos raros, fazer a conta ser marcada ou banida. Ele se conecta pelo gophertunnel, que não se move nem envia comandos exatamente como o jogo de verdade, então alguns anticheats conseguem perceber. Nesses servidores, use uma conta secundária; Realms, seus próprios mundos e a maioria dos servidores não têm problema."
 gui_auth_title:
@@ -749,9 +749,11 @@ friend_world_timeout:
   other: "O mundo do amigo não deixou você entrar em {{.Seconds}} segundos. Talvez a partida tenha sido fechada ou não aceite mais amigos."
 # Merged dimensions (-merge-dimensions) and render -dimension
 opt_worlds_merge_dimensions:
-  other: "Juntar em um só mundo"
+  other: "Juntar todos os mundos em um"
 desc_worlds_merge_dimensions:
-  other: "Salvar cada mundo depois do primeiro como uma dimensão personalizada do primeiro, com um pacote para viajar entre eles (Minecraft 1.26.30 ou mais recente)"
+  other: "Quando o servidor te leva para outros mundos (lobbies, mapas de jogo), salva todos como um único mundo com dimensões personalizadas em vez de arquivos separados world-1, world-2… (Minecraft 1.26.30 ou mais recente)"
+gui_worlds_merge_tip:
+  other: "Eles foram salvos como mundos separados. Ative \"Juntar todos os mundos em um\" nas configurações para tê-los como um único mundo com dimensões personalizadas, ou reproduza a gravação com essa opção."
 worlds_merge_on:
   other: "Os mundos depois do primeiro serão juntados a ele como dimensões personalizadas"
 worlds_merging_dimension:

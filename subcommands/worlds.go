@@ -14,7 +14,9 @@ import (
 
 type WorldSettings struct {
 	ProxySettings proxy.ProxySettings
-	Generator     string   `opt:"locale.opt_worlds_generator" flag:"generator" default:"void" choices:"void,flat,normal" desc:"locale.desc_worlds_generator"`
+	Generator     string `opt:"locale.opt_worlds_generator" flag:"generator" default:"void" choices:"void,flat,normal" desc:"locale.desc_worlds_generator"`
+	// first after the generator: it decides what a session saves as
+	Merge         bool     `opt:"locale.opt_worlds_merge_dimensions" flag:"merge-dimensions" default:"false" desc:"locale.desc_worlds_merge_dimensions"`
 	Void          bool     `flag:"void" default:"true" hidden:"true" desc:"locale.desc_worlds_void_old"`
 	Image         bool     `opt:"locale.opt_worlds_image" flag:"image" desc:"locale.save_image"`
 	Entities      bool     `opt:"locale.opt_worlds_save_entities" flag:"save-entities" default:"true" desc:"locale.desc_worlds_save_entities"`
@@ -28,7 +30,6 @@ type WorldSettings struct {
 	ScriptPath    string   `opt:"locale.opt_worlds_script" flag:"script" desc:"locale.desc_worlds_script" type:"file,js"`
 	ReplayJoin    bool     `opt:"locale.opt_worlds_replay_join" flag:"replay-join" desc:"locale.desc_worlds_replay_join"`
 	RecordUI      bool     `opt:"locale.opt_worlds_record_ui" flag:"record-ui" default:"false" desc:"locale.desc_worlds_record_ui"`
-	Merge         bool     `opt:"locale.opt_worlds_merge_dimensions" flag:"merge-dimensions" default:"false" desc:"locale.desc_worlds_merge_dimensions"`
 }
 
 // generator is -generator, or flat for the old -void=false.

@@ -2,6 +2,7 @@ package entity
 
 import (
 	"math"
+	"time"
 
 	"github.com/df-mc/dragonfly/server/world/chunk"
 	"github.com/go-gl/mathgl/mgl32"
@@ -43,7 +44,8 @@ type Entity struct {
 	MainHand   *protocol.ItemInstance
 	OffHand    *protocol.ItemInstance
 
-	DeletedDistance float32 // distance to player when it was removed
+	DeletedDistance float32   // distance to player when it was removed
+	DeletedAt       time.Time // when it was removed
 	LastTeleport    int
 }
 

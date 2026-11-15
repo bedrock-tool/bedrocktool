@@ -499,6 +499,8 @@ replay_reading:
   other: "リプレイ {{.File}} を読み込み中"
 replay_end:
   other: "リプレイの最後まで来ました"
+replay_wrong_protocol:
+  other: "この記録は Minecraft プロトコル {{.Protocol}} で作られましたが、この bedrocktool はプロトコル {{.CurrentProtocol}}(Minecraft {{.CurrentVersion}})しか読めません。記録は作ったときの Minecraft バージョン用の bedrocktool でしか再生できません。その頃の bedrocktool を使ってください。"
 disconnecting:
   other: "切断中"
 client_connected:
@@ -557,8 +559,6 @@ skin_geometry_write_failed:
 # Worlds
 worlds_hive_detected:
   other: "The Hive: ヒツジは hive:text として保存し、NPC プレイヤーは残します"
-worlds_hive_detected_packs:
-  other: "The Hive(リソースパックで判定): ヒツジは hive:text として保存し、NPC プレイヤーは残します"
 worlds_recording_ui:
   other: "メニューとスコアボードをビヘイビアパックのスクリプトに記録中"
 worlds_excluding:
@@ -640,13 +640,13 @@ capture_confirm_title:
 capture_confirm_body:
   other: ".pcap2 の記録には、セッション中にサーバーが送ったすべてのパケットが入っています。"
 capture_confirm_detail:
-  other: "これがあれば、サーバーに戻らなくてもいつでもワールドを保存し直せます。別の設定でも、バグを直したり機能を追加したりした将来の bedrocktool でも使えます。これがないと、足りなかった部分は二度と取り戻せません。"
+  other: "これがあれば、サーバーに戻らなくてもいつでもワールドを保存し直せます。別の設定でも、バグを直した bedrocktool のアップデートでも使えます。記録は作ったときと同じ Minecraft バージョン用の bedrocktool でしか再生できないので、その bedrocktool も残しておいてください。これがないと、足りない分は二度と戻りません。"
 capture_confirm_keep:
   other: "記録を続ける"
 capture_confirm_off:
   other: "それでもオフにする(今後は表示しない!)"
 capture_off_warning:
-  other: "セッションの記録がオフです(-capture=false): あとで別の設定や新しい bedrocktool でこのワールドを保存し直すための .pcap2 は残りません"
+  other: "セッションの記録がオフです(-capture=false): あとで別の設定やこの Minecraft バージョン用の bedrocktool アップデートでこのワールドを保存し直すための .pcap2 は残りません"
 anti_cheat_notice:
   other: "ログインする前にお知らせ: アンチチートが厳しいサーバー(Cubecraft と The Hive が知られています)では、bedrocktool を使うと、まれにアカウントがフラグ付けされたり BAN されたりすることがあります。bedrocktool は gophertunnel 経由で接続しますが、gophertunnel の動きや入力の送り方は本物のゲームと完全には同じではないため、見分けられるアンチチートがあります。そういうサーバーではサブアカウントを使ってください。Realm、自分のワールド、ほとんどのサーバーでは問題ありません。"
 gui_auth_title:
@@ -741,9 +741,11 @@ friend_world_timeout:
   other: "フレンドのワールドに {{.Seconds}} 秒以内に入れませんでした。ワールドが閉じられたか、フレンドの参加が止められた可能性があります。"
 # Merged dimensions (-merge-dimensions) and render -dimension
 opt_worlds_merge_dimensions:
-  other: "1つのワールドにまとめる"
+  other: "すべてのワールドを1つにまとめる"
 desc_worlds_merge_dimensions:
-  other: "最初のワールド以降の各ワールドを、最初のワールドのカスタムディメンションとして保存し、行き来するためのパックを追加します (Minecraft 1.26.30 以降)"
+  other: "サーバーに別のワールド（ロビーやゲームマップ）へ移されたとき、world-1、world-2… と別々のファイルにせず、カスタムディメンションを持つ1つのワールドとして保存します（Minecraft 1.26.30 以降）"
+gui_worlds_merge_tip:
+  other: "別々のワールドとして保存されました。設定で「すべてのワールドを1つにまとめる」をオンにすると、カスタムディメンションを持つ1つのワールドとして保存されます。この設定をオンにして録画を再生し直すこともできます。"
 worlds_merge_on:
   other: "最初以降のワールドはカスタムディメンションとして最初のワールドにまとめられます"
 worlds_merging_dimension:

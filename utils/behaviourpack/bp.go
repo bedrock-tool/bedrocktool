@@ -27,6 +27,13 @@ type Pack struct {
 	scriptDescription string
 	// files are other files of the pack, by path (e.g. dimensions/x.json).
 	files map[string][]byte
+
+	// addedStates is the block states added to what the server sent
+	// (cardinal rotation), so saved blocks can carry them.
+	addedStates map[string]map[string]any
+	// placeRotations is blocks rotated by a state of their own, which the
+	// pack's script sets on placement.
+	placeRotations map[string]*placeRotation
 }
 
 // ScriptModule is a Script API module a pack's script depends on.
@@ -64,7 +71,16 @@ func (bp *Pack) AddFile(path string, data []byte) {
 }
 
 func (bp *Pack) HasScript() bool {
-	return bp.script != ""
+	return bp.script != "" || len(bp.placeRotations) > 0
+}
+
+// mainScript is scripts/main.js: the script set with SetScript, importing
+// the placement script when blocks need it.
+func (bp *Pack) mainScript() string {
+	if len(bp.placeRotations) == 0 {
+		return bp.script
+	}
+	return "import \"./" + placementScriptFile + "\";\n" + bp.script
 }
 
 func New(name string) *Pack {
@@ -76,7 +92,7 @@ func New(name string) *Pack {
 				Description:        "Adds Blocks, Items and Entities from the server to this world",
 				UUID:               uuid.MustParse(utils.RandSeededUUID(name + "_datapack")),
 				Version:            resource.Version{1, 0, 0},
-				MinimumGameVersion: resource.Version{1, 19, 50},
+				MinimumGameVersion: MinEngineVersion,
 			},
 			Modules: []resource.Module{
 				{
@@ -92,10 +108,25 @@ func New(name string) *Pack {
 		blocks:   make(map[string]*BlockBehaviour),
 		items:    make(map[string]*itemBehaviour),
 		entities: make(map[string]*entityBehaviour),
+
+		addedStates:    make(map[string]map[string]any),
+		placeRotations: make(map[string]*placeRotation),
 	}
 }
 
+// MinEngineVersion is the pack's min_engine_version: new enough for block
+// traits (placement_direction, 1.20.20), and the version the pack's scripts
+// (recorded menus, placement) have always run with on @minecraft/server
+// 1.x (DefaultScriptModules). Newer versions want 2.x script modules, and
+// the menus' script stopped loading with 1.26.0.
+var MinEngineVersion = resource.Version{1, 21, 50}
+
 func (bp *Pack) AddDependency(id string, ver resource.Version) {
+	for _, d := range bp.Manifest.Dependencies {
+		if d.UUID == id && d.Version == ver {
+			return
+		}
+	}
 	bp.Manifest.Dependencies = append(bp.Manifest.Dependencies, resource.Dependency{
 		UUID:    id,
 		Version: ver,
@@ -112,6 +143,11 @@ func fsFileExists(f fs.FS, name string) bool {
 }
 
 func (bp *Pack) CheckAddLink(pack resource.Pack) {
+	// An encrypted pack without its key isn't saved into the world, and a
+	// dependency on a pack that isn't there keeps this one from loading.
+	if pack.Encrypted() && !pack.CanRead() {
+		return
+	}
 	hasBlocksJson := bp.HasBlocks() && fsFileExists(pack, "blocks.json")
 	hasEntitiesFolder := bp.HasEntities() && fsFileExists(pack, "entity")
 	hasItemsFolder := bp.HasItems() && fsFileExists(pack, "items")
@@ -211,10 +247,21 @@ func (bp *Pack) Save(fs utils.WriterFS) error {
 		if err != nil {
 			return err
 		}
-		_, err = w.Write([]byte(bp.script))
+		_, err = w.Write([]byte(bp.mainScript()))
 		w.Close()
 		if err != nil {
 			return err
+		}
+		if len(bp.placeRotations) > 0 {
+			w, err := fs.Create("scripts/" + placementScriptFile)
+			if err != nil {
+				return err
+			}
+			_, err = w.Write([]byte(placementScript(bp.placeRotations)))
+			w.Close()
+			if err != nil {
+				return err
+			}
 		}
 	} else if err := utils.WriteManifest(bp.Manifest, fs, ""); err != nil {
 		return err

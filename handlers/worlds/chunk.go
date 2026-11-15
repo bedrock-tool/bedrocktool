@@ -42,7 +42,7 @@ func (w *worldsHandler) handleLevelChunk(pk *packet.LevelChunk, timeReceived tim
 	//os.WriteFile("chunk.bin", pk.RawPayload, 0777)
 
 	levelChunk, blockNBTs, err := chunk.NetworkDecode(
-		w.serverState.blocks,
+		w.serverState.diskBlocks,
 		pk.RawPayload, int(pk.SubChunkCount),
 		w.worldState.Range(),
 		w.serverState.useHashedRids,
@@ -174,7 +174,7 @@ func (w *worldsHandler) processSubChunk(pk *packet.SubChunk) error {
 			index := uint8(absY)
 			sub, err := chunk.DecodeSubChunk(
 				buf,
-				w.serverState.blocks,
+				w.serverState.diskBlocks,
 				w.worldState.Dimension().Range(),
 				&index,
 				chunk.NetworkEncoding,

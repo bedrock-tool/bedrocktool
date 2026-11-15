@@ -2,41 +2,18 @@ package worlds
 
 import (
 	"maps"
-	"regexp"
 	"strings"
 
 	"github.com/bedrock-tool/bedrocktool/handlers/worlds/worldstate"
 	"github.com/google/uuid"
 	"github.com/sandertv/gophertunnel/minecraft/protocol/packet"
-	"github.com/sandertv/gophertunnel/minecraft/resource"
 	"github.com/sirupsen/logrus"
 )
 
-var colorCodes = regexp.MustCompile("§.")
-
-// isHiveServer says whether we're downloading from The Hive, by its address
-// (geo.hivebedrock.network, ca.hivebedrock.network, play.playhive.com...) or
-// the name its ping gives.
-func isHiveServer(address, serverName string) bool {
-	address = strings.ToLower(address)
-	if strings.Contains(address, "hivebedrock.network") || strings.Contains(address, "playhive.com") {
-		return true
-	}
-	name := strings.ToLower(colorCodes.ReplaceAllString(serverName, ""))
-	return strings.Contains(name, "the hive") || strings.Contains(name, "hivebedrock")
-}
-
-// hasHivePacks says whether the server sent Hive's own resource packs
-// ("HiveCommon", "The Hive: Hub", "Hive UI"...). It finds Hive in replays,
-// which have no address, and behind proxies with their own.
-func hasHivePacks(packs []resource.Pack) bool {
-	for _, p := range packs {
-		name := strings.ToLower(strings.TrimSpace(colorCodes.ReplaceAllString(p.Name(), "")))
-		if strings.HasPrefix(name, "hive") || strings.HasPrefix(name, "the hive") {
-			return true
-		}
-	}
-	return false
+// isHiveGameVersion says whether StartGame came from The Hive: its proxy
+// sends "Hive Games proxy" as the GameVersion.
+func isHiveGameVersion(gameVersion string) bool {
+	return strings.Contains(gameVersion, "Hive Games proxy")
 }
 
 // isNPCPlayer says whether a listed player is one the server made up (Hive's

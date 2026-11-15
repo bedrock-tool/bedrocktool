@@ -117,3 +117,16 @@ func (w *World) preparePlayers(keep func(uuid.UUID) bool) (out []SavedPlayer) {
 	}
 	return out
 }
+
+// PlayerUUID is the UUID of the player with the runtime ID passed, for one
+// added with AddPlayer.
+func (w *World) PlayerUUID(rid entity.RuntimeID) (uuid.UUID, bool) {
+	w.stateLock.Lock()
+	defer w.stateLock.Unlock()
+	for _, p := range w.players {
+		if p.RuntimeID == rid {
+			return p.UUID, true
+		}
+	}
+	return uuid.UUID{}, false
+}

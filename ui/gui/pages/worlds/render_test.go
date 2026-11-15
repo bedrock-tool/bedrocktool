@@ -43,6 +43,13 @@ func TestRenderStates(t *testing.T) {
 			p.HandleEvent(&messages.EventSetUIState{State: messages.UIStateMain})
 			p.HandleEvent(&messages.EventProcessingWorldUpdate{WorldName: "Magic Realm", State: "Adding Resourcepack Furniture Pack"})
 		}},
+		{"saving_many", func(p *Page) {
+			// a merged session saves its worlds together: they sit in a grid
+			p.HandleEvent(&messages.EventSetUIState{State: messages.UIStateMain})
+			for _, n := range []string{"Hive Games", "world-1", "world-2", "world-3", "world-4", "world-5", "world-6"} {
+				p.HandleEvent(&messages.EventProcessingWorldUpdate{WorldName: n, State: "Saving"})
+			}
+		}},
 		{"saved", func(p *Page) {
 			p.HandleEvent(&messages.EventSetUIState{State: messages.UIStateFinished})
 			for i, n := range []int{9, 9, 303, 50, 9, 99} {
@@ -53,7 +60,7 @@ func TestRenderStates(t *testing.T) {
 	} {
 		p := New(nil).(*Page)
 		tc.setup(p)
-		size := image.Pt(800, 640)
+		size := image.Pt(800, 700)
 		ops := new(op.Ops)
 		gtx := layout.Context{Ops: ops, Constraints: layout.Exact(size), Metric: unit.Metric{PxPerDp: 1, PxPerSp: 1}, Now: time.Now()}
 		paint.Fill(ops, dark.Bg)

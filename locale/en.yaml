@@ -58,7 +58,7 @@ updated:
 
 # Worlds (log and in-game)
 worldname_set:
-  other: "worldName is now {{.Name}}"
+  other: "World name is now {{.Name}}"
 void_generator_true:
   other: "Using void generator"
 zoom_level:
@@ -499,6 +499,8 @@ replay_reading:
   other: "Reading replay {{.File}}"
 replay_end:
   other: "Reached the end of the replay"
+replay_wrong_protocol:
+  other: "This recording was made with Minecraft protocol {{.Protocol}}, but this bedrocktool only reads protocol {{.CurrentProtocol}} (Minecraft {{.CurrentVersion}}). A recording only replays in a bedrocktool for the Minecraft version it was made on: use the bedrocktool release from that time."
 disconnecting:
   other: "Disconnecting"
 client_connected:
@@ -557,8 +559,6 @@ skin_geometry_write_failed:
 # Worlds
 worlds_hive_detected:
   other: "The Hive: sheep are saved as hive:text, and its NPC players are kept"
-worlds_hive_detected_packs:
-  other: "The Hive (by its resource packs): sheep are saved as hive:text, and its NPC players are kept"
 worlds_recording_ui:
   other: "Recording menus and scoreboards into the behavior pack's script"
 worlds_excluding:
@@ -639,13 +639,13 @@ capture_confirm_title:
 capture_confirm_body:
   other: "The .pcap2 recording holds every packet the server sent during the session."
 capture_confirm_detail:
-  other: "With it, the world can be saved again at any time without going back to the server: with other settings, or with a future version of bedrocktool that fixes bugs or adds features. Without it, anything missed is gone for good."
+  other: "With it, the world can be saved again at any time without going back to the server: with other settings, or with a bedrocktool update that fixes bugs. A recording only replays in a bedrocktool for the same Minecraft version it was made on, so keep that bedrocktool too. Without it, anything missed is gone for good."
 capture_confirm_keep:
   other: "Keep recording"
 capture_confirm_off:
   other: "Turn off anyway (Don't show again!)"
 capture_off_warning:
-  other: "Session recording is off (-capture=false): there will be no .pcap2 to save this world again from later, with other settings or a newer bedrocktool"
+  other: "Session recording is off (-capture=false): there will be no .pcap2 to save this world again from later, with other settings or a bedrocktool update for this Minecraft version"
 anti_cheat_notice:
   other: "A note before you sign in: on servers with strict anti-cheat (Cubecraft and The Hive are known cases), using bedrocktool can in rare cases get the account flagged or banned. It joins through gophertunnel, which does not move or send input exactly like the real game, so some anti-cheats can tell it apart. For those servers use an alt account; Realms, your own worlds and most servers are fine."
 gui_auth_title:
@@ -739,9 +739,11 @@ friend_world_timeout:
   other: "The friend's world didn't let you in within {{.Seconds}} seconds. They may have left it or stopped letting friends join."
 # Merged dimensions (-merge-dimensions) and render -dimension
 opt_worlds_merge_dimensions:
-  other: "Merge into one world"
+  other: "Merge all worlds into one"
 desc_worlds_merge_dimensions:
-  other: "Save every world after the first as a custom dimension of the first, with a pack to travel between them (Minecraft 1.26.30 or newer)"
+  other: "When the server sends you to other worlds (lobbies, game maps), save them all as one world with custom dimensions instead of separate world-1, world-2… files (Minecraft 1.26.30 or newer)"
+gui_worlds_merge_tip:
+  other: "These were saved as separate worlds. Turn on \"Merge all worlds into one\" in the settings to get them as one world with custom dimensions, or replay the capture with it on."
 worlds_merge_on:
   other: "Worlds after the first will be merged into it as custom dimensions"
 worlds_merging_dimension:

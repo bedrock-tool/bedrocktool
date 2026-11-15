@@ -389,9 +389,9 @@ opt_proxy_client_cache:
 desc_proxy_client_cache:
   other: "Minecraft'ın chunk'ları önbelleğe almasına izin ver, böylece daha hızlı yüklenir"
 opt_proxy_listen:
-  other: "Dinleme adresi"
+  other: "Proxy adresi"
 desc_proxy_listen:
-  other: "Minecraft'ın proxy'ye katıldığı yer, ör. başka bir port için :19133"
+  other: "Minecraft'ın proxy'ye bağlandığı adres, ör. başka bir port için :19133"
 opt_skins_filter:
   other: "Ad filtresi"
 desc_skins_filter:
@@ -499,6 +499,8 @@ replay_reading:
   other: "{{.File}} kaydı okunuyor"
 replay_end:
   other: "Kaydın sonuna gelindi"
+replay_wrong_protocol:
+  other: "Bu kayıt Minecraft protokolü {{.Protocol}} ile yapıldı, ama bu bedrocktool yalnızca protokol {{.CurrentProtocol}} (Minecraft {{.CurrentVersion}}) okuyabiliyor. Bir kayıt yalnızca yapıldığı Minecraft sürümü için olan bir bedrocktool ile oynatılabilir: o döneme ait bedrocktool sürümünü kullan."
 disconnecting:
   other: "Bağlantı kesiliyor"
 client_connected:
@@ -557,8 +559,6 @@ skin_geometry_write_failed:
 # Worlds
 worlds_hive_detected:
   other: "The Hive: koyunlar hive:text olarak kaydedilir ve NPC oyuncuları korunur"
-worlds_hive_detected_packs:
-  other: "The Hive (kaynak paketlerinden): koyunlar hive:text olarak kaydedilir ve NPC oyuncuları korunur"
 worlds_recording_ui:
   other: "Menüler ve skor tabloları davranış paketinin betiğine kaydediliyor"
 worlds_excluding:
@@ -640,13 +640,13 @@ capture_confirm_title:
 capture_confirm_body:
   other: ".pcap2 kaydı, oturum boyunca sunucunun gönderdiği her paketi tutar."
 capture_confirm_detail:
-  other: "Onunla dünya, sunucuya geri dönmeden istediğin zaman yeniden kaydedilebilir: başka ayarlarla ya da hataları düzelten veya yeni özellik ekleyen gelecekteki bir bedrocktool sürümüyle. O olmadan eksik kalan her şey sonsuza dek kaybolur."
+  other: "Onunla dünya, sunucuya geri dönmeden istediğin zaman yeniden kaydedilebilir: başka ayarlarla ya da hataları düzelten bir bedrocktool güncellemesiyle. Bir kayıt yalnızca yapıldığı Minecraft sürümü için olan bir bedrocktool ile oynatılabilir, o yüzden o bedrocktool'u da sakla. O olmadan eksik kalan her şey sonsuza dek kaybolur."
 capture_confirm_keep:
   other: "Kaydetmeye devam et"
 capture_confirm_off:
   other: "Yine de kapat (Bir daha gösterme!)"
 capture_off_warning:
-  other: "Oturum kaydı kapalı (-capture=false): bu dünyayı sonra başka ayarlarla veya daha yeni bir bedrocktool ile yeniden kaydetmek için .pcap2 olmayacak"
+  other: "Oturum kaydı kapalı (-capture=false): bu dünyayı sonra başka ayarlarla veya bu Minecraft sürümü için bir bedrocktool güncellemesiyle yeniden kaydetmek için .pcap2 olmayacak"
 anti_cheat_notice:
   other: "Giriş yapmadan önce bir not: katı anti-hile sistemi olan sunucularda (Cubecraft ve The Hive bilinen örnekler) bedrocktool kullanmak, nadiren de olsa hesabın işaretlenmesine veya yasaklanmasına yol açabilir. gophertunnel üzerinden bağlanır; gophertunnel gerçek oyunla tam olarak aynı şekilde hareket etmez ve girdi göndermez, bu yüzden bazı anti-hileler onu ayırt edebilir. Bu sunucularda ikincil bir hesap kullan; Realm'ler, kendi dünyaların ve çoğu sunucu sorunsuzdur."
 gui_auth_title:
@@ -741,9 +741,11 @@ friend_world_timeout:
   other: "Arkadaşın dünyası seni {{.Seconds}} saniye içinde içeri almadı. Dünya kapatılmış ya da arkadaşlara kapatılmış olabilir."
 # Merged dimensions (-merge-dimensions) and render -dimension
 opt_worlds_merge_dimensions:
-  other: "Tek bir dünyada birleştir"
+  other: "Tüm dünyaları birleştir"
 desc_worlds_merge_dimensions:
-  other: "İlkinden sonraki her dünyayı ilkinin özel boyutu olarak kaydet; aralarında gezmek için bir paket ekle (Minecraft 1.26.30 veya daha yenisi)"
+  other: "Sunucu seni başka dünyalara (lobiler, oyun haritaları) gönderdiğinde, hepsini world-1, world-2… gibi ayrı dosyalar yerine özel boyutları olan tek bir dünya olarak kaydeder (Minecraft 1.26.30 veya daha yenisi)"
+gui_worlds_merge_tip:
+  other: "Bunlar ayrı dünyalar olarak kaydedildi. Özel boyutları olan tek bir dünya için ayarlarda \"Tüm dünyaları birleştir\"i aç ya da kaydı bu ayarla yeniden oynat."
 worlds_merge_on:
   other: "İlkinden sonraki dünyalar ona özel boyutlar olarak birleştirilecek"
 worlds_merging_dimension:
@@ -751,7 +753,7 @@ worlds_merging_dimension:
 worlds_merged_dimension:
   other: "{{.Name}}, {{.File}} içine {{.Dimension}} olarak birleştirildi; oraya {{.Command}} ile ışınlan"
 worlds_merge_requirements:
-  other: "Özel boyutlar Minecraft Bedrock 1.26.30 veya daha yenisini gerektirir. Dünyada {{.Command}} onları listeler, {{.Command}} <ad> ışınlar; komut yoksa Beta API'ler deneyini aç"
+  other: "Özel boyutlar Minecraft Bedrock 1.26.30 veya daha yenisini gerektirir. Dünyada {{.Command}} onları listeler, {{.Command}} <ad> ışınlar; komut yoksa Beta API deneyini aç"
 worlds_merge_failed:
   other: "{{.Name}} birleştirilemedi: {{.Err}}"
 dims_pack_description:

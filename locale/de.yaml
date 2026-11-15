@@ -58,7 +58,7 @@ updated:
 
 # Worlds (log and in-game)
 worldname_set:
-  other: "worldName ist jetzt {{.Name}}"
+  other: "Weltname ist jetzt {{.Name}}"
 void_generator_true:
   other: "Void-Generator wird verwendet"
 zoom_level:
@@ -389,7 +389,7 @@ opt_proxy_client_cache:
 desc_proxy_client_cache:
   other: "Minecraft Chunks zwischenspeichern lassen, damit sie schneller laden"
 opt_proxy_listen:
-  other: "Lauschadresse"
+  other: "Adresse für den Proxy"
 desc_proxy_listen:
   other: "Wo Minecraft dem Proxy beitritt, z. B. :19133 für einen anderen Port"
 opt_skins_filter:
@@ -499,6 +499,8 @@ replay_reading:
   other: "Lese Aufnahme {{.File}}"
 replay_end:
   other: "Ende der Aufnahme erreicht"
+replay_wrong_protocol:
+  other: "Diese Aufnahme wurde mit Minecraft-Protokoll {{.Protocol}} gemacht, dieses bedrocktool liest aber nur Protokoll {{.CurrentProtocol}} (Minecraft {{.CurrentVersion}}). Eine Aufnahme lässt sich nur mit einem bedrocktool für die Minecraft-Version abspielen, mit der sie gemacht wurde: Nutze die bedrocktool-Version aus dieser Zeit."
 disconnecting:
   other: "Verbindung wird getrennt"
 client_connected:
@@ -557,8 +559,6 @@ skin_geometry_write_failed:
 # Worlds
 worlds_hive_detected:
   other: "The Hive: Schafe werden als hive:text gespeichert, und die NPC-Spieler bleiben erhalten"
-worlds_hive_detected_packs:
-  other: "The Hive (an den Ressourcenpaketen erkannt): Schafe werden als hive:text gespeichert, und die NPC-Spieler bleiben erhalten"
 worlds_recording_ui:
   other: "Menüs und Anzeigetafeln werden im Skript des Verhaltenspakets aufgezeichnet"
 worlds_excluding:
@@ -639,13 +639,13 @@ capture_confirm_title:
 capture_confirm_body:
   other: "Die .pcap2-Aufzeichnung enthält jedes Paket, das der Server während der Sitzung gesendet hat."
 capture_confirm_detail:
-  other: "Damit lässt sich die Welt jederzeit erneut speichern, ohne zum Server zurückzukehren: mit anderen Einstellungen oder mit einer künftigen Version von bedrocktool, die Fehler behebt oder Neues kann. Ohne sie ist alles, was fehlt, für immer verloren."
+  other: "Damit lässt sich die Welt jederzeit erneut speichern, ohne zum Server zurückzukehren: mit anderen Einstellungen oder mit einem bedrocktool-Update, das Fehler behebt. Eine Aufnahme lässt sich nur mit einem bedrocktool für dieselbe Minecraft-Version abspielen, mit der sie gemacht wurde, also behalte dieses bedrocktool auch. Ohne sie ist alles, was fehlt, für immer verloren."
 capture_confirm_keep:
   other: "Weiter aufzeichnen"
 capture_confirm_off:
   other: "Trotzdem ausschalten (nicht mehr anzeigen!)"
 capture_off_warning:
-  other: "Die Sitzungsaufzeichnung ist aus (-capture=false): Es gibt keine .pcap2, um diese Welt später erneut zu speichern, mit anderen Einstellungen oder einem neueren bedrocktool"
+  other: "Die Sitzungsaufzeichnung ist aus (-capture=false): Es gibt keine .pcap2, um diese Welt später erneut zu speichern, mit anderen Einstellungen oder einem bedrocktool-Update für diese Minecraft-Version"
 anti_cheat_notice:
   other: "Ein Hinweis vor der Anmeldung: Auf Servern mit strengem Anti-Cheat (Cubecraft und The Hive sind bekannte Fälle) kann bedrocktool in seltenen Fällen dazu führen, dass das Konto markiert oder gesperrt wird. Es verbindet sich über gophertunnel, das sich nicht genau wie das echte Spiel bewegt und Eingaben sendet, daher können manche Anti-Cheats es erkennen. Nutze für diese Server ein Zweitkonto; Realms, eigene Welten und die meisten Server sind kein Problem."
 gui_auth_title:
@@ -739,9 +739,11 @@ friend_world_timeout:
   other: "Die Welt des Freundes hat dich nicht innerhalb von {{.Seconds}} Sekunden hereingelassen. Vielleicht wurde sie verlassen oder ist nicht mehr für Freunde offen."
 # Merged dimensions (-merge-dimensions) and render -dimension
 opt_worlds_merge_dimensions:
-  other: "Zu einer Welt zusammenführen"
+  other: "Alle Welten zu einer zusammenführen"
 desc_worlds_merge_dimensions:
-  other: "Jede Welt nach der ersten als eigene Dimension der ersten speichern, mit einem Paket, um zwischen ihnen zu reisen (Minecraft 1.26.30 oder neuer)"
+  other: "Wenn der Server dich in andere Welten schickt (Lobbys, Spielkarten), werden alle als eine Welt mit eigenen Dimensionen gespeichert statt als einzelne Dateien world-1, world-2 … (Minecraft 1.26.30 oder neuer)"
+gui_worlds_merge_tip:
+  other: "Diese wurden als einzelne Welten gespeichert. Schalte in den Einstellungen „Alle Welten zu einer zusammenführen“ ein, um sie als eine Welt mit eigenen Dimensionen zu bekommen, oder spiele die Aufnahme damit erneut ab."
 worlds_merge_on:
   other: "Welten nach der ersten werden als eigene Dimensionen in sie zusammengeführt"
 worlds_merging_dimension:

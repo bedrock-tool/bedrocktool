@@ -157,19 +157,6 @@ func (s *Session) resolveServerName(ctx context.Context) error {
 	return nil
 }
 
-// ServerAddress is the address given to connect to a server, or "" when
-// connecting some other way (realm, replay...).
-func (s *Session) ServerAddress() string {
-	if s.connectInfo == nil {
-		return ""
-	}
-	parsed, err := s.connectInfo.Parsed()
-	if err != nil || parsed.Kind != connectinfo.KindServer {
-		return ""
-	}
-	return parsed.Address
-}
-
 // p2pJoinTimeout is how long a friend's world gets to let us in. Joining
 // waits for the host to hand out a nonce; a host that never does (it left,
 // or closed the world to friends meanwhile) used to leave the GUI at
@@ -246,7 +233,23 @@ func (s *Session) ClientWritePacket(pk packet.Packet) error {
 	if s.Client == nil {
 		return nil
 	}
-	return s.Client.WritePacket(pk)
+	err := s.Client.WritePacket(pk)
+	if err != nil && s.clientLeft(err) && !errors.Is(err, net.ErrClosed) {
+		// Callers stop quietly on net.ErrClosed once the player left.
+		return fmt.Errorf("%w: %w", net.ErrClosed, err)
+	}
+	return err
+}
+
+// clientLeft says whether err came from the player's game closing its
+// connection to the proxy. gophertunnel gives net.ErrClosed, or the
+// transport's own reason once the connection is done (NetherNet's
+// "SCTP transport closed" when the game quits).
+func (s *Session) clientLeft(err error) bool {
+	if errors.Is(err, net.ErrClosed) {
+		return true
+	}
+	return s.Client != nil && s.Client.Context().Err() != nil
 }
 
 // SendMessage sends a chat message to the client
@@ -855,6 +858,12 @@ func (s *Session) serverPrePlayHandler(conn *minecraft.Conn, pk packet.Packet, t
 	return false, nil
 }
 
+// replayDirection is a connection replaying a capture, which holds the
+// packets of both sides.
+type replayDirection interface {
+	LastPacketToServer() bool
+}
+
 func (s *Session) proxyLoop(ctx context.Context, toServer bool) (err error) {
 	var c1, c2 minecraft.IConn
 	if toServer {
@@ -872,19 +881,30 @@ func (s *Session) proxyLoop(ctx context.Context, toServer bool) (err error) {
 
 		pk, timeReceived, err := c1.ReadPacketWithTime()
 		if err != nil {
-			if errors.Is(err, net.ErrClosed) {
+			if errors.Is(err, net.ErrClosed) || (toServer && s.clientLeft(err)) {
 				err = nil
 			}
 			return err
 		}
 		s.lastPacketTime.Store(&timeReceived)
 
+		// A replay gives the recorded player's packets along with the
+		// server's: they're handled as from the client, as they were live,
+		// and never sent on to a client that joined the replay.
+		toServer := toServer
+		fromRecordedClient := false
+		if r, ok := c1.(replayDirection); ok && !toServer && r.LastPacketToServer() {
+			toServer, fromRecordedClient = true, true
+		}
+
 		pkName := reflect.TypeOf(pk).String()
 
 		var forward = pk
 		var process = true
 
-		if !toServer {
+		if fromRecordedClient {
+			forward = nil
+		} else if !toServer {
 			forward, process, err = s.blobPacketsFromServer(pk, timeReceived, false)
 			if err != nil {
 				return err
@@ -950,7 +970,7 @@ func (s *Session) proxyLoop(ctx context.Context, toServer bool) (err error) {
 			if err := c2.WritePacket(pk); err != nil {
 				reason := err.Error()
 				s.disconnectReason.Store(&reason)
-				if errors.Is(err, net.ErrClosed) {
+				if errors.Is(err, net.ErrClosed) || (!toServer && s.clientLeft(err)) {
 					err = nil
 				}
 				return err

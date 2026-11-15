@@ -10,6 +10,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"maps"
+	"net/url"
+	"path"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -71,6 +75,9 @@ type Recorder struct {
 
 	objectives map[string]*objective
 	entryNames map[int64]string // scoreboard entry ID -> fake player name
+	// boards is the scoreboard of each saved world (FinishWorld), by the
+	// dimension it is in the saved world ("" for the main world's own).
+	boards map[string][]*objective
 }
 
 func New(entityInfo EntityInfo) *Recorder {
@@ -84,6 +91,7 @@ func New(entityInfo EntityInfo) *Recorder {
 		entities:   make(map[string]string),
 		objectives: make(map[string]*objective),
 		entryNames: make(map[int64]string),
+		boards:     make(map[string][]*objective),
 	}
 }
 
@@ -91,7 +99,36 @@ func New(entityInfo EntityInfo) *Recorder {
 func (r *Recorder) HasContent() bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	return len(r.forms) > 0 || len(r.objectives) > 0
+	return len(r.forms) > 0 || len(r.objectives) > 0 || len(r.boards) > 0
+}
+
+// FinishWorld files the scoreboard seen since the last world under the
+// dimension the world being saved has in the saved world ("" for a world
+// saved on its own, or the main one of merged worlds; a merged world's
+// custom dimension otherwise), and starts the next world's afresh: a
+// server shows a scoreboard per world (Hive's game maps have their own).
+func (r *Recorder) FinishWorld(dimension string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.boards[dimension] = sortedObjectives(r.objectives)
+	// The game keeps showing an objective across worlds until the server
+	// changes it (Hive shows hive_ui once): the next world keeps which
+	// objectives are shown where, with its own scores.
+	next := make(map[string]*objective, len(r.objectives))
+	for name, o := range r.objectives {
+		next[name] = &objective{Name: o.Name, DisplayName: o.DisplayName, Slots: maps.Clone(o.Slots), Scores: map[string]int32{}}
+	}
+	r.objectives = next
+	r.entryNames = make(map[int64]string)
+}
+
+func sortedObjectives(m map[string]*objective) []*objective {
+	out := make([]*objective, 0, len(m))
+	for _, o := range m {
+		out = append(out, o)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out
 }
 
 // OnPacket records what a packet adds. It is called for every packet, both
@@ -100,8 +137,13 @@ func (r *Recorder) OnPacket(pk packet.Packet, toServer bool, now time.Time) {
 	// looked up before taking the lock: entityInfo takes the world's locks
 	var entityTrigger string
 	if it, ok := pk.(*packet.InventoryTransaction); ok && toServer && r.entityInfo != nil {
-		if td, ok := it.TransactionData.(*protocol.UseItemOnEntityTransactionData); ok && td.ActionType == protocol.UseItemOnEntityActionInteract {
-			if typeID, nameTag, ok := r.entityInfo(td.TargetEntityRuntimeID); ok {
+		// Hive's NPCs open their menus on a hit as well as on interaction
+		// (Hive Recode opens them on both too).
+		if td, ok := it.TransactionData.(*protocol.UseItemOnEntityTransactionData); ok && (td.ActionType == protocol.UseItemOnEntityActionInteract || td.ActionType == protocol.UseItemOnEntityActionAttack) {
+			// An unnamed vanilla mob can't stand for one NPC: Hive's are
+			// invisible sheep hitboxes, which aren't saved, and every other
+			// sheep would open the menu.
+			if typeID, nameTag, ok := r.entityInfo(td.TargetEntityRuntimeID); ok && (nameTag != "" || !strings.HasPrefix(typeID, "minecraft:")) {
 				entityTrigger = typeID + "|" + nameTag
 			}
 		}
@@ -300,11 +342,11 @@ func (r *Recorder) Script() string {
 	for _, k := range r.formOrder {
 		forms[k] = r.forms[k].Data
 	}
-	objectives := make([]*objective, 0, len(r.objectives))
-	for _, o := range r.objectives {
-		objectives = append(objectives, o)
+	// a world not finished yet shows as the main one
+	boards := maps.Clone(r.boards)
+	if len(r.objectives) > 0 || len(boards) == 0 {
+		boards[""] = sortedObjectives(r.objectives)
 	}
-	sort.Slice(objectives, func(i, j int) bool { return objectives[i].Name < objectives[j].Name })
 
 	js := func(v any) string {
 		b, _ := json.MarshalIndent(v, "", "  ")
@@ -317,10 +359,13 @@ func (r *Recorder) Script() string {
 	sb.WriteString("//   /scriptevent bedrocktool:form <key>\n\n")
 	sb.WriteString(scriptHeader)
 	fmt.Fprintf(&sb, "const FORMS = %s;\n\n", js(forms))
+	// Scripts only show images from texture paths: images the server gave
+	// as URLs are saved in the world's resource pack at these paths.
+	fmt.Fprintf(&sb, "const IMAGES = %s;\n\n", js(r.imagesLocked()))
 	fmt.Fprintf(&sb, "const NEXT = %s;\n\n", js(r.next))
 	fmt.Fprintf(&sb, "const ITEM_TRIGGERS = %s;\n\n", js(r.items))
 	fmt.Fprintf(&sb, "const ENTITY_TRIGGERS = %s;\n\n", js(r.entities))
-	fmt.Fprintf(&sb, "const OBJECTIVES = %s;\n\n", js(objectives))
+	fmt.Fprintf(&sb, "const SCOREBOARDS = %s;\n\n", js(boards))
 	sb.WriteString(scriptBody)
 	return sb.String()
 }
@@ -340,9 +385,27 @@ function build(f) {
   switch (f.type) {
     case "form": {
       const form = new ActionFormData().title(text(f.title)).body(text(f.content));
-      for (const b of f.buttons ?? []) {
-        const icon = b.image && b.image.type === "path" ? b.image.data : undefined;
-        form.button(text(b.text), icon);
+      // Newer forms (Hive's cosmetics, lockers...) list their buttons with
+      // headers, labels and dividers in "elements" instead of "buttons".
+      const elements = f.elements ?? f.buttons ?? [];
+      for (const e of elements) {
+        switch (e.type ?? "button") {
+          case "button": {
+            const icon = !e.image ? undefined : e.image.type === "path" ? e.image.data : IMAGES[e.image.data];
+            form.button(text(e.text), icon);
+            break;
+          }
+          // only in newer @minecraft/server-ui versions
+          case "header":
+            if (typeof form.header === "function") form.header(text(e.text));
+            break;
+          case "label":
+            if (typeof form.label === "function") form.label(text(e.text));
+            break;
+          case "divider":
+            if (typeof form.divider === "function") form.divider();
+            break;
+        }
       }
       return form;
     }
@@ -403,10 +466,16 @@ world.afterEvents.itemUse.subscribe((ev) => {
   if (key) system.run(() => showForm(ev.source, key));
 });
 
-world.afterEvents.playerInteractWithEntity.subscribe((ev) => {
-  const t = ev.target;
+function entityForm(player, t) {
   const key = ENTITY_TRIGGERS[t.typeId + "|" + (t.nameTag ?? "")] ?? ENTITY_TRIGGERS[t.typeId + "|"];
-  if (key) system.run(() => showForm(ev.player, key));
+  if (key) system.run(() => showForm(player, key));
+}
+
+world.afterEvents.playerInteractWithEntity.subscribe((ev) => entityForm(ev.player, ev.target));
+
+// Hive's NPCs open their menus when hit, too.
+world.afterEvents.entityHitEntity.subscribe((ev) => {
+  if (ev.damagingEntity?.typeId === "minecraft:player") entityForm(ev.damagingEntity, ev.hitEntity);
 });
 
 system.afterEvents.scriptEventReceive.subscribe((ev) => {
@@ -417,16 +486,29 @@ system.afterEvents.scriptEventReceive.subscribe((ev) => {
 
 const SLOTS = { sidebar: DisplaySlotId.Sidebar, list: DisplaySlotId.List, belowname: DisplaySlotId.BelowName };
 
-system.run(() => {
-  if (world.getDynamicProperty("bedrocktool:scoreboards")) return;
-  for (const o of OBJECTIVES) {
-    let obj = world.scoreboard.getObjective(o.name);
-    if (!obj) {
-      try {
-        obj = world.scoreboard.addObjective(o.name, o.displayName);
-      } catch (e) {
-        continue;
-      }
+// SCOREBOARDS has each saved world's scoreboard by its dimension: "" is
+// the main world's (overworld, nether, end), merged worlds have their own.
+// Scoreboards are the whole world's, so the one shown follows the player.
+const RECORDED = new Set(Object.values(SCOREBOARDS).flat().map((o) => o.name));
+
+function showScoreboard(dimensionId) {
+  const board = SCOREBOARDS[dimensionId] ?? (dimensionId.startsWith("minecraft:") ? SCOREBOARDS[""] : undefined) ?? [];
+  for (const id of Object.values(SLOTS)) {
+    try { world.scoreboard.clearObjectiveAtDisplaySlot(id); } catch (e) {}
+  }
+  // the recorded objectives are rebuilt, so another world's don't linger
+  for (const name of RECORDED) {
+    const obj = world.scoreboard.getObjective(name);
+    if (obj) {
+      try { world.scoreboard.removeObjective(obj); } catch (e) {}
+    }
+  }
+  for (const o of board) {
+    let obj;
+    try {
+      obj = world.scoreboard.addObjective(o.name, o.displayName);
+    } catch (e) {
+      continue;
     }
     for (const [name, score] of Object.entries(o.scores)) {
       try { obj.setScore(name, score); } catch (e) {}
@@ -434,12 +516,70 @@ system.run(() => {
     for (const [slot, order] of Object.entries(o.slots)) {
       const id = SLOTS[slot];
       if (!id) continue;
-      world.scoreboard.setObjectiveAtDisplaySlot(id, {
-        objective: obj,
-        sortOrder: order === 1 ? ObjectiveSortOrder.Descending : ObjectiveSortOrder.Ascending,
-      });
+      try {
+        world.scoreboard.setObjectiveAtDisplaySlot(id, {
+          objective: obj,
+          sortOrder: order === 1 ? ObjectiveSortOrder.Descending : ObjectiveSortOrder.Ascending,
+        });
+      } catch (e) {}
     }
   }
-  world.setDynamicProperty("bedrocktool:scoreboards", true);
+}
+
+world.afterEvents.playerSpawn.subscribe((ev) => {
+  if (ev.initialSpawn) system.run(() => showScoreboard(ev.player.dimension.id));
+});
+
+world.afterEvents.playerDimensionChange.subscribe((ev) => {
+  system.run(() => showScoreboard(ev.toDimension.id));
 });
 `
+
+// imagePathChars is what a texture path may hold.
+var imagePathChars = regexp.MustCompile(`^[A-Za-z0-9_\-./]+$`)
+
+// ImagePath is where an image a form button shows from a URL goes in the
+// saved world's resource pack, as a texture path without extension: the
+// URL's path, so Hive's https://cdn.playhive.com/icons/locker/x.png is
+// icons/locker/x, the layout Hive Recode's pack uses for the same images.
+func ImagePath(rawURL string) (string, bool) {
+	u, err := url.Parse(rawURL)
+	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
+		return "", false
+	}
+	p := path.Clean("/" + u.Path)[1:]
+	p = strings.TrimSuffix(p, path.Ext(p))
+	if p == "" || strings.Contains(p, "..") || !imagePathChars.MatchString(p) {
+		return "", false
+	}
+	return p, true
+}
+
+// Images is the image URLs of the recorded forms' buttons, with the texture
+// path (ImagePath) each is shown from in the saved world.
+func (r *Recorder) Images() map[string]string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.imagesLocked()
+}
+
+func (r *Recorder) imagesLocked() map[string]string {
+	images := make(map[string]string)
+	for _, f := range r.forms {
+		buttons, _ := f.Data["buttons"].([]any)
+		// newer forms keep their buttons among "elements"
+		elements, _ := f.Data["elements"].([]any)
+		for _, b := range append(buttons, elements...) {
+			bm, _ := b.(map[string]any)
+			img, _ := bm["image"].(map[string]any)
+			if img == nil || img["type"] != "url" {
+				continue
+			}
+			u, _ := img["data"].(string)
+			if p, ok := ImagePath(u); ok {
+				images[u] = p
+			}
+		}
+	}
+	return images
+}

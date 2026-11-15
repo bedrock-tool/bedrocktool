@@ -26,6 +26,30 @@ type dimensionMerge struct {
 	mainSpawn  mgl32.Vec3
 	dims       []worldstate.MergedDimension
 	taken      map[string]bool
+
+	// scoreboard dimensions, worked out as each world is given to be saved
+	// (merging, which names the dimensions, runs after): whether the main
+	// world was given, and the names given since.
+	boardMain  bool
+	boardTaken map[string]bool
+}
+
+// scoreboardDimension is the dimension a world given to be saved now will
+// have in the merged world: "" for the main (first) one, then the custom
+// dimension mergeSavedWorld will name it, as worlds are merged in order.
+func (m *dimensionMerge) scoreboardDimension(worldName string) string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if !m.boardMain {
+		m.boardMain = true
+		return ""
+	}
+	if m.boardTaken == nil {
+		m.boardTaken = make(map[string]bool)
+	}
+	id := worldstate.DimensionIdentifier(worldName, m.boardTaken)
+	m.boardTaken[id] = true
+	return id
 }
 
 // mergeSavedWorld merges a saved world into the first saved world, as a

@@ -499,6 +499,8 @@ replay_reading:
   other: "리플레이 {{.File}} 읽는 중"
 replay_end:
   other: "리플레이 끝에 도달했습니다"
+replay_wrong_protocol:
+  other: "이 기록은 Minecraft 프로토콜 {{.Protocol}}로 만들어졌지만, 이 bedrocktool은 프로토콜 {{.CurrentProtocol}}(Minecraft {{.CurrentVersion}})만 읽을 수 있습니다. 기록은 만들 때의 Minecraft 버전용 bedrocktool에서만 재생됩니다. 그 시기의 bedrocktool을 사용하세요."
 disconnecting:
   other: "연결 끊는 중"
 client_connected:
@@ -557,8 +559,6 @@ skin_geometry_write_failed:
 # Worlds
 worlds_hive_detected:
   other: "The Hive: 양은 hive:text로 저장하고, NPC 플레이어는 남겨 둡니다"
-worlds_hive_detected_packs:
-  other: "The Hive (리소스 팩으로 판단): 양은 hive:text로 저장하고, NPC 플레이어는 남겨 둡니다"
 worlds_recording_ui:
   other: "메뉴와 점수판을 비헤이비어 팩 스크립트에 기록하는 중"
 worlds_excluding:
@@ -640,13 +640,13 @@ capture_confirm_title:
 capture_confirm_body:
   other: ".pcap2 기록에는 세션 동안 서버가 보낸 모든 패킷이 들어 있습니다."
 capture_confirm_detail:
-  other: "이게 있으면 서버에 다시 가지 않고도 언제든 월드를 다시 저장할 수 있습니다. 다른 설정으로도, 버그를 고치거나 기능을 추가한 미래의 bedrocktool로도 가능합니다. 이게 없으면 빠진 부분은 영영 되찾을 수 없습니다."
+  other: "이게 있으면 서버에 다시 가지 않고도 언제든 월드를 다시 저장할 수 있습니다. 다른 설정으로도, 버그를 고친 bedrocktool 업데이트로도 가능합니다. 기록은 만들 때와 같은 Minecraft 버전용 bedrocktool에서만 재생되니 그 bedrocktool도 보관하세요. 이게 없으면 빠진 부분은 영영 사라집니다."
 capture_confirm_keep:
   other: "계속 기록"
 capture_confirm_off:
   other: "그래도 끄기 (다시 보지 않기!)"
 capture_off_warning:
-  other: "세션 기록이 꺼져 있습니다 (-capture=false): 나중에 다른 설정이나 새 bedrocktool로 이 월드를 다시 저장할 .pcap2가 남지 않습니다"
+  other: "세션 기록이 꺼져 있습니다 (-capture=false): 나중에 다른 설정이나 이 Minecraft 버전용 bedrocktool 업데이트로 이 월드를 다시 저장할 .pcap2가 남지 않습니다"
 anti_cheat_notice:
   other: "로그인 전 안내: 안티치트가 엄격한 서버(Cubecraft와 The Hive가 알려진 사례)에서는 bedrocktool을 쓰면 드물게 계정이 표시되거나 차단될 수 있습니다. bedrocktool은 gophertunnel로 접속하는데, gophertunnel은 실제 게임과 똑같이 움직이거나 입력을 보내지 않아서 일부 안티치트가 구별할 수 있습니다. 그런 서버에서는 부계정을 쓰세요. Realm, 내 월드, 대부분의 서버는 괜찮습니다."
 gui_auth_title:
@@ -741,9 +741,11 @@ friend_world_timeout:
   other: "친구의 월드가 {{.Seconds}}초 안에 들여보내 주지 않았습니다. 월드가 닫혔거나 친구 참가가 막혔을 수 있습니다."
 # Merged dimensions (-merge-dimensions) and render -dimension
 opt_worlds_merge_dimensions:
-  other: "하나의 월드로 합치기"
+  other: "모든 월드를 하나로 합치기"
 desc_worlds_merge_dimensions:
-  other: "첫 번째 이후의 모든 월드를 첫 번째 월드의 사용자 지정 차원으로 저장하고, 그 사이를 이동하는 팩을 추가합니다 (Minecraft 1.26.30 이상)"
+  other: "서버가 다른 월드(로비, 게임 맵)로 보낼 때 world-1, world-2… 같은 별도 파일 대신 사용자 지정 차원이 있는 하나의 월드로 저장합니다 (Minecraft 1.26.30 이상)"
+gui_worlds_merge_tip:
+  other: "별도의 월드로 저장되었습니다. 설정에서 \"모든 월드를 하나로 합치기\"를 켜면 사용자 지정 차원이 있는 하나의 월드로 저장되며, 이 옵션을 켜고 녹화를 다시 재생할 수도 있습니다."
 worlds_merge_on:
   other: "첫 번째 이후의 월드는 사용자 지정 차원으로 첫 번째 월드에 합쳐집니다"
 worlds_merging_dimension:

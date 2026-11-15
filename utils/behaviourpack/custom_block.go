@@ -443,6 +443,7 @@ func parseBlock(block protocol.BlockEntry) (MinecraftBlock, string) {
 			for componentName, component := range components {
 				component, ok := component.(map[string]any)
 				if !ok {
+					logrus.Warnf("invalid block component %s %s", block.Name, componentName)
 					continue
 				}
 				name, value := processComponent(componentName, component, &version)
@@ -508,6 +509,9 @@ func parseBlock(block protocol.BlockEntry) (MinecraftBlock, string) {
 		}
 	}
 	if len(minecraftTags) > 0 {
+		if entry.Components == nil {
+			entry.Components = make(map[string]any)
+		}
 		entry.Components["minecraft:tags"] = minecraftTags
 	}
 

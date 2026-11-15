@@ -499,6 +499,8 @@ replay_reading:
   other: "正在读取回放 {{.File}}"
 replay_end:
   other: "回放已结束"
+replay_wrong_protocol:
+  other: "这个录制使用的是 Minecraft 协议 {{.Protocol}}，但这个 bedrocktool 只能读取协议 {{.CurrentProtocol}}（Minecraft {{.CurrentVersion}}）。录制只能在录制时那个 Minecraft 版本对应的 bedrocktool 中回放：请使用那个时期的 bedrocktool 版本。"
 disconnecting:
   other: "正在断开连接"
 client_connected:
@@ -557,8 +559,6 @@ skin_geometry_write_failed:
 # Worlds
 worlds_hive_detected:
   other: "The Hive：羊会保存为 hive:text，并保留它的 NPC 玩家"
-worlds_hive_detected_packs:
-  other: "The Hive（根据它的资源包）：羊会保存为 hive:text，并保留它的 NPC 玩家"
 worlds_recording_ui:
   other: "正在把菜单和计分板录制到行为包的脚本中"
 worlds_excluding:
@@ -640,13 +640,13 @@ capture_confirm_title:
 capture_confirm_body:
   other: ".pcap2 录制文件保存了服务器在会话期间发送的每个数据包。"
 capture_confirm_detail:
-  other: "有了它，随时都能重新保存这个世界，不用回到服务器：可以换别的设置，也可以用将来修复了错误或增加了功能的 bedrocktool 版本。没有它，缺失的内容就永远找不回了。"
+  other: "有了它，随时都能重新保存这个世界，不用回到服务器：可以换别的设置，也可以用修复了错误的 bedrocktool 更新。录制只能在与录制时同一 Minecraft 版本对应的 bedrocktool 中回放，所以也请保留那个 bedrocktool。没有它，缺失的内容就永远找不回了。"
 capture_confirm_keep:
   other: "继续录制"
 capture_confirm_off:
   other: "仍然关闭（不再显示！）"
 capture_off_warning:
-  other: "会话录制已关闭（-capture=false）：以后将没有 .pcap2 可以用别的设置或更新的 bedrocktool 重新保存这个世界"
+  other: "会话录制已关闭（-capture=false）：以后将没有 .pcap2 可以用别的设置或此 Minecraft 版本的 bedrocktool 更新重新保存这个世界"
 anti_cheat_notice:
   other: "登录前提醒：在反作弊严格的服务器上（已知的有 Cubecraft 和 The Hive），使用 bedrocktool 在极少数情况下可能导致账号被标记或封禁。它通过 gophertunnel 连接，而 gophertunnel 的移动和输入发送方式与真正的游戏并不完全一样，所以有些反作弊能分辨出来。在这些服务器上请使用小号；Realm、你自己的世界以及大多数服务器都没问题。"
 gui_auth_title:
@@ -741,9 +741,11 @@ friend_world_timeout:
   other: "好友的世界在 {{.Seconds}} 秒内没有让你进入。世界可能已关闭，或不再允许好友加入。"
 # Merged dimensions (-merge-dimensions) and render -dimension
 opt_worlds_merge_dimensions:
-  other: "合并为一个世界"
+  other: "将所有世界合并为一个"
 desc_worlds_merge_dimensions:
-  other: "将第一个之后的每个世界保存为第一个世界的自定义维度，并附带用于在它们之间穿梭的包（需要 Minecraft 1.26.30 或更高版本）"
+  other: "服务器把你送到其他世界（大厅、游戏地图）时，将它们保存为一个带自定义维度的世界，而不是 world-1、world-2… 等单独的文件（需要 Minecraft 1.26.30 或更高版本）"
+gui_worlds_merge_tip:
+  other: "这些已保存为单独的世界。在设置中打开“将所有世界合并为一个”，即可得到一个带自定义维度的世界；也可以开启此选项后重新回放录制。"
 worlds_merge_on:
   other: "第一个之后的世界将作为自定义维度合并到其中"
 worlds_merging_dimension:

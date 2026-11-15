@@ -34,7 +34,7 @@ done:
 enter_server:
   other: "Wpisz serwer: "
 listening_on:
-  other: "Nasłuchiwanie na {{.Address}}"
+  other: "Nasłuchuję na {{.Address}}"
 connecting:
   other: "Łączenie z {{.Address}}"
 connected:
@@ -511,6 +511,8 @@ replay_reading:
   other: "Odczytywanie nagrania {{.File}}"
 replay_end:
   other: "Osiągnięto koniec nagrania"
+replay_wrong_protocol:
+  other: "To nagranie powstało w protokole Minecrafta {{.Protocol}}, a ten bedrocktool czyta tylko protokół {{.CurrentProtocol}} (Minecraft {{.CurrentVersion}}). Nagranie da się odtworzyć tylko w bedrocktool dla wersji Minecrafta, w której powstało: użyj wydania bedrocktool z tamtego czasu."
 disconnecting:
   other: "Rozłączanie"
 client_connected:
@@ -569,8 +571,6 @@ skin_geometry_write_failed:
 # Worlds
 worlds_hive_detected:
   other: "The Hive: owce są zapisywane jako hive:text, a jego gracze NPC są zachowywani"
-worlds_hive_detected_packs:
-  other: "The Hive (po jego paczkach zasobów): owce są zapisywane jako hive:text, a jego gracze NPC są zachowywani"
 worlds_recording_ui:
   other: "Nagrywanie menu i tablic wyników do skryptu paczki zachowań"
 worlds_excluding:
@@ -656,13 +656,13 @@ capture_confirm_title:
 capture_confirm_body:
   other: "Nagranie .pcap2 zawiera każdy pakiet, który serwer wysłał podczas sesji."
 capture_confirm_detail:
-  other: "Dzięki niemu świat można zapisać ponownie w dowolnym momencie bez wracania na serwer: z innymi ustawieniami albo z przyszłą wersją bedrocktool, która naprawia błędy lub dodaje funkcje. Bez niego to, czego brakuje, przepada na zawsze."
+  other: "Dzięki niemu świat można zapisać ponownie w dowolnym momencie bez wracania na serwer: z innymi ustawieniami albo z aktualizacją bedrocktool, która naprawia błędy. Nagranie da się odtworzyć tylko w bedrocktool dla tej samej wersji Minecrafta, w której powstało, więc zachowaj też ten bedrocktool. Bez niego to, czego brakuje, przepada na zawsze."
 capture_confirm_keep:
   other: "Nagrywaj dalej"
 capture_confirm_off:
   other: "Wyłącz mimo to (nie pokazuj ponownie!)"
 capture_off_warning:
-  other: "Nagrywanie sesji jest wyłączone (-capture=false): nie będzie pliku .pcap2, by później ponownie zapisać ten świat z innymi ustawieniami lub nowszym bedrocktool"
+  other: "Nagrywanie sesji jest wyłączone (-capture=false): nie będzie pliku .pcap2, by później ponownie zapisać ten świat z innymi ustawieniami lub aktualizacją bedrocktool dla tej wersji Minecrafta"
 anti_cheat_notice:
   other: "Uwaga przed zalogowaniem: na serwerach z surowym anty-cheatem (znane przypadki to Cubecraft i The Hive) używanie bedrocktool może w rzadkich przypadkach skończyć się oznaczeniem lub banem konta. Łączy się przez gophertunnel, który nie porusza się i nie wysyła sterowania dokładnie jak prawdziwa gra, więc niektóre anty-cheaty potrafią to rozpoznać. Na tych serwerach używaj drugiego konta; Realmy, twoje własne światy i większość serwerów są w porządku."
 gui_auth_title:
@@ -708,7 +708,7 @@ gui_remove:
 recent_title:
   other: "Ostatnie serwery"
 recent_empty:
-  other: "Tu pojawią się serwery, z którymi uruchamiasz"
+  other: "Tu pojawią się serwery, które uruchamiasz"
 recent_kind_realm:
   other: "Realm"
 recent_kind_experience:
@@ -757,9 +757,11 @@ friend_world_timeout:
   other: "Świat znajomego nie wpuścił cię w ciągu {{.Seconds}} s. Może gra została zamknięta albo znajomi nie mogą już dołączać."
 # Merged dimensions (-merge-dimensions) and render -dimension
 opt_worlds_merge_dimensions:
-  other: "Połącz w jeden świat"
+  other: "Połącz wszystkie światy w jeden"
 desc_worlds_merge_dimensions:
-  other: "Zapisz każdy świat po pierwszym jako własny wymiar pierwszego, z paczką do podróżowania między nimi (Minecraft 1.26.30 lub nowszy)"
+  other: "Gdy serwer przenosi cię do innych światów (lobby, mapy gier), zapisuje je wszystkie jako jeden świat z własnymi wymiarami zamiast osobnych plików world-1, world-2… (Minecraft 1.26.30 lub nowszy)"
+gui_worlds_merge_tip:
+  other: "Zapisano je jako osobne światy. Włącz „Połącz wszystkie światy w jeden” w ustawieniach, aby dostać jeden świat z własnymi wymiarami, albo odtwórz nagranie z tą opcją."
 worlds_merge_on:
   other: "Światy po pierwszym zostaną do niego dołączone jako własne wymiary"
 worlds_merging_dimension:

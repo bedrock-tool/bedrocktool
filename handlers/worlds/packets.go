@@ -47,6 +47,10 @@ func (w *worldsHandler) packetHandlerPreLogin(_pk packet.Packet, timeReceived ti
 		if !w.serverState.haveStartGame {
 			w.serverState.haveStartGame = true
 			w.serverState.useHashedRids = pk.UseBlockNetworkIDHashes
+			w.serverState.isHive = isHiveGameVersion(pk.GameVersion)
+			if w.serverState.isHive {
+				w.log.Info(locale.Loc("worlds_hive_detected", nil))
+			}
 
 			var haveGameRule = false
 			for i, gameRule := range pk.GameRules {
@@ -82,6 +86,7 @@ func (w *worldsHandler) packetHandlerPreLogin(_pk packet.Packet, timeReceived ti
 				w.log.Warn(locale.Locm("worlds_block_hash_collisions", locale.Strmap{"List": strings.Join(collisions, "; ")}, len(collisions)))
 			}
 			w.serverState.blocks = br
+			w.serverState.diskBlocks = worldstate.WithAddedStates(br, w.serverState.behaviorPack.AddedBlockStates())
 			w.serverState.worldName = pk.WorldName
 
 			dim, _ := world.DimensionByID(int(pk.Dimension))
@@ -138,6 +143,11 @@ func (w *worldsHandler) packetHandlerPreLogin(_pk packet.Packet, timeReceived ti
 	return _pk, nil
 }
 
+// worldLeaveRemovals is how long before a ChangeDimension the server's
+// RemoveActor packets are taken as it clearing the world we leave rather
+// than entities dying (Hive sends them within half a second).
+const worldLeaveRemovals = time.Second
+
 func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, timeReceived time.Time) (packet.Packet, error) {
 	switch pk := _pk.(type) {
 	case *packet.RequestChunkRadius:
@@ -159,6 +169,13 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 	// chunk
 
 	case *packet.ChangeDimension:
+		// Leaving a world, the server takes away every entity in it first:
+		// those are still there, not dead.
+		w.currentWorld(func(world *worldstate.World) {
+			if world != nil {
+				world.KeepRemovedSince(timeReceived.Add(-worldLeaveRemovals))
+			}
+		})
 		dim, _ := world.DimensionByID(int(pk.Dimension))
 		w.SaveAndReset(false, dim)
 		w.currentWorld(func(world *worldstate.World) {
@@ -363,6 +380,7 @@ func (w *worldsHandler) packetHandlerIngame(_pk packet.Packet, toServer bool, ti
 				} else {
 					ent.DeletedDistance = dist3d
 				}
+				ent.DeletedAt = timeReceived
 				w.onEntityUpdate(ent, nil, nil)
 				return nil
 			})
