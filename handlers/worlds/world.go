@@ -334,17 +334,32 @@ func generatorMessage(gen worldstate.Generator) string {
 	return locale.Loc("void_generator_true", nil)
 }
 
+// setWorldName renames the world being captured. The rename can wait
+// seconds for the world's resource packs to be copied into its folder (see
+// worldstate.World.Rename), so it runs beside the packet loop, on the world
+// that was current when the command came.
 func (w *worldsHandler) setWorldName(val string) bool {
-	err := w.renameWorldState(val)
-	if err != nil {
-		w.log.Error(err)
+	var world *worldstate.World
+	w.currentWorld(func(cur *worldstate.World) { world = cur })
+	if world == nil {
 		return false
 	}
-	w.session.SendMessage(locale.Loc("worldname_set", locale.Strmap{"Name": w.worldState.Name}))
-	messages.SendEvent(&messages.EventSetValue{
-		Name:  "worldName",
-		Value: w.worldState.Name,
-	})
+	w.wg.Add(1)
+	go func() {
+		defer w.wg.Done()
+		err := w.renameWorldState(world, val)
+		if err != nil {
+			w.log.Error(err)
+			if world.Name != val {
+				return
+			}
+		}
+		w.session.SendMessage(locale.Loc("worldname_set", locale.Strmap{"Name": world.Name}))
+		messages.SendEvent(&messages.EventSetValue{
+			Name:  "worldName",
+			Value: world.Name,
+		})
+	}()
 	return true
 }
 
@@ -411,6 +426,12 @@ func (w *worldsHandler) SaveAndReset(end bool, dim world.Dimension) {
 			err := w.saveWorldState(worldState, w.session.Player, w.serverState.behaviorPack, keepPlayer, npcPlayer, playerSkins, prev)
 			if err != nil {
 				w.log.Error(err)
+				// take it off the GUI's list of worlds being saved, or
+				// the GUI shows it saving for good
+				messages.SendEvent(&messages.EventProcessingWorldUpdate{
+					WorldName: worldState.Name,
+					State:     "",
+				})
 			}
 		}()
 	}
@@ -547,16 +568,11 @@ func (w *worldsHandler) openWorldState() {
 	w.worldState.Open(w.defaultWorldName(), folder)
 }
 
-func (w *worldsHandler) renameWorldState(name string) error {
+func (w *worldsHandler) renameWorldState(world *worldstate.World, name string) error {
 	worldName := utils.MakeValidFilename(name)
 	serverName := utils.MakeValidFilename(w.serverState.serverName)
 	folder := utils.PathData("worlds", serverName, worldName)
-
-	var err error
-	w.currentWorld(func(world *worldstate.World) {
-		err = world.Rename(name, folder)
-	})
-	return err
+	return world.Rename(name, folder)
 }
 
 // entityInfo gives the recorder an entity's type and name tag.

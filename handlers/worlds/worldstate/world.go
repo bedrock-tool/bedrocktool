@@ -67,6 +67,10 @@ type World struct {
 
 	ResourcePacks     []resource.Pack
 	resourcePacksDone chan error
+	// resourcePacksCopied is closed once addResourcePacks, run in the
+	// background when the world is first stored, has written the packs
+	// into the world's folder (see Rename).
+	resourcePacksCopied chan struct{}
 
 	players map[uuid.UUID]*player
 
@@ -150,21 +154,17 @@ func (w *World) storeMemToProvider() error {
 		w.log.Debugf("Opening provider in %s", w.Folder)
 		utils.RemoveTree(w.Folder)
 		os.MkdirAll(w.Folder, 0o777)
-		provider, err := mcdb.Config{
-			Log: slog.Default(),
-			LDBOptions: &opt.Options{
-				Compression: opt.DefaultCompression,
-			},
-			Blocks: w.BlockRegistry,
-		}.Open(w.Folder)
+		provider, err := w.openProvider(w.Folder)
 		if err != nil {
 			return err
 		}
 		w.provider = provider
 
 		w.resourcePacksDone = make(chan error)
+		w.resourcePacksCopied = make(chan struct{})
 		go func() {
 			defer close(w.resourcePacksDone)
+			defer close(w.resourcePacksCopied)
 			err := w.addResourcePacks()
 			if err != nil {
 				w.resourcePacksDone <- err
@@ -490,35 +490,102 @@ func (w *World) Open(name string, folder string) {
 	w.opened = true
 }
 
-// Rename moves the folder and reopens it
+// openProvider opens the world's database in folder.
+func (w *World) openProvider(folder string) (*mcdb.DB, error) {
+	return mcdb.Config{
+		Log: slog.Default(),
+		LDBOptions: &opt.Options{
+			Compression: opt.DefaultCompression,
+		},
+		Blocks: w.BlockRegistry,
+	}.Open(folder)
+}
+
+// renameTries is how often renameFolder tries, waiting twice as long each
+// time from renameWait: on Windows, another program (often an antivirus
+// scanning the files the database just closed) can hold a file in the
+// folder for a moment, and the rename is refused until it lets go.
+const (
+	renameTries = 4
+	renameWait  = 50 * time.Millisecond
+)
+
+func renameFolder(from, to string) (err error) {
+	wait := renameWait
+	for i := range renameTries {
+		if i > 0 {
+			time.Sleep(wait)
+			wait *= 2
+		}
+		if err = os.Rename(from, to); err == nil {
+			return nil
+		}
+	}
+	return err
+}
+
+// lockWhenPacksCopied takes stateLock once the world's resource packs are
+// no longer being copied into its folder. A folder can't be moved while
+// files in it are open (Windows refuses: "Access is denied"), and the copy
+// takes seconds for a server with many packs. It waits without the lock, so
+// the packet loop keeps storing chunks meanwhile.
+func (w *World) lockWhenPacksCopied() {
+	for {
+		w.stateLock.Lock()
+		copied := w.resourcePacksCopied
+		if copied == nil {
+			return
+		}
+		select {
+		case <-copied:
+			return
+		default:
+		}
+		w.stateLock.Unlock()
+		<-copied
+	}
+}
+
+// Rename gives the world a new name and moves its folder to match. The
+// database is closed for the move and always opened again: in the new
+// folder, or in the old one when the folder can't be moved. The world then
+// still takes the new name, and the error says its folder kept the old one.
 func (w *World) Rename(name, folder string) error {
-	w.stateLock.Lock()
+	w.lockWhenPacksCopied()
 	defer w.stateLock.Unlock()
 
-	os.RemoveAll(folder)
-	if w.provider != nil {
-		err := w.provider.Close()
-		if err != nil {
-			return err
-		}
-		err = os.Rename(w.Folder, folder)
-		if err != nil {
-			return err
-		}
-		provider, err := mcdb.Config{
-			Log: slog.Default(),
-			LDBOptions: &opt.Options{
-				Compression: opt.DefaultCompression,
-			},
-			Blocks: w.BlockRegistry,
-		}.Open(folder)
-		if err != nil {
-			return err
-		}
-		w.provider = provider
+	if errors.Is(context.Cause(w.ctx), errFinished) {
+		return fmt.Errorf("%s is already saved", w.Name)
 	}
-	w.Folder = folder
+
+	if folder == w.Folder {
+		w.Name = name
+		return nil
+	}
+	if w.provider == nil {
+		os.RemoveAll(folder)
+		w.Folder = folder
+		w.Name = name
+		return nil
+	}
+
+	if err := w.provider.Close(); err != nil {
+		return err
+	}
+	os.RemoveAll(folder)
+	moveErr := renameFolder(w.Folder, folder)
+	if moveErr == nil {
+		w.Folder = folder
+	}
+	provider, err := w.openProvider(w.Folder)
+	if err != nil {
+		return fmt.Errorf("reopening the world in %s: %w", w.Folder, err)
+	}
+	w.provider = provider
 	w.Name = name
+	if moveErr != nil {
+		return fmt.Errorf("the world keeps its folder %s: %w", w.Folder, moveErr)
+	}
 	return nil
 }
 
