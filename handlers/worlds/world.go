@@ -60,10 +60,6 @@ type serverState struct {
 
 	biomes *world.BiomeRegistry
 	blocks world.BlockRegistry
-	// diskBlocks is blocks, saving the states the behavior pack adds
-	// (cardinal rotation). Chunks from the server are decoded with it, as
-	// a chunk is written to disk with the registry it was decoded with.
-	diskBlocks world.BlockRegistry
 	// formImages is the recorded forms' URL images (url -> texture path)
 	// when the menu recorder's script was last put in the pack.
 	formImages map[string]string
@@ -545,7 +541,6 @@ func (w *worldsHandler) openWorldState() {
 
 	w.worldState.BiomeRegistry = w.serverState.biomes
 	w.worldState.BlockRegistry = w.serverState.blocks
-	w.worldState.AddedBlockStates = w.serverState.behaviorPack.AddedBlockStates()
 	w.worldState.ResourcePacks = w.session.Server.ResourcePacks()
 	w.worldState.UseHashedRids = w.serverState.useHashedRids
 	w.worldState.OnMapSeen = w.onMapSeen

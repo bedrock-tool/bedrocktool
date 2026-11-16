@@ -86,7 +86,6 @@ func (w *worldsHandler) packetHandlerPreLogin(_pk packet.Packet, timeReceived ti
 				w.log.Warn(locale.Locm("worlds_block_hash_collisions", locale.Strmap{"List": strings.Join(collisions, "; ")}, len(collisions)))
 			}
 			w.serverState.blocks = br
-			w.serverState.diskBlocks = worldstate.WithAddedStates(br, w.serverState.behaviorPack.AddedBlockStates())
 			w.serverState.worldName = pk.WorldName
 
 			dim, _ := world.DimensionByID(int(pk.Dimension))
