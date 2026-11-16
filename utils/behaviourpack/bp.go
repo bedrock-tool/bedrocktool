@@ -28,9 +28,6 @@ type Pack struct {
 	// files are other files of the pack, by path (e.g. dimensions/x.json).
 	files map[string][]byte
 
-	// addedStates is the block states added to what the server sent
-	// (cardinal rotation), so saved blocks can carry them.
-	addedStates map[string]map[string]any
 	// placeRotations is blocks rotated by a state of their own, which the
 	// pack's script sets on placement.
 	placeRotations map[string]*placeRotation
@@ -109,7 +106,6 @@ func New(name string) *Pack {
 		items:    make(map[string]*itemBehaviour),
 		entities: make(map[string]*entityBehaviour),
 
-		addedStates:    make(map[string]map[string]any),
 		placeRotations: make(map[string]*placeRotation),
 	}
 }

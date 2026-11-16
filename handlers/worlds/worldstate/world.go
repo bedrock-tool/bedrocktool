@@ -51,10 +51,7 @@ type World struct {
 	ChunkFunc func(pos world.ChunkPos, ch *chunk.Chunk)
 
 	BlockRegistry world.BlockRegistry
-	// AddedBlockStates is the states the behavior pack gives blocks on top
-	// of the server's, saved with each such block (see withAddedStates).
-	AddedBlockStates map[string]map[string]any
-	BiomeRegistry    *world.BiomeRegistry
+	BiomeRegistry *world.BiomeRegistry
 
 	dimension            world.Dimension
 	dimRange             cube.Range
@@ -158,7 +155,7 @@ func (w *World) storeMemToProvider() error {
 			LDBOptions: &opt.Options{
 				Compression: opt.DefaultCompression,
 			},
-			Blocks: WithAddedStates(w.BlockRegistry, w.AddedBlockStates),
+			Blocks: w.BlockRegistry,
 		}.Open(w.Folder)
 		if err != nil {
 			return err
@@ -513,7 +510,7 @@ func (w *World) Rename(name, folder string) error {
 			LDBOptions: &opt.Options{
 				Compression: opt.DefaultCompression,
 			},
-			Blocks: WithAddedStates(w.BlockRegistry, w.AddedBlockStates),
+			Blocks: w.BlockRegistry,
 		}.Open(folder)
 		if err != nil {
 			return err
