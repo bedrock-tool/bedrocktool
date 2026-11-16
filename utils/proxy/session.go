@@ -76,6 +76,11 @@ type Session struct {
 	spawned          bool
 	disconnectReason atomic.Pointer[string]
 	lastPacketTime   atomic.Pointer[time.Time]
+
+	// styledHUD is whether the server's packs change the HUD; SendPopup
+	// looks it up once.
+	styledHUDOnce sync.Once
+	styledHUD     bool
 }
 
 type signalingCloser interface {
@@ -260,14 +265,15 @@ func (s *Session) SendMessage(text string) {
 	})
 }
 
-// SendPopup shows text above the client's hotbar. It is sent as a tip: the
-// game draws a popup under a line kept for a tip, so a popup showed a blank
-// line above the text (the world downloader's chunk counter).
+// SendPopup shows text above the client's hotbar for a few seconds, such as
+// the world downloader's chunk counter (see hudTextPacket).
 func (s *Session) SendPopup(text string) {
-	_ = s.ClientWritePacket(&packet.Text{
-		TextType: packet.TextTypeTip,
-		Message:  text,
+	s.styledHUDOnce.Do(func() {
+		if s.Server != nil {
+			s.styledHUD = packsStyleHUD(s.Server.ResourcePacks())
+		}
 	})
+	_ = s.ClientWritePacket(hudTextPacket(text, s.styledHUD))
 }
 
 // Disconnect disconnects the client

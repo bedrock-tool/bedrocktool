@@ -1,0 +1,82 @@
+# Strings only the Android GUI uses. Other languages go next to this file as
+# <language>.yaml (de.yaml, fr.yaml...); a missing one falls back to English.
+android_export:
+  other: "Export"
+android_open_in_minecraft:
+  other: "Open in Minecraft"
+android_working:
+  other: "Working…"
+android_exported:
+  other: "World exported"
+android_export_failed:
+  other: "Export failed:"
+android_opened:
+  other: "Opened in Minecraft. A copy is in {{.Folder}}."
+android_opened_no_copy:
+  other: "Opened in Minecraft."
+android_minecraft_missing:
+  other: "Minecraft isn't installed on this phone. Use Export to save the world."
+android_report_problem:
+  other: "Report a problem"
+android_report_title:
+  other: "Report a problem"
+android_crash_title:
+  other: "Bedrocktool closed unexpectedly"
+android_report_text:
+  other: "Copy a report with your phone, Bedrocktool's version and the latest log, then paste it into a GitHub issue."
+android_crash_text:
+  other: "It crashed the last time it ran. Sending the crash report helps get it fixed."
+android_report_privacy:
+  other: "Check the report before posting it: the log can include server addresses and your gamertag."
+android_copy_report:
+  other: "Copy report"
+android_open_issue:
+  other: "Copy and open a GitHub issue"
+android_report_copied:
+  other: "Report copied"
+android_issue_body:
+  other: "What were you doing when it went wrong?\n\n\n<!-- Paste the report Bedrocktool copied below this line -->\n"
+android_issue_title_crash:
+  other: "Android: Bedrocktool crashed"
+android_issue_title:
+  other: "Android: "
+android_files_title:
+  other: "Captures and saved worlds"
+android_files_card:
+  other: "Replay a capture, open a saved world in Minecraft, or export them."
+android_captures:
+  other: "Captures"
+android_captures_text:
+  other: "Recordings of your sessions. Replaying one saves its worlds again, with the worlds mode's settings."
+android_worlds:
+  other: "Saved worlds"
+android_worlds_text:
+  other: "Every world saved so far, newest first."
+android_none_yet:
+  other: "None yet."
+android_replay:
+  other: "Replay"
+android_replay_merged:
+  other: "Replay merged"
+android_capture_exported:
+  other: "Capture exported"
+android_delete:
+  other: "Delete"
+android_keep:
+  other: "Keep it"
+android_delete_title:
+  other: "Delete {{.Name}}?"
+android_delete_text:
+  other: "It's removed from this phone and can't be brought back. Copies you exported or opened in Minecraft stay."
+android_session_title:
+  other: "Bedrocktool is running"
+android_session_worlds:
+  other: "Saving worlds. Stop it in Bedrocktool when you're done."
+android_session_skins:
+  other: "Saving skins. Stop it in Bedrocktool when you're done."
+android_session_packs:
+  other: "Saving resource packs."
+android_session_text:
+  other: "Stop it in Bedrocktool when you're done."
+android_update_allow_install:
+  other: "Allow Bedrocktool to install apps in the settings that opened, then come back and tap Update again."

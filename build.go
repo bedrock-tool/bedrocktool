@@ -14,9 +14,14 @@ import (
 )
 
 const (
-	AppName           = "bedrocktool"
-	AppID             = "yuv.pink.bedrocktool"
-	AndroidAPILevel   = "21"
+	AppName         = "bedrocktool"
+	AppID           = "yuv.pink.bedrocktool"
+	AndroidAPILevel = "21"
+	// AndroidPermissions are the ones Gio doesn't add itself: the
+	// foreground service that keeps a session running (SessionService),
+	// and opening the installer on an update (utils/updater).
+	AndroidPermissions = "android.permission.FOREGROUND_SERVICE,android.permission.FOREGROUND_SERVICE_SPECIAL_USE," +
+		"android.permission.POST_NOTIFICATIONS,android.permission.WAKE_LOCK,android.permission.REQUEST_INSTALL_PACKAGES"
 	GitTagExcludeExpr = "r*"
 )
 
@@ -25,14 +30,18 @@ var (
 	versionRegexp = regexp.MustCompile(`v(\d\.\d+\.\d+)(?:-(\d+)-(\w+))?`)
 )
 
-var gogioCmd string
+// gogioCmd builds the desktop GUIs. Android uses patchedGogio, built from
+// the gio-cmd submodule, bedrock-tool/gio-cmd (gogio with -androidapp and -androidperms, for the app's file
+// provider and foreground service).
+var gogioCmd = "gogio"
+var patchedGogio string
 
 func init() {
 	var exeExt = ""
 	if runtime.GOOS == "windows" {
 		exeExt = ".exe"
 	}
-	gogioCmd = "./gogio" + exeExt
+	patchedGogio = "./gogio" + exeExt
 }
 
 // Build represents a specific build configuration.
@@ -337,9 +346,15 @@ func guiBuildCmd(buildTag string, build Build, ldflags, tags []string) (string, 
 		gogioCmd,
 	}
 	if build.OS == "android" {
-		buildCmd = append(buildCmd, "-target", build.OS)
+		buildCmd[0] = patchedGogio
 		buildCmd = append(buildCmd, "-appid", AppID)
-		buildCmd = append(buildCmd, "-resources", "./android-resources")
+		buildCmd = append(buildCmd, "-minsdk", AndroidAPILevel)
+		// the file provider "Open in Minecraft" hands worlds out with
+		buildCmd = append(buildCmd, "-androidapp", "./ui/gui/android/manifest-application.xml")
+		buildCmd = append(buildCmd, "-androidperms", AndroidPermissions)
+		if ks, pass := androidSignKey(); ks != "" {
+			buildCmd = append(buildCmd, "-signkey", ks, "-signpass", pass)
+		}
 	}
 	tagSplit := strings.Split(strings.ReplaceAll(buildTag, "-", "."), ".")
 	tagSplit = tagSplit[:len(tagSplit)-1]
@@ -370,8 +385,52 @@ func guiBuildCmd(buildTag string, build Build, ldflags, tags []string) (string, 
 	return outputPath, buildCmd
 }
 
+// androidSignKey is the keystore an APK is signed with, and its password.
+// Android only installs an update over the app if it's signed with the same
+// key, so every release must use the one release key: CI gets it from the
+// repository's secrets, as ANDROID_KEYSTORE (the keystore file) and
+// ANDROID_KEYSTORE_PASSWORD. Without them, a local build uses the Android
+// SDK's debug keystore, so it installs over the last local build, but not
+// over a release. It returns "" if there's neither: gogio then makes a
+// throwaway key.
+func androidSignKey() (keystore, password string) {
+	if ks := os.Getenv("ANDROID_KEYSTORE"); ks != "" {
+		return ks, os.Getenv("ANDROID_KEYSTORE_PASSWORD")
+	}
+	if home, err := os.UserHomeDir(); err == nil {
+		ks := filepath.Join(home, ".android", "debug.keystore")
+		if _, err := os.Stat(ks); err == nil {
+			return ks, "android"
+		}
+	}
+	return "", ""
+}
+
+// releaseKeyMissing says why CI can't sign an APK with the release key, or
+// "" if it can. CI skips the APK then rather than release one with another
+// key, which no later release could update.
+func releaseKeyMissing() string {
+	ks := os.Getenv("ANDROID_KEYSTORE")
+	switch {
+	case ks == "":
+		return "ANDROID_KEYSTORE is not set"
+	case os.Getenv("ANDROID_KEYSTORE_PASSWORD") == "":
+		return "ANDROID_KEYSTORE_PASSWORD is not set"
+	}
+	if _, err := os.Stat(ks); err != nil {
+		return err.Error()
+	}
+	return ""
+}
+
 func runCommand(buildCmd, env []string, cwd string) error {
-	log.Printf("Executing: %s", strings.Join(buildCmd, " "))
+	shown := slices.Clone(buildCmd)
+	for i := range shown {
+		if i > 0 && shown[i-1] == "-signpass" {
+			shown[i] = "***"
+		}
+	}
+	log.Printf("Executing: %s", strings.Join(shown, " "))
 	cmd := exec.Command(buildCmd[0], buildCmd[1:]...)
 	cmd.Env = env
 	cmd.Dir = cwd
@@ -435,6 +494,14 @@ func (c *BuildConfig) doBuild(build Build) error {
 		if err != nil {
 			return err
 		}
+		// pion's github.com/wlynxg/anet (WebRTC, for NetherNet) links to
+		// net.zoneCache, which Go 1.23+ refuses by default
+		ldflags = append(ldflags, "-checklinkname=0")
+		if build.Type == "gui" {
+			if err := buildGogio(); err != nil {
+				return fmt.Errorf("building gio-cmd/gogio: %w", err)
+			}
+		}
 		switch build.Type {
 		case "lib":
 			outputPath, buildCmd = libBuildCmd(c.BuildTag, build, ldflags, tags)
@@ -482,32 +549,30 @@ func (c *BuildConfig) doBuild(build Build) error {
 	return nil
 }
 
+var gogioBuilt bool
+
+// buildGogio builds the patched gogio in the gio-cmd submodule, its own module.
 func buildGogio() error {
-	var env []string
-	env = append(env, os.Environ()...)
+	if gogioBuilt {
+		return nil
+	}
+	env := append(os.Environ(), "GOWORK=off")
 	err := runCommand([]string{
 		"go", "build",
-		"-o", gogioCmd,
-		"-v",
+		"-o", filepath.Join("..", patchedGogio),
 		"-trimpath",
-		"./gio-cmd/gogio",
-	}, env, "")
+		"./gogio",
+	}, env, "gio-cmd")
 	if err != nil {
 		return err
 	}
+	gogioBuilt = true
 	return nil
 }
 
 func main() {
 	log.SetFlags(0)
 	log.Println("--- Starting Build Process ---")
-
-	if false {
-		if err := buildGogio(); err != nil {
-			log.Fatalf("building gogio %s", err)
-		}
-	}
-	gogioCmd = "gogio"
 
 	buildCfg := &BuildConfig{}
 
@@ -549,7 +614,7 @@ func main() {
 		// Desktop GUI builds
 		{"windows", "amd64", "gui"},
 		{"linux", "amd64", "gui"},
-		//{"android", "arm64", "gui"},
+		{"android", "arm64", "gui"},
 		{"darwin", "amd64", "gui"},
 		{"darwin", "arm64", "gui"},
 
@@ -607,6 +672,12 @@ func main() {
 		if build.OS == "android" && os.Getenv("ANDROID_NDK_HOME") == "" {
 			log.Printf("Skipping Android build for %s because ANDROID_NDK_HOME is not set.", build.Arch)
 			continue
+		}
+		if build.OS == "android" && os.Getenv("GITHUB_ACTIONS") == "true" {
+			if why := releaseKeyMissing(); why != "" {
+				log.Printf("Skipping Android build for %s: no release signing key (%s).", build.Arch, why)
+				continue
+			}
 		}
 		if err := buildCfg.doBuild(build); err != nil {
 			log.Fatalf("Build failed for %s-%s-%s: %v", build.OS, build.Arch, build.Type, err)

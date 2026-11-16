@@ -117,6 +117,7 @@ func (g *GUI) Start(ctx context.Context, cancel context.CancelCauseFunc) (err er
 	g.router.Register(skins.New, skins.ID)
 	g.router.Register(packs.New, packs.ID)
 	g.router.SwitchTo(settings.ID)
+	g.platformStart()
 
 	g.logger.g = g
 	g.router.LogWidget = g.logger.Layout
@@ -190,6 +191,7 @@ func (g *GUI) loop() error {
 
 		case app.ViewEvent:
 			g.hyperlink.Configure(giohyperlink.NewConfigFromViewEvent(&g.window, event))
+			g.platformViewEvent(event)
 		}
 	}
 	return nil

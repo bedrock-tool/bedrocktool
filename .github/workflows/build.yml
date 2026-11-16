@@ -46,10 +46,26 @@ jobs:
           go get ./cmd/bedrocktool
           go install gioui.org/cmd/gogio@latest
 
+      # The APK is signed with the release key (see androidSignKey in
+      # build.go). Without these secrets the Android build is skipped.
+      - name: android release key
+        if: ${{ env.ANDROID_KEYSTORE_BASE64 != '' }}
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+          echo "ANDROID_KEYSTORE=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+
       - name: build
         id: build
         run: |
-          go run ./build.go windows,linux gui,cli
+          go run ./build.go windows,linux,android gui,cli
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+
+      - name: remove android release key
+        if: ${{ always() }}
+        run: rm -f "$RUNNER_TEMP/release.keystore"
       
       - name: 🏷️ Create/update tag
         uses: actions/github-script@v7

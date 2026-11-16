@@ -1,3 +1,4 @@
 subcommands/resourcepack-d/resourcepack-d.go filter=git-crypt diff=git-crypt
 * eol=lf
 *.png binary
+*.jar binary

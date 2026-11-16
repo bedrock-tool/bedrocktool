@@ -2,6 +2,7 @@ package locale
 
 import (
 	"embed"
+	"io/fs"
 	"os"
 	"strings"
 	"sync/atomic"
@@ -48,6 +49,22 @@ func init() {
 		languageName = getLanguageName()
 	}
 	SetLanguage(languageName)
+}
+
+// AddMessages loads more message files, named <language>.yaml like the ones
+// here, from fsys. A build with its own strings (the Android GUI) keeps them
+// in its own files with this, instead of in the shared ones.
+func AddMessages(fsys fs.FS) error {
+	names, err := fs.Glob(fsys, "*.yaml")
+	if err != nil {
+		return err
+	}
+	for _, name := range names {
+		if _, err := bundle.LoadMessageFileFS(fsys, name); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // SetLanguage switches the language used by Loc and Locm.

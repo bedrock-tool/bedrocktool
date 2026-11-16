@@ -57,6 +57,10 @@ type Router struct {
 	toasts []*Toast
 
 	ShuttingDown bool
+
+	// OnSession, if set, is told when a subcommand starts and stops
+	// (Android keeps the app running in between).
+	OnSession func(name string, running bool)
 }
 
 func NewRouter(g guim.Guim, ctx context.Context) *Router {
@@ -270,6 +274,10 @@ func (r *Router) Execute(cmd commands.Command, settings any) {
 			}
 		}()
 		defer r.wg.Done()
+		if r.OnSession != nil {
+			r.OnSession(cmd.Name(), true)
+			defer r.OnSession(cmd.Name(), false)
+		}
 		r.cmdCtx, r.cmdCtxCancel = context.WithCancel(r.ctx)
 
 		err := cmd.Run(r.cmdCtx, settings)

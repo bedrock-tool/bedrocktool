@@ -2,16 +2,16 @@ package updater
 
 import (
 	"bytes"
-	"crypto"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
-	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync/atomic"
@@ -19,7 +19,6 @@ import (
 	"github.com/bedrock-tool/bedrocktool/locale"
 	"github.com/bedrock-tool/bedrocktool/ui/messages"
 	"github.com/bedrock-tool/bedrocktool/utils"
-	"github.com/minio/selfupdate"
 	"github.com/sirupsen/logrus"
 )
 
@@ -43,10 +42,6 @@ func (p *progressWriter) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
-const updateFilename = "bedrocktool-update.bin"
-
-const githubLatestReleaseURL = "https://api.github.com/repos/bedrock-tool/bedrocktool/releases/latest"
-
 func fetchHttp(url string) (io.ReadCloser, int, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -65,6 +60,10 @@ func fetchHttp(url string) (io.ReadCloser, int, error) {
 
 var cachedUpdate atomic.Pointer[Update]
 
+// ErrNoBuild is no release having a build for this platform yet, such as
+// the Android app before its first release.
+var ErrNoBuild = errors.New("no GitHub release has a build")
+
 func CheckUpdate() {
 	err := func() error {
 		update, err := GetLatest()
@@ -80,7 +79,9 @@ func CheckUpdate() {
 		}
 		return nil
 	}()
-	if err != nil {
+	if errors.Is(err, ErrNoBuild) {
+		logrus.Debug(err)
+	} else if err != nil {
 		logrus.Error(err)
 	}
 }
@@ -90,7 +91,7 @@ func GetLatest() (*Update, error) {
 		return update, nil
 	}
 
-	if runtime.GOOS == "android" || runtime.GOOS == "js" {
+	if runtime.GOOS == "js" {
 		cachedUpdate.Store(&Update{
 			Version: utils.Version,
 		})
@@ -105,6 +106,8 @@ func GetLatest() (*Update, error) {
 	return update, nil
 }
 
+// DoUpdate downloads the update, checks its checksum and installs it the
+// platform's way (install in updater_desktop.go and updater_android.go).
 func DoUpdate(update *Update) error {
 	checksum, err := base64.StdEncoding.DecodeString(update.Sha256)
 	if err != nil {
@@ -117,15 +120,14 @@ func DoUpdate(update *Update) error {
 	}
 	defer r.Close()
 
-	updatePath := utils.PathCache(updateFilename)
+	updatePath := downloadPath()
+	if err := os.MkdirAll(filepath.Dir(updatePath), 0o755); err != nil {
+		return err
+	}
 	f, err := os.Create(updatePath)
 	if err != nil {
 		return err
 	}
-	defer func() {
-		f.Close()
-		os.Remove(updatePath)
-	}()
 
 	sum := sha256.New()
 	mw := io.MultiWriter(f, sum, &progressWriter{
@@ -137,55 +139,19 @@ func DoUpdate(update *Update) error {
 		Total: size,
 	})
 	_, err = io.Copy(mw, r)
+	f.Close()
+	if err == nil && !bytes.Equal(checksum, sum.Sum(nil)) {
+		err = fmt.Errorf("update checksum mismatch")
+	}
 	if err != nil {
+		os.Remove(updatePath)
 		return err
 	}
-
-	if !bytes.Equal(checksum, sum.Sum(nil)) {
-		return fmt.Errorf("update checksum mismatch")
-	}
-
-	// install
 
 	messages.SendEvent(&messages.EventUpdateDoInstall{
 		Filepath: updatePath,
 	})
-
-	if runtime.GOOS != "android" {
-		f, err := os.Open(updatePath)
-		if err != nil {
-			return err
-		}
-		defer os.Remove(f.Name())
-		defer f.Close()
-
-		checksum, err := base64.StdEncoding.DecodeString(update.Sha256)
-		if err != nil {
-			return err
-		}
-
-		if err = selfupdate.Apply(f, selfupdate.Options{
-			Checksum: checksum,
-			Hash:     crypto.SHA256,
-		}); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func Restart() error {
-	executable, err := os.Executable()
-	if err != nil {
-		return err
-	}
-
-	process := exec.Command(executable, os.Args[1:]...)
-	process.Dir, err = os.Getwd()
-	if err != nil {
-		return err
-	}
-	return process.Start()
+	return install(updatePath, checksum)
 }
 
 type Update struct {
@@ -219,40 +185,50 @@ func (u *Update) IsNew() bool {
 }
 
 func latestUpdate() (*Update, error) {
-	r, _, err := fetchHttp(githubLatestReleaseURL)
+	r, _, err := fetchHttp(releasesURL)
 	if err != nil {
 		return nil, err
 	}
 	defer r.Close()
 
-	var release githubRelease
-	if err := json.NewDecoder(r).Decode(&release); err != nil {
+	// releasesURL is either one release (/releases/latest) or a list of them,
+	// newest first (/releases)
+	data, err := io.ReadAll(r)
+	if err != nil {
 		return nil, err
 	}
-
-	version := strings.TrimPrefix(release.TagName, "r")
-	assetPrefix := fmt.Sprintf("%s-%s-%s-", utils.CmdName, runtime.GOOS, runtime.GOARCH)
-	assetSuffix := ""
-	if runtime.GOOS == "windows" {
-		assetSuffix = ".exe"
+	var releases []githubRelease
+	if err := json.Unmarshal(data, &releases); err != nil {
+		var release githubRelease
+		if err := json.Unmarshal(data, &release); err != nil {
+			return nil, err
+		}
+		releases = []githubRelease{release}
 	}
-	for _, asset := range release.Assets {
-		if !strings.HasPrefix(asset.Name, assetPrefix) || !strings.HasSuffix(asset.Name, assetSuffix) {
-			continue
-		}
-		if !strings.HasPrefix(asset.Digest, "sha256:") {
-			return nil, fmt.Errorf("GitHub asset %s has no SHA-256 digest", asset.Name)
-		}
-		digest, err := hex.DecodeString(strings.TrimPrefix(asset.Digest, "sha256:"))
-		if err != nil {
-			return nil, fmt.Errorf("invalid SHA-256 digest for GitHub asset %s: %w", asset.Name, err)
-		}
-		return &Update{
-			Version:     version,
-			Sha256:      base64.StdEncoding.EncodeToString(digest),
-			DownloadURL: asset.BrowserDownloadURL,
-		}, nil
-	}
+	return updateFromReleases(releases)
+}
 
-	return nil, fmt.Errorf("no GitHub release asset matching %s", assetPrefix)
+// updateFromReleases is the newest release that has a build for this
+// platform (assetMatches).
+func updateFromReleases(releases []githubRelease) (*Update, error) {
+	for _, release := range releases {
+		for _, asset := range release.Assets {
+			if !assetMatches(asset.Name) {
+				continue
+			}
+			if !strings.HasPrefix(asset.Digest, "sha256:") {
+				return nil, fmt.Errorf("GitHub asset %s has no SHA-256 digest", asset.Name)
+			}
+			digest, err := hex.DecodeString(strings.TrimPrefix(asset.Digest, "sha256:"))
+			if err != nil {
+				return nil, fmt.Errorf("invalid SHA-256 digest for GitHub asset %s: %w", asset.Name, err)
+			}
+			return &Update{
+				Version:     strings.TrimPrefix(release.TagName, "r"),
+				Sha256:      base64.StdEncoding.EncodeToString(digest),
+				DownloadURL: asset.BrowserDownloadURL,
+			}, nil
+		}
+	}
+	return nil, fmt.Errorf("%w for %s-%s", ErrNoBuild, runtime.GOOS, runtime.GOARCH)
 }

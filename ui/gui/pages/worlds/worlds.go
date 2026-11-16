@@ -32,6 +32,9 @@ type savedWorld struct {
 	Filepath string
 	Chunks   int
 	Entities int
+
+	// actions are the platform's buttons under the card (worldactions_*.go)
+	actions worldActions
 }
 
 const ID = "worlds"
@@ -190,7 +193,7 @@ func displayWorldProcessing(gtx C, th *material.Theme, entry *processingWorld) D
 
 // displayWorldEntry is a saved world's card. With dir (the folder all the
 // saved worlds are in, shown above them) the card shows only its file name.
-func displayWorldEntry(gtx C, th *material.Theme, entry *savedWorld, dir string) D {
+func displayWorldEntry(gtx C, th *material.Theme, g guim.Guim, entry *savedWorld, dir string) D {
 	return layout.Inset{Bottom: 8}.Layout(gtx, func(gtx C) D {
 		return card(gtx, th, func(gtx C) D {
 			gtx.Constraints.Min.X = gtx.Constraints.Max.X
@@ -224,6 +227,7 @@ func displayWorldEntry(gtx C, th *material.Theme, entry *savedWorld, dir string)
 					l.MaxLines = 1
 					return layout.Inset{Top: 4}.Layout(gtx, l.Layout)
 				}),
+				layout.Rigid(func(gtx C) D { return entry.actions.Layout(gtx, th, g, entry) }),
 			)
 		})
 	})
@@ -295,7 +299,7 @@ func (p *Page) layoutFinished(gtx C, th *material.Theme) D {
 					return material.List(th, &p.finishedWorldsList).
 						Layout(gtx, len(p.finishedWorlds), func(gtx C, index int) D {
 							return layout.Inset{Right: 10}.Layout(gtx, func(gtx C) D {
-								return displayWorldEntry(gtx, th, p.finishedWorlds[len(p.finishedWorlds)-index-1], dir)
+								return displayWorldEntry(gtx, th, p.g, p.finishedWorlds[len(p.finishedWorlds)-index-1], dir)
 							})
 						})
 				}),

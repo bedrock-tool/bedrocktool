@@ -1,0 +1,14 @@
+		<!-- Added inside <application> by the patched gogio (-androidapp).
+		     The authority is the app id (build.go's AppID) + ".worlds". -->
+		<provider android:name="com.bedrocktool.android.WorldProvider"
+			android:authorities="yuv.pink.bedrocktool.worlds"
+			android:exported="false"
+			android:grantUriPermissions="true" />
+		<!-- Keeps the app running while a session runs. Its permissions are
+		     build.go's AndroidPermissions (-androidperms). -->
+		<service android:name="com.bedrocktool.android.SessionService"
+			android:exported="false"
+			android:foregroundServiceType="specialUse">
+			<property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+				android:value="Keeps the proxy between Minecraft and the server running while the user plays and their world is saved." />
+		</service>

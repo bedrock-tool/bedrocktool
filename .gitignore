@@ -49,3 +49,6 @@ testservers/*
 /scripts/
 
 actors.json
+# built from the gio-cmd submodule by build.go
+/gogio
+/gogio.exe
