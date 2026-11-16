@@ -599,36 +599,38 @@ func (s *Session) resolveServerAddress(ctx context.Context, parsed *connectinfo.
 		if err != nil {
 			return "", "", nil, err
 		}
-		switch networkProto := realms.ParseNetworkProtocol(addr.NetworkProtocol); networkProto {
-		case realms.NetworkProtocolNetherNetJSONRPC, realms.NetworkProtocolNetherNet:
-			if addr.NetherNetID == "" {
-				return "", "", nil, fmt.Errorf("experience %q: join response has no NetherNet ID (network protocol %q)", parsed.Experience, addr.NetworkProtocol)
-			}
-			tokenSource, err := s.connectInfo.Account.TokenSource(ctx)
+		if addr.IPv4Address != "" && addr.Port != 0 {
+			address, err = connectinfo.NormalizeAddress(addr.String())
 			if err != nil {
-				return "", "", nil, fmt.Errorf("creating TokenSource: %s", err)
+				return "", "", nil, err
 			}
-			var signalingConn signalingCloser
-			if networkProto == realms.NetworkProtocolNetherNetJSONRPC {
-				var d messaging.Dialer
-				signalingConn, err = d.DialContext(ctx, tokenSource)
-			} else {
-				var d signaling.Dialer
-				signalingConn, err = d.DialContext(ctx, tokenSource)
+			return address, "", nil, nil
+		}
+		if addr.NetherNetID != "" {
+			switch networkProto := realms.ParseNetworkProtocol(addr.NetworkProtocol); networkProto {
+			case realms.NetworkProtocolNetherNetJSONRPC, realms.NetworkProtocolNetherNet:
+				if addr.NetherNetID == "" {
+					return "", "", nil, fmt.Errorf("experience %q: join response has no NetherNet ID (network protocol %q)", parsed.Experience, addr.NetworkProtocol)
+				}
+				tokenSource, err := s.connectInfo.Account.TokenSource(ctx)
+				if err != nil {
+					return "", "", nil, fmt.Errorf("creating TokenSource: %s", err)
+				}
+				var signalingConn signalingCloser
+				if networkProto == realms.NetworkProtocolNetherNetJSONRPC {
+					var d messaging.Dialer
+					signalingConn, err = d.DialContext(ctx, tokenSource)
+				} else {
+					var d signaling.Dialer
+					signalingConn, err = d.DialContext(ctx, tokenSource)
+				}
+				if err != nil {
+					return "", "", nil, fmt.Errorf("error dialing signaling conn: %s", err)
+				}
+				return addr.NetherNetID, "", signalingConn, nil
 			}
-			if err != nil {
-				return "", "", nil, fmt.Errorf("error dialing signaling conn: %s", err)
-			}
-			return addr.NetherNetID, "", signalingConn, nil
 		}
-		if addr.IPv4Address == "" || addr.Port == 0 {
-			return "", "", nil, fmt.Errorf("experience %q: join response has no server address (network protocol %q)", parsed.Experience, addr.NetworkProtocol)
-		}
-		address, err = connectinfo.NormalizeAddress(addr.String())
-		if err != nil {
-			return "", "", nil, err
-		}
-		return address, "", nil, nil
+		return "", "", nil, fmt.Errorf("experience %q: join response has no server address (network protocol %q)", parsed.Experience, addr.NetworkProtocol)
 
 	case connectinfo.KindReplay:
 		panic("invalid")
