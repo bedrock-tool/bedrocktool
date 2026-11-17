@@ -402,6 +402,11 @@ func (r *ResourcePackHandler) downloadResourcePack(pk *packet.ResourcePackDataIn
 	// round trip, which over a Realm's connection made big packs take
 	// minutes (long enough for the game waiting on the proxy to give up).
 	// They're written in order whatever order they come in.
+	//
+	// The window moves on with every chunk that arrives, not only once the
+	// next one to write is in: some servers (CraftersMC) hold back chunk 0
+	// until every other chunk of the pack has been asked for, so waiting on
+	// it before asking for more never finishes.
 	const chunksInFlight = 8
 	nextRequest := int32(0)
 	requestMore := func(upTo int32) error {
@@ -419,13 +424,12 @@ func (r *ResourcePackHandler) downloadResourcePack(pk *packet.ResourcePackDataIn
 	if err = requestMore(chunksInFlight); err != nil {
 		return err
 	}
-	early := make(map[uint32]*packet.ResourcePackChunkData)
+	received := make(map[uint32]*packet.ResourcePackChunkData)
+	receivedCount := int32(0)
 
 	dataWritten := 0
 	for chunkIndex := range chunkCount {
-		frag, ok := early[uint32(chunkIndex)]
-		delete(early, uint32(chunkIndex))
-		for !ok {
+		for received[uint32(chunkIndex)] == nil {
 			var got *packet.ResourcePackChunkData
 			var open bool
 			select {
@@ -436,15 +440,17 @@ func (r *ResourcePackHandler) downloadResourcePack(pk *packet.ResourcePackDataIn
 			if !open {
 				return fmt.Errorf("resource pack %s: download ended early", pk.UUID)
 			}
-			if got.ChunkIndex == uint32(chunkIndex) {
-				frag, ok = got, true
-			} else if got.ChunkIndex > uint32(chunkIndex) && got.ChunkIndex < uint32(chunkCount) {
-				early[got.ChunkIndex] = got
+			if got.ChunkIndex < uint32(chunkIndex) || got.ChunkIndex >= uint32(chunkCount) || received[got.ChunkIndex] != nil {
+				continue // already written, out of range, or sent twice
+			}
+			received[got.ChunkIndex] = got
+			receivedCount++
+			if err = requestMore(receivedCount + chunksInFlight); err != nil {
+				return err
 			}
 		}
-		if err = requestMore(chunkIndex + 1 + chunksInFlight); err != nil {
-			return err
-		}
+		frag := received[uint32(chunkIndex)]
+		delete(received, uint32(chunkIndex))
 
 		// Write the fragment to the full buffer of the downloading resource pack.
 		lastData := dataWritten+int(pack.chunkSize) >= int(pack.Size)
